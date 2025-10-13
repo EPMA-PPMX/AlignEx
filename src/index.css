@@ -1,0 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.py-4 {   
+    padding-left: 1rem;  
+}

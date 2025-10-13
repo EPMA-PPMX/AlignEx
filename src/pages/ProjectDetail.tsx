@@ -1,0 +1,2611 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { MonthlyBudgetGrid } from '../components/MonthlyBudgetGrid';
+import { BudgetSummaryTiles } from '../components/BudgetSummaryTiles';
+import Gantt from "../components/Gantt/Gantt";
+
+interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  template_id?: string;
+}
+
+interface CustomField {
+  id: string;
+  field_name: string;
+  field_type: string;
+  field_label: string;
+  is_required: boolean;
+  default_value?: string;
+  options?: string[];
+}
+
+interface SectionField {
+  id: string;
+  customFieldId: string;
+  customField: CustomField;
+  order: number;
+}
+
+interface Section {
+  id: string;
+  name: string;
+  fields: SectionField[];
+  isExpanded: boolean;
+}
+
+interface OverviewConfiguration {
+  id: string;
+  template_id: string;
+  sections: Section[];
+}
+
+interface ProjectFieldValue {
+  id: string;
+  project_id: string;
+  field_id: string;
+  field_value: any;
+}
+
+interface Risk {
+  id: string;
+  project_id: string;
+  title: string;
+  description: string;
+  impact?: string;
+  type: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Issue {
+  id: string;
+  project_id: string;
+  title: string;
+  description: string;
+  impact?: string;
+  type: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ChangeRequest {
+  id: string;
+  project_id: string;
+  title: string;
+  type: string;
+  description: string;
+  justification: string;
+  scope_impact: string;
+  cost_impact?: string;
+  risk_impact: string;
+  resource_impact: string;
+  attachments?: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ProjectDocument {
+  id: string;
+  project_id: string;
+  file_name: string;
+  file_path: string;
+  file_size: number;
+  mime_type: string;
+  uploaded_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Budget {
+  id: string;
+  project_id: string;
+  categories: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+interface MonthlyBudgetForecast {
+  id: string;
+  project_id: string;
+  category: string;
+  year: number;
+  january_forecast: number;
+  january_actual: number;
+  february_forecast: number;
+  february_actual: number;
+  march_forecast: number;
+  march_actual: number;
+  april_forecast: number;
+  april_actual: number;
+  may_forecast: number;
+  may_actual: number;
+  june_forecast: number;
+  june_actual: number;
+  july_forecast: number;
+  july_actual: number;
+  august_forecast: number;
+  august_actual: number;
+  september_forecast: number;
+  september_actual: number;
+  october_forecast: number;
+  october_actual: number;
+  november_forecast: number;
+  november_actual: number;
+  december_forecast: number;
+  december_actual: number;
+  created_at: string;
+  updated_at: string;
+}
+
+const ProjectDetail: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('overview');
+  const [project, setProject] = useState<Project | null>(null);
+  const [overviewConfig, setOverviewConfig] = useState<OverviewConfiguration | null>(null);
+  const [fieldValues, setFieldValues] = useState<{ [key: string]: any }>({});
+  const [risks, setRisks] = useState<Risk[]>([]);
+  const [issues, setIssues] = useState<Issue[]>([]);
+  const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
+  const [documents, setDocuments] = useState<ProjectDocument[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [monthlyForecasts, setMonthlyForecasts] = useState<MonthlyBudgetForecast[]>([]);
+  const [costCategoryOptions, setCostCategoryOptions] = useState<string[]>([]);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [budgetViewFilter, setBudgetViewFilter] = useState<'monthly' | 'yearly'>('yearly');
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  // Form states for modals
+  const [showRiskModal, setShowRiskModal] = useState(false);
+  const [showIssueModal, setShowIssueModal] = useState(false);
+  const [showChangeRequestModal, setShowChangeRequestModal] = useState(false);
+  const [showChangeRequestPreview, setShowChangeRequestPreview] = useState(false);
+  const [showBudgetModal, setShowBudgetModal] = useState(false);
+  const [editingRisk, setEditingRisk] = useState<Risk | null>(null);
+  const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
+  const [editingChangeRequest, setEditingChangeRequest] = useState<ChangeRequest | null>(null);
+  const [viewingChangeRequest, setViewingChangeRequest] = useState<ChangeRequest | null>(null);
+  const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+
+  const [riskForm, setRiskForm] = useState({
+    title: '',
+    description: '',
+    impact: '',
+    type: 'Medium',
+    status: 'Open'
+  });
+
+  const [issueForm, setIssueForm] = useState({
+    title: '',
+    description: '',
+    impact: '',
+    type: 'Medium',
+    status: 'Open'
+  });
+
+  const [changeRequestForm, setChangeRequestForm] = useState({
+    title: '',
+    type: 'Scope Change',
+    description: '',
+    justification: '',
+    scope_impact: 'Low',
+    cost_impact: '',
+    risk_impact: 'Low',
+    resource_impact: 'Low',
+    attachments: ''
+  });
+
+  const [budgetForm, setBudgetForm] = useState({
+    categories: [] as string[]
+  });
+
+  const [uploadedFiles, setUploadedFiles] = useState<Array<{
+    fileName: string;
+    path: string;
+    fileSize: number;
+    mimeType: string;
+  }>>([]);
+
+  const tabs = [
+    { id: 'overview', name: 'Overview', icon: Target },
+    { id: 'timeline', name: 'Timeline', icon: Calendar },
+    { id: 'team', name: 'Team', icon: Users },
+    { id: 'risks-issues', name: 'Risks & Issues', icon: AlertTriangle },
+    { id: 'change-management', name: 'Change Management', icon: FileText },
+    { id: 'budget', name: 'Budget', icon: DollarSign },
+    { id: 'settings', name: 'Documents', icon: FileText },
+  ];
+
+  const projecttasks = {
+  data: [
+    { id: 1, text: "Task #1", start_date: "2025-10-01", duration: 5 },
+    { id: 2, text: "Task #2", start_date: "2025-12-06", duration: 4, parent: 1 },
+  ],
+  links: [
+    { id: 1, source: 1, target: 2, type: "0" },
+  ],
+};
+
+  useEffect(() => {
+    if (id) {
+      fetchProject();
+      fetchRisks();
+      fetchIssues();
+      fetchChangeRequests();
+      fetchDocuments();
+      fetchBudgets();
+      fetchCostCategoryOptions();
+      fetchMonthlyForecasts();
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (project?.template_id) {
+      fetchOverviewConfiguration();
+      fetchFieldValues();
+    }
+  }, [project]);
+
+  useEffect(() => {
+    fetchMonthlyForecasts();
+  }, [selectedYear, id]);
+
+  const fetchProject = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching project:', error);
+      } else {
+        setProject(data);
+      }
+    } catch (error) {
+      console.error('Error fetching project:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchOverviewConfiguration = async () => {
+    if (!project?.template_id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('overview_configurations')
+        .select('*')
+        .eq('template_id', project.template_id)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching overview configuration:', error);
+      } else if (data) {
+        setOverviewConfig(data);
+      }
+    } catch (error) {
+      console.error('Error fetching overview configuration:', error);
+    }
+  };
+
+  const fetchFieldValues = async () => {
+    if (!id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('project_field_values')
+        .select('*')
+        .eq('project_id', id);
+
+      if (error) {
+        console.error('Error fetching field values:', error);
+      } else if (data) {
+        const values: { [key: string]: any } = {};
+        data.forEach((item: ProjectFieldValue) => {
+          values[item.field_id] = item.field_value;
+        });
+        setFieldValues(values);
+      }
+    } catch (error) {
+      console.error('Error fetching field values:', error);
+    }
+  };
+
+  const fetchDocuments = async () => {
+    if (!id) return;
+    try {
+      const { data, error } = await supabase
+        .from('project_documents')
+        .select('*')
+        .eq('project_id', id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching documents:', error);
+      } else {
+        setDocuments(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+    }
+  };
+
+  const fetchBudgets = async () => {
+    if (!id) return;
+    try {
+      const { data, error } = await supabase
+        .from('project_budgets')
+        .select('*')
+        .eq('project_id', id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching budgets:', error);
+      } else {
+        setBudgets(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching budgets:', error);
+    }
+  };
+
+  const fetchMonthlyForecasts = async () => {
+    if (!id) return;
+    try {
+      const { data, error } = await supabase
+        .from('budget_forecast_monthly')
+        .select('*')
+        .eq('project_id', id)
+        .eq('year', selectedYear)
+        .order('category', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching monthly forecasts:', error);
+      } else {
+        setMonthlyForecasts(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching monthly forecasts:', error);
+    }
+  };
+
+  const fetchRisks = async () => {
+    if (!id) return;
+    try {
+      const { data, error } = await supabase
+        .from('project_risks')
+        .select('*')
+        .eq('project_id', id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching risks:', error);
+      } else {
+        setRisks(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching risks:', error);
+    }
+  };
+
+  const fetchIssues = async () => {
+    if (!id) return;
+    try {
+      const { data, error } = await supabase
+        .from('project_issues')
+        .select('*')
+        .eq('project_id', id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching issues:', error);
+      } else {
+        setIssues(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching issues:', error);
+    }
+  };
+
+  const fetchChangeRequests = async () => {
+    if (!id) return;
+    try {
+      const { data, error } = await supabase
+        .from('change_requests')
+        .select('*')
+        .eq('project_id', id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching change requests:', error);
+      } else {
+        setChangeRequests(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching change requests:', error);
+    }
+  };
+
+  const fetchCostCategoryOptions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('custom_fields')
+        .select('options')
+        .eq('field_name', 'Cost Category')
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching cost category options:', error);
+        setCostCategoryOptions(['Labor', 'Materials', 'Equipment', 'Software', 'Travel', 'Other']);
+        return;
+      }
+
+      if (data && data.options) {
+        setCostCategoryOptions(data.options as string[]);
+      } else {
+        setCostCategoryOptions(['Labor', 'Materials', 'Equipment', 'Software', 'Travel', 'Other']);
+      }
+    } catch (error) {
+      console.error('Error fetching cost category options:', error);
+      setCostCategoryOptions(['Labor', 'Materials', 'Equipment', 'Software', 'Travel', 'Other']);
+    }
+  };
+
+  const saveFieldValues = async () => {
+    if (!id) return;
+
+    try {
+      setSaving(true);
+      const response = await fetch(`http://localhost:5000/api/projects/${id}/field-values`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fieldValues }),
+      });
+
+      if (response.ok) {
+        alert('Field values saved successfully!');
+      } else {
+        const result = await response.json();
+        alert(`Error: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error saving field values:', error);
+      alert('Error saving field values');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleFieldValueChange = (fieldId: string, value: any) => {
+    setFieldValues(prev => ({
+      ...prev,
+      [fieldId]: value
+    }));
+  };
+
+  const renderFieldControl = (field: SectionField) => {
+    const { customField } = field;
+    const value = fieldValues[customField.id] || customField.default_value || '';
+    const baseClasses = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent";
+
+    switch (customField.field_type) {
+      case 'text':
+      case 'email':
+        return (
+          <input
+            type={customField.field_type}
+            value={value}
+            onChange={(e) => handleFieldValueChange(customField.id, e.target.value)}
+            placeholder={customField.default_value || `Enter ${customField.field_label.toLowerCase()}`}
+            className={baseClasses}
+            required={customField.is_required}
+          />
+        );
+      case 'number':
+        return (
+          <input
+            type="number"
+            value={value}
+            onChange={(e) => handleFieldValueChange(customField.id, e.target.value)}
+            placeholder={customField.default_value || `Enter ${customField.field_label.toLowerCase()}`}
+            className={baseClasses}
+            required={customField.is_required}
+          />
+        );
+      case 'date':
+        return (
+          <input
+            type="date"
+            value={value}
+            onChange={(e) => handleFieldValueChange(customField.id, e.target.value)}
+            className={baseClasses}
+            required={customField.is_required}
+          />
+        );
+      case 'textarea':
+        return (
+          <textarea
+            rows={3}
+            value={value}
+            onChange={(e) => handleFieldValueChange(customField.id, e.target.value)}
+            placeholder={customField.default_value || `Enter ${customField.field_label.toLowerCase()}`}
+            className={`${baseClasses} resize-vertical`}
+            required={customField.is_required}
+          />
+        );
+      case 'dropdown':
+        return (
+          <select
+            value={value}
+            onChange={(e) => handleFieldValueChange(customField.id, e.target.value)}
+            className={baseClasses}
+            required={customField.is_required}
+          >
+            <option value="">Select {customField.field_label.toLowerCase()}</option>
+            {customField.options?.map((option, index) => (
+              <option key={index} value={option}>{option}</option>
+            ))}
+          </select>
+        );
+      case 'radio':
+        return (
+          <div className="space-y-2">
+            {customField.options?.map((option, index) => (
+              <label key={index} className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  name={`radio-${field.id}`}
+                  value={option}
+                  checked={value === option}
+                  onChange={(e) => handleFieldValueChange(customField.id, e.target.value)}
+                  className="text-blue-600 focus:ring-blue-500"
+                  required={customField.is_required}
+                />
+                <span className="text-sm text-gray-700">{option}</span>
+              </label>
+            ))}
+          </div>
+        );
+      case 'checkbox':
+        return (
+          <label className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              checked={value === true || value === 'true'}
+              onChange={(e) => handleFieldValueChange(customField.id, e.target.checked)}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              required={customField.is_required}
+            />
+            <span className="text-sm text-gray-700">{customField.field_label}</span>
+          </label>
+        );
+      default:
+        return (
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => handleFieldValueChange(customField.id, e.target.value)}
+            placeholder={customField.default_value || `Enter ${customField.field_label.toLowerCase()}`}
+            className={baseClasses}
+            required={customField.is_required}
+          />
+        );
+    }
+  };
+
+  // Risk CRUD operations
+  const handleRiskSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id) return;
+
+    try {
+      const payload = {
+        ...riskForm,
+        project_id: id
+      };
+
+      if (editingRisk) {
+        const { error } = await supabase
+          .from('project_risks')
+          .update(riskForm)
+          .eq('id', editingRisk.id);
+
+        if (error) {
+          alert(`Error: ${error.message}`);
+        } else {
+          await fetchRisks();
+          setShowRiskModal(false);
+          resetRiskForm();
+          alert('Risk updated successfully!');
+        }
+      } else {
+        const { error } = await supabase
+          .from('project_risks')
+          .insert([payload]);
+
+        if (error) {
+          alert(`Error: ${error.message}`);
+        } else {
+          await fetchRisks();
+          setShowRiskModal(false);
+          resetRiskForm();
+          alert('Risk created successfully!');
+        }
+      }
+    } catch (error) {
+      console.error('Error saving risk:', error);
+      alert('Error saving risk');
+    }
+  };
+
+  const handleEditRisk = (risk: Risk) => {
+    setEditingRisk(risk);
+    setRiskForm({
+      title: risk.title,
+      description: risk.description,
+      impact: risk.impact || '',
+      type: risk.type,
+      status: risk.status
+    });
+    setShowRiskModal(true);
+  };
+
+  const handleDeleteRisk = async (riskId: string) => {
+    if (!window.confirm('Are you sure you want to delete this risk?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('project_risks')
+        .delete()
+        .eq('id', riskId);
+
+      if (error) {
+        alert(`Error: ${error.message}`);
+      } else {
+        await fetchRisks();
+        alert('Risk deleted successfully!');
+      }
+    } catch (error) {
+      console.error('Error deleting risk:', error);
+      alert('Error deleting risk');
+    }
+  };
+
+  const resetRiskForm = () => {
+    setRiskForm({
+      title: '',
+      description: '',
+      impact: '',
+      type: 'Medium',
+      status: 'Open'
+    });
+    setEditingRisk(null);
+  };
+
+  // Issue CRUD operations
+  const handleIssueSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id) return;
+
+    try {
+      const payload = {
+        ...issueForm,
+        project_id: id
+      };
+
+      if (editingIssue) {
+        const { error } = await supabase
+          .from('project_issues')
+          .update(issueForm)
+          .eq('id', editingIssue.id);
+
+        if (error) {
+          alert(`Error: ${error.message}`);
+        } else {
+          await fetchIssues();
+          setShowIssueModal(false);
+          resetIssueForm();
+          alert('Issue updated successfully!');
+        }
+      } else {
+        const { error } = await supabase
+          .from('project_issues')
+          .insert([payload]);
+
+        if (error) {
+          alert(`Error: ${error.message}`);
+        } else {
+          await fetchIssues();
+          setShowIssueModal(false);
+          resetIssueForm();
+          alert('Issue created successfully!');
+        }
+      }
+    } catch (error) {
+      console.error('Error saving issue:', error);
+      alert('Error saving issue');
+    }
+  };
+
+  const handleEditIssue = (issue: Issue) => {
+    setEditingIssue(issue);
+    setIssueForm({
+      title: issue.title,
+      description: issue.description,
+      impact: issue.impact || '',
+      type: issue.type,
+      status: issue.status
+    });
+    setShowIssueModal(true);
+  };
+
+  const handleDeleteIssue = async (issueId: string) => {
+    if (!window.confirm('Are you sure you want to delete this issue?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('project_issues')
+        .delete()
+        .eq('id', issueId);
+
+      if (error) {
+        alert(`Error: ${error.message}`);
+      } else {
+        await fetchIssues();
+        alert('Issue deleted successfully!');
+      }
+    } catch (error) {
+      console.error('Error deleting issue:', error);
+      alert('Error deleting issue');
+    }
+  };
+
+  const resetIssueForm = () => {
+    setIssueForm({
+      title: '',
+      description: '',
+      impact: '',
+      type: 'Medium',
+      status: 'Open'
+    });
+    setEditingIssue(null);
+  };
+
+  // Change Request CRUD operations
+  const handleChangeRequestSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id) return;
+
+    try {
+      const attachmentsData = JSON.stringify(uploadedFiles);
+      const payload = {
+        ...changeRequestForm,
+        attachments: attachmentsData,
+        project_id: id
+      };
+
+      if (editingChangeRequest) {
+        const { error } = await supabase
+          .from('change_requests')
+          .update({
+            ...changeRequestForm,
+            attachments: attachmentsData
+          })
+          .eq('id', editingChangeRequest.id);
+
+        if (error) {
+          alert(`Error: ${error.message}`);
+        } else {
+          await fetchChangeRequests();
+          setShowChangeRequestModal(false);
+          resetChangeRequestForm();
+          alert('Change request updated successfully!');
+        }
+      } else {
+        const { error } = await supabase
+          .from('change_requests')
+          .insert([payload]);
+
+        if (error) {
+          alert(`Error: ${error.message}`);
+        } else {
+          await fetchChangeRequests();
+          setShowChangeRequestModal(false);
+          resetChangeRequestForm();
+          alert('Change request created successfully!');
+        }
+      }
+    } catch (error) {
+      console.error('Error saving change request:', error);
+      alert('Error saving change request');
+    }
+  };
+
+  const handleViewChangeRequest = (changeRequest: ChangeRequest) => {
+    setViewingChangeRequest(changeRequest);
+    setShowChangeRequestPreview(true);
+  };
+
+  const handleDownloadFile = async (filePath: string, fileName: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('change-request-attachments')
+        .download(filePath);
+
+      if (error) {
+        throw error;
+      }
+
+      const url = window.URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      alert('Failed to download file. Please try again.');
+    }
+  };
+
+  const handleEditChangeRequest = (changeRequest: ChangeRequest) => {
+    setEditingChangeRequest(changeRequest);
+    setChangeRequestForm({
+      title: changeRequest.title,
+      type: changeRequest.type,
+      description: changeRequest.description,
+      justification: changeRequest.justification,
+      scope_impact: changeRequest.scope_impact,
+      cost_impact: changeRequest.cost_impact || '',
+      risk_impact: changeRequest.risk_impact,
+      resource_impact: changeRequest.resource_impact,
+      attachments: changeRequest.attachments || ''
+    });
+
+    try {
+      if (changeRequest.attachments && changeRequest.attachments.trim() !== '') {
+        const parsedAttachments = JSON.parse(changeRequest.attachments);
+        if (Array.isArray(parsedAttachments)) {
+          setUploadedFiles(parsedAttachments);
+        }
+      } else {
+        setUploadedFiles([]);
+      }
+    } catch (e) {
+      setUploadedFiles([]);
+    }
+
+    setShowChangeRequestModal(true);
+  };
+
+  const handleDeleteChangeRequest = async (changeRequestId: string) => {
+    if (!window.confirm('Are you sure you want to delete this change request?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('change_requests')
+        .delete()
+        .eq('id', changeRequestId);
+
+      if (error) {
+        alert(`Error: ${error.message}`);
+      } else {
+        await fetchChangeRequests();
+        alert('Change request deleted successfully!');
+      }
+    } catch (error) {
+      console.error('Error deleting change request:', error);
+      alert('Error deleting change request');
+    }
+  };
+
+  const resetChangeRequestForm = () => {
+    setChangeRequestForm({
+      title: '',
+      type: 'Scope Change',
+      description: '',
+      justification: '',
+      scope_impact: 'Low',
+      cost_impact: '',
+      risk_impact: 'Low',
+      resource_impact: 'Low',
+      attachments: ''
+    });
+    setUploadedFiles([]);
+    setEditingChangeRequest(null);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploading(true);
+    try {
+      const uploadPromises = Array.from(files).map(async (file) => {
+        const timestamp = Date.now();
+        const fileName = `${timestamp}-${file.name}`;
+        const filePath = fileName;
+
+        const { error: uploadError } = await supabase.storage
+          .from('change-request-attachments')
+          .upload(filePath, file);
+
+        if (uploadError) {
+          throw new Error(uploadError.message || 'Upload failed');
+        }
+
+        return {
+          fileName: file.name,
+          path: filePath,
+          fileSize: file.size,
+          mimeType: file.type
+        };
+      });
+
+      const results = await Promise.all(uploadPromises);
+      setUploadedFiles(prev => [...prev, ...results]);
+      alert(`${files.length} file(s) uploaded successfully!`);
+      e.target.value = '';
+    } catch (error: any) {
+      console.error('Error uploading files:', error);
+      alert(error.message || 'Error uploading files');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDownloadAttachment = async (filePath: string, fileName: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('change-request-attachments')
+        .download(filePath);
+
+      if (error) {
+        throw error;
+      }
+
+      const url = window.URL.createObjectURL(data);
+      const a = window.document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      window.document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      window.document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      alert('Error downloading file');
+    }
+  };
+
+  const handleRemoveFile = async (filePath: string) => {
+    if (!window.confirm('Are you sure you want to delete this file?')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase.storage
+        .from('change-request-attachments')
+        .remove([filePath]);
+
+      if (error) {
+        throw error;
+      }
+
+      setUploadedFiles(prev => prev.filter(f => f.path !== filePath));
+      alert('File deleted successfully');
+    } catch (error: any) {
+      console.error('Error deleting file:', error);
+      alert(`Error deleting file: ${error.message}`);
+    }
+  };
+
+  const handleDocumentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !id) return;
+
+    try {
+      const timestamp = Date.now();
+      const fileName = `${timestamp}-${file.name}`;
+      const filePath = `${id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('project-documents')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { error: insertError } = await supabase
+        .from('project_documents')
+        .insert([{
+          project_id: id,
+          file_name: file.name,
+          file_path: filePath,
+          file_size: file.size,
+          mime_type: file.type
+        }]);
+
+      if (insertError) {
+        await supabase.storage
+          .from('project-documents')
+          .remove([filePath]);
+        throw insertError;
+      }
+
+      await fetchDocuments();
+      alert('Document uploaded successfully!');
+      event.target.value = '';
+    } catch (error: any) {
+      console.error('Error uploading document:', error);
+      alert(`Error uploading document: ${error.message}`);
+    }
+  };
+
+  const handleDownloadDocument = async (doc: ProjectDocument) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('project-documents')
+        .download(doc.file_path);
+
+      if (error) {
+        throw error;
+      }
+
+      const url = window.URL.createObjectURL(data);
+      const a = window.document.createElement('a');
+      a.href = url;
+      a.download = doc.file_name;
+      window.document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      window.document.body.removeChild(a);
+    } catch (error: any) {
+      console.error('Error downloading document:', error);
+      alert(`Error downloading document: ${error.message}`);
+    }
+  };
+
+  const handleDeleteDocument = async (documentId: string) => {
+    if (!window.confirm('Are you sure you want to delete this document?')) return;
+
+    try {
+      const doc = documents.find(d => d.id === documentId);
+      if (!doc) {
+        alert('Document not found');
+        return;
+      }
+
+      const { error: storageError } = await supabase.storage
+        .from('project-documents')
+        .remove([doc.file_path]);
+
+      if (storageError) {
+        console.error('Storage error:', storageError);
+      }
+
+      const { error: dbError } = await supabase
+        .from('project_documents')
+        .delete()
+        .eq('id', documentId);
+
+      if (dbError) {
+        throw dbError;
+      }
+
+      setDocuments(prevDocs => prevDocs.filter(d => d.id !== documentId));
+      alert('Document deleted successfully!');
+    } catch (error: any) {
+      console.error('Error deleting document:', error);
+      alert(`Error deleting document: ${error.message}`);
+    }
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  const getCostCategoryOptions = (): string[] => {
+    if (costCategoryOptions.length > 0) {
+      return costCategoryOptions;
+    }
+    return ['Labor', 'Materials', 'Equipment', 'Software', 'Travel', 'Other'];
+  };
+
+  const handleAddBudget = () => {
+    setBudgetForm({
+      categories: []
+    });
+    setEditingBudget(null);
+    setShowBudgetModal(true);
+  };
+
+  const handleEditBudget = (budget: Budget) => {
+    setBudgetForm({
+      categories: budget.categories || []
+    });
+    setEditingBudget(budget);
+    setShowBudgetModal(true);
+  };
+
+  const handleCategoryToggle = (category: string) => {
+    setBudgetForm(prev => {
+      const categories = prev.categories.includes(category)
+        ? prev.categories.filter(c => c !== category)
+        : [...prev.categories, category];
+      return { ...prev, categories };
+    });
+  };
+
+  const handleSaveBudget = async () => {
+    if (!id) return;
+
+    try {
+      if (editingBudget) {
+        const { error } = await supabase
+          .from('project_budgets')
+          .update({ categories: budgetForm.categories })
+          .eq('id', editingBudget.id);
+
+        if (error) {
+          throw error;
+        }
+
+        const oldCategories = editingBudget.categories || [];
+        const newCategories = budgetForm.categories;
+        const removedCategories = oldCategories.filter(c => !newCategories.includes(c));
+        const addedCategories = newCategories.filter(c => !oldCategories.includes(c));
+
+        if (removedCategories.length > 0) {
+          await supabase
+            .from('budget_forecast_monthly')
+            .delete()
+            .eq('project_id', id)
+            .in('category', removedCategories);
+        }
+
+        for (const category of addedCategories) {
+          const { error: insertError } = await supabase
+            .from('budget_forecast_monthly')
+            .insert([{
+              project_id: id,
+              category: category,
+              year: selectedYear
+            }]);
+
+          if (insertError && insertError.code !== '23505') {
+            console.error('Error creating forecast:', insertError);
+          }
+        }
+      } else {
+        const { error } = await supabase
+          .from('project_budgets')
+          .insert([{
+            project_id: id,
+            categories: budgetForm.categories
+          }]);
+
+        if (error) {
+          throw error;
+        }
+
+        for (const category of budgetForm.categories) {
+          const { error: insertError } = await supabase
+            .from('budget_forecast_monthly')
+            .insert([{
+              project_id: id,
+              category: category,
+              year: selectedYear
+            }]);
+
+          if (insertError && insertError.code !== '23505') {
+            console.error('Error creating forecast:', insertError);
+          }
+        }
+      }
+
+      await fetchBudgets();
+      await fetchMonthlyForecasts();
+      setShowBudgetModal(false);
+      alert(editingBudget ? 'Budget updated successfully!' : 'Budget added successfully!');
+    } catch (error: any) {
+      console.error('Error saving budget:', error);
+      alert(`Error saving budget: ${error.message}`);
+    }
+  };
+
+  const handleDeleteBudget = async (budgetId: string) => {
+    if (!window.confirm('Are you sure you want to delete this budget item? This will also delete all associated monthly forecasts.')) return;
+
+    try {
+      const { error } = await supabase
+        .from('project_budgets')
+        .delete()
+        .eq('id', budgetId);
+
+      if (error) {
+        throw error;
+      }
+
+      await fetchBudgets();
+      await fetchMonthlyForecasts();
+      alert('Budget item deleted successfully!');
+    } catch (error: any) {
+      console.error('Error deleting budget:', error);
+      alert(`Error deleting budget item: ${error.message}`);
+    }
+  };
+
+  const handleUpdateMonthlyValue = async (
+    forecastId: string,
+    month: string,
+    type: 'forecast' | 'actual',
+    value: string
+  ) => {
+    const numValue = parseFloat(value) || 0;
+    const fieldName = `${month}_${type}`;
+
+    try {
+      const { error } = await supabase
+        .from('budget_forecast_monthly')
+        .update({ [fieldName]: numValue })
+        .eq('id', forecastId);
+
+      if (error) {
+        throw error;
+      }
+
+      setMonthlyForecasts(prev =>
+        prev.map(f =>
+          f.id === forecastId
+            ? { ...f, [fieldName]: numValue }
+            : f
+        )
+      );
+    } catch (error: any) {
+      console.error('Error updating monthly value:', error);
+      alert(`Error updating value: ${error.message}`);
+    }
+  };
+
+  const calculateVariance = (forecast: number, actual: number): { percentage: number; color: string } => {
+    if (forecast === 0) {
+      return { percentage: 0, color: 'text-gray-600' };
+    }
+
+    const variance = ((actual - forecast) / forecast) * 100;
+    let color = 'text-gray-600';
+
+    if (variance > 10) {
+      color = 'text-red-600';
+    } else if (variance < -10) {
+      color = 'text-green-600';
+    }
+
+    return { percentage: Math.round(variance * 10) / 10, color };
+  };
+
+  const calculateBudgetMetrics = () => {
+    const MONTHS = [
+      'january', 'february', 'march', 'april', 'may', 'june',
+      'july', 'august', 'september', 'october', 'november', 'december'
+    ];
+
+    if (budgetViewFilter === 'monthly') {
+      const monthName = MONTHS[selectedMonth];
+      let totalBudget = 0;
+      let totalSpent = 0;
+
+      monthlyForecasts.forEach((forecast) => {
+        totalBudget += forecast[`${monthName}_forecast` as keyof MonthlyBudgetForecast] as number || 0;
+        totalSpent += forecast[`${monthName}_actual` as keyof MonthlyBudgetForecast] as number || 0;
+      });
+
+      const remaining = totalBudget - totalSpent;
+      const burnRate = totalSpent;
+
+      return { totalBudget, totalSpent, remaining, burnRate };
+    } else {
+      let totalBudget = 0;
+      let totalSpent = 0;
+
+      monthlyForecasts.forEach((forecast) => {
+        MONTHS.forEach((month) => {
+          totalBudget += forecast[`${month}_forecast` as keyof MonthlyBudgetForecast] as number || 0;
+          totalSpent += forecast[`${month}_actual` as keyof MonthlyBudgetForecast] as number || 0;
+        });
+      });
+
+      const remaining = totalBudget - totalSpent;
+      const currentMonth = new Date().getMonth() + 1;
+      const burnRate = currentMonth > 0 ? totalSpent / currentMonth : 0;
+
+      return { totalBudget, totalSpent, remaining, burnRate };
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getImpactColor = (impact: string) => {
+    switch (impact.toLowerCase()) {
+      case 'high':
+      case 'critical':
+        return 'bg-red-500';
+      case 'medium':
+        return 'bg-yellow-500';
+      case 'low':
+        return 'bg-green-500';
+      default:
+        return 'bg-gray-500';
+    }
+  };
+
+  const getAttachmentCount = (attachments?: string) => {
+    if (!attachments || attachments.trim() === '') return 0;
+    try {
+      const parsed = JSON.parse(attachments);
+      return Array.isArray(parsed) ? parsed.length : 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-8 flex justify-center items-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="ml-2 text-gray-600">Loading project...</span>
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="p-8">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Project Not Found</h1>
+          <button
+            onClick={() => navigate('/projects')}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Back to Projects
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-8">
+      {/* Header */}
+      <div className="mb-8">
+        <button
+          onClick={() => navigate('/projects')}
+          className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Projects</span>
+        </button>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">{project.name}</h1>
+            {project.description && (
+              <p className="text-gray-600 mt-2">{project.description}</p>
+            )}
+            <div className="flex items-center space-x-4 mt-4">
+              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                project.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                project.status === 'In-Progress' ? 'bg-blue-100 text-blue-800' :
+                project.status === 'Planning' ? 'bg-yellow-100 text-yellow-800' :
+                project.status === 'On-Hold' ? 'bg-gray-100 text-gray-800' :
+                project.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
+                'bg-gray-100 text-gray-800'
+              }`}>
+                {project.status}
+              </span>
+              <span className="text-sm text-gray-500">
+                Created {formatDate(project.created_at)}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="border-b border-gray-200 mb-8">
+        <nav className="-mb-px flex space-x-8">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === tab.id
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                <span>{tab.name}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      <div className="space-y-6">
+        {activeTab === 'overview' && (
+          <div>
+            {overviewConfig && overviewConfig.sections.length > 0 ? (
+              <div className="space-y-8">
+                {overviewConfig.sections.map((section) => (
+                  <div key={section.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-6">{section.name}</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {section.fields.map((field) => (
+                        <div key={field.id}>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            {field.customField.field_label}
+                            {field.customField.is_required && <span className="text-red-500 ml-1">*</span>}
+                          </label>
+                          {renderFieldControl(field)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                <div className="flex justify-end">
+                  <button
+                    onClick={saveFieldValues}
+                    disabled={saving}
+                    className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  >
+                    {saving ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        <span>Save Changes</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+                <Target className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Overview Configuration</h3>
+                <p className="text-gray-600 mb-4">
+                  This project template doesn't have an overview page configuration yet.
+                </p>
+                <button
+                  onClick={() => navigate('/settings')}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Configure Overview Page
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'timeline' && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Project Timeline</h3>
+            <div style={{ width: "100%", height: "600px", overflow: "auto" }}>
+              <Gantt projecttasks={projecttasks} />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'team' && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+            <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Team Management Coming Soon</h3>
+            <p className="text-gray-600">Team member management will be available in future updates.</p>
+          </div>
+        )}
+
+        {activeTab === 'risks-issues' && (
+          <div className="space-y-8">
+            {/* Risks Section */}
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">Risks</h3>
+                <button
+                  onClick={() => {
+                    resetRiskForm();
+                    setShowRiskModal(true);
+                  }}
+                  className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Risk</span>
+                </button>
+              </div>
+
+              {risks.length === 0 ? (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+                  <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h4 className="text-lg font-medium text-gray-900 mb-2">No Risks</h4>
+                  <p className="text-gray-600">No risks have been identified for this project yet.</p>
+                </div>
+              ) : (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Impact</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {risks.map((risk) => (
+                          <tr key={risk.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{risk.title}</td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                risk.type === 'Critical' ? 'bg-red-100 text-red-800' :
+                                risk.type === 'High' ? 'bg-orange-100 text-orange-800' :
+                                'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {risk.type}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                risk.status === 'Open' ? 'bg-red-100 text-red-800' :
+                                risk.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
+                                risk.status === 'Resolved' ? 'bg-green-100 text-green-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {risk.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
+                              <div className="truncate">{risk.description}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{risk.impact || '-'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(risk.created_at)}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => handleEditRisk(risk)}
+                                  className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteRisk(risk.id)}
+                                  className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Issues Section */}
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">Issues</h3>
+                <button
+                  onClick={() => {
+                    resetIssueForm();
+                    setShowIssueModal(true);
+                  }}
+                  className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Issue</span>
+                </button>
+              </div>
+
+              {issues.length === 0 ? (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+                  <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h4 className="text-lg font-medium text-gray-900 mb-2">No Issues</h4>
+                  <p className="text-gray-600">No issues have been reported for this project yet.</p>
+                </div>
+              ) : (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Impact</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {issues.map((issue) => (
+                          <tr key={issue.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{issue.title}</td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                issue.type === 'Critical' ? 'bg-red-100 text-red-800' :
+                                issue.type === 'High' ? 'bg-orange-100 text-orange-800' :
+                                'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {issue.type}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                issue.status === 'Open' ? 'bg-red-100 text-red-800' :
+                                issue.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
+                                issue.status === 'Resolved' ? 'bg-green-100 text-green-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {issue.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
+                              <div className="truncate">{issue.description}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{issue.impact || '-'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(issue.created_at)}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => handleEditIssue(issue)}
+                                  className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteIssue(issue.id)}
+                                  className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'change-management' && (
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-gray-900">Change Requests</h3>
+              <button
+                onClick={() => {
+                  resetChangeRequestForm();
+                  setShowChangeRequestModal(true);
+                }}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Change Request</span>
+              </button>
+            </div>
+
+            {changeRequests.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+                <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h4 className="text-lg font-medium text-gray-900 mb-2">No Change Requests</h4>
+                <p className="text-gray-600">No change requests have been submitted for this project yet.</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Impact</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attachments</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {changeRequests.map((changeRequest) => (
+                        <tr key={changeRequest.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{changeRequest.title}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              changeRequest.type === 'Scope Change' ? 'bg-blue-100 text-blue-800' :
+                              changeRequest.type === 'Schedule Change' ? 'bg-purple-100 text-purple-800' :
+                              changeRequest.type === 'Budget Change' ? 'bg-green-100 text-green-800' :
+                              changeRequest.type === 'Resource Change' ? 'bg-orange-100 text-orange-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {changeRequest.type}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              changeRequest.status === 'Pending Review' ? 'bg-yellow-100 text-yellow-800' :
+                              changeRequest.status === 'Under Review' ? 'bg-blue-100 text-blue-800' :
+                              changeRequest.status === 'Approved' ? 'bg-green-100 text-green-800' :
+                              changeRequest.status === 'Rejected' ? 'bg-red-100 text-red-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {changeRequest.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center space-x-1">
+                              <div className="flex items-center space-x-1">
+                                <span className="text-xs text-gray-500">S:</span>
+                                <div className={`w-2 h-2 rounded-full ${getImpactColor(changeRequest.scope_impact)}`}></div>
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                <span className="text-xs text-gray-500">R:</span>
+                                <div className={`w-2 h-2 rounded-full ${getImpactColor(changeRequest.risk_impact)}`}></div>
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                <span className="text-xs text-gray-500">Re:</span>
+                                <div className={`w-2 h-2 rounded-full ${getImpactColor(changeRequest.resource_impact)}`}></div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
+                            <div className="truncate">{changeRequest.description}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {getAttachmentCount(changeRequest.attachments) > 0 ? (
+                              <div className="flex items-center space-x-2">
+                                <File className="w-4 h-4 text-blue-600" />
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  {getAttachmentCount(changeRequest.attachments)} file{getAttachmentCount(changeRequest.attachments) !== 1 ? 's' : ''}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(changeRequest.created_at)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => handleViewChangeRequest(changeRequest)}
+                                className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
+                                title="View Details"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleEditChangeRequest(changeRequest)}
+                                className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                                title="Edit"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'budget' && (
+          <div className="space-y-6">
+            {budgets.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="text-center py-12">
+                  <DollarSign className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Budget Categories Yet</h3>
+                  <p className="text-gray-600 mb-6">Add budget categories to start tracking your annual forecast.</p>
+                  <button
+                    onClick={handleAddBudget}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Budget Categories
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">Annual Budget Forecast ({selectedYear})</h3>
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={handleAddBudget}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Manage Categories
+                    </button>
+                    <div className="w-px h-6 bg-gray-300"></div>
+                    <label className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">View:</span>
+                      <select
+                        value={budgetViewFilter}
+                        onChange={(e) => setBudgetViewFilter(e.target.value as 'monthly' | 'yearly')}
+                        className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="yearly">Yearly</option>
+                        <option value="monthly">Monthly</option>
+                      </select>
+                    </label>
+                    {budgetViewFilter === 'monthly' && (
+                      <label className="flex items-center gap-2">
+                        <span className="text-sm text-gray-600">Month:</span>
+                        <select
+                          value={selectedMonth}
+                          onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                          className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((month, index) => (
+                            <option key={index} value={index}>
+                              {month}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    <label className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">Year:</span>
+                      <select
+                        value={selectedYear}
+                        onChange={(e) => setSelectedYear(Number(e.target.value))}
+                        className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
+                          <option key={year} value={year}>
+                            {year}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                </div>
+
+                <BudgetSummaryTiles
+                  metrics={calculateBudgetMetrics()}
+                  viewFilter={budgetViewFilter}
+                  selectedMonth={selectedMonth}
+                />
+
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    <strong>How to use:</strong> Enter your forecasted amounts for each month, then record actual spending.
+                    The system automatically calculates variance percentages.
+                    <span className="text-green-600 font-medium"> Green</span> indicates under budget,
+                    <span className="text-red-600 font-medium"> red</span> indicates over budget.
+                  </p>
+                </div>
+                <MonthlyBudgetGrid
+                  forecasts={monthlyForecasts}
+                  onUpdateValue={handleUpdateMonthlyValue}
+                  calculateVariance={calculateVariance}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'settings' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">Project Documents</h3>
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={handleDocumentUpload}
+                  />
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      (e.currentTarget.previousElementSibling as HTMLInputElement)?.click();
+                    }}
+                  >
+                    <Upload className="w-4 h-4" />
+                    Upload Document
+                  </button>
+                </label>
+              </div>
+
+              {documents.length === 0 ? (
+                <div className="text-center py-12">
+                  <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Documents Yet</h3>
+                  <p className="text-gray-600">Upload your first document to get started.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {documents.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 flex-1">
+                        <File className="w-8 h-8 text-blue-600" />
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-medium text-gray-900 truncate">
+                            {doc.file_name}
+                          </h4>
+                          <p className="text-xs text-gray-500">
+                            {formatFileSize(doc.file_size)} • {new Date(doc.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleDownloadDocument(doc)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Download"
+                        >
+                          <Download className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteDocument(doc.id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Risk Modal */}
+      {showRiskModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              {editingRisk ? 'Edit Risk' : 'Add New Risk'}
+            </h3>
+            <form onSubmit={handleRiskSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                <input
+                  type="text"
+                  value={riskForm.title}
+                  onChange={(e) => setRiskForm({ ...riskForm, title: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea
+                  value={riskForm.description}
+                  onChange={(e) => setRiskForm({ ...riskForm, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows={3}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Impact</label>
+                <input
+                  type="text"
+                  value={riskForm.impact}
+                  onChange={(e) => setRiskForm({ ...riskForm, impact: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                  <select
+                    value={riskForm.type}
+                    onChange={(e) => setRiskForm({ ...riskForm, type: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="Critical">Critical</option>
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                  <select
+                    value={riskForm.status}
+                    onChange={(e) => setRiskForm({ ...riskForm, status: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="Open">Open</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Resolved">Resolved</option>
+                    <option value="Closed">Closed</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex space-x-4 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowRiskModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  {editingRisk ? 'Update Risk' : 'Add Risk'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Issue Modal */}
+      {showIssueModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              {editingIssue ? 'Edit Issue' : 'Add New Issue'}
+            </h3>
+            <form onSubmit={handleIssueSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                <input
+                  type="text"
+                  value={issueForm.title}
+                  onChange={(e) => setIssueForm({ ...issueForm, title: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea
+                  value={issueForm.description}
+                  onChange={(e) => setIssueForm({ ...issueForm, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows={3}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Impact</label>
+                <input
+                  type="text"
+                  value={issueForm.impact}
+                  onChange={(e) => setIssueForm({ ...issueForm, impact: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                  <select
+                    value={issueForm.type}
+                    onChange={(e) => setIssueForm({ ...issueForm, type: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="Critical">Critical</option>
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                  <select
+                    value={issueForm.status}
+                    onChange={(e) => setIssueForm({ ...issueForm, status: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="Open">Open</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Resolved">Resolved</option>
+                    <option value="Closed">Closed</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex space-x-4 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowIssueModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                >
+                  {editingIssue ? 'Update Issue' : 'Add Issue'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Budget Modal */}
+      {showBudgetModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              {editingBudget ? 'Edit Budget Categories' : 'Add Budget Categories'}
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Select Categories (you can select multiple)
+                </label>
+                <div className="space-y-2 max-h-96 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                  {getCostCategoryOptions().map((category) => (
+                    <label
+                      key={category}
+                      className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={budgetForm.categories.includes(category)}
+                        onChange={() => handleCategoryToggle(category)}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-900">{category}</span>
+                    </label>
+                  ))}
+                </div>
+                {budgetForm.categories.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-sm text-gray-600 mb-2">Selected categories:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {budgetForm.categories.map((cat) => (
+                        <span
+                          key={cat}
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+                        >
+                          {cat}
+                          <button
+                            type="button"
+                            onClick={() => handleCategoryToggle(cat)}
+                            className="hover:text-blue-900"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="flex space-x-4 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowBudgetModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveBudget}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  {editingBudget ? 'Update Budget' : 'Add Budget'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Request Modal */}
+      {showChangeRequestModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              {editingChangeRequest ? 'Edit Change Request' : 'Add New Change Request'}
+            </h3>
+            <form onSubmit={handleChangeRequestSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                <input
+                  type="text"
+                  value={changeRequestForm.title}
+                  onChange={(e) => setChangeRequestForm({ ...changeRequestForm, title: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                <select
+                  value={changeRequestForm.type}
+                  onChange={(e) => setChangeRequestForm({ ...changeRequestForm, type: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="Scope Change">Scope Change</option>
+                  <option value="Schedule Change">Schedule Change</option>
+                  <option value="Budget Change">Budget Change</option>
+                  <option value="Resource Change">Resource Change</option>
+                  <option value="Quality Change">Quality Change</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea
+                  value={changeRequestForm.description}
+                  onChange={(e) => setChangeRequestForm({ ...changeRequestForm, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows={3}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Justification</label>
+                <textarea
+                  value={changeRequestForm.justification}
+                  onChange={(e) => setChangeRequestForm({ ...changeRequestForm, justification: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows={3}
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Scope Impact</label>
+                  <select
+                    value={changeRequestForm.scope_impact}
+                    onChange={(e) => setChangeRequestForm({ ...changeRequestForm, scope_impact: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Risk Impact</label>
+                  <select
+                    value={changeRequestForm.risk_impact}
+                    onChange={(e) => setChangeRequestForm({ ...changeRequestForm, risk_impact: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Resource Impact</label>
+                  <select
+                    value={changeRequestForm.resource_impact}
+                    onChange={(e) => setChangeRequestForm({ ...changeRequestForm, resource_impact: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Cost Impact</label>
+                <input
+                  type="text"
+                  value={changeRequestForm.cost_impact}
+                  onChange={(e) => setChangeRequestForm({ ...changeRequestForm, cost_impact: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Describe cost impact (optional)"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Attachments</label>
+
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors">
+                  <input
+                    type="file"
+                    id="file-upload"
+                    multiple
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.txt,.zip"
+                  />
+                  <label
+                    htmlFor="file-upload"
+                    className="flex flex-col items-center justify-center cursor-pointer"
+                  >
+                    <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                    <span className="text-sm text-gray-600">
+                      {uploading ? 'Uploading...' : 'Click to upload or drag and drop'}
+                    </span>
+                    <span className="text-xs text-gray-500 mt-1">
+                      PDF, DOC, XLS, PPT, Images, ZIP (Max 10MB per file)
+                    </span>
+                  </label>
+                </div>
+
+                {uploadedFiles.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <p className="text-sm font-medium text-gray-700">Uploaded Files:</p>
+                    {uploadedFiles.map((file, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <File className="w-5 h-5 text-blue-600" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{file.fileName}</p>
+                            <p className="text-xs text-gray-500">
+                              {(file.fileSize / 1024).toFixed(2)} KB
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadAttachment(file.path, file.fileName)}
+                            className="p-1 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded transition-colors"
+                            title="Download"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFile(file.path)}
+                            className="p-1 text-red-600 hover:text-red-900 hover:bg-red-50 rounded transition-colors"
+                            title="Remove"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="flex space-x-4 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowChangeRequestModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  {editingChangeRequest ? 'Update Change Request' : 'Add Change Request'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showChangeRequestPreview && viewingChangeRequest && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+              <h3 className="text-xl font-bold text-gray-900">Change Request Details</h3>
+              <button
+                onClick={() => setShowChangeRequestPreview(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">Title</label>
+                  <p className="text-base text-gray-900 font-semibold">{viewingChangeRequest.title}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">Type</label>
+                  <p className="text-base text-gray-900">{viewingChangeRequest.type}</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">Status</label>
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                  viewingChangeRequest.status === 'Approved' ? 'bg-green-100 text-green-800' :
+                  viewingChangeRequest.status === 'Rejected' ? 'bg-red-100 text-red-800' :
+                  viewingChangeRequest.status === 'Under Review' ? 'bg-yellow-100 text-yellow-800' :
+                  viewingChangeRequest.status === 'Implemented' ? 'bg-blue-100 text-blue-800' :
+                  'bg-gray-100 text-gray-800'
+                }`}>
+                  {viewingChangeRequest.status}
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">Description</label>
+                <p className="text-base text-gray-900 whitespace-pre-wrap">{viewingChangeRequest.description}</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">Justification</label>
+                <p className="text-base text-gray-900 whitespace-pre-wrap">{viewingChangeRequest.justification}</p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-2">Scope Impact</label>
+                  <div className="flex items-center space-x-2">
+                    <div className={`w-3 h-3 rounded-full ${getImpactColor(viewingChangeRequest.scope_impact)}`}></div>
+                    <span className="text-base text-gray-900">{viewingChangeRequest.scope_impact}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-2">Risk Impact</label>
+                  <div className="flex items-center space-x-2">
+                    <div className={`w-3 h-3 rounded-full ${getImpactColor(viewingChangeRequest.risk_impact)}`}></div>
+                    <span className="text-base text-gray-900">{viewingChangeRequest.risk_impact}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-2">Resource Impact</label>
+                  <div className="flex items-center space-x-2">
+                    <div className={`w-3 h-3 rounded-full ${getImpactColor(viewingChangeRequest.resource_impact)}`}></div>
+                    <span className="text-base text-gray-900">{viewingChangeRequest.resource_impact}</span>
+                  </div>
+                </div>
+              </div>
+
+              {viewingChangeRequest.cost_impact && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">Cost Impact</label>
+                  <p className="text-base text-gray-900">{viewingChangeRequest.cost_impact}</p>
+                </div>
+              )}
+
+              {viewingChangeRequest.attachments && getAttachmentCount(viewingChangeRequest.attachments) > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-3">Attachments</label>
+                  <div className="space-y-2">
+                    {(() => {
+                      try {
+                        const files = JSON.parse(viewingChangeRequest.attachments);
+                        return files.map((file: any, index: number) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                          >
+                            <div className="flex items-center space-x-3">
+                              <File className="w-5 h-5 text-blue-600" />
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{file.fileName}</p>
+                                <p className="text-xs text-gray-500">
+                                  {(file.fileSize / 1024).toFixed(2)} KB
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleDownloadFile(file.path, file.fileName)}
+                              className="flex items-center space-x-1 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded transition-colors"
+                            >
+                              <Download className="w-4 h-4" />
+                              <span>Download</span>
+                            </button>
+                          </div>
+                        ));
+                      } catch (e) {
+                        return <p className="text-sm text-gray-500">No attachments available</p>;
+                      }
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">Created</label>
+                  <p className="text-sm text-gray-900">{formatDate(viewingChangeRequest.created_at)}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">Last Updated</label>
+                  <p className="text-sm text-gray-900">{formatDate(viewingChangeRequest.updated_at)}</p>
+                </div>
+              </div>
+
+              <div className="flex space-x-4 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowChangeRequestPreview(false);
+                    handleEditChangeRequest(viewingChangeRequest);
+                  }}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
+                >
+                  <Edit2 className="w-4 h-4" />
+                  <span>Edit</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowChangeRequestPreview(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ProjectDetail;
