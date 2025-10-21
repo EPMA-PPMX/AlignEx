@@ -174,6 +174,7 @@ const ProjectDetail: React.FC = () => {
   const [showChangeRequestModal, setShowChangeRequestModal] = useState(false);
   const [showChangeRequestPreview, setShowChangeRequestPreview] = useState(false);
   const [showBudgetModal, setShowBudgetModal] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingRisk, setEditingRisk] = useState<Risk | null>(null);
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
   const [editingChangeRequest, setEditingChangeRequest] = useState<ChangeRequest | null>(null);
@@ -210,6 +211,12 @@ const ProjectDetail: React.FC = () => {
 
   const [budgetForm, setBudgetForm] = useState({
     categories: [] as string[]
+  });
+
+  const [taskForm, setTaskForm] = useState({
+    description: '',
+    start_date: '',
+    duration: 1
   });
 
   const [uploadedFiles, setUploadedFiles] = useState<Array<{
@@ -1129,6 +1136,25 @@ const ProjectDetail: React.FC = () => {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
 
+  const handleTaskSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!taskForm.description || !taskForm.start_date || !taskForm.duration) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    // Here you would save the task to the database
+    // For now, we'll just close the modal
+    alert('Task created successfully!');
+    setShowTaskModal(false);
+    setTaskForm({
+      description: '',
+      start_date: '',
+      duration: 1
+    });
+  };
+
   const getCostCategoryOptions = (): string[] => {
     if (costCategoryOptions.length > 0) {
       return costCategoryOptions;
@@ -1531,7 +1557,7 @@ const ProjectDetail: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
               <button
-                onClick={() => {/* Add task handler */}}
+                onClick={() => setShowTaskModal(true)}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 <Plus className="w-4 h-4" />
@@ -2609,6 +2635,86 @@ const ProjectDetail: React.FC = () => {
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Task Modal */}
+      {showTaskModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-gray-900">Create New Task</h3>
+                <button
+                  onClick={() => setShowTaskModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleTaskSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Task Description <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={taskForm.description}
+                    onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter task description..."
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Start Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={taskForm.start_date}
+                    onChange={(e) => setTaskForm({ ...taskForm, start_date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Duration (Days) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={taskForm.duration}
+                    onChange={(e) => setTaskForm({ ...taskForm, duration: parseInt(e.target.value) || 1 })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter duration in days..."
+                    required
+                  />
+                </div>
+
+                <div className="flex space-x-3 pt-4">
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>Create Task</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowTaskModal(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
