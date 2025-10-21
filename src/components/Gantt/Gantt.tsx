@@ -41,6 +41,19 @@ export default class Gantt extends Component<GanttProps> {
     }
   }
 
+  componentDidUpdate(prevProps: GanttProps): void {
+    const { projecttasks } = this.props;
+
+    if (JSON.stringify(prevProps.projecttasks) !== JSON.stringify(projecttasks)) {
+      gantt.clearAll();
+      gantt.parse(projecttasks);
+    }
+  }
+
+  componentWillUnmount(): void {
+    gantt.clearAll();
+  }
+
   render(): React.ReactNode {
     return (
       <div

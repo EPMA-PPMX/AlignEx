@@ -1164,11 +1164,11 @@ const ProjectDetail: React.FC = () => {
         ? Math.max(...projectTasks.data.map((t: any) => t.id)) + 1
         : 1;
 
-      // Create new task object
+      // Create new task object with time component for dhtmlx-gantt
       const newTask = {
         id: newTaskId,
         text: taskForm.description,
-        start_date: taskForm.start_date,
+        start_date: `${taskForm.start_date} 00:00`,
         duration: taskForm.duration
       };
 
