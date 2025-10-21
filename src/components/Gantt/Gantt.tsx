@@ -25,6 +25,7 @@ interface GanttProps {
     data: Task[];
     links?: Link[];
   };
+  onTaskUpdate?: () => void;
 }
 
 export default class Gantt extends Component<GanttProps> {
@@ -33,12 +34,48 @@ export default class Gantt extends Component<GanttProps> {
   componentDidMount(): void {
     gantt.config.date_format = "%Y-%m-%d %H:%i";
 
-    const { projecttasks } = this.props;
+    const { projecttasks, onTaskUpdate } = this.props;
+
+    // Attach event listeners for task changes
+    if (onTaskUpdate) {
+      gantt.attachEvent("onAfterTaskAdd", () => {
+        onTaskUpdate();
+        return true;
+      });
+
+      gantt.attachEvent("onAfterTaskUpdate", () => {
+        onTaskUpdate();
+        return true;
+      });
+
+      gantt.attachEvent("onAfterTaskDelete", () => {
+        onTaskUpdate();
+        return true;
+      });
+
+      gantt.attachEvent("onAfterLinkAdd", () => {
+        onTaskUpdate();
+        return true;
+      });
+
+      gantt.attachEvent("onAfterLinkUpdate", () => {
+        onTaskUpdate();
+        return true;
+      });
+
+      gantt.attachEvent("onAfterLinkDelete", () => {
+        onTaskUpdate();
+        return true;
+      });
+    }
 
     if (this.ganttContainer.current) {
       gantt.init(this.ganttContainer.current);
       gantt.parse(projecttasks);
     }
+
+    // Expose gantt instance globally for access from parent
+    (window as any).gantt = gantt;
   }
 
   componentDidUpdate(prevProps: GanttProps): void {

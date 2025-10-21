@@ -519,6 +519,67 @@ const ProjectDetail: React.FC = () => {
     }
   };
 
+  const saveProjectTasks = async () => {
+    if (!id) return;
+
+    try {
+      // Get current data from Gantt chart
+      const ganttInstance = (window as any).gantt;
+      if (!ganttInstance) return;
+
+      const currentTasks = ganttInstance.serialize();
+
+      // Clean the data before saving
+      const cleanedData = {
+        data: currentTasks.data.map((task: any) => ({
+          id: task.id,
+          text: task.text,
+          start_date: task.start_date,
+          duration: task.duration,
+          progress: task.progress || 0,
+          parent: task.parent || 0
+        })),
+        links: currentTasks.links || []
+      };
+
+      // Check if project_tasks record exists
+      const { data: existingData } = await supabase
+        .from('project_tasks')
+        .select('id')
+        .eq('project_id', id)
+        .maybeSingle();
+
+      if (existingData) {
+        // Update existing record
+        const { error } = await supabase
+          .from('project_tasks')
+          .update({
+            task_data: cleanedData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('project_id', id);
+
+        if (error) {
+          console.error('Error updating tasks:', error);
+        }
+      } else {
+        // Insert new record
+        const { error } = await supabase
+          .from('project_tasks')
+          .insert({
+            project_id: id,
+            task_data: cleanedData
+          });
+
+        if (error) {
+          console.error('Error inserting tasks:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving project tasks:', error);
+    }
+  };
+
   const saveFieldValues = async () => {
     if (!id) return;
 
@@ -1666,7 +1727,7 @@ const ProjectDetail: React.FC = () => {
               </button>
             </div>
             <div style={{ width: "100%", height: "600px", overflow: "auto" }}>
-              <Gantt projecttasks={projectTasks} />
+              <Gantt projecttasks={projectTasks} onTaskUpdate={saveProjectTasks} />
             </div>
           </div>
         )}
