@@ -9,11 +9,21 @@ interface ProjectTemplate {
   template_description?: string;
 }
 
+interface OrganizationalPriority {
+  id: string;
+  title: string;
+  target_value: string;
+}
+
 const NewProject: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [priorities, setPriorities] = useState<OrganizationalPriority[]>([]);
+  const [prioritiesLoading, setPrioritiesLoading] = useState(true);
+  const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
+  const [priorityImpacts, setPriorityImpacts] = useState<{ [key: string]: string }>({});
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -22,6 +32,7 @@ const NewProject: React.FC = () => {
 
   React.useEffect(() => {
     fetchTemplates();
+    fetchPriorities();
   }, []);
 
   const fetchTemplates = async () => {
@@ -44,18 +55,46 @@ const NewProject: React.FC = () => {
     }
   };
 
+  const fetchPriorities = async () => {
+    try {
+      setPrioritiesLoading(true);
+      const { data, error } = await supabase
+        .from('organizational_priorities')
+        .select('*')
+        .eq('status', 'Active')
+        .order('title');
+
+      if (error) {
+        console.error('Error fetching priorities:', error);
+      } else {
+        setPriorities(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching priorities:', error);
+    } finally {
+      setPrioritiesLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim() || !formData.template_id) {
       alert('Project name and template are required');
       return;
     }
 
+    for (const priorityId of selectedPriorities) {
+      if (!priorityImpacts[priorityId]?.trim()) {
+        alert('Please provide planned impact for all selected priorities');
+        return;
+      }
+    }
+
     try {
       setLoading(true);
 
-      const { data, error } = await supabase
+      const { data: projectData, error: projectError } = await supabase
         .from('projects')
         .insert([{
           name: formData.name.trim(),
@@ -65,12 +104,32 @@ const NewProject: React.FC = () => {
         }])
         .select();
 
-      if (error) {
-        alert(`Error: ${error.message}`);
-      } else {
-        alert('Project created successfully!');
-        navigate('/projects');
+      if (projectError) {
+        alert(`Error: ${projectError.message}`);
+        return;
       }
+
+      if (projectData && projectData[0] && selectedPriorities.length > 0) {
+        const projectId = projectData[0].id;
+        const impactRecords = selectedPriorities.map(priorityId => ({
+          project_id: projectId,
+          priority_id: priorityId,
+          planned_impact: priorityImpacts[priorityId].trim(),
+          actual_impact: null,
+          notes: null
+        }));
+
+        const { error: impactError } = await supabase
+          .from('project_priority_impacts')
+          .insert(impactRecords);
+
+        if (impactError) {
+          console.error('Error linking priorities:', impactError);
+        }
+      }
+
+      alert('Project created successfully!');
+      navigate('/projects');
     } catch (error) {
       console.error('Error creating project:', error);
       alert('Error creating project. Please try again.');
@@ -92,6 +151,27 @@ const NewProject: React.FC = () => {
     setFormData(prev => ({
       ...prev,
       [name]: value
+    }));
+  };
+
+  const handlePriorityToggle = (priorityId: string) => {
+    setSelectedPriorities(prev => {
+      if (prev.includes(priorityId)) {
+        const updated = prev.filter(id => id !== priorityId);
+        const newImpacts = { ...priorityImpacts };
+        delete newImpacts[priorityId];
+        setPriorityImpacts(newImpacts);
+        return updated;
+      } else {
+        return [...prev, priorityId];
+      }
+    });
+  };
+
+  const handleImpactChange = (priorityId: string, value: string) => {
+    setPriorityImpacts(prev => ({
+      ...prev,
+      [priorityId]: value
     }));
   };
 
@@ -179,6 +259,65 @@ const NewProject: React.FC = () => {
                 placeholder="Enter project description (optional)"
                 disabled={loading}
               />
+            </div>
+
+            <div className="border-t border-gray-200 pt-6">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Link to Organizational Priorities (Optional)
+              </label>
+              {prioritiesLoading ? (
+                <div className="flex items-center text-gray-500">
+                  <Loader className="w-4 h-4 animate-spin mr-2" />
+                  <span>Loading priorities...</span>
+                </div>
+              ) : priorities.length === 0 ? (
+                <p className="text-sm text-gray-500">
+                  No active priorities available. Create priorities in the Organizational Priorities section.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {priorities.map((priority) => (
+                    <div key={priority.id} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          id={`priority-${priority.id}`}
+                          checked={selectedPriorities.includes(priority.id)}
+                          onChange={() => handlePriorityToggle(priority.id)}
+                          disabled={loading}
+                          className="mt-1"
+                        />
+                        <div className="flex-1">
+                          <label
+                            htmlFor={`priority-${priority.id}`}
+                            className="font-medium text-gray-900 cursor-pointer"
+                          >
+                            {priority.title}
+                          </label>
+                          <p className="text-sm text-gray-600 mt-1">
+                            Target: {priority.target_value}
+                          </p>
+                          {selectedPriorities.includes(priority.id) && (
+                            <div className="mt-3">
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Planned Impact <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={priorityImpacts[priority.id] || ''}
+                                onChange={(e) => handleImpactChange(priority.id, e.target.value)}
+                                placeholder="e.g., 5% cost reduction, 2 days faster response"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                disabled={loading}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="flex space-x-4 pt-6 border-t border-gray-200">
