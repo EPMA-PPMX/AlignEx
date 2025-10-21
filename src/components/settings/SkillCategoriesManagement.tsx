@@ -50,22 +50,27 @@ export default function SkillCategoriesManagement() {
     }
 
     try {
-      const { error } = await supabase.from('skill_categories').insert([
+      const { data, error } = await supabase.from('skill_categories').insert([
         {
-          name: formData.name,
-          description: formData.description,
-          manager: formData.manager,
+          name: formData.name.trim(),
+          description: formData.description.trim(),
+          manager: formData.manager.trim(),
         },
-      ]);
+      ]).select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        alert(`Failed to add category: ${error.message}`);
+        return;
+      }
 
+      console.log('Category added successfully:', data);
       setFormData({ name: '', description: '', manager: '' });
       setShowAddForm(false);
       fetchCategories();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding category:', error);
-      alert('Failed to add category');
+      alert(`Failed to add category: ${error.message || 'Unknown error'}`);
     }
   };
 
