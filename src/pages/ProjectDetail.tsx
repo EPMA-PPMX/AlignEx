@@ -480,21 +480,36 @@ const ProjectDetail: React.FC = () => {
       if (error) {
         console.error('Error fetching project tasks:', error);
       } else if (data && data.task_data) {
-        // Normalize date formats for dhtmlx-gantt
+        // Normalize date formats for dhtmlx-gantt and clean data
         const taskData = data.task_data;
         if (taskData.data && Array.isArray(taskData.data)) {
           taskData.data = taskData.data.map((task: any) => {
-            // Ensure start_date has time component
-            if (task.start_date && !task.start_date.includes(':')) {
-              return {
-                ...task,
-                start_date: `${task.start_date} 00:00`
-              };
+            // Only keep essential fields and ensure proper date format
+            let startDate = task.start_date;
+
+            // Handle different date formats
+            if (startDate) {
+              // If date contains 'T' or 'Z', extract just the date part
+              if (startDate.includes('T') || startDate.includes('Z')) {
+                startDate = startDate.split('T')[0];
+              }
+              // Ensure it has time component
+              if (!startDate.includes(':')) {
+                startDate = `${startDate} 00:00`;
+              }
             }
-            return task;
+
+            return {
+              id: task.id,
+              text: task.text,
+              start_date: startDate,
+              duration: task.duration,
+              progress: task.progress || 0,
+              parent: task.parent
+            };
           });
         }
-        setProjectTasks(taskData);
+        setProjectTasks({ data: taskData.data || [], links: taskData.links || [] });
       } else {
         setProjectTasks({ data: [], links: [] });
       }
