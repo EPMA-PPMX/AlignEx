@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Save, Send, Loader } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { parseCurrencyInput } from '../../lib/utils';
 
 interface ProjectRequest {
   id: string;
@@ -99,7 +100,13 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    if (name === 'initial_estimated_cost') {
+      const formatted = parseCurrencyInput(value);
+      setFormData((prev) => ({ ...prev, [name]: formatted }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handlePriorityToggle = (priorityId: string) => {
@@ -340,7 +347,7 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
                 value={formData.initial_estimated_cost}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="e.g., $50,000 - $75,000"
+                placeholder="e.g., 50000"
               />
             </div>
           </div>

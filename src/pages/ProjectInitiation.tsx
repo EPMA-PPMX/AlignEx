@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye, Edit2, Trash2, Calendar, DollarSign } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { formatCurrency } from '../lib/utils';
 import ProjectRequestForm from '../components/initiation/ProjectRequestForm';
 
 interface ProjectRequest {
@@ -307,7 +308,7 @@ export default function ProjectInitiation() {
                     {formatDate(request.estimated_start_date)}
                   </td>
                   <td className="py-3 px-4 text-sm text-slate-600">
-                    {request.initial_estimated_cost || '-'}
+                    {request.initial_estimated_cost ? formatCurrency(request.initial_estimated_cost) : '-'}
                   </td>
                   <td className="py-3 px-4 text-sm text-slate-600">
                     {formatDate(request.created_at)}
@@ -447,7 +448,7 @@ function RequestDetailsView({ request, onClose, onEdit, onDelete, onStatusChange
             <label className="text-sm font-medium text-slate-500">Initial Estimated Cost</label>
             <p className="text-slate-900 mt-1 flex items-center gap-2">
               <DollarSign className="w-4 h-4 text-slate-400" />
-              {request.initial_estimated_cost || 'Not specified'}
+              {request.initial_estimated_cost ? formatCurrency(request.initial_estimated_cost) : 'Not specified'}
             </p>
           </div>
 
