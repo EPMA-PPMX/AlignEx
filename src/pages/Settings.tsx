@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { User, Bell, Shield, Database, Palette, Globe, Settings2 } from 'lucide-react';
+import { User, Bell, Shield, Database, Palette, Globe, Settings2, Award, Users } from 'lucide-react';
 import CustomFields from '../components/CustomFields';
 import ProjectTemplates from '../components/ProjectTemplates';
 import OverviewPageDesigner from '../components/OverviewPageDesigner';
+import SkillCategoriesManagement from '../components/settings/SkillCategoriesManagement';
+import SkillsManagement from '../components/settings/SkillsManagement';
+import RoleManagement from '../components/settings/RoleManagement';
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('profile');
@@ -17,6 +20,9 @@ const Settings: React.FC = () => {
     { id: 'project-templates', name: 'Project Templates', icon: Settings2 },
     { id: 'custom-fields', name: 'Custom Fields', icon: Settings2 },
     { id: 'overview-designer', name: 'Overview Page Designer', icon: Settings2 },
+    { id: 'skill-categories', name: 'Skill Categories', icon: Award },
+    { id: 'skills-management', name: 'Skills Management', icon: Award },
+    { id: 'role-management', name: 'Role Management', icon: Users },
   ];
 
   return (
@@ -203,6 +209,18 @@ const Settings: React.FC = () => {
 
             {activeTab === 'overview-designer' && (
               <OverviewPageDesigner />
+            )}
+
+            {activeTab === 'skill-categories' && (
+              <SkillCategoriesManagement />
+            )}
+
+            {activeTab === 'skills-management' && (
+              <SkillsManagement />
+            )}
+
+            {activeTab === 'role-management' && (
+              <RoleManagement />
             )}
 
             {(activeTab === 'integrations' || activeTab === 'general') && (

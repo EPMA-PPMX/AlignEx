@@ -7,6 +7,7 @@ import Projects from './pages/Projects';
 import NewProject from './pages/NewProject';
 import ProjectDetail from './pages/ProjectDetail';
 import OrganizationalPriorities from './pages/OrganizationalPriorities';
+import Skills from './pages/Skills';
 import Settings from './pages/Settings';
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
           <Route path="/projects/new" element={<NewProject />} />
           <Route path="/projects/:id" element={<ProjectDetail />} />
           <Route path="/priorities" element={<OrganizationalPriorities />} />
+          <Route path="/skills" element={<Skills />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </Layout>
