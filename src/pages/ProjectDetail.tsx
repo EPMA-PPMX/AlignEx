@@ -479,11 +479,28 @@ const ProjectDetail: React.FC = () => {
 
       if (error) {
         console.error('Error fetching project tasks:', error);
-      } else if (data) {
-        setProjectTasks(data.task_data || { data: [], links: [] });
+      } else if (data && data.task_data) {
+        // Normalize date formats for dhtmlx-gantt
+        const taskData = data.task_data;
+        if (taskData.data && Array.isArray(taskData.data)) {
+          taskData.data = taskData.data.map((task: any) => {
+            // Ensure start_date has time component
+            if (task.start_date && !task.start_date.includes(':')) {
+              return {
+                ...task,
+                start_date: `${task.start_date} 00:00`
+              };
+            }
+            return task;
+          });
+        }
+        setProjectTasks(taskData);
+      } else {
+        setProjectTasks({ data: [], links: [] });
       }
     } catch (error) {
       console.error('Error fetching project tasks:', error);
+      setProjectTasks({ data: [], links: [] });
     }
   };
 
