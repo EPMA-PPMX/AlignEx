@@ -38,32 +38,38 @@ export default class Gantt extends Component<GanttProps> {
 
     // Attach event listeners for task changes
     if (onTaskUpdate) {
-      gantt.attachEvent("onAfterTaskAdd", () => {
+      gantt.attachEvent("onAfterTaskAdd", (id: any, task: any) => {
+        console.log("Task added:", id, task);
         onTaskUpdate();
         return true;
       });
 
-      gantt.attachEvent("onAfterTaskUpdate", () => {
+      gantt.attachEvent("onAfterTaskUpdate", (id: any, task: any) => {
+        console.log("Task updated:", id, task);
         onTaskUpdate();
         return true;
       });
 
-      gantt.attachEvent("onAfterTaskDelete", () => {
+      gantt.attachEvent("onAfterTaskDelete", (id: any) => {
+        console.log("Task deleted:", id);
         onTaskUpdate();
         return true;
       });
 
-      gantt.attachEvent("onAfterLinkAdd", () => {
+      gantt.attachEvent("onAfterLinkAdd", (id: any, link: any) => {
+        console.log("Link added:", id, link);
         onTaskUpdate();
         return true;
       });
 
-      gantt.attachEvent("onAfterLinkUpdate", () => {
+      gantt.attachEvent("onAfterLinkUpdate", (id: any, link: any) => {
+        console.log("Link updated:", id, link);
         onTaskUpdate();
         return true;
       });
 
-      gantt.attachEvent("onAfterLinkDelete", () => {
+      gantt.attachEvent("onAfterLinkDelete", (id: any) => {
+        console.log("Link deleted:", id);
         onTaskUpdate();
         return true;
       });

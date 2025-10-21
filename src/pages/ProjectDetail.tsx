@@ -523,11 +523,17 @@ const ProjectDetail: React.FC = () => {
     if (!id) return;
 
     try {
+      console.log("saveProjectTasks called");
+
       // Get current data from Gantt chart
       const ganttInstance = (window as any).gantt;
-      if (!ganttInstance) return;
+      if (!ganttInstance) {
+        console.error("Gantt instance not found");
+        return;
+      }
 
       const currentTasks = ganttInstance.serialize();
+      console.log("Current tasks from Gantt:", currentTasks);
 
       // Clean the data before saving
       const cleanedData = {
@@ -542,6 +548,8 @@ const ProjectDetail: React.FC = () => {
         links: currentTasks.links || []
       };
 
+      console.log("Cleaned data:", cleanedData);
+
       // Check if project_tasks record exists
       const { data: existingData } = await supabase
         .from('project_tasks')
@@ -551,6 +559,7 @@ const ProjectDetail: React.FC = () => {
 
       if (existingData) {
         // Update existing record
+        console.log("Updating existing record");
         const { error } = await supabase
           .from('project_tasks')
           .update({
@@ -561,9 +570,12 @@ const ProjectDetail: React.FC = () => {
 
         if (error) {
           console.error('Error updating tasks:', error);
+        } else {
+          console.log("Tasks updated successfully");
         }
       } else {
         // Insert new record
+        console.log("Inserting new record");
         const { error } = await supabase
           .from('project_tasks')
           .insert({
@@ -573,6 +585,8 @@ const ProjectDetail: React.FC = () => {
 
         if (error) {
           console.error('Error inserting tasks:', error);
+        } else {
+          console.log("Tasks inserted successfully");
         }
       }
     } catch (error) {
