@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Minus, ExternalLink } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, ExternalLink, FileText } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 
@@ -24,6 +24,14 @@ interface ProjectImpact {
   actual_impact: string | null;
   notes: string | null;
   project: Project;
+  source: 'project' | 'initiative';
+}
+
+interface InitiativeRequest {
+  id: string;
+  project_name: string;
+  status: string;
+  expected_contribution: string;
 }
 
 interface PriorityWithProjects extends Priority {
@@ -62,12 +70,46 @@ export default function ContributingProjects() {
 
       if (impactsError) throw impactsError;
 
-      const prioritiesWithProjects = (prioritiesData || []).map((priority) => ({
-        ...priority,
-        impacts: (impactsData || []).filter(
-          (impact: any) => impact.priority_id === priority.id
-        ),
-      }));
+      const { data: requestPrioritiesData, error: requestPrioritiesError } = await supabase
+        .from('project_request_priorities')
+        .select(`
+          *,
+          request:project_initiation_requests(id, project_name, status)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (requestPrioritiesError) throw requestPrioritiesError;
+
+      const prioritiesWithProjects = (prioritiesData || []).map((priority) => {
+        const projectImpacts = (impactsData || [])
+          .filter((impact: any) => impact.priority_id === priority.id)
+          .map((impact: any) => ({
+            ...impact,
+            source: 'project' as const,
+          }));
+
+        const initiativeImpacts = (requestPrioritiesData || [])
+          .filter((rp: any) => rp.priority_id === priority.id && rp.request?.status === 'Approved')
+          .map((rp: any) => ({
+            id: rp.id,
+            project_id: rp.request.id,
+            priority_id: rp.priority_id,
+            planned_impact: rp.expected_contribution,
+            actual_impact: null,
+            notes: null,
+            project: {
+              id: rp.request.id,
+              name: rp.request.project_name,
+              status: 'Approved Initiative',
+            },
+            source: 'initiative' as const,
+          }));
+
+        return {
+          ...priority,
+          impacts: [...projectImpacts, ...initiativeImpacts],
+        };
+      });
 
       setPriorities(prioritiesWithProjects);
     } catch (error) {
@@ -130,7 +172,7 @@ export default function ContributingProjects() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <p className="text-slate-600">
-          View all projects contributing to organizational priorities and track their impact
+          View all projects and initiatives contributing to organizational priorities
         </p>
         <div>
           <label className="text-sm font-medium text-slate-700 mr-2">Filter by Priority:</label>
@@ -174,7 +216,7 @@ export default function ContributingProjects() {
 
               {priority.impacts.length === 0 ? (
                 <p className="text-center py-8 text-slate-500">
-                  No projects are currently contributing to this priority.
+                  No projects or initiatives are currently contributing to this priority.
                 </p>
               ) : (
                 <div className="overflow-x-auto">
@@ -182,13 +224,13 @@ export default function ContributingProjects() {
                     <thead>
                       <tr className="border-b border-slate-200">
                         <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">
-                          Project
+                          Project / Initiative
                         </th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">
                           Status
                         </th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">
-                          Planned Impact
+                          Expected Contribution
                         </th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">
                           Actual Impact
@@ -208,7 +250,12 @@ export default function ContributingProjects() {
                           className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
                         >
                           <td className="py-3 px-4">
-                            <span className="font-medium text-slate-900">{impact.project.name}</span>
+                            <div className="flex items-center gap-2">
+                              {impact.source === 'initiative' && (
+                                <FileText className="w-4 h-4 text-blue-500" title="Approved Initiative" />
+                              )}
+                              <span className="font-medium text-slate-900">{impact.project.name}</span>
+                            </div>
                           </td>
                           <td className="py-3 px-4">
                             <span
@@ -219,6 +266,8 @@ export default function ContributingProjects() {
                                   ? 'bg-blue-100 text-blue-800'
                                   : impact.project.status === 'Planning'
                                   ? 'bg-amber-100 text-amber-800'
+                                  : impact.project.status === 'Approved Initiative'
+                                  ? 'bg-emerald-100 text-emerald-800'
                                   : 'bg-slate-100 text-slate-800'
                               }`}
                             >
@@ -241,9 +290,15 @@ export default function ContributingProjects() {
                           </td>
                           <td className="py-3 px-4 text-center">
                             <button
-                              onClick={() => navigate(`/projects/${impact.project_id}`)}
+                              onClick={() => {
+                                if (impact.source === 'initiative') {
+                                  navigate('/initiation');
+                                } else {
+                                  navigate(`/projects/${impact.project_id}`);
+                                }
+                              }}
                               className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm font-medium"
-                              title="View project details"
+                              title={impact.source === 'initiative' ? 'View in Project Initiation' : 'View project details'}
                             >
                               View
                               <ExternalLink className="w-4 h-4" />
@@ -258,11 +313,17 @@ export default function ContributingProjects() {
 
               {priority.impacts.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-slate-200">
-                  <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div className="grid grid-cols-4 gap-4 text-sm">
                     <div className="bg-blue-50 rounded-lg p-3">
-                      <p className="text-slate-600 mb-1">Total Planned Impact</p>
+                      <p className="text-slate-600 mb-1">Total Contributing</p>
                       <p className="text-lg font-semibold text-blue-700">
-                        {priority.impacts.length} {priority.impacts.length === 1 ? 'project' : 'projects'}
+                        {priority.impacts.length} {priority.impacts.length === 1 ? 'item' : 'items'}
+                      </p>
+                    </div>
+                    <div className="bg-emerald-50 rounded-lg p-3">
+                      <p className="text-slate-600 mb-1">Approved Initiatives</p>
+                      <p className="text-lg font-semibold text-emerald-700">
+                        {priority.impacts.filter((i) => i.source === 'initiative').length}
                       </p>
                     </div>
                     <div className="bg-green-50 rounded-lg p-3">
