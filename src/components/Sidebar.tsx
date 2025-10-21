@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FolderKanban, Settings, Target, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, Settings, Target, TrendingUp, FileText } from 'lucide-react';
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
@@ -10,6 +10,11 @@ const Sidebar: React.FC = () => {
       name: 'Dashboard',
       path: '/',
       icon: LayoutDashboard,
+    },
+    {
+      name: 'Project Initiation',
+      path: '/initiation',
+      icon: FileText,
     },
     {
       name: 'Projects',
