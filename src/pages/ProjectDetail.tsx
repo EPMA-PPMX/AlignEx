@@ -226,6 +226,11 @@ const ProjectDetail: React.FC = () => {
     mimeType: string;
   }>>([]);
 
+  const [projectTasks, setProjectTasks] = useState<any>({
+    data: [],
+    links: []
+  });
+
   const tabs = [
     { id: 'overview', name: 'Overview', icon: Target },
     { id: 'timeline', name: 'Timeline', icon: Calendar },
@@ -235,16 +240,6 @@ const ProjectDetail: React.FC = () => {
     { id: 'budget', name: 'Budget', icon: DollarSign },
     { id: 'settings', name: 'Documents', icon: FileText },
   ];
-
-  const projecttasks = {
-  data: [
-    { id: 1, text: "Task #1", start_date: "2025-10-01", duration: 5 },
-    { id: 2, text: "Task #2", start_date: "2025-12-06", duration: 4, parent: 1 },
-  ],
-  links: [
-    { id: 1, source: 1, target: 2, type: "0" },
-  ],
-};
 
   useEffect(() => {
     if (id) {
@@ -256,6 +251,7 @@ const ProjectDetail: React.FC = () => {
       fetchBudgets();
       fetchCostCategoryOptions();
       fetchMonthlyForecasts();
+      fetchProjectTasks();
     }
   }, [id]);
 
@@ -470,6 +466,24 @@ const ProjectDetail: React.FC = () => {
     } catch (error) {
       console.error('Error fetching cost category options:', error);
       setCostCategoryOptions(['Labor', 'Materials', 'Equipment', 'Software', 'Travel', 'Other']);
+    }
+  };
+
+  const fetchProjectTasks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('project_tasks')
+        .select('*')
+        .eq('project_id', id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching project tasks:', error);
+      } else if (data) {
+        setProjectTasks(data.task_data || { data: [], links: [] });
+      }
+    } catch (error) {
+      console.error('Error fetching project tasks:', error);
     }
   };
 
@@ -1144,15 +1158,70 @@ const ProjectDetail: React.FC = () => {
       return;
     }
 
-    // Here you would save the task to the database
-    // For now, we'll just close the modal
-    alert('Task created successfully!');
-    setShowTaskModal(false);
-    setTaskForm({
-      description: '',
-      start_date: '',
-      duration: 1
-    });
+    try {
+      // Generate new task ID
+      const newTaskId = projectTasks.data.length > 0
+        ? Math.max(...projectTasks.data.map((t: any) => t.id)) + 1
+        : 1;
+
+      // Create new task object
+      const newTask = {
+        id: newTaskId,
+        text: taskForm.description,
+        start_date: taskForm.start_date,
+        duration: taskForm.duration
+      };
+
+      // Add to existing tasks
+      const updatedTaskData = {
+        data: [...projectTasks.data, newTask],
+        links: projectTasks.links || []
+      };
+
+      // Check if project_tasks record exists
+      const { data: existingData } = await supabase
+        .from('project_tasks')
+        .select('id')
+        .eq('project_id', id)
+        .maybeSingle();
+
+      if (existingData) {
+        // Update existing record
+        const { error } = await supabase
+          .from('project_tasks')
+          .update({
+            task_data: updatedTaskData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('project_id', id);
+
+        if (error) throw error;
+      } else {
+        // Insert new record
+        const { error } = await supabase
+          .from('project_tasks')
+          .insert({
+            project_id: id,
+            task_data: updatedTaskData
+          });
+
+        if (error) throw error;
+      }
+
+      // Update local state
+      setProjectTasks(updatedTaskData);
+
+      alert('Task created successfully!');
+      setShowTaskModal(false);
+      setTaskForm({
+        description: '',
+        start_date: '',
+        duration: 1
+      });
+    } catch (error: any) {
+      console.error('Error creating task:', error);
+      alert(`Error creating task: ${error.message}`);
+    }
   };
 
   const getCostCategoryOptions = (): string[] => {
@@ -1565,7 +1634,7 @@ const ProjectDetail: React.FC = () => {
               </button>
             </div>
             <div style={{ width: "100%", height: "600px", overflow: "auto" }}>
-              <Gantt projecttasks={projecttasks} />
+              <Gantt projecttasks={projectTasks} />
             </div>
           </div>
         )}
