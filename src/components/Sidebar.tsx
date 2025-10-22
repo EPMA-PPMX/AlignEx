@@ -45,7 +45,7 @@ const Sidebar: React.FC = () => {
         <img
           src={isCollapsed ? "/Just Logo - AlignEX.png" : "/Full Logo.png"}
           alt="AlignEx"
-          className={`${isCollapsed ? 'h-10 w-10' : 'w-full h-auto'} transition-all duration-300`}
+          className={`${isCollapsed ? 'h-16 w-16' : 'w-full h-auto'} transition-all duration-300`}
         />
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
