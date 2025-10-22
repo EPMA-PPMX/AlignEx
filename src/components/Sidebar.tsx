@@ -40,14 +40,12 @@ const Sidebar: React.FC = () => {
 
   return (
     <div className="w-64 bg-white shadow-lg border-r border-gray-200">
-      <div className="flex items-center space-x-3 p-6 border-b border-gray-200">
-        <div className="flex items-center justify-center w-10 h-10 bg-blue-600 rounded-lg">
-          <Target className="w-6 h-6 text-white" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">EPMASenseWork</h1>
-          <p className="text-sm text-gray-500">Project Management</p>
-        </div>
+      <div className="flex items-center justify-center p-6 border-b border-gray-200">
+        <img
+          src="/Full Logo.png"
+          alt="AlignEx"
+          className="h-12 w-auto"
+        />
       </div>
       
       <nav className="mt-6 px-4">
