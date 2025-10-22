@@ -81,7 +81,7 @@ export default function Skills() {
   }
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="p-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-900 mb-2">My Skills Assessment</h1>
         <p className="text-slate-600">Rate your proficiency in each skill area</p>

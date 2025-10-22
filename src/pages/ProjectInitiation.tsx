@@ -191,7 +191,7 @@ export default function ProjectInitiation() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-8 space-y-6">
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Project Initiation</h1>
@@ -388,7 +388,7 @@ function RequestDetailsView({ request, onClose, onEdit, onDelete, onStatusChange
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="p-8 space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
