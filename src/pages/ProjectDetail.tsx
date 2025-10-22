@@ -174,6 +174,7 @@ const ProjectDetail: React.FC = () => {
   const [showChangeRequestModal, setShowChangeRequestModal] = useState(false);
   const [showChangeRequestPreview, setShowChangeRequestPreview] = useState(false);
   const [showBudgetModal, setShowBudgetModal] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingRisk, setEditingRisk] = useState<Risk | null>(null);
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
   const [editingChangeRequest, setEditingChangeRequest] = useState<ChangeRequest | null>(null);
@@ -212,12 +213,23 @@ const ProjectDetail: React.FC = () => {
     categories: [] as string[]
   });
 
+  const [taskForm, setTaskForm] = useState({
+    description: '',
+    start_date: '',
+    duration: 1
+  });
+
   const [uploadedFiles, setUploadedFiles] = useState<Array<{
     fileName: string;
     path: string;
     fileSize: number;
     mimeType: string;
   }>>([]);
+
+  const [projectTasks, setProjectTasks] = useState<any>({
+    data: [],
+    links: []
+  });
 
   const tabs = [
     { id: 'overview', name: 'Overview', icon: Target },
@@ -229,16 +241,6 @@ const ProjectDetail: React.FC = () => {
     { id: 'settings', name: 'Documents', icon: FileText },
   ];
 
-  const projecttasks = {
-  data: [
-    { id: 1, text: "Task #1", start_date: "2025-10-01", duration: 5 },
-    { id: 2, text: "Task #2", start_date: "2025-12-06", duration: 4, parent: 1 },
-  ],
-  links: [
-    { id: 1, source: 1, target: 2, type: "0" },
-  ],
-};
-
   useEffect(() => {
     if (id) {
       fetchProject();
@@ -249,6 +251,7 @@ const ProjectDetail: React.FC = () => {
       fetchBudgets();
       fetchCostCategoryOptions();
       fetchMonthlyForecasts();
+      fetchProjectTasks();
     }
   }, [id]);
 
@@ -463,6 +466,131 @@ const ProjectDetail: React.FC = () => {
     } catch (error) {
       console.error('Error fetching cost category options:', error);
       setCostCategoryOptions(['Labor', 'Materials', 'Equipment', 'Software', 'Travel', 'Other']);
+    }
+  };
+
+  const fetchProjectTasks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('project_tasks')
+        .select('*')
+        .eq('project_id', id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching project tasks:', error);
+      } else if (data && data.task_data) {
+        // Normalize date formats for dhtmlx-gantt and clean data
+        const taskData = data.task_data;
+        if (taskData.data && Array.isArray(taskData.data)) {
+          taskData.data = taskData.data.map((task: any) => {
+            // Only keep essential fields and ensure proper date format
+            let startDate = task.start_date;
+
+            // Handle different date formats
+            if (startDate) {
+              // If date contains 'T' or 'Z', extract just the date part
+              if (startDate.includes('T') || startDate.includes('Z')) {
+                startDate = startDate.split('T')[0];
+              }
+              // Ensure it has time component
+              if (!startDate.includes(':')) {
+                startDate = `${startDate} 00:00`;
+              }
+            }
+
+            return {
+              id: task.id,
+              text: task.text,
+              start_date: startDate,
+              duration: task.duration,
+              progress: task.progress || 0,
+              parent: task.parent
+            };
+          });
+        }
+        setProjectTasks({ data: taskData.data || [], links: taskData.links || [] });
+      } else {
+        setProjectTasks({ data: [], links: [] });
+      }
+    } catch (error) {
+      console.error('Error fetching project tasks:', error);
+      setProjectTasks({ data: [], links: [] });
+    }
+  };
+
+  const saveProjectTasks = async () => {
+    if (!id) return;
+
+    try {
+      console.log("saveProjectTasks called");
+
+      // Get current data from Gantt chart
+      const ganttInstance = (window as any).gantt;
+      if (!ganttInstance) {
+        console.error("Gantt instance not found");
+        return;
+      }
+
+      const currentTasks = ganttInstance.serialize();
+      console.log("Current tasks from Gantt:", currentTasks);
+
+      // Clean the data before saving
+      const cleanedData = {
+        data: currentTasks.data.map((task: any) => ({
+          id: task.id,
+          text: task.text,
+          start_date: task.start_date,
+          duration: task.duration,
+          progress: task.progress || 0,
+          parent: task.parent || 0
+        })),
+        links: currentTasks.links || []
+      };
+
+      console.log("Cleaned data:", cleanedData);
+
+      // Check if project_tasks record exists
+      const { data: existingData } = await supabase
+        .from('project_tasks')
+        .select('id')
+        .eq('project_id', id)
+        .maybeSingle();
+
+      if (existingData) {
+        // Update existing record
+        console.log("Updating existing record");
+        const { error } = await supabase
+          .from('project_tasks')
+          .update({
+            task_data: cleanedData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('project_id', id);
+
+        if (error) {
+          console.error('Error updating tasks:', error);
+        } else {
+          console.log("Tasks updated successfully");
+        }
+      } else {
+        // Insert new record
+        console.log("Inserting new record");
+        const { error } = await supabase
+          .from('project_tasks')
+          .insert({
+            project_id: id,
+            task_data: cleanedData
+          });
+
+        if (error) {
+          console.error('Error inserting tasks:', error);
+        } else {
+          console.log("Tasks inserted successfully");
+        }
+      }
+    } catch (error) {
+      console.error('Error saving project tasks:', error);
     }
   };
 
@@ -1129,6 +1257,80 @@ const ProjectDetail: React.FC = () => {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
 
+  const handleTaskSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!taskForm.description || !taskForm.start_date || !taskForm.duration) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      // Generate new task ID
+      const newTaskId = projectTasks.data.length > 0
+        ? Math.max(...projectTasks.data.map((t: any) => t.id)) + 1
+        : 1;
+
+      // Create new task object with time component for dhtmlx-gantt
+      const newTask = {
+        id: newTaskId,
+        text: taskForm.description,
+        start_date: `${taskForm.start_date} 00:00`,
+        duration: taskForm.duration
+      };
+
+      // Add to existing tasks
+      const updatedTaskData = {
+        data: [...projectTasks.data, newTask],
+        links: projectTasks.links || []
+      };
+
+      // Check if project_tasks record exists
+      const { data: existingData } = await supabase
+        .from('project_tasks')
+        .select('id')
+        .eq('project_id', id)
+        .maybeSingle();
+
+      if (existingData) {
+        // Update existing record
+        const { error } = await supabase
+          .from('project_tasks')
+          .update({
+            task_data: updatedTaskData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('project_id', id);
+
+        if (error) throw error;
+      } else {
+        // Insert new record
+        const { error } = await supabase
+          .from('project_tasks')
+          .insert({
+            project_id: id,
+            task_data: updatedTaskData
+          });
+
+        if (error) throw error;
+      }
+
+      // Update local state
+      setProjectTasks(updatedTaskData);
+
+      alert('Task created successfully!');
+      setShowTaskModal(false);
+      setTaskForm({
+        description: '',
+        start_date: '',
+        duration: 1
+      });
+    } catch (error: any) {
+      console.error('Error creating task:', error);
+      alert(`Error creating task: ${error.message}`);
+    }
+  };
+
   const getCostCategoryOptions = (): string[] => {
     if (costCategoryOptions.length > 0) {
       return costCategoryOptions;
@@ -1528,9 +1730,18 @@ const ProjectDetail: React.FC = () => {
 
         {activeTab === 'timeline' && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Project Timeline</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
+              <button
+                onClick={() => setShowTaskModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Create Task
+              </button>
+            </div>
             <div style={{ width: "100%", height: "600px", overflow: "auto" }}>
-              <Gantt projecttasks={projecttasks} />
+              <Gantt projecttasks={projectTasks} onTaskUpdate={saveProjectTasks} />
             </div>
           </div>
         )}
@@ -2600,6 +2811,86 @@ const ProjectDetail: React.FC = () => {
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Task Modal */}
+      {showTaskModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-gray-900">Create New Task</h3>
+                <button
+                  onClick={() => setShowTaskModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleTaskSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Task Description <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={taskForm.description}
+                    onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter task description..."
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Start Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={taskForm.start_date}
+                    onChange={(e) => setTaskForm({ ...taskForm, start_date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Duration (Days) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={taskForm.duration}
+                    onChange={(e) => setTaskForm({ ...taskForm, duration: parseInt(e.target.value) || 1 })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter duration in days..."
+                    required
+                  />
+                </div>
+
+                <div className="flex space-x-3 pt-4">
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>Create Task</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowTaskModal(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
