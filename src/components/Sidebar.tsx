@@ -40,11 +40,11 @@ const Sidebar: React.FC = () => {
 
   return (
     <div className="w-64 bg-white shadow-lg border-r border-gray-200">
-      <div className="flex items-center justify-center p-6 border-b border-gray-200">
+      <div className="flex items-center justify-center py-8 px-4 border-b border-gray-200">
         <img
           src="/Full Logo.png"
           alt="AlignEx"
-          className="h-12 w-auto"
+          className="w-full h-auto"
         />
       </div>
       
