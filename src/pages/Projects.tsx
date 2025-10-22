@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, MoreHorizontal, Grid3x3 as Grid3X3, List, Calendar, User } from 'lucide-react';
+import { Plus, Search, Filter, MoreHorizontal, Grid3x3 as Grid3X3, List, Calendar, User, Settings2, X, Check } from 'lucide-react';
 import ProjectCard from '../components/ProjectCard';
 import { supabase } from '../lib/supabase';
 
@@ -15,6 +15,14 @@ interface Project {
   template_id?: string;
 }
 
+type ColumnKey = 'name' | 'description' | 'status' | 'created' | 'updated';
+
+interface ColumnConfig {
+  key: ColumnKey;
+  label: string;
+  enabled: boolean;
+}
+
 const Projects: React.FC = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
@@ -22,6 +30,14 @@ const Projects: React.FC = () => {
   const [viewMode, setViewMode] = useState<'tile' | 'list'>('tile');
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showColumnCustomizer, setShowColumnCustomizer] = useState(false);
+  const [columns, setColumns] = useState<ColumnConfig[]>([
+    { key: 'name', label: 'Project Name', enabled: true },
+    { key: 'description', label: 'Description', enabled: true },
+    { key: 'status', label: 'Status', enabled: true },
+    { key: 'created', label: 'Created', enabled: true },
+    { key: 'updated', label: 'Updated', enabled: true },
+  ]);
 
   useEffect(() => {
     fetchProjects();
@@ -55,6 +71,14 @@ const Projects: React.FC = () => {
     const matchesFilter = filterStatus === 'all' || project.status.toLowerCase().replace(/[^a-z]/g, '') === filterStatus;
     return matchesSearch && matchesFilter;
   });
+
+  const toggleColumn = (key: ColumnKey) => {
+    setColumns(prev => prev.map(col =>
+      col.key === key ? { ...col, enabled: !col.enabled } : col
+    ));
+  };
+
+  const visibleColumns = columns.filter(col => col.enabled);
 
   return (
     <div className="p-8">
@@ -110,6 +134,16 @@ const Projects: React.FC = () => {
               <span className="text-sm font-medium">List</span>
             </button>
           </div>
+
+          {viewMode === 'list' && (
+            <button
+              onClick={() => setShowColumnCustomizer(!showColumnCustomizer)}
+              className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <Settings2 className="w-5 h-5" />
+              <span>Columns</span>
+            </button>
+          )}
           
           <select
             value={filterStatus}
@@ -197,21 +231,11 @@ const Projects: React.FC = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Project Name
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Description
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Created
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Updated
-                      </th>
+                      {visibleColumns.map((col) => (
+                        <th key={col.key} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {col.label}
+                        </th>
+                      ))}
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
                       </th>
@@ -219,70 +243,89 @@ const Projects: React.FC = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredProjects.map((project) => (
-                      <tr 
-                        key={project.id} 
+                      <tr
+                        key={project.id}
                         className="hover:bg-gray-50 cursor-pointer"
                         onClick={() => navigate(`/projects/${project.id}`)}
                       >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10">
-                              <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                                <User className="h-5 w-5 text-blue-600" />
-                              </div>
-                            </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {project.name}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm text-gray-900 max-w-xs">
-                            <div className="truncate">
-                              {project.description || '-'}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            project.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                            project.status === 'In-Progress' ? 'bg-blue-100 text-blue-800' :
-                            project.status === 'Planning' ? 'bg-yellow-100 text-yellow-800' :
-                            project.status === 'On-Hold' ? 'bg-gray-100 text-gray-800' :
-                            project.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {project.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <div className="flex items-center">
-                            <Calendar className="w-4 h-4 mr-1" />
-                            {new Date(project.created_at).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric'
-                            })}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {project.updated_at !== project.created_at ? (
-                            <div className="flex items-center">
-                              <Calendar className="w-4 h-4 mr-1" />
-                              {new Date(project.updated_at).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric'
-                              })}
-                            </div>
-                          ) : (
-                            '-'
-                          )}
-                        </td>
+                        {visibleColumns.map((col) => {
+                          if (col.key === 'name') {
+                            return (
+                              <td key={col.key} className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex items-center">
+                                  <div className="flex-shrink-0 h-10 w-10">
+                                    <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                                      <User className="h-5 w-5 text-blue-600" />
+                                    </div>
+                                  </div>
+                                  <div className="ml-4">
+                                    <div className="text-sm font-medium text-gray-900">
+                                      {project.name}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                            );
+                          } else if (col.key === 'description') {
+                            return (
+                              <td key={col.key} className="px-6 py-4">
+                                <div className="text-sm text-gray-900 max-w-xs">
+                                  <div className="truncate">
+                                    {project.description || '-'}
+                                  </div>
+                                </div>
+                              </td>
+                            );
+                          } else if (col.key === 'status') {
+                            return (
+                              <td key={col.key} className="px-6 py-4 whitespace-nowrap">
+                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                  project.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                                  project.status === 'In-Progress' ? 'bg-blue-100 text-blue-800' :
+                                  project.status === 'Planning' ? 'bg-yellow-100 text-yellow-800' :
+                                  project.status === 'On-Hold' ? 'bg-gray-100 text-gray-800' :
+                                  project.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {project.status}
+                                </span>
+                              </td>
+                            );
+                          } else if (col.key === 'created') {
+                            return (
+                              <td key={col.key} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <div className="flex items-center">
+                                  <Calendar className="w-4 h-4 mr-1" />
+                                  {new Date(project.created_at).toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric'
+                                  })}
+                                </div>
+                              </td>
+                            );
+                          } else if (col.key === 'updated') {
+                            return (
+                              <td key={col.key} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {project.updated_at !== project.created_at ? (
+                                  <div className="flex items-center">
+                                    <Calendar className="w-4 h-4 mr-1" />
+                                    {new Date(project.updated_at).toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric'
+                                    })}
+                                  </div>
+                                ) : (
+                                  '-'
+                                )}
+                              </td>
+                            );
+                          }
+                          return null;
+                        })}
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <button 
+                          <button
                             className="text-gray-400 hover:text-gray-600"
                             onClick={(e) => e.stopPropagation()}
                           >
@@ -319,6 +362,60 @@ const Projects: React.FC = () => {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Column Customizer Modal */}
+      {showColumnCustomizer && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Customize Columns</h3>
+              <button
+                onClick={() => setShowColumnCustomizer(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Select which columns you want to display in the table view.
+            </p>
+
+            <div className="space-y-2">
+              {columns.map((col) => (
+                <label
+                  key={col.key}
+                  className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                >
+                  <div className="flex items-center justify-center w-5 h-5">
+                    <input
+                      type="checkbox"
+                      checked={col.enabled}
+                      onChange={() => toggleColumn(col.key)}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                  </div>
+                  <span className="text-sm font-medium text-gray-700 flex-1">
+                    {col.label}
+                  </span>
+                  {col.enabled && (
+                    <Check className="w-4 h-4 text-blue-600" />
+                  )}
+                </label>
+              ))}
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setShowColumnCustomizer(false)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
