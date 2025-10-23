@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { MonthlyBudgetGrid } from '../components/MonthlyBudgetGrid';
 import { BudgetSummaryTiles } from '../components/BudgetSummaryTiles';
 import Gantt from "../components/Gantt/Gantt";
+import ProjectStatusDropdown from '../components/ProjectStatusDropdown';
 
 interface Project {
   id: string;
@@ -1585,16 +1586,13 @@ const ProjectDetail: React.FC = () => {
                   <p className="text-gray-600 mt-2">{project.description}</p>
                 )}
                 <div className="flex items-center space-x-4 mt-4">
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                    project.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                    project.status === 'In-Progress' ? 'bg-blue-100 text-blue-800' :
-                    project.status === 'Planning' ? 'bg-yellow-100 text-yellow-800' :
-                    project.status === 'On-Hold' ? 'bg-gray-100 text-gray-800' :
-                    project.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {project.status}
-                  </span>
+                  <ProjectStatusDropdown
+                    currentStatus={project.status}
+                    projectId={project.id}
+                    onStatusUpdate={(newStatus) => {
+                      setProject(prev => prev ? { ...prev, status: newStatus } : null);
+                    }}
+                  />
                   <span className="text-sm text-gray-500">
                     Created {formatDate(project.created_at)}
                   </span>
