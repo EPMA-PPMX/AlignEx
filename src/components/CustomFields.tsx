@@ -31,9 +31,10 @@ const CustomFields: React.FC = () => {
   const fieldTypes = [
     { value: 'text', label: 'Text' },
     { value: 'number', label: 'Number' },
+    { value: 'cost', label: 'Cost' },
     { value: 'email', label: 'Email' },
     { value: 'date', label: 'Date' },
-    { value: 'textarea', label: 'Textarea' },
+    { value: 'textarea', label: 'Multiline Text' },
     { value: 'dropdown', label: 'Dropdown' },
     { value: 'radio', label: 'Radio Button' },
     { value: 'checkbox', label: 'Checkbox' }
