@@ -7,6 +7,7 @@ interface CustomField {
   field_name: string;
   field_type: string;
   field_label: string;
+  field_description?: string;
   is_required: boolean;
   default_value?: string;
   options?: string[];
@@ -23,6 +24,7 @@ const CustomFields: React.FC = () => {
     field_name: '',
     field_type: 'text',
     field_label: '',
+    field_description: '',
     is_required: false,
     default_value: '',
     options: []
@@ -124,6 +126,7 @@ const CustomFields: React.FC = () => {
       field_name: field.field_name,
       field_type: field.field_type,
       field_label: field.field_label,
+      field_description: field.field_description || '',
       is_required: field.is_required,
       default_value: field.default_value || '',
       options: fieldOptions
@@ -162,6 +165,7 @@ const CustomFields: React.FC = () => {
       field_name: '',
       field_type: 'text',
       field_label: '',
+      field_description: '',
       is_required: false,
       default_value: '',
       options: []
@@ -249,6 +253,19 @@ const CustomFields: React.FC = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="e.g., Select the priority level for this project"
               required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Help Text
+            </label>
+            <input
+              type="text"
+              value={formData.field_description}
+              onChange={(e) => setFormData({ ...formData, field_description: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Additional guidance for users filling this field"
             />
           </div>
 

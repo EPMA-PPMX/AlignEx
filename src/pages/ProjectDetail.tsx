@@ -21,6 +21,7 @@ interface CustomField {
   field_name: string;
   field_type: string;
   field_label: string;
+  field_description?: string;
   is_required: boolean;
   default_value?: string;
   options?: string[];
@@ -517,7 +518,26 @@ const ProjectDetail: React.FC = () => {
     }
   };
 
-  const handleFieldValueChange = (fieldId: string, value: any) => {
+  const handleFieldValueChange = (fieldId: string, value: any, fieldType?: string) => {
+    // Validate cost field type - only allow decimal numbers
+    if (fieldType === 'cost') {
+      // Allow empty string for clearing the field
+      if (value === '') {
+        setFieldValues(prev => ({
+          ...prev,
+          [fieldId]: value
+        }));
+        return;
+      }
+
+      // Validate decimal number format
+      const costRegex = /^\d*\.?\d*$/;
+      if (!costRegex.test(value)) {
+        // Don't update if invalid
+        return;
+      }
+    }
+
     setFieldValues(prev => ({
       ...prev,
       [fieldId]: value
@@ -536,7 +556,7 @@ const ProjectDetail: React.FC = () => {
           <input
             type={customField.field_type}
             value={value}
-            onChange={(e) => handleFieldValueChange(customField.id, e.target.value)}
+            onChange={(e) => handleFieldValueChange(customField.id, e.target.value, customField.field_type)}
             placeholder={customField.default_value || `Enter ${customField.field_label.toLowerCase()}`}
             className={baseClasses}
             required={customField.is_required}
@@ -547,10 +567,23 @@ const ProjectDetail: React.FC = () => {
           <input
             type="number"
             value={value}
-            onChange={(e) => handleFieldValueChange(customField.id, e.target.value)}
+            onChange={(e) => handleFieldValueChange(customField.id, e.target.value, customField.field_type)}
             placeholder={customField.default_value || `Enter ${customField.field_label.toLowerCase()}`}
             className={baseClasses}
             required={customField.is_required}
+          />
+        );
+      case 'cost':
+        return (
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => handleFieldValueChange(customField.id, e.target.value, 'cost')}
+            placeholder={customField.default_value || "0.00"}
+            className={baseClasses}
+            required={customField.is_required}
+            pattern="^\d*\.?\d*$"
+            title="Please enter a valid decimal number (e.g., 1000.50)"
           />
         );
       case 'date':
@@ -1611,6 +1644,9 @@ const ProjectDetail: React.FC = () => {
                             {field.customField.field_label}
                             {field.customField.is_required && <span className="text-red-500 ml-1">*</span>}
                           </label>
+                          {field.customField.field_description && (
+                            <p className="text-xs text-gray-500 mb-2">{field.customField.field_description}</p>
+                          )}
                           {renderFieldControl(field)}
                         </div>
                       ))}
