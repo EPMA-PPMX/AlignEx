@@ -11,6 +11,7 @@ interface CustomField {
   is_required: boolean;
   default_value?: string;
   options?: string[];
+  entity_type: 'project' | 'resource';
   created_at: string;
   updated_at: string;
 }
@@ -27,6 +28,7 @@ const CustomFields: React.FC = () => {
     field_description: '',
     is_required: false,
     default_value: '',
+    entity_type: 'project' as 'project' | 'resource',
     options: []
   });
 
@@ -129,6 +131,7 @@ const CustomFields: React.FC = () => {
       field_description: field.field_description || '',
       is_required: field.is_required,
       default_value: field.default_value || '',
+      entity_type: field.entity_type,
       options: fieldOptions
     });
   };
@@ -168,6 +171,7 @@ const CustomFields: React.FC = () => {
       field_description: '',
       is_required: false,
       default_value: '',
+      entity_type: 'project',
       options: []
     });
     setEditingField(null);
@@ -208,7 +212,7 @@ const CustomFields: React.FC = () => {
       {/* Form */}
       <div className="bg-gray-50 rounded-lg p-6 mb-8">
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Field Name <span className="text-red-500">*</span>
@@ -222,7 +226,7 @@ const CustomFields: React.FC = () => {
                 required
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Field Type <span className="text-red-500">*</span>
@@ -238,6 +242,21 @@ const CustomFields: React.FC = () => {
                     {type.label}
                   </option>
                 ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Applies To <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={formData.entity_type}
+                onChange={(e) => setFormData({ ...formData, entity_type: e.target.value as 'project' | 'resource' })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              >
+                <option value="project">Project Fields</option>
+                <option value="resource">Resource Fields</option>
               </select>
             </div>
           </div>
@@ -386,6 +405,9 @@ const CustomFields: React.FC = () => {
                     Description
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Applies To
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Type
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -413,6 +435,15 @@ const CustomFields: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {field.field_label}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        field.entity_type === 'project'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-green-100 text-green-800'
+                      }`}>
+                        {field.entity_type === 'project' ? 'Project' : 'Resource'}
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">

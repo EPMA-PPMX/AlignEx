@@ -322,6 +322,17 @@ interface ResourceModalProps {
   onSave: () => void;
 }
 
+interface CustomField {
+  id: string;
+  field_name: string;
+  field_type: string;
+  field_label: string;
+  field_description?: string;
+  is_required: boolean;
+  default_value?: string;
+  options?: string[];
+}
+
 function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
   const [formData, setFormData] = useState({
     resource_type: resource?.resource_type || 'person',
@@ -337,7 +348,52 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
     status: resource?.status || 'active',
     notes: resource?.notes || '',
   });
+  const [customFields, setCustomFields] = useState<CustomField[]>([]);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetchCustomFields();
+    if (resource) {
+      fetchCustomFieldValues();
+    }
+  }, [resource]);
+
+  const fetchCustomFields = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('custom_fields')
+        .select('*')
+        .eq('entity_type', 'resource')
+        .order('created_at');
+
+      if (error) throw error;
+      setCustomFields(data || []);
+    } catch (error) {
+      console.error('Error fetching custom fields:', error);
+    }
+  };
+
+  const fetchCustomFieldValues = async () => {
+    if (!resource) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('resource_field_values')
+        .select('field_id, value')
+        .eq('resource_id', resource.id);
+
+      if (error) throw error;
+
+      const values: Record<string, string> = {};
+      data?.forEach((item) => {
+        values[item.field_id] = item.value || '';
+      });
+      setCustomFieldValues(values);
+    } catch (error) {
+      console.error('Error fetching custom field values:', error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -367,6 +423,8 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
         dataToSave.email = null;
       }
 
+      let resourceId = resource?.id;
+
       if (resource) {
         const { error } = await supabase
           .from('resources')
@@ -375,11 +433,32 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
 
         if (error) throw error;
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('resources')
-          .insert([dataToSave]);
+          .insert([dataToSave])
+          .select()
+          .single();
 
         if (error) throw error;
+        resourceId = data.id;
+      }
+
+      if (resourceId && customFields.length > 0) {
+        const fieldValuePromises = Object.entries(customFieldValues).map(async ([fieldId, value]) => {
+          const { error } = await supabase
+            .from('resource_field_values')
+            .upsert({
+              resource_id: resourceId,
+              field_id: fieldId,
+              value: value || null,
+            }, {
+              onConflict: 'resource_id,field_id'
+            });
+
+          if (error) throw error;
+        });
+
+        await Promise.all(fieldValuePromises);
       }
 
       onSave();
@@ -388,6 +467,110 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
       alert('Failed to save resource');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const renderCustomField = (field: CustomField) => {
+    const value = customFieldValues[field.id] || field.default_value || '';
+
+    switch (field.field_type) {
+      case 'text':
+      case 'email':
+        return (
+          <input
+            type={field.field_type}
+            value={value}
+            onChange={(e) => setCustomFieldValues({ ...customFieldValues, [field.id]: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required={field.is_required}
+          />
+        );
+
+      case 'number':
+      case 'cost':
+        return (
+          <input
+            type="number"
+            step={field.field_type === 'cost' ? '0.01' : 'any'}
+            value={value}
+            onChange={(e) => setCustomFieldValues({ ...customFieldValues, [field.id]: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required={field.is_required}
+          />
+        );
+
+      case 'date':
+        return (
+          <input
+            type="date"
+            value={value}
+            onChange={(e) => setCustomFieldValues({ ...customFieldValues, [field.id]: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required={field.is_required}
+          />
+        );
+
+      case 'textarea':
+        return (
+          <textarea
+            value={value}
+            onChange={(e) => setCustomFieldValues({ ...customFieldValues, [field.id]: e.target.value })}
+            rows={3}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required={field.is_required}
+          />
+        );
+
+      case 'dropdown':
+        return (
+          <select
+            value={value}
+            onChange={(e) => setCustomFieldValues({ ...customFieldValues, [field.id]: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required={field.is_required}
+          >
+            <option value="">Select an option</option>
+            {field.options?.map((option, idx) => (
+              <option key={idx} value={option}>{option}</option>
+            ))}
+          </select>
+        );
+
+      case 'radio':
+        return (
+          <div className="space-y-2">
+            {field.options?.map((option, idx) => (
+              <label key={idx} className="flex items-center">
+                <input
+                  type="radio"
+                  name={field.id}
+                  value={option}
+                  checked={value === option}
+                  onChange={(e) => setCustomFieldValues({ ...customFieldValues, [field.id]: e.target.value })}
+                  className="mr-2"
+                  required={field.is_required}
+                />
+                {option}
+              </label>
+            ))}
+          </div>
+        );
+
+      case 'checkbox':
+        return (
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={value === 'true'}
+              onChange={(e) => setCustomFieldValues({ ...customFieldValues, [field.id]: e.target.checked ? 'true' : 'false' })}
+              className="mr-2"
+            />
+            {field.field_label}
+          </label>
+        );
+
+      default:
+        return null;
     }
   };
 
@@ -569,6 +752,25 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
               placeholder="Additional information about this resource..."
             />
           </div>
+
+          {customFields.length > 0 && (
+            <div className="border-t border-gray-200 pt-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Custom Fields</h3>
+              <div className="space-y-4">
+                {customFields.map((field) => (
+                  <div key={field.id}>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {field.field_label} {field.is_required && <span className="text-red-500">*</span>}
+                    </label>
+                    {field.field_description && (
+                      <p className="text-xs text-gray-500 mb-2">{field.field_description}</p>
+                    )}
+                    {renderCustomField(field)}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-4">
             <button
