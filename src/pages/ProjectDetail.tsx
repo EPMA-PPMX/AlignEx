@@ -482,23 +482,36 @@ const ProjectDetail: React.FC = () => {
 
     try {
       setSaving(true);
-      const response = await fetch(`http://localhost:5000/api/projects/${id}/field-values`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ fieldValues }),
-      });
 
-      if (response.ok) {
-        alert('Field values saved successfully!');
+      // Convert fieldValues object to array of records
+      const records = Object.entries(fieldValues).map(([fieldId, value]) => ({
+        project_id: id,
+        field_id: fieldId,
+        field_value: value
+      }));
+
+      if (records.length === 0) {
+        alert('No field values to save');
+        return;
+      }
+
+      // Use upsert to handle both insert and update
+      const { data, error } = await supabase
+        .from('project_field_values')
+        .upsert(records, {
+          onConflict: 'project_id, field_id'
+        })
+        .select();
+
+      if (error) {
+        console.error('Error saving field values:', error);
+        alert(`Error saving field values: ${error.message}\n\nDetails: ${error.details || 'No additional details'}\n\nHint: ${error.hint || 'Check database constraints and permissions'}`);
       } else {
-        const result = await response.json();
-        alert(`Error: ${result.error}`);
+        alert('Field values saved successfully!');
       }
     } catch (error) {
       console.error('Error saving field values:', error);
-      alert('Error saving field values');
+      alert(`Unexpected error saving field values: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setSaving(false);
     }
