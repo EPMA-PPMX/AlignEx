@@ -1640,12 +1640,16 @@ const ProjectDetail: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {section.fields.map((field) => (
                         <div key={field.id}>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            {field.customField.field_label}
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            {field.customField.field_name.split('_').map(word =>
+                              word.charAt(0).toUpperCase() + word.slice(1)
+                            ).join(' ')}
                             {field.customField.is_required && <span className="text-red-500 ml-1">*</span>}
                           </label>
-                          {field.customField.field_description && (
-                            <p className="text-xs text-gray-500 mb-2">{field.customField.field_description}</p>
+                          {(field.customField.field_label || field.customField.field_description) && (
+                            <p className="text-xs text-gray-500 mb-2">
+                              {field.customField.field_label || field.customField.field_description}
+                            </p>
                           )}
                           {renderFieldControl(field)}
                         </div>
