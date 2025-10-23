@@ -31,7 +31,7 @@ const Dashboard: React.FC = () => {
 
       const { data: projects, error } = await supabase
         .from('projects')
-        .select('id, status');
+        .select('id, state, health_status');
 
       if (error) {
         console.error('Error fetching project stats:', error);
@@ -41,13 +41,13 @@ const Dashboard: React.FC = () => {
       if (projects) {
         const total = projects.length;
         const active = projects.filter(p =>
-          p.status === 'In-Progress' || p.status === 'Active' || p.status === 'Planning'
+          p.state === 'Active'
         ).length;
         const completed = projects.filter(p =>
-          p.status === 'Completed' || p.status === 'Closed'
+          p.health_status === 'Completed' || p.state === 'Closed'
         ).length;
         const atRisk = projects.filter(p =>
-          p.status === 'At Risk' || p.status === 'Delayed' || p.status === 'On Hold'
+          p.health_status === 'At Risk' || p.health_status === 'Delayed'
         ).length;
 
         setStats({ total, active, completed, atRisk });

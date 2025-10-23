@@ -6,12 +6,15 @@ import { MonthlyBudgetGrid } from '../components/MonthlyBudgetGrid';
 import { BudgetSummaryTiles } from '../components/BudgetSummaryTiles';
 import Gantt from "../components/Gantt/Gantt";
 import ProjectStatusDropdown from '../components/ProjectStatusDropdown';
+import ProjectHealthStatus from '../components/ProjectHealthStatus';
 
 interface Project {
   id: string;
   name: string;
   description?: string;
   status: string;
+  state: string;
+  health_status: string;
   created_at: string;
   updated_at: string;
   template_id?: string;
@@ -1586,13 +1589,26 @@ const ProjectDetail: React.FC = () => {
                   <p className="text-gray-600 mt-2">{project.description}</p>
                 )}
                 <div className="flex items-center space-x-4 mt-4">
-                  <ProjectStatusDropdown
-                    currentStatus={project.status}
-                    projectId={project.id}
-                    onStatusUpdate={(newStatus) => {
-                      setProject(prev => prev ? { ...prev, status: newStatus } : null);
-                    }}
-                  />
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm font-medium text-gray-600">State:</span>
+                    <ProjectStatusDropdown
+                      currentState={project.state}
+                      projectId={project.id}
+                      onStateUpdate={(newState) => {
+                        setProject(prev => prev ? { ...prev, state: newState } : null);
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm font-medium text-gray-600">Status:</span>
+                    <ProjectHealthStatus
+                      currentStatus={project.health_status}
+                      projectId={project.id}
+                      onStatusUpdate={(newStatus) => {
+                        setProject(prev => prev ? { ...prev, health_status: newStatus } : null);
+                      }}
+                    />
+                  </div>
                   <span className="text-sm text-gray-500">
                     Created {formatDate(project.created_at)}
                   </span>

@@ -1,31 +1,31 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 
-interface ProjectStatusDropdownProps {
-  currentState: string;
+interface ProjectHealthStatusProps {
+  currentStatus: string;
   projectId: string;
-  onStateUpdate: (newState: string) => void;
+  onStatusUpdate: (newStatus: string) => void;
 }
 
-const stateOptions = [
-  { value: 'Active', label: 'Active', color: 'bg-blue-100 text-blue-800' },
-  { value: 'On Hold', label: 'On Hold', color: 'bg-yellow-100 text-yellow-800' },
-  { value: 'Cancelled', label: 'Cancelled', color: 'bg-red-100 text-red-800' },
-  { value: 'Closed', label: 'Closed', color: 'bg-gray-100 text-gray-800' },
+const healthStatusOptions = [
+  { value: 'On Track', label: 'On Track', color: 'bg-green-100 text-green-800' },
+  { value: 'At Risk', label: 'At Risk', color: 'bg-red-100 text-red-800' },
+  { value: 'Delayed', label: 'Delayed', color: 'bg-orange-100 text-orange-800' },
+  { value: 'Completed', label: 'Completed', color: 'bg-blue-100 text-blue-800' },
 ];
 
-const ProjectStatusDropdown: React.FC<ProjectStatusDropdownProps> = ({
-  currentState,
+const ProjectHealthStatus: React.FC<ProjectHealthStatusProps> = ({
+  currentStatus,
   projectId,
-  onStateUpdate,
+  onStatusUpdate,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const currentStateOption = stateOptions.find(s => s.value === currentState) || stateOptions[0];
+  const currentStatusOption = healthStatusOptions.find(s => s.value === currentStatus) || healthStatusOptions[0];
 
-  const handleStateChange = async (newState: string) => {
-    if (newState === currentState) {
+  const handleStatusChange = async (newStatus: string) => {
+    if (newStatus === currentStatus) {
       setIsOpen(false);
       return;
     }
@@ -34,18 +34,18 @@ const ProjectStatusDropdown: React.FC<ProjectStatusDropdownProps> = ({
     try {
       const { error } = await supabase
         .from('projects')
-        .update({ state: newState })
+        .update({ health_status: newStatus })
         .eq('id', projectId);
 
       if (error) {
-        alert(`Error updating state: ${error.message}`);
+        alert(`Error updating status: ${error.message}`);
       } else {
-        onStateUpdate(newState);
+        onStatusUpdate(newStatus);
         setIsOpen(false);
       }
     } catch (error) {
-      console.error('Error updating project state:', error);
-      alert('Error updating state. Please try again.');
+      console.error('Error updating project status:', error);
+      alert('Error updating status. Please try again.');
     } finally {
       setIsUpdating(false);
     }
@@ -56,9 +56,9 @@ const ProjectStatusDropdown: React.FC<ProjectStatusDropdownProps> = ({
       <button
         onClick={() => setIsOpen(!isOpen)}
         disabled={isUpdating}
-        className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${currentStateOption.color} hover:opacity-80 transition-opacity cursor-pointer disabled:cursor-wait disabled:opacity-50`}
+        className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${currentStatusOption.color} hover:opacity-80 transition-opacity cursor-pointer disabled:cursor-wait disabled:opacity-50`}
       >
-        {isUpdating ? 'Updating...' : currentStateOption.label}
+        {isUpdating ? 'Updating...' : currentStatusOption.label}
         <svg
           className="ml-2 w-4 h-4"
           fill="none"
@@ -81,12 +81,12 @@ const ProjectStatusDropdown: React.FC<ProjectStatusDropdownProps> = ({
             onClick={() => setIsOpen(false)}
           />
           <div className="absolute z-20 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
-            {stateOptions.map((option) => (
+            {healthStatusOptions.map((option) => (
               <button
                 key={option.value}
-                onClick={() => handleStateChange(option.value)}
+                onClick={() => handleStatusChange(option.value)}
                 className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${
-                  option.value === currentState ? 'bg-gray-100' : ''
+                  option.value === currentStatus ? 'bg-gray-100' : ''
                 }`}
               >
                 <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${option.color}`}>
@@ -101,4 +101,4 @@ const ProjectStatusDropdown: React.FC<ProjectStatusDropdownProps> = ({
   );
 };
 
-export default ProjectStatusDropdown;
+export default ProjectHealthStatus;
