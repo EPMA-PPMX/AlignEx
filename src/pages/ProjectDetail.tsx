@@ -179,6 +179,11 @@ const ProjectDetail: React.FC = () => {
   const [editingChangeRequest, setEditingChangeRequest] = useState<ChangeRequest | null>(null);
   const [viewingChangeRequest, setViewingChangeRequest] = useState<ChangeRequest | null>(null);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [editingProject, setEditingProject] = useState(false);
+  const [projectForm, setProjectForm] = useState({
+    name: '',
+    description: ''
+  });
 
   const [riskForm, setRiskForm] = useState({
     title: '',
@@ -275,6 +280,12 @@ const ProjectDetail: React.FC = () => {
         console.error('Error fetching project:', error);
       } else {
         setProject(data);
+        if (data) {
+          setProjectForm({
+            name: data.name || '',
+            description: data.description || ''
+          });
+        }
       }
     } catch (error) {
       console.error('Error fetching project:', error);
@@ -607,6 +618,58 @@ const ProjectDetail: React.FC = () => {
             required={customField.is_required}
           />
         );
+    }
+  };
+
+  // Project update operations
+  const startEditingProject = () => {
+    setEditingProject(true);
+    setProjectForm({
+      name: project?.name || '',
+      description: project?.description || ''
+    });
+  };
+
+  const cancelEditingProject = () => {
+    setEditingProject(false);
+    setProjectForm({
+      name: project?.name || '',
+      description: project?.description || ''
+    });
+  };
+
+  const handleProjectUpdate = async () => {
+    if (!id || !projectForm.name.trim()) {
+      alert('Project name is required');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const { error } = await supabase
+        .from('projects')
+        .update({
+          name: projectForm.name.trim(),
+          description: projectForm.description.trim()
+        })
+        .eq('id', id);
+
+      if (error) {
+        alert(`Error: ${error.message}`);
+      } else {
+        setProject(prev => prev ? {
+          ...prev,
+          name: projectForm.name.trim(),
+          description: projectForm.description.trim()
+        } : null);
+        setEditingProject(false);
+        alert('Project updated successfully!');
+      }
+    } catch (error) {
+      console.error('Error updating project:', error);
+      alert('Error updating project. Please try again.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -1419,26 +1482,79 @@ const ProjectDetail: React.FC = () => {
           <span>Back to Projects</span>
         </button>
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">{project.name}</h1>
-            {project.description && (
-              <p className="text-gray-600 mt-2">{project.description}</p>
+          <div className="flex-1">
+            {editingProject ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Project Name</label>
+                  <input
+                    type="text"
+                    value={projectForm.name}
+                    onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })}
+                    className="w-full max-w-2xl px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter project name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Project Description</label>
+                  <textarea
+                    value={projectForm.description}
+                    onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
+                    rows={3}
+                    className="w-full max-w-2xl px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
+                    placeholder="Enter project description"
+                  />
+                </div>
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={handleProjectUpdate}
+                    disabled={saving}
+                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{saving ? 'Saving...' : 'Save'}</span>
+                  </button>
+                  <button
+                    onClick={cancelEditingProject}
+                    disabled={saving}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div className="flex items-center space-x-3">
+                  <h1 className="text-3xl font-bold text-gray-900">{project.name}</h1>
+                  <button
+                    onClick={startEditingProject}
+                    className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+                    title="Edit project name and description"
+                  >
+                    <Edit2 className="w-5 h-5" />
+                  </button>
+                </div>
+                {project.description && (
+                  <p className="text-gray-600 mt-2">{project.description}</p>
+                )}
+                <div className="flex items-center space-x-4 mt-4">
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                    project.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                    project.status === 'In-Progress' ? 'bg-blue-100 text-blue-800' :
+                    project.status === 'Planning' ? 'bg-yellow-100 text-yellow-800' :
+                    project.status === 'On-Hold' ? 'bg-gray-100 text-gray-800' :
+                    project.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {project.status}
+                  </span>
+                  <span className="text-sm text-gray-500">
+                    Created {formatDate(project.created_at)}
+                  </span>
+                </div>
+              </div>
             )}
-            <div className="flex items-center space-x-4 mt-4">
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                project.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                project.status === 'In-Progress' ? 'bg-blue-100 text-blue-800' :
-                project.status === 'Planning' ? 'bg-yellow-100 text-yellow-800' :
-                project.status === 'On-Hold' ? 'bg-gray-100 text-gray-800' :
-                project.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
-                'bg-gray-100 text-gray-800'
-              }`}>
-                {project.status}
-              </span>
-              <span className="text-sm text-gray-500">
-                Created {formatDate(project.created_at)}
-              </span>
-            </div>
           </div>
         </div>
       </div>
