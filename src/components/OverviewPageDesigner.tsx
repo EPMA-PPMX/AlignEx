@@ -581,7 +581,7 @@ const OverviewPageDesigner: React.FC = () => {
                           .filter(field => !section.fields.some(sectionField => sectionField.customFieldId === field.id))
                           .map((field) => (
                             <option key={field.id} value={field.id}>
-                              {field.field_label} ({field.field_type})
+                              {field.field_name} ({field.field_type})
                             </option>
                           ))}
                       </select>
