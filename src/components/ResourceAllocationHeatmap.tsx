@@ -45,10 +45,20 @@ export default function ResourceAllocationHeatmap({
       const weeklyAllocations = weeks.map(week => {
         const tasksInWeek = tasks.filter(task => {
           if (!task.owner || task.owner !== member.member_name) return false;
+          if (!task.start_date) return false;
 
-          const taskStart = new Date(task.start_date.split(' ')[0]);
+          // Handle different date formats
+          let dateString = task.start_date;
+          if (typeof dateString === 'string') {
+            // If it has time component, split it
+            dateString = dateString.split(' ')[0];
+          }
+
+          const taskStart = new Date(dateString);
+          if (isNaN(taskStart.getTime())) return false;
+
           const taskEnd = new Date(taskStart);
-          taskEnd.setDate(taskStart.getDate() + task.duration);
+          taskEnd.setDate(taskStart.getDate() + (task.duration || 0));
 
           return (
             (taskStart <= week.end && taskEnd >= week.start)
