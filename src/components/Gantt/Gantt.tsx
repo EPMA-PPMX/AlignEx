@@ -11,6 +11,7 @@ interface Task {
   duration: number;
   progress?: number;
   parent?: number;
+  owner?: string;
 }
 
 interface Link {
@@ -41,6 +42,13 @@ export default class Gantt extends Component<GanttProps> {
       { name: "duration", label: "Duration", align: "center", width: 70 },
       { name: "owner", label: "Owner", align: "center", width: 120 },
       { name: "add", label: "", width: 44 }
+    ];
+
+    // Configure lightbox to include owner field
+    gantt.config.lightbox.sections = [
+      { name: "description", height: 38, map_to: "text", type: "textarea", focus: true },
+      { name: "owner", height: 22, map_to: "owner", type: "textarea" },
+      { name: "time", type: "duration", map_to: "auto" }
     ];
 
     const { projecttasks, onTaskUpdate } = this.props;

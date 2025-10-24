@@ -1327,14 +1327,18 @@ const ProjectDetail: React.FC = () => {
         text: taskForm.description,
         start_date: `${taskForm.start_date} 00:00`,
         duration: taskForm.duration,
-        owner: taskForm.owner
+        owner: taskForm.owner || ''
       };
+
+      console.log("Creating new task:", newTask);
 
       // Add to existing tasks
       const updatedTaskData = {
         data: [...projectTasks.data, newTask],
         links: projectTasks.links || []
       };
+
+      console.log("Updated task data to save:", updatedTaskData);
 
       // Check if project_tasks record exists
       const { data: existingData } = await supabase
