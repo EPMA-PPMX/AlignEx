@@ -524,7 +524,8 @@ const ProjectDetail: React.FC = () => {
               start_date: startDate,
               duration: task.duration,
               progress: task.progress || 0,
-              parent: task.parent
+              parent: task.parent,
+              owner: task.owner || ''
             };
           });
         }
@@ -586,15 +587,19 @@ const ProjectDetail: React.FC = () => {
 
       // Clean the data before saving
       const cleanedData = {
-        data: currentTasks.data.map((task: any) => ({
-          id: task.id,
-          text: task.text,
-          start_date: task.start_date,
-          duration: task.duration,
-          progress: task.progress || 0,
-          parent: task.parent || 0,
-          owner: task.owner || ''
-        })),
+        data: currentTasks.data.map((task: any) => {
+          const cleanedTask = {
+            id: task.id,
+            text: task.text,
+            start_date: task.start_date,
+            duration: task.duration,
+            progress: task.progress || 0,
+            parent: task.parent || 0,
+            owner: task.owner || ''
+          };
+          console.log(`Task ${task.id} owner:`, task.owner, "-> cleaned:", cleanedTask.owner);
+          return cleanedTask;
+        }),
         links: currentTasks.links || []
       };
 
