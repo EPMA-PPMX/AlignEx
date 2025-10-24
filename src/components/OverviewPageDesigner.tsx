@@ -62,6 +62,7 @@ const OverviewPageDesigner: React.FC = () => {
       const { data, error } = await supabase
         .from('custom_fields')
         .select('*')
+        .eq('entity_type', 'project')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -581,7 +582,7 @@ const OverviewPageDesigner: React.FC = () => {
                           .filter(field => !section.fields.some(sectionField => sectionField.customFieldId === field.id))
                           .map((field) => (
                             <option key={field.id} value={field.id}>
-                              {field.field_label} ({field.field_type})
+                              {field.field_name} ({field.field_type})
                             </option>
                           ))}
                       </select>

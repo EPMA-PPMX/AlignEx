@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatCurrency } from '../lib/utils';
 
 interface MonthlyBudgetForecast {
   id: string;
@@ -126,7 +127,7 @@ export const MonthlyBudgetGrid: React.FC<MonthlyBudgetGridProps> = ({
                       );
                     })}
                     <td className="px-4 py-2 text-sm font-semibold text-right text-gray-900">
-                      ${forecastTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {formatCurrency(forecastTotal)}
                     </td>
                   </tr>
                   <tr className="border-b border-gray-200 hover:bg-gray-50">
@@ -150,7 +151,7 @@ export const MonthlyBudgetGrid: React.FC<MonthlyBudgetGridProps> = ({
                       );
                     })}
                     <td className="px-4 py-2 text-sm font-semibold text-right text-gray-900">
-                      ${actualTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {formatCurrency(actualTotal)}
                     </td>
                   </tr>
                   <tr className="border-b-2 border-gray-300 bg-gray-50">

@@ -1,5 +1,6 @@
 import React from 'react';
 import { DollarSign, TrendingUp, TrendingDown, Activity } from 'lucide-react';
+import { formatCurrency } from '../lib/utils';
 
 interface BudgetMetrics {
   totalBudget: number;
@@ -27,15 +28,6 @@ export const BudgetSummaryTiles: React.FC<BudgetSummaryTilesProps> = ({
   const { totalBudget, totalSpent, remaining, burnRate } = metrics;
   const spentPercentage = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
   const isOverBudget = remaining < 0;
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(Math.abs(value));
-  };
 
   const getViewLabel = () => {
     if (viewFilter === 'monthly') {
@@ -102,7 +94,7 @@ export const BudgetSummaryTiles: React.FC<BudgetSummaryTilesProps> = ({
             </div>
           </div>
           <div className={`text-2xl font-bold ${isOverBudget ? 'text-red-600' : 'text-gray-900'}`}>
-            {isOverBudget ? '-' : ''}{formatCurrency(remaining)}
+            {isOverBudget ? '-' : ''}{formatCurrency(Math.abs(remaining))}
           </div>
           <p className={`text-xs mt-1 ${isOverBudget ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
             {isOverBudget ? 'Over budget!' : 'Available to spend'}

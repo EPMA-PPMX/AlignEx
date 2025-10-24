@@ -1455,7 +1455,7 @@ app.get('/api/custom-fields/cost-category', async (req, res) => {
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'EPMASenseWork API is running' });
+  res.json({ status: 'OK', message: 'AlignEx API is running' });
 });
 
 app.listen(PORT, () => {

@@ -1,41 +1,95 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Users, Clock, CheckCircle, AlertCircle, TrendingUp, Calendar } from 'lucide-react';
 import StatsCard from '../components/StatsCard';
 import RecentActivity from '../components/RecentActivity';
 import ProjectOverview from '../components/ProjectOverview';
+import { supabase } from '../lib/supabase';
+
+interface ProjectStats {
+  total: number;
+  active: number;
+  completed: number;
+  atRisk: number;
+}
 
 const Dashboard: React.FC = () => {
-  const stats = [
+  const [stats, setStats] = useState<ProjectStats>({
+    total: 0,
+    active: 0,
+    completed: 0,
+    atRisk: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchProjectStats();
+  }, []);
+
+  const fetchProjectStats = async () => {
+    try {
+      setLoading(true);
+
+      const { data: projects, error } = await supabase
+        .from('projects')
+        .select('id, state, health_status');
+
+      if (error) {
+        console.error('Error fetching project stats:', error);
+        return;
+      }
+
+      if (projects) {
+        const total = projects.length;
+        const active = projects.filter(p =>
+          p.state === 'Active'
+        ).length;
+        const completed = projects.filter(p =>
+          p.health_status === 'Completed' || p.state === 'Closed'
+        ).length;
+        const atRisk = projects.filter(p =>
+          p.health_status === 'At Risk' || p.health_status === 'Delayed'
+        ).length;
+
+        setStats({ total, active, completed, atRisk });
+      }
+    } catch (error) {
+      console.error('Error fetching project stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const statsCards = [
     {
       title: 'Total Projects',
-      value: '24',
+      value: loading ? '-' : stats.total.toString(),
       icon: Users,
-      change: '+12%',
+      change: '',
       changeType: 'positive' as const,
       color: 'blue',
     },
     {
       title: 'Active Projects',
-      value: '18',
+      value: loading ? '-' : stats.active.toString(),
       icon: Clock,
-      change: '+5%',
+      change: '',
       changeType: 'positive' as const,
       color: 'emerald',
     },
     {
       title: 'Completed',
-      value: '6',
+      value: loading ? '-' : stats.completed.toString(),
       icon: CheckCircle,
-      change: '+25%',
+      change: '',
       changeType: 'positive' as const,
       color: 'green',
     },
     {
       title: 'At Risk',
-      value: '3',
+      value: loading ? '-' : stats.atRisk.toString(),
       icon: AlertCircle,
-      change: '-8%',
-      changeType: 'negative' as const,
+      change: '',
+      changeType: stats.atRisk > 0 ? 'negative' as const : 'positive' as const,
       color: 'red',
     },
   ];
@@ -49,7 +103,7 @@ const Dashboard: React.FC = () => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {stats.map((stat, index) => (
+        {statsCards.map((stat, index) => (
           <StatsCard key={index} {...stat} />
         ))}
       </div>
