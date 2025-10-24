@@ -216,8 +216,11 @@ const ProjectDetail: React.FC = () => {
   const [taskForm, setTaskForm] = useState({
     description: '',
     start_date: '',
-    duration: 1
+    duration: 1,
+    owner: ''
   });
+
+  const [teamMembers, setTeamMembers] = useState<string[]>([]);
 
   const [uploadedFiles, setUploadedFiles] = useState<Array<{
     fileName: string;
@@ -252,6 +255,7 @@ const ProjectDetail: React.FC = () => {
       fetchCostCategoryOptions();
       fetchMonthlyForecasts();
       fetchProjectTasks();
+      fetchTeamMembers();
     }
   }, [id]);
 
@@ -519,6 +523,17 @@ const ProjectDetail: React.FC = () => {
     }
   };
 
+  const fetchTeamMembers = async () => {
+    // For now, using sample data. You can later fetch from a database
+    setTeamMembers([
+      'John Doe',
+      'Jane Smith',
+      'Bob Johnson',
+      'Alice Williams',
+      'Charlie Brown'
+    ]);
+  };
+
   const saveProjectTasks = async () => {
     if (!id) return;
 
@@ -543,7 +558,8 @@ const ProjectDetail: React.FC = () => {
           start_date: task.start_date,
           duration: task.duration,
           progress: task.progress || 0,
-          parent: task.parent || 0
+          parent: task.parent || 0,
+          owner: task.owner || ''
         })),
         links: currentTasks.links || []
       };
@@ -1276,7 +1292,8 @@ const ProjectDetail: React.FC = () => {
         id: newTaskId,
         text: taskForm.description,
         start_date: `${taskForm.start_date} 00:00`,
-        duration: taskForm.duration
+        duration: taskForm.duration,
+        owner: taskForm.owner
       };
 
       // Add to existing tasks
@@ -1323,7 +1340,8 @@ const ProjectDetail: React.FC = () => {
       setTaskForm({
         description: '',
         start_date: '',
-        duration: 1
+        duration: 1,
+        owner: ''
       });
     } catch (error: any) {
       console.error('Error creating task:', error);
@@ -2872,6 +2890,24 @@ const ProjectDetail: React.FC = () => {
                     placeholder="Enter duration in days..."
                     required
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Task Owner
+                  </label>
+                  <select
+                    value={taskForm.owner}
+                    onChange={(e) => setTaskForm({ ...taskForm, owner: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select task owner...</option>
+                    {teamMembers.map((member, index) => (
+                      <option key={index} value={member}>
+                        {member}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="flex space-x-3 pt-4">
