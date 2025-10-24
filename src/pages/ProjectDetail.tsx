@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase';
 import { MonthlyBudgetGrid } from '../components/MonthlyBudgetGrid';
 import { BudgetSummaryTiles } from '../components/BudgetSummaryTiles';
 import Gantt from "../components/Gantt/Gantt";
+import TeamMembersManager from '../components/TeamMembersManager';
+import ResourceAllocationHeatmap from '../components/ResourceAllocationHeatmap';
 
 interface Project {
   id: string;
@@ -51,6 +53,17 @@ interface ProjectFieldValue {
   project_id: string;
   field_id: string;
   field_value: any;
+}
+
+interface TeamMember {
+  id: string;
+  project_id: string;
+  member_name: string;
+  member_email: string;
+  role: string;
+  allocation_percentage: number;
+  start_date: string;
+  end_date: string | null;
 }
 
 interface Risk {
@@ -220,7 +233,8 @@ const ProjectDetail: React.FC = () => {
     owner: ''
   });
 
-  const [teamMembers, setTeamMembers] = useState<string[]>([]);
+  const [teamMembersForPicker, setTeamMembersForPicker] = useState<string[]>([]);
+  const [projectTeamMembers, setProjectTeamMembers] = useState<TeamMember[]>([]);
 
   const [uploadedFiles, setUploadedFiles] = useState<Array<{
     fileName: string;
@@ -256,6 +270,7 @@ const ProjectDetail: React.FC = () => {
       fetchMonthlyForecasts();
       fetchProjectTasks();
       fetchTeamMembers();
+      fetchProjectTeamMembers();
     }
   }, [id]);
 
@@ -525,13 +540,32 @@ const ProjectDetail: React.FC = () => {
 
   const fetchTeamMembers = async () => {
     // For now, using sample data. You can later fetch from a database
-    setTeamMembers([
+    setTeamMembersForPicker([
       'John Doe',
       'Jane Smith',
       'Bob Johnson',
       'Alice Williams',
       'Charlie Brown'
     ]);
+  };
+
+  const fetchProjectTeamMembers = async () => {
+    if (!id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('team_members')
+        .select('*')
+        .eq('project_id', id)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      setProjectTeamMembers(data || []);
+    } catch (error) {
+      console.error('Error fetching project team members:', error);
+      setProjectTeamMembers([]);
+    }
   };
 
   const saveProjectTasks = async () => {
@@ -1765,10 +1799,18 @@ const ProjectDetail: React.FC = () => {
         )}
 
         {activeTab === 'team' && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-            <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Team Management Coming Soon</h3>
-            <p className="text-gray-600">Team member management will be available in future updates.</p>
+          <div className="space-y-6">
+            <ResourceAllocationHeatmap
+              teamMembers={projectTeamMembers}
+              tasks={projectTasks.data}
+              weeksToShow={12}
+            />
+
+            <TeamMembersManager
+              projectId={id!}
+              teamMembers={projectTeamMembers}
+              onMembersUpdated={fetchProjectTeamMembers}
+            />
           </div>
         )}
 
@@ -2902,9 +2944,9 @@ const ProjectDetail: React.FC = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">Select task owner...</option>
-                    {teamMembers.map((member, index) => (
-                      <option key={index} value={member}>
-                        {member}
+                    {projectTeamMembers.map((member) => (
+                      <option key={member.id} value={member.member_name}>
+                        {member.member_name}
                       </option>
                     ))}
                   </select>
