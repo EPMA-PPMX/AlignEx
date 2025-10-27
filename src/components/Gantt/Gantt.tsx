@@ -33,6 +33,11 @@ export default class Gantt extends Component<GanttProps> {
   componentDidMount(): void {
     gantt.config.date_format = "%Y-%m-%d %H:%i";
 
+    // Enable auto-scheduling to automatically adjust task dates based on dependencies
+    gantt.config.auto_scheduling = true;
+    gantt.config.auto_scheduling_strict = true;
+    gantt.config.auto_scheduling_compatibility = true;
+
     const { projecttasks } = this.props;
 
     if (this.ganttContainer.current) {
