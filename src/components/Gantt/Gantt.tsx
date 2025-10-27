@@ -39,10 +39,6 @@ export default class Gantt extends Component<GanttProps> {
     gantt.config.auto_scheduling_strict = true;
     gantt.config.auto_scheduling_compatibility = true;
 
-    // Enable auto-scheduling to work on link creation
-    gantt.config.auto_scheduling_initial = false;
-    gantt.config.auto_scheduling_use_progress = false;
-
     // Attach event handlers to capture changes
     this.attachEventHandlers();
 
@@ -51,9 +47,6 @@ export default class Gantt extends Component<GanttProps> {
     if (this.ganttContainer.current) {
       gantt.init(this.ganttContainer.current);
       gantt.parse(projecttasks);
-
-      // Enable auto-scheduling after initialization
-      gantt.autoSchedule();
     }
   }
 
@@ -67,39 +60,9 @@ export default class Gantt extends Component<GanttProps> {
     gantt.attachEvent("onAfterTaskUpdate", () => this.saveData());
     gantt.attachEvent("onAfterTaskDelete", () => this.saveData());
 
-    // After any link is added - manually handle finish-to-start dependency
-    gantt.attachEvent("onAfterLinkAdd", (id, link) => {
-      // Get the predecessor (source) and successor (target) tasks
-      const predecessor = gantt.getTask(link.source);
-      const successor = gantt.getTask(link.target);
-
-      if (predecessor && successor) {
-        // Calculate the end date of the predecessor
-        const predecessorEndDate = gantt.calculateEndDate({
-          start_date: predecessor.start_date,
-          duration: predecessor.duration,
-          task: predecessor
-        });
-
-        // Set the successor to start right after the predecessor ends
-        successor.start_date = predecessorEndDate;
-        gantt.updateTask(successor.id);
-      }
-
-      // Try auto-schedule if available (for premium users)
-      if (typeof gantt.autoSchedule === 'function') {
-        gantt.autoSchedule();
-      }
-
-      this.saveData();
-    });
-
-    gantt.attachEvent("onAfterLinkDelete", () => {
-      if (typeof gantt.autoSchedule === 'function') {
-        gantt.autoSchedule();
-      }
-      this.saveData();
-    });
+    // After any link is added or deleted
+    gantt.attachEvent("onAfterLinkAdd", () => this.saveData());
+    gantt.attachEvent("onAfterLinkDelete", () => this.saveData());
   }
 
   saveData(): void {
