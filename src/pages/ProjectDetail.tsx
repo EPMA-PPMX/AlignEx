@@ -172,6 +172,7 @@ const ProjectDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [projecttasks, setProjectTasks] = useState<{ data: any[]; links: any[] }>({ data: [], links: [] });
 
   // Form states for modals
   const [showRiskModal, setShowRiskModal] = useState(false);
@@ -239,15 +240,6 @@ const ProjectDetail: React.FC = () => {
     { id: 'settings', name: 'Documents', icon: FileText },
   ];
 
-  const projecttasks = {
-  data: [
-    { id: 1, text: "Task #1", start_date: "2025-10-01", duration: 5 },
-    { id: 2, text: "Task #2", start_date: "2025-12-06", duration: 4, parent: 1 },
-  ],
-  links: [
-    { id: 1, source: 1, target: 2, type: "0" },
-  ],
-};
 
   useEffect(() => {
     if (id) {
@@ -259,6 +251,7 @@ const ProjectDetail: React.FC = () => {
       fetchBudgets();
       fetchCostCategoryOptions();
       fetchMonthlyForecasts();
+      fetchTasks();
     }
   }, [id]);
 
@@ -296,6 +289,76 @@ const ProjectDetail: React.FC = () => {
       console.error('Error fetching project:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTasks = async () => {
+    if (!id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('project_tasks')
+        .select('*')
+        .eq('project_id', id)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching tasks:', error);
+      } else if (data?.task_data) {
+        setProjectTasks(data.task_data);
+      } else {
+        setProjectTasks({ data: [], links: [] });
+      }
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+    }
+  };
+
+  const saveTasks = async (taskData: { data: any[]; links: any[] }) => {
+    if (!id) return;
+
+    try {
+      const { data: existingTask, error: fetchError } = await supabase
+        .from('project_tasks')
+        .select('id')
+        .eq('project_id', id)
+        .maybeSingle();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error('Error checking existing tasks:', fetchError);
+        return;
+      }
+
+      if (existingTask) {
+        const { error } = await supabase
+          .from('project_tasks')
+          .update({
+            task_data: taskData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('project_id', id);
+
+        if (error) {
+          console.error('Error updating tasks:', error);
+        } else {
+          setProjectTasks(taskData);
+        }
+      } else {
+        const { error } = await supabase
+          .from('project_tasks')
+          .insert({
+            project_id: id,
+            task_data: taskData
+          });
+
+        if (error) {
+          console.error('Error creating tasks:', error);
+        } else {
+          setProjectTasks(taskData);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving tasks:', error);
     }
   };
 
@@ -1713,7 +1776,7 @@ const ProjectDetail: React.FC = () => {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Project Timeline</h3>
             <div style={{ width: "100%", height: "600px", overflow: "auto" }}>
-              <Gantt projecttasks={projecttasks} />
+              <Gantt projecttasks={projecttasks} onDataChange={saveTasks} />
             </div>
           </div>
         )}
