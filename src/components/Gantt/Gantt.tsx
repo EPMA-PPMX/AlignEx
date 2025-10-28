@@ -27,6 +27,7 @@ interface GanttProps {
   };
   onTaskUpdate?: () => void;
   onOpenTaskModal?: (parentId?: number) => void;
+  onEditTask?: (taskId: number) => void;
 }
 
 export default class Gantt extends Component<GanttProps> {
@@ -45,7 +46,7 @@ export default class Gantt extends Component<GanttProps> {
       { name: "add", label: "", width: 44 }
     ];
 
-    const { projecttasks, onTaskUpdate, onOpenTaskModal } = this.props;
+    const { projecttasks, onTaskUpdate, onOpenTaskModal, onEditTask } = this.props;
 
     // Intercept task creation to use custom modal
     if (onOpenTaskModal) {
@@ -90,7 +91,14 @@ export default class Gantt extends Component<GanttProps> {
             onOpenTaskModal(parentId);
             return false;
           }
-          // Allow editing existing tasks
+
+          // Open custom modal for editing existing tasks
+          if (onEditTask) {
+            onEditTask(id);
+            return false;
+          }
+
+          // Fallback to default lightbox if no edit callback
           return true;
         } catch (error) {
           console.error("Error in onBeforeLightbox:", error);

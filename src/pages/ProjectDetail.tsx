@@ -231,6 +231,7 @@ const ProjectDetail: React.FC = () => {
     owner_id: '',
     parent_id: undefined as number | undefined
   });
+  const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
 
   const [projectTeamMembers, setProjectTeamMembers] = useState<any[]>([]);
 
@@ -1420,38 +1421,71 @@ const ProjectDetail: React.FC = () => {
     }
 
     try {
-      // Generate new task ID
-      const newTaskId = projectTasks.data.length > 0
-        ? Math.max(...projectTasks.data.map((t: any) => t.id)) + 1
-        : 1;
+      let updatedTaskData;
 
-      // Create new task object with time component for dhtmlx-gantt
-      const newTask: any = {
-        id: newTaskId,
-        text: taskForm.description,
-        start_date: `${taskForm.start_date} 00:00`,
-        duration: taskForm.duration
-      };
+      if (editingTaskId) {
+        // Update existing task
+        updatedTaskData = {
+          data: projectTasks.data.map((task: any) => {
+            if (task.id === editingTaskId) {
+              const updatedTask: any = {
+                ...task,
+                text: taskForm.description,
+                start_date: `${taskForm.start_date} 00:00`,
+                duration: taskForm.duration
+              };
 
-      // Add parent if this is a subtask
-      if (taskForm.parent_id) {
-        newTask.parent = taskForm.parent_id;
-      }
+              // Update owner if selected
+              if (taskForm.owner_id) {
+                updatedTask.owner_id = taskForm.owner_id;
+                const owner = projectTeamMembers.find((m: any) => m.resource_id === taskForm.owner_id);
+                if (owner?.resources) {
+                  updatedTask.owner_name = owner.resources.display_name;
+                }
+              } else {
+                updatedTask.owner_id = undefined;
+                updatedTask.owner_name = undefined;
+              }
 
-      // Add owner if selected
-      if (taskForm.owner_id) {
-        newTask.owner_id = taskForm.owner_id;
-        const owner = projectTeamMembers.find((m: any) => m.resource_id === taskForm.owner_id);
-        if (owner?.resources) {
-          newTask.owner_name = owner.resources.display_name;
+              return updatedTask;
+            }
+            return task;
+          }),
+          links: projectTasks.links || []
+        };
+      } else {
+        // Create new task
+        const newTaskId = projectTasks.data.length > 0
+          ? Math.max(...projectTasks.data.map((t: any) => t.id)) + 1
+          : 1;
+
+        const newTask: any = {
+          id: newTaskId,
+          text: taskForm.description,
+          start_date: `${taskForm.start_date} 00:00`,
+          duration: taskForm.duration
+        };
+
+        // Add parent if this is a subtask
+        if (taskForm.parent_id) {
+          newTask.parent = taskForm.parent_id;
         }
-      }
 
-      // Add to existing tasks
-      const updatedTaskData = {
-        data: [...projectTasks.data, newTask],
-        links: projectTasks.links || []
-      };
+        // Add owner if selected
+        if (taskForm.owner_id) {
+          newTask.owner_id = taskForm.owner_id;
+          const owner = projectTeamMembers.find((m: any) => m.resource_id === taskForm.owner_id);
+          if (owner?.resources) {
+            newTask.owner_name = owner.resources.display_name;
+          }
+        }
+
+        // Add to existing tasks
+        updatedTaskData = {
+          data: [...projectTasks.data, newTask],
+          links: projectTasks.links || []
+        };
+      }
 
       // Check if project_tasks record exists
       const { data: existingData } = await supabase
@@ -1486,8 +1520,9 @@ const ProjectDetail: React.FC = () => {
       // Update local state
       setProjectTasks(updatedTaskData);
 
-      alert('Task created successfully!');
+      alert(editingTaskId ? 'Task updated successfully!' : 'Task created successfully!');
       setShowTaskModal(false);
+      setEditingTaskId(null);
       setTaskForm({
         description: '',
         start_date: '',
@@ -1989,7 +2024,26 @@ const ProjectDetail: React.FC = () => {
                 onTaskUpdate={saveProjectTasks}
                 onOpenTaskModal={(parentId) => {
                   setTaskForm({ ...taskForm, parent_id: parentId });
+                  setEditingTaskId(null);
                   setShowTaskModal(true);
+                }}
+                onEditTask={(taskId) => {
+                  const task = projectTasks.data.find((t: any) => t.id === taskId);
+                  if (task) {
+                    let startDate = task.start_date;
+                    if (startDate && startDate.includes(' ')) {
+                      startDate = startDate.split(' ')[0];
+                    }
+                    setTaskForm({
+                      description: task.text,
+                      start_date: startDate,
+                      duration: task.duration,
+                      owner_id: task.owner_id || '',
+                      parent_id: task.parent || undefined
+                    });
+                    setEditingTaskId(taskId);
+                    setShowTaskModal(true);
+                  }
                 }}
               />
             </div>
@@ -3070,9 +3124,13 @@ const ProjectDetail: React.FC = () => {
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900">
-                    {taskForm.parent_id ? 'Create Subtask' : 'Create New Task'}
+                    {editingTaskId
+                      ? 'Edit Task'
+                      : taskForm.parent_id
+                        ? 'Create Subtask'
+                        : 'Create New Task'}
                   </h3>
-                  {taskForm.parent_id && (
+                  {!editingTaskId && taskForm.parent_id && (
                     <p className="text-sm text-gray-500 mt-1">
                       This will be created as a subtask under task #{taskForm.parent_id}
                     </p>
@@ -3081,6 +3139,7 @@ const ProjectDetail: React.FC = () => {
                 <button
                   onClick={() => {
                     setShowTaskModal(false);
+                    setEditingTaskId(null);
                     setTaskForm({
                       description: '',
                       start_date: '',
@@ -3167,7 +3226,7 @@ const ProjectDetail: React.FC = () => {
                     className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
                   >
                     <Save className="w-4 h-4" />
-                    <span>Create Task</span>
+                    <span>{editingTaskId ? 'Update Task' : 'Create Task'}</span>
                   </button>
                   <button
                     type="button"
