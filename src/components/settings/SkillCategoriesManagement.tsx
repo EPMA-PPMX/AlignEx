@@ -6,6 +6,7 @@ interface SkillCategory {
   id: string;
   name: string;
   description: string;
+  manager: string;
   created_at: string;
   updated_at: string;
 }
@@ -18,6 +19,7 @@ export default function SkillCategoriesManagement() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    manager: '',
   });
 
   useEffect(() => {
@@ -52,6 +54,7 @@ export default function SkillCategoriesManagement() {
         {
           name: formData.name.trim(),
           description: formData.description.trim(),
+          manager: formData.manager.trim(),
         },
       ]).select();
 
@@ -62,7 +65,7 @@ export default function SkillCategoriesManagement() {
       }
 
       console.log('Category added successfully:', data);
-      setFormData({ name: '', description: '' });
+      setFormData({ name: '', description: '', manager: '' });
       setShowAddForm(false);
       fetchCategories();
     } catch (error: any) {
@@ -81,6 +84,7 @@ export default function SkillCategoriesManagement() {
         .update({
           name: category.name,
           description: category.description,
+          manager: category.manager,
           updated_at: new Date().toISOString(),
         })
         .eq('id', id);
@@ -127,7 +131,7 @@ export default function SkillCategoriesManagement() {
         <div>
           <h2 className="text-xl font-semibold text-slate-900">Skill Categories</h2>
           <p className="text-sm text-slate-600 mt-1">
-            Manage skill categories for organizing skills
+            Manage skill categories and assign category managers
           </p>
         </div>
         <button
@@ -142,7 +146,7 @@ export default function SkillCategoriesManagement() {
       {showAddForm && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <h3 className="font-medium text-slate-900 mb-4">New Skill Category</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
                 Category Name <span className="text-red-500">*</span>
@@ -153,6 +157,16 @@ export default function SkillCategoriesManagement() {
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="e.g., Project Management"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Manager</label>
+              <input
+                type="text"
+                value={formData.manager}
+                onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Manager name"
               />
             </div>
             <div>
@@ -177,7 +191,7 @@ export default function SkillCategoriesManagement() {
             <button
               onClick={() => {
                 setShowAddForm(false);
-                setFormData({ name: '', description: '' });
+                setFormData({ name: '', description: '', manager: '' });
               }}
               className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
             >
@@ -200,6 +214,7 @@ export default function SkillCategoriesManagement() {
                 <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">
                   Category Name
                 </th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Manager</th>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">
                   Description
                 </th>
@@ -219,6 +234,18 @@ export default function SkillCategoriesManagement() {
                       />
                     ) : (
                       <span className="font-medium text-slate-900">{category.name}</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-4">
+                    {editingId === category.id ? (
+                      <input
+                        type="text"
+                        value={category.manager}
+                        onChange={(e) => handleCategoryChange(category.id, 'manager', e.target.value)}
+                        className="w-full px-2 py-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    ) : (
+                      <span className="text-slate-700">{category.manager || '-'}</span>
                     )}
                   </td>
                   <td className="py-3 px-4">
