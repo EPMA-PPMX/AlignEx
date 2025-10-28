@@ -597,7 +597,12 @@ const ProjectDetail: React.FC = () => {
           owner_id: task.owner_id,
           owner_name: task.owner_name
         })),
-        links: currentTasks.links || []
+        links: (currentTasks.links || []).map((link: any) => ({
+          id: link.id,
+          source: link.source,
+          target: link.target,
+          type: link.type
+        }))
       };
 
       console.log("Cleaned data:", cleanedData);

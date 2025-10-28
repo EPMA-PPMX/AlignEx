@@ -141,6 +141,8 @@ export default class Gantt extends Component<GanttProps> {
 
     if (this.ganttContainer.current) {
       gantt.init(this.ganttContainer.current);
+      console.log("Initializing Gantt with data:", projecttasks);
+      console.log("Links in projecttasks:", projecttasks.links);
       gantt.parse(projecttasks);
     }
 
