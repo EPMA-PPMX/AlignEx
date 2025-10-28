@@ -1964,7 +1964,10 @@ const ProjectDetail: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
               <button
-                onClick={() => setShowTaskModal(true)}
+                onClick={() => {
+                  setTaskForm({ ...taskForm, parent_id: undefined });
+                  setShowTaskModal(true);
+                }}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 <Plus className="w-4 h-4" />

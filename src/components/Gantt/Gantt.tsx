@@ -31,6 +31,7 @@ interface GanttProps {
 
 export default class Gantt extends Component<GanttProps> {
   private ganttContainer = createRef<HTMLDivElement>();
+  private pendingParentId: number | undefined = undefined;
 
   componentDidMount(): void {
     gantt.config.date_format = "%Y-%m-%d %H:%i";
@@ -51,10 +52,23 @@ export default class Gantt extends Component<GanttProps> {
       // Prevent default lightbox (inline editor) from opening
       gantt.config.readonly = false;
 
+      // Capture which row's Add button was clicked
+      gantt.attachEvent("onTaskCreated", (task: any) => {
+        // This event gives us the task object with parent info when Add button is clicked
+        this.pendingParentId = task.parent || undefined;
+        console.log("Task creation initiated, parent:", this.pendingParentId);
+        return true;
+      });
+
       gantt.attachEvent("onBeforeTaskAdd", (id: any, task: any) => {
-        // Open custom modal with parent ID if it's a subtask
-        const parentId = task.parent || undefined;
+        // Use the captured parent ID or the task's parent
+        const parentId = this.pendingParentId !== undefined ? this.pendingParentId : (task.parent || undefined);
+        console.log("Opening modal with parent:", parentId);
         onOpenTaskModal(parentId);
+
+        // Reset the pending parent
+        this.pendingParentId = undefined;
+
         // Prevent the default task from being added
         return false;
       });
