@@ -56,7 +56,7 @@ interface ProjectFieldValue {
   id: string;
   project_id: string;
   field_id: string;
-  field_value: any;
+  value: any;
 }
 
 interface Risk {
@@ -338,7 +338,7 @@ const ProjectDetail: React.FC = () => {
       } else if (data) {
         const values: { [key: string]: any } = {};
         data.forEach((item: ProjectFieldValue) => {
-          values[item.field_id] = item.field_value;
+          values[item.field_id] = item.value;
         });
         setFieldValues(values);
       }
@@ -622,7 +622,7 @@ const ProjectDetail: React.FC = () => {
       const records = Object.entries(fieldValues).map(([fieldId, value]) => ({
         project_id: id,
         field_id: fieldId,
-        field_value: value
+        value: value
       }));
 
       if (records.length === 0) {
