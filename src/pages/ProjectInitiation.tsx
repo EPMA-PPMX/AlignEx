@@ -158,7 +158,7 @@ export default function ProjectInitiation() {
           template_id: templateData?.id || null,
           status: 'Planning',
           state: 'Active',
-          health_status: 'On Track'
+          project_status: 'On Track'
         }])
         .select();
 
