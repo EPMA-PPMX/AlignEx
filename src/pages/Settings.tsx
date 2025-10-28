@@ -17,7 +17,7 @@ const Settings: React.FC = () => {
     { id: 'appearance', name: 'Appearance', icon: Palette },
     { id: 'integrations', name: 'Integrations', icon: Database },
     { id: 'general', name: 'General', icon: Globe },
-    { id: 'project-templates', name: 'Project Templates', icon: Settings2 },
+    { id: 'project-templates', name: 'Project Types', icon: Settings2 },
     { id: 'custom-fields', name: 'Custom Fields', icon: Settings2 },
     { id: 'overview-designer', name: 'Overview Page Designer', icon: Settings2 },
     { id: 'skill-categories', name: 'Skill Categories', icon: Award },

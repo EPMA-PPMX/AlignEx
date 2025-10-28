@@ -32,14 +32,14 @@ const ProjectTemplates: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching project templates:', error);
-        alert('Error loading project templates: ' + error.message);
+        console.error('Error fetching project types:', error);
+        alert('Error loading project types: ' + error.message);
       } else {
         setTemplates(data || []);
       }
     } catch (error) {
-      console.error('Error fetching project templates:', error);
-      alert('Error loading project templates. Please try again.');
+      console.error('Error fetching project types:', error);
+      alert('Error loading project types. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -72,7 +72,7 @@ const ProjectTemplates: React.FC = () => {
         } else {
           await fetchTemplates();
           resetForm();
-          alert('Project template updated successfully!');
+          alert('Project type updated successfully!');
         }
       } else {
         const { error } = await supabase
@@ -84,12 +84,12 @@ const ProjectTemplates: React.FC = () => {
         } else {
           await fetchTemplates();
           resetForm();
-          alert('Project template created successfully!');
+          alert('Project type created successfully!');
         }
       }
     } catch (error) {
-      console.error('Error saving project template:', error);
-      alert('Error saving project template. Please try again.');
+      console.error('Error saving project type:', error);
+      alert('Error saving project type. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -104,7 +104,7 @@ const ProjectTemplates: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this project template?')) {
+    if (!window.confirm('Are you sure you want to delete this project type?')) {
       return;
     }
 
@@ -119,11 +119,11 @@ const ProjectTemplates: React.FC = () => {
         alert(`Error: ${error.message}`);
       } else {
         await fetchTemplates();
-        alert('Project template deleted successfully!');
+        alert('Project type deleted successfully!');
       }
     } catch (error) {
-      console.error('Error deleting project template:', error);
-      alert('Error deleting project template');
+      console.error('Error deleting project type:', error);
+      alert('Error deleting project type');
     } finally {
       setLoading(false);
     }
@@ -149,7 +149,7 @@ const ProjectTemplates: React.FC = () => {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold text-gray-900 mb-6">Project Templates</h2>
+      <h2 className="text-xl font-semibold text-gray-900 mb-6">Project Types</h2>
       
       {/* Form */}
       <div className="bg-gray-50 rounded-lg p-6 mb-8">
@@ -157,14 +157,14 @@ const ProjectTemplates: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Template Name <span className="text-red-500">*</span>
+                Project Type <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={formData.template_name}
                 onChange={(e) => setFormData({ ...formData, template_name: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="e.g., Website Development Template"
+                placeholder="e.g., Website Development"
                 required
                 disabled={loading}
               />
@@ -172,13 +172,13 @@ const ProjectTemplates: React.FC = () => {
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Template Description
+                Project Type Description
               </label>
               <textarea
                 value={formData.template_description}
                 onChange={(e) => setFormData({ ...formData, template_description: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
-                placeholder="Describe what this template is for..."
+                placeholder="Describe what this project type is for..."
                 rows={3}
                 disabled={loading}
               />
@@ -192,7 +192,7 @@ const ProjectTemplates: React.FC = () => {
               className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="w-4 h-4" />
-              <span>{editingTemplate ? 'Update Template' : 'Create Template'}</span>
+              <span>{editingTemplate ? 'Update Project Type' : 'Create Project Type'}</span>
             </button>
             
             {editingTemplate && (
@@ -213,7 +213,7 @@ const ProjectTemplates: React.FC = () => {
       {/* Templates List */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Existing Project Templates</h3>
+          <h3 className="text-lg font-medium text-gray-900">Existing Project Types</h3>
         </div>
         
         {loading ? (
@@ -223,7 +223,7 @@ const ProjectTemplates: React.FC = () => {
           </div>
         ) : templates.length === 0 ? (
           <div className="p-6 text-center text-gray-500">
-            No project templates created yet. Create your first template above.
+            No project types created yet. Create your first project type above.
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -231,7 +231,7 @@ const ProjectTemplates: React.FC = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Template Name
+                    Project Type
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Description
