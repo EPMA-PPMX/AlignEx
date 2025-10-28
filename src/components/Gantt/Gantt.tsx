@@ -36,6 +36,8 @@ export default class Gantt extends Component<GanttProps> {
 
   componentDidMount(): void {
     gantt.config.date_format = "%Y-%m-%d %H:%i";
+    gantt.config.readonly = false;
+    gantt.config.details_on_dblclick = true;
 
     // Add owner column
     gantt.config.columns = [
@@ -50,9 +52,6 @@ export default class Gantt extends Component<GanttProps> {
 
     // Intercept task creation to use custom modal
     if (onOpenTaskModal) {
-      // Prevent default lightbox (inline editor) from opening
-      gantt.config.readonly = false;
-
       // Capture which row's Add button was clicked
       gantt.attachEvent("onTaskCreated", (task: any) => {
         // This event gives us the task object with parent info when Add button is clicked
@@ -73,40 +72,48 @@ export default class Gantt extends Component<GanttProps> {
         // Prevent the default task from being added
         return false;
       });
+    }
 
-      gantt.attachEvent("onBeforeLightbox", (id: any) => {
-        try {
-          // Check if task exists
-          if (!gantt.isTaskExists(id)) {
-            onOpenTaskModal();
-            return false;
-          }
-
-          // Check if this is a new task (temporary ID)
-          const task = gantt.getTask(id);
-          if (!task.text || task.text === "New task") {
-            // Open custom modal for new tasks with parent ID
-            const parentId = task.parent || undefined;
-            gantt.deleteTask(id);
-            onOpenTaskModal(parentId);
-            return false;
-          }
-
-          // Open custom modal for editing existing tasks
-          if (onEditTask) {
-            onEditTask(id);
-            return false;
-          }
-
-          // Fallback to default lightbox if no edit callback
-          return true;
-        } catch (error) {
-          console.error("Error in onBeforeLightbox:", error);
-          onOpenTaskModal();
+    // Handle double-click on task to edit (onBeforeLightbox)
+    gantt.attachEvent("onBeforeLightbox", (id: any) => {
+      console.log("onBeforeLightbox triggered for task ID:", id);
+      try {
+        // Check if task exists
+        if (!gantt.isTaskExists(id)) {
+          console.log("Task does not exist");
+          if (onOpenTaskModal) onOpenTaskModal();
           return false;
         }
-      });
-    }
+
+        // Check if this is a new task (temporary ID)
+        const task = gantt.getTask(id);
+        console.log("Task data:", task);
+
+        if (!task.text || task.text === "New task") {
+          console.log("New task detected, opening create modal");
+          // Open custom modal for new tasks with parent ID
+          const parentId = task.parent || undefined;
+          gantt.deleteTask(id);
+          if (onOpenTaskModal) onOpenTaskModal(parentId);
+          return false;
+        }
+
+        // Open custom modal for editing existing tasks
+        console.log("Existing task detected, opening edit modal");
+        if (onEditTask) {
+          onEditTask(id);
+          return false;
+        }
+
+        // Fallback to default lightbox if no edit callback
+        console.log("No edit callback, using default lightbox");
+        return true;
+      } catch (error) {
+        console.error("Error in onBeforeLightbox:", error);
+        if (onOpenTaskModal) onOpenTaskModal();
+        return false;
+      }
+    });
 
     // Attach event listeners for task changes
     if (onTaskUpdate) {
