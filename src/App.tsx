@@ -9,6 +9,7 @@ import ProjectDetail from './pages/ProjectDetail';
 import OrganizationalPriorities from './pages/OrganizationalPriorities';
 import Resources from './pages/Resources';
 import Skills from './pages/Skills';
+import ActionItems from './pages/ActionItems';
 import Settings from './pages/Settings';
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
           <Route path="/priorities" element={<OrganizationalPriorities />} />
           <Route path="/resources" element={<Resources />} />
           <Route path="/skills" element={<Skills />} />
+          <Route path="/action-items" element={<ActionItems />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </Layout>
