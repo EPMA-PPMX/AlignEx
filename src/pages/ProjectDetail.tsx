@@ -227,8 +227,11 @@ const ProjectDetail: React.FC = () => {
   const [taskForm, setTaskForm] = useState({
     description: '',
     start_date: '',
-    duration: 1
+    duration: 1,
+    owner_id: ''
   });
+
+  const [projectTeamMembers, setProjectTeamMembers] = useState<any[]>([]);
 
   const [uploadedFiles, setUploadedFiles] = useState<Array<{
     fileName: string;
@@ -263,6 +266,7 @@ const ProjectDetail: React.FC = () => {
       fetchCostCategoryOptions();
       fetchMonthlyForecasts();
       fetchProjectTasks();
+      fetchProjectTeamMembers();
     }
   }, [id]);
 
@@ -533,6 +537,32 @@ const ProjectDetail: React.FC = () => {
     } catch (error) {
       console.error('Error fetching project tasks:', error);
       setProjectTasks({ data: [], links: [] });
+    }
+  };
+
+  const fetchProjectTeamMembers = async () => {
+    if (!id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('project_team_members')
+        .select(`
+          id,
+          resource_id,
+          resources (
+            id,
+            display_name
+          )
+        `)
+        .eq('project_id', id);
+
+      if (error) {
+        console.error('Error fetching project team members:', error);
+      } else {
+        setProjectTeamMembers(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching team members:', error);
     }
   };
 
@@ -1386,12 +1416,21 @@ const ProjectDetail: React.FC = () => {
         : 1;
 
       // Create new task object with time component for dhtmlx-gantt
-      const newTask = {
+      const newTask: any = {
         id: newTaskId,
         text: taskForm.description,
         start_date: `${taskForm.start_date} 00:00`,
         duration: taskForm.duration
       };
+
+      // Add owner if selected
+      if (taskForm.owner_id) {
+        newTask.owner_id = taskForm.owner_id;
+        const owner = projectTeamMembers.find((m: any) => m.resource_id === taskForm.owner_id);
+        if (owner?.resources) {
+          newTask.owner_name = owner.resources.display_name;
+        }
+      }
 
       // Add to existing tasks
       const updatedTaskData = {
@@ -1437,7 +1476,8 @@ const ProjectDetail: React.FC = () => {
       setTaskForm({
         description: '',
         start_date: '',
-        duration: 1
+        duration: 1,
+        owner_id: ''
       });
     } catch (error: any) {
       console.error('Error creating task:', error);
@@ -3052,6 +3092,29 @@ const ProjectDetail: React.FC = () => {
                     placeholder="Enter duration in days..."
                     required
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Task Owner
+                  </label>
+                  <select
+                    value={taskForm.owner_id}
+                    onChange={(e) => setTaskForm({ ...taskForm, owner_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select team member...</option>
+                    {projectTeamMembers.map((member: any) => (
+                      <option key={member.id} value={member.resource_id}>
+                        {member.resources?.display_name || 'Unknown'}
+                      </option>
+                    ))}
+                  </select>
+                  {projectTeamMembers.length === 0 && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      No team members assigned. Add team members in the Team tab first.
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex space-x-3 pt-4">

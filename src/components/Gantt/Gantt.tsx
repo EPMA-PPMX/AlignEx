@@ -34,6 +34,15 @@ export default class Gantt extends Component<GanttProps> {
   componentDidMount(): void {
     gantt.config.date_format = "%Y-%m-%d %H:%i";
 
+    // Add owner column
+    gantt.config.columns = [
+      { name: "text", label: "Task name", tree: true, width: "*" },
+      { name: "owner_name", label: "Owner", align: "center", width: 120 },
+      { name: "start_date", label: "Start time", align: "center", width: 80 },
+      { name: "duration", label: "Duration", align: "center", width: 70 },
+      { name: "add", label: "", width: 44 }
+    ];
+
     const { projecttasks, onTaskUpdate } = this.props;
 
     // Attach event listeners for task changes
