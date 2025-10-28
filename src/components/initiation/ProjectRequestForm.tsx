@@ -24,6 +24,12 @@ interface OrganizationalPriority {
   target_value: string;
 }
 
+interface ProjectTemplate {
+  id: string;
+  template_name: string;
+  template_description?: string;
+}
+
 interface Props {
   request: ProjectRequest | null;
   onClose: () => void;
@@ -33,6 +39,8 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [priorities, setPriorities] = useState<OrganizationalPriority[]>([]);
   const [prioritiesLoading, setPrioritiesLoading] = useState(true);
+  const [projectTypes, setProjectTypes] = useState<ProjectTemplate[]>([]);
+  const [projectTypesLoading, setProjectTypesLoading] = useState(true);
   const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
   const [priorityContributions, setPriorityContributions] = useState<{ [key: string]: string }>({});
 
@@ -51,6 +59,7 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
 
   useEffect(() => {
     fetchPriorities();
+    fetchProjectTypes();
     if (request) {
       fetchRequestPriorities(request.id);
     }
@@ -71,6 +80,23 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
       console.error('Error fetching priorities:', error);
     } finally {
       setPrioritiesLoading(false);
+    }
+  };
+
+  const fetchProjectTypes = async () => {
+    try {
+      setProjectTypesLoading(true);
+      const { data, error } = await supabase
+        .from('project_templates')
+        .select('*')
+        .order('template_name');
+
+      if (error) throw error;
+      setProjectTypes(data || []);
+    } catch (error) {
+      console.error('Error fetching project types:', error);
+    } finally {
+      setProjectTypesLoading(false);
     }
   };
 
@@ -228,16 +254,6 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
     }
   };
 
-  const projectTypes = [
-    'Infrastructure',
-    'Software Development',
-    'Process Improvement',
-    'Research & Development',
-    'Training & Development',
-    'Marketing & Sales',
-    'Other',
-  ];
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -294,20 +310,32 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
               <label className="block text-sm font-medium text-slate-700 mb-1">
                 Project Type <span className="text-red-500">*</span>
               </label>
-              <select
-                name="project_type"
-                value={formData.project_type}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              >
-                <option value="">Select type</option>
-                {projectTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
+              {projectTypesLoading ? (
+                <div className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 flex items-center">
+                  <Loader className="w-4 h-4 animate-spin mr-2" />
+                  <span className="text-slate-500">Loading project types...</span>
+                </div>
+              ) : (
+                <select
+                  name="project_type"
+                  value={formData.project_type}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                >
+                  <option value="">Select project type</option>
+                  {projectTypes.map((type) => (
+                    <option key={type.id} value={type.template_name}>
+                      {type.template_name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {projectTypes.length === 0 && !projectTypesLoading && (
+                <p className="text-sm text-red-500 mt-1">
+                  No project types available. Please create project types in Settings first.
+                </p>
+              )}
             </div>
 
             <div>
