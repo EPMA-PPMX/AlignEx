@@ -26,7 +26,7 @@ interface GanttProps {
     links?: Link[];
   };
   onTaskUpdate?: () => void;
-  onOpenTaskModal?: () => void;
+  onOpenTaskModal?: (parentId?: number) => void;
 }
 
 export default class Gantt extends Component<GanttProps> {
@@ -52,8 +52,9 @@ export default class Gantt extends Component<GanttProps> {
       gantt.config.readonly = false;
 
       gantt.attachEvent("onBeforeTaskAdd", (id: any, task: any) => {
-        // Open custom modal instead
-        onOpenTaskModal();
+        // Open custom modal with parent ID if it's a subtask
+        const parentId = task.parent || undefined;
+        onOpenTaskModal(parentId);
         // Prevent the default task from being added
         return false;
       });
@@ -62,9 +63,10 @@ export default class Gantt extends Component<GanttProps> {
         // Check if this is a new task (temporary ID)
         const task = gantt.getTask(id);
         if (!task.text || task.text === "New task") {
-          // Open custom modal for new tasks
+          // Open custom modal for new tasks with parent ID
+          const parentId = task.parent || undefined;
           gantt.deleteTask(id);
-          onOpenTaskModal();
+          onOpenTaskModal(parentId);
           return false;
         }
         // Allow editing existing tasks

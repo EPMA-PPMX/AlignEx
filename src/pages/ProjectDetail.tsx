@@ -228,7 +228,8 @@ const ProjectDetail: React.FC = () => {
     description: '',
     start_date: '',
     duration: 1,
-    owner_id: ''
+    owner_id: '',
+    parent_id: undefined as number | undefined
   });
 
   const [projectTeamMembers, setProjectTeamMembers] = useState<any[]>([]);
@@ -1423,6 +1424,11 @@ const ProjectDetail: React.FC = () => {
         duration: taskForm.duration
       };
 
+      // Add parent if this is a subtask
+      if (taskForm.parent_id) {
+        newTask.parent = taskForm.parent_id;
+      }
+
       // Add owner if selected
       if (taskForm.owner_id) {
         newTask.owner_id = taskForm.owner_id;
@@ -1477,7 +1483,8 @@ const ProjectDetail: React.FC = () => {
         description: '',
         start_date: '',
         duration: 1,
-        owner_id: ''
+        owner_id: '',
+        parent_id: undefined
       });
     } catch (error: any) {
       console.error('Error creating task:', error);
@@ -1968,7 +1975,10 @@ const ProjectDetail: React.FC = () => {
               <Gantt
                 projecttasks={projectTasks}
                 onTaskUpdate={saveProjectTasks}
-                onOpenTaskModal={() => setShowTaskModal(true)}
+                onOpenTaskModal={(parentId) => {
+                  setTaskForm({ ...taskForm, parent_id: parentId });
+                  setShowTaskModal(true);
+                }}
               />
             </div>
           </div>
@@ -3046,9 +3056,27 @@ const ProjectDetail: React.FC = () => {
           <div className="bg-white rounded-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-gray-900">Create New Task</h3>
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">
+                    {taskForm.parent_id ? 'Create Subtask' : 'Create New Task'}
+                  </h3>
+                  {taskForm.parent_id && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      This will be created as a subtask under task #{taskForm.parent_id}
+                    </p>
+                  )}
+                </div>
                 <button
-                  onClick={() => setShowTaskModal(false)}
+                  onClick={() => {
+                    setShowTaskModal(false);
+                    setTaskForm({
+                      description: '',
+                      start_date: '',
+                      duration: 1,
+                      owner_id: '',
+                      parent_id: undefined
+                    });
+                  }}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   <X className="w-5 h-5" />
