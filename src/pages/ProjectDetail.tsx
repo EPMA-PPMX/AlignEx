@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign } from 'lucide-react';
+import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { MonthlyBudgetGrid } from '../components/MonthlyBudgetGrid';
 import { BudgetSummaryTiles } from '../components/BudgetSummaryTiles';
 import Gantt from "../components/Gantt/Gantt";
 import ProjectStatusDropdown from '../components/ProjectStatusDropdown';
 import ProjectHealthStatus from '../components/ProjectHealthStatus';
+import BenefitTracking from '../components/BenefitTracking';
 
 interface Project {
   id: string;
@@ -248,6 +249,7 @@ const ProjectDetail: React.FC = () => {
     { id: 'risks-issues', name: 'Risks & Issues', icon: AlertTriangle },
     { id: 'change-management', name: 'Change Management', icon: FileText },
     { id: 'budget', name: 'Budget', icon: DollarSign },
+    { id: 'benefit-tracking', name: 'Benefit Tracking', icon: TrendingUp },
     { id: 'settings', name: 'Documents', icon: FileText },
   ];
 
@@ -2341,6 +2343,10 @@ const ProjectDetail: React.FC = () => {
               </div>
             )}
           </div>
+        )}
+
+        {activeTab === 'benefit-tracking' && (
+          <BenefitTracking projectId={id!} />
         )}
 
         {activeTab === 'settings' && (
