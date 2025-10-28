@@ -340,7 +340,6 @@ function AddTeamMemberModal({ projectId, onClose, onSave, existingMemberResource
   const [resources, setResources] = useState<Resource[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedResources, setSelectedResources] = useState<string[]>([]);
-  const [resourceDetails, setResourceDetails] = useState<{ [key: string]: { role: string; allocation: string; startDate: string; endDate: string } }>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -376,35 +375,11 @@ function AddTeamMemberModal({ projectId, onClose, onSave, existingMemberResource
   });
 
   const handleToggleResource = (resourceId: string) => {
-    setSelectedResources((prev) => {
-      if (prev.includes(resourceId)) {
-        const newDetails = { ...resourceDetails };
-        delete newDetails[resourceId];
-        setResourceDetails(newDetails);
-        return prev.filter((id) => id !== resourceId);
-      } else {
-        setResourceDetails({
-          ...resourceDetails,
-          [resourceId]: {
-            role: '',
-            allocation: '100',
-            startDate: new Date().toISOString().split('T')[0],
-            endDate: ''
-          }
-        });
-        return [...prev, resourceId];
-      }
-    });
-  };
-
-  const updateResourceDetail = (resourceId: string, field: string, value: string) => {
-    setResourceDetails({
-      ...resourceDetails,
-      [resourceId]: {
-        ...resourceDetails[resourceId],
-        [field]: value
-      }
-    });
+    setSelectedResources((prev) =>
+      prev.includes(resourceId)
+        ? prev.filter((id) => id !== resourceId)
+        : [...prev, resourceId]
+    );
   };
 
   const handleSave = async () => {
@@ -413,21 +388,15 @@ function AddTeamMemberModal({ projectId, onClose, onSave, existingMemberResource
       return;
     }
 
-    const hasEmptyRoles = selectedResources.some(id => !resourceDetails[id]?.role?.trim());
-    if (hasEmptyRoles) {
-      alert('Please provide a role for all selected resources');
-      return;
-    }
-
     setSaving(true);
     try {
       const teamMemberRecords = selectedResources.map((resourceId) => ({
         project_id: projectId,
         resource_id: resourceId,
-        role: resourceDetails[resourceId].role,
-        allocation_percentage: parseInt(resourceDetails[resourceId].allocation) || 100,
-        start_date: resourceDetails[resourceId].startDate,
-        end_date: resourceDetails[resourceId].endDate || null
+        role: 'Team Member',
+        allocation_percentage: 100,
+        start_date: new Date().toISOString().split('T')[0],
+        end_date: null
       }));
 
       const { error } = await supabase
@@ -446,7 +415,7 @@ function AddTeamMemberModal({ projectId, onClose, onSave, existingMemberResource
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-900">Add Team Members</h2>
           <p className="text-sm text-gray-500 mt-1">Select resources to add to the project team</p>
@@ -473,101 +442,40 @@ function AddTeamMemberModal({ projectId, onClose, onSave, existingMemberResource
               {searchTerm ? 'No resources found matching your search.' : 'No available resources to add.'}
             </div>
           ) : (
-            <div className="space-y-3">
-              {filteredResources.map((resource) => {
-                const isSelected = selectedResources.includes(resource.id);
-                return (
-                  <div
-                    key={resource.id}
-                    className="border border-gray-200 rounded-lg p-4"
-                  >
-                    <label className="flex items-start gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => handleToggleResource(resource.id)}
-                        className="w-4 h-4 mt-1 text-blue-600 rounded focus:ring-blue-500"
-                      />
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">{resource.display_name}</div>
-                        <div className="text-sm text-gray-500">
-                          {resource.email && <span>{resource.email}</span>}
-                          {resource.email && resource.department && <span className="mx-2">•</span>}
-                          {resource.department && <span>{resource.department}</span>}
-                        </div>
-                        {resource.roles && resource.roles.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {resource.roles.map((role, idx) => (
-                              <span
-                                key={idx}
-                                className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
-                              >
-                                {role}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        {isSelected && (
-                          <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-gray-200">
-                            <div className="col-span-2">
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Project Role <span className="text-red-500">*</span>
-                              </label>
-                              <input
-                                type="text"
-                                value={resourceDetails[resource.id]?.role || ''}
-                                onChange={(e) => updateResourceDetail(resource.id, 'role', e.target.value)}
-                                placeholder="e.g., Project Manager, Developer"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Allocation %
-                              </label>
-                              <input
-                                type="number"
-                                min="1"
-                                max="100"
-                                value={resourceDetails[resource.id]?.allocation || '100'}
-                                onChange={(e) => updateResourceDetail(resource.id, 'allocation', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Start Date
-                              </label>
-                              <input
-                                type="date"
-                                value={resourceDetails[resource.id]?.startDate || ''}
-                                onChange={(e) => updateResourceDetail(resource.id, 'startDate', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                            </div>
-                            <div className="col-span-2">
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                End Date (Optional)
-                              </label>
-                              <input
-                                type="date"
-                                value={resourceDetails[resource.id]?.endDate || ''}
-                                onChange={(e) => updateResourceDetail(resource.id, 'endDate', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                            </div>
-                          </div>
-                        )}
+            <div className="space-y-2">
+              {filteredResources.map((resource) => (
+                <label
+                  key={resource.id}
+                  className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedResources.includes(resource.id)}
+                    onChange={() => handleToggleResource(resource.id)}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  />
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900">{resource.display_name}</div>
+                    <div className="text-sm text-gray-500">
+                      {resource.email && <span>{resource.email}</span>}
+                      {resource.email && resource.department && <span className="mx-2">•</span>}
+                      {resource.department && <span>{resource.department}</span>}
+                    </div>
+                    {resource.roles && resource.roles.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {resource.roles.map((role, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                          >
+                            {role}
+                          </span>
+                        ))}
                       </div>
-                    </label>
+                    )}
                   </div>
-                );
-              })}
+                </label>
+              ))}
             </div>
           )}
         </div>
