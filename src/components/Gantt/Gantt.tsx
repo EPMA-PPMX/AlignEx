@@ -60,17 +60,29 @@ export default class Gantt extends Component<GanttProps> {
       });
 
       gantt.attachEvent("onBeforeLightbox", (id: any) => {
-        // Check if this is a new task (temporary ID)
-        const task = gantt.getTask(id);
-        if (!task.text || task.text === "New task") {
-          // Open custom modal for new tasks with parent ID
-          const parentId = task.parent || undefined;
-          gantt.deleteTask(id);
-          onOpenTaskModal(parentId);
+        try {
+          // Check if task exists
+          if (!gantt.isTaskExists(id)) {
+            onOpenTaskModal();
+            return false;
+          }
+
+          // Check if this is a new task (temporary ID)
+          const task = gantt.getTask(id);
+          if (!task.text || task.text === "New task") {
+            // Open custom modal for new tasks with parent ID
+            const parentId = task.parent || undefined;
+            gantt.deleteTask(id);
+            onOpenTaskModal(parentId);
+            return false;
+          }
+          // Allow editing existing tasks
+          return true;
+        } catch (error) {
+          console.error("Error in onBeforeLightbox:", error);
+          onOpenTaskModal();
           return false;
         }
-        // Allow editing existing tasks
-        return true;
       });
     }
 
