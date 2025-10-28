@@ -8,7 +8,6 @@ import NewProject from './pages/NewProject';
 import ProjectDetail from './pages/ProjectDetail';
 import OrganizationalPriorities from './pages/OrganizationalPriorities';
 import Resources from './pages/Resources';
-import Teams from './pages/Teams';
 import Skills from './pages/Skills';
 import Settings from './pages/Settings';
 
@@ -24,7 +23,6 @@ function App() {
           <Route path="/projects/:id" element={<ProjectDetail />} />
           <Route path="/priorities" element={<OrganizationalPriorities />} />
           <Route path="/resources" element={<Resources />} />
-          <Route path="/teams" element={<Teams />} />
           <Route path="/skills" element={<Skills />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>

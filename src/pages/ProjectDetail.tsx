@@ -7,6 +7,7 @@ import { BudgetSummaryTiles } from '../components/BudgetSummaryTiles';
 import Gantt from "../components/Gantt/Gantt";
 import ProjectStatusDropdown from '../components/ProjectStatusDropdown';
 import ProjectHealthStatus from '../components/ProjectHealthStatus';
+import ProjectTeams from '../components/ProjectTeams';
 
 interface Project {
   id: string;
@@ -1929,12 +1930,8 @@ const ProjectDetail: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'team' && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-            <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Team Management Coming Soon</h3>
-            <p className="text-gray-600">Team member management will be available in future updates.</p>
-          </div>
+        {activeTab === 'team' && id && (
+          <ProjectTeams projectId={id} />
         )}
 
         {activeTab === 'risks-issues' && (
