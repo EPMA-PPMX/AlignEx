@@ -26,6 +26,7 @@ interface GanttProps {
     links?: Link[];
   };
   onTaskUpdate?: () => void;
+  onOpenTaskModal?: () => void;
 }
 
 export default class Gantt extends Component<GanttProps> {
@@ -43,7 +44,18 @@ export default class Gantt extends Component<GanttProps> {
       { name: "add", label: "", width: 44 }
     ];
 
-    const { projecttasks, onTaskUpdate } = this.props;
+    const { projecttasks, onTaskUpdate, onOpenTaskModal } = this.props;
+
+    // Intercept task creation to use custom modal
+    if (onOpenTaskModal) {
+      gantt.attachEvent("onTaskCreated", (task: any) => {
+        // Prevent default task creation
+        gantt.deleteTask(task.id);
+        // Open custom modal
+        onOpenTaskModal();
+        return false;
+      });
+    }
 
     // Attach event listeners for task changes
     if (onTaskUpdate) {

@@ -1965,7 +1965,11 @@ const ProjectDetail: React.FC = () => {
               </button>
             </div>
             <div style={{ width: "100%", height: "600px", overflow: "auto" }}>
-              <Gantt projecttasks={projectTasks} onTaskUpdate={saveProjectTasks} />
+              <Gantt
+                projecttasks={projectTasks}
+                onTaskUpdate={saveProjectTasks}
+                onOpenTaskModal={() => setShowTaskModal(true)}
+              />
             </div>
           </div>
         )}
