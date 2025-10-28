@@ -48,12 +48,27 @@ export default class Gantt extends Component<GanttProps> {
 
     // Intercept task creation to use custom modal
     if (onOpenTaskModal) {
-      gantt.attachEvent("onTaskCreated", (task: any) => {
-        // Prevent default task creation
-        gantt.deleteTask(task.id);
-        // Open custom modal
+      // Prevent default lightbox (inline editor) from opening
+      gantt.config.readonly = false;
+
+      gantt.attachEvent("onBeforeTaskAdd", (id: any, task: any) => {
+        // Open custom modal instead
         onOpenTaskModal();
+        // Prevent the default task from being added
         return false;
+      });
+
+      gantt.attachEvent("onBeforeLightbox", (id: any) => {
+        // Check if this is a new task (temporary ID)
+        const task = gantt.getTask(id);
+        if (!task.text || task.text === "New task") {
+          // Open custom modal for new tasks
+          gantt.deleteTask(id);
+          onOpenTaskModal();
+          return false;
+        }
+        // Allow editing existing tasks
+        return true;
       });
     }
 
