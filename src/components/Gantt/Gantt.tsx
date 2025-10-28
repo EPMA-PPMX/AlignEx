@@ -74,7 +74,50 @@ export default class Gantt extends Component<GanttProps> {
       });
     }
 
-    // Handle double-click on task to edit (onBeforeLightbox)
+    // Handle double-click on task to edit using onTaskDblClick
+    gantt.attachEvent("onTaskDblClick", (id: any, e: any) => {
+      console.log("onTaskDblClick triggered for task ID:", id);
+      console.log("onEditTask callback exists:", !!onEditTask);
+
+      try {
+        // Check if task exists
+        if (!gantt.isTaskExists(id)) {
+          console.log("Task does not exist");
+          if (onOpenTaskModal) onOpenTaskModal();
+          return false;
+        }
+
+        // Get the task data
+        const task = gantt.getTask(id);
+        console.log("Task data:", task);
+
+        // Check if this is a new task (temporary ID)
+        if (!task.text || task.text === "New task") {
+          console.log("New task detected, opening create modal");
+          const parentId = task.parent || undefined;
+          gantt.deleteTask(id);
+          if (onOpenTaskModal) onOpenTaskModal(parentId);
+          return false;
+        }
+
+        // Open custom modal for editing existing tasks
+        console.log("Existing task detected, opening edit modal");
+        if (onEditTask) {
+          console.log("Calling onEditTask with ID:", id);
+          onEditTask(id);
+          return false;
+        }
+
+        console.log("No edit callback available");
+        return true;
+      } catch (error) {
+        console.error("Error in onTaskDblClick:", error);
+        if (onOpenTaskModal) onOpenTaskModal();
+        return false;
+      }
+    });
+
+    // Also handle onBeforeLightbox as a fallback
     gantt.attachEvent("onBeforeLightbox", (id: any) => {
       console.log("onBeforeLightbox triggered for task ID:", id);
       try {
@@ -87,11 +130,10 @@ export default class Gantt extends Component<GanttProps> {
 
         // Check if this is a new task (temporary ID)
         const task = gantt.getTask(id);
-        console.log("Task data:", task);
+        console.log("Task data in onBeforeLightbox:", task);
 
         if (!task.text || task.text === "New task") {
           console.log("New task detected, opening create modal");
-          // Open custom modal for new tasks with parent ID
           const parentId = task.parent || undefined;
           gantt.deleteTask(id);
           if (onOpenTaskModal) onOpenTaskModal(parentId);
@@ -99,7 +141,7 @@ export default class Gantt extends Component<GanttProps> {
         }
 
         // Open custom modal for editing existing tasks
-        console.log("Existing task detected, opening edit modal");
+        console.log("Existing task detected in onBeforeLightbox, opening edit modal");
         if (onEditTask) {
           onEditTask(id);
           return false;

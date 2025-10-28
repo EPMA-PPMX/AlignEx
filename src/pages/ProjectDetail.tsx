@@ -2028,12 +2028,22 @@ const ProjectDetail: React.FC = () => {
                   setShowTaskModal(true);
                 }}
                 onEditTask={(taskId) => {
+                  console.log("onEditTask callback called with taskId:", taskId);
+                  console.log("projectTasks.data:", projectTasks.data);
                   const task = projectTasks.data.find((t: any) => t.id === taskId);
+                  console.log("Found task:", task);
                   if (task) {
                     let startDate = task.start_date;
                     if (startDate && startDate.includes(' ')) {
                       startDate = startDate.split(' ')[0];
                     }
+                    console.log("Setting task form with:", {
+                      description: task.text,
+                      start_date: startDate,
+                      duration: task.duration,
+                      owner_id: task.owner_id || '',
+                      parent_id: task.parent || undefined
+                    });
                     setTaskForm({
                       description: task.text,
                       start_date: startDate,
@@ -2042,7 +2052,10 @@ const ProjectDetail: React.FC = () => {
                       parent_id: task.parent || undefined
                     });
                     setEditingTaskId(taskId);
+                    console.log("Opening modal with editingTaskId:", taskId);
                     setShowTaskModal(true);
+                  } else {
+                    console.error("Task not found for ID:", taskId);
                   }
                 }}
               />
