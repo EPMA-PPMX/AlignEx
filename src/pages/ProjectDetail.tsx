@@ -527,7 +527,9 @@ const ProjectDetail: React.FC = () => {
               start_date: startDate,
               duration: task.duration,
               progress: task.progress || 0,
-              parent: task.parent
+              parent: task.parent,
+              owner_id: task.owner_id,
+              owner_name: task.owner_name
             };
           });
         }
@@ -591,7 +593,9 @@ const ProjectDetail: React.FC = () => {
           start_date: task.start_date,
           duration: task.duration,
           progress: task.progress || 0,
-          parent: task.parent || 0
+          parent: task.parent || 0,
+          owner_id: task.owner_id,
+          owner_name: task.owner_name
         })),
         links: currentTasks.links || []
       };
