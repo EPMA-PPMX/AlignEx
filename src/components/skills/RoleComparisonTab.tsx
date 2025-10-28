@@ -123,7 +123,7 @@ export default function RoleComparisonTab() {
         const requiredIndex = PROFICIENCY_ORDER.indexOf(requiredLevel);
 
         let status: 'match' | 'exceeds' | 'gap' | 'na';
-        if (currentLevel === 'None') {
+        if (currentLevel === 'None' && requiredLevel === 'None') {
           status = 'na';
         } else if (currentIndex === requiredIndex) {
           status = 'match';
