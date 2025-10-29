@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FolderKanban, Settings, Target, TrendingUp, FileText, Award, Users, CheckSquare, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, Settings, Target, TrendingUp, FileText, Award, Users, CheckSquare, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
