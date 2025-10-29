@@ -2064,7 +2064,10 @@ const ProjectDetail: React.FC = () => {
         )}
 
         {activeTab === 'team' && id && (
-          <ProjectTeams projectId={id} />
+          <ProjectTeams
+            projectId={id}
+            onTeamMembersChange={fetchProjectTeamMembers}
+          />
         )}
 
         {activeTab === 'risks-issues' && (

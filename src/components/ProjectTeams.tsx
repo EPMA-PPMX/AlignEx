@@ -24,9 +24,10 @@ interface TeamMember {
 
 interface ProjectTeamsProps {
   projectId: string;
+  onTeamMembersChange?: () => void;
 }
 
-export default function ProjectTeams({ projectId }: ProjectTeamsProps) {
+export default function ProjectTeams({ projectId, onTeamMembersChange }: ProjectTeamsProps) {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddMember, setShowAddMember] = useState(false);
@@ -86,6 +87,7 @@ export default function ProjectTeams({ projectId }: ProjectTeamsProps) {
 
       if (error) throw error;
       fetchTeamMembers();
+      onTeamMembersChange?.();
     } catch (error) {
       console.error('Error removing team member:', error);
       alert('Failed to remove team member');
@@ -205,6 +207,7 @@ export default function ProjectTeams({ projectId }: ProjectTeamsProps) {
           onSave={() => {
             setShowAddMember(false);
             fetchTeamMembers();
+            onTeamMembersChange?.();
           }}
           existingMemberResourceIds={teamMembers.map(m => m.resource_id)}
         />
