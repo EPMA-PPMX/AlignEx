@@ -8,6 +8,7 @@ import Gantt from "../components/Gantt/Gantt";
 import ProjectStatusDropdown from '../components/ProjectStatusDropdown';
 import ProjectHealthStatus from '../components/ProjectHealthStatus';
 import BenefitTracking from '../components/BenefitTracking';
+import ProjectTeams from '../components/ProjectTeams';
 
 interface Project {
   id: string;
@@ -227,8 +228,13 @@ const ProjectDetail: React.FC = () => {
   const [taskForm, setTaskForm] = useState({
     description: '',
     start_date: '',
-    duration: 1
+    duration: 1,
+    owner_id: '',
+    parent_id: undefined as number | undefined
   });
+  const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+
+  const [projectTeamMembers, setProjectTeamMembers] = useState<any[]>([]);
 
   const [uploadedFiles, setUploadedFiles] = useState<Array<{
     fileName: string;
@@ -264,6 +270,7 @@ const ProjectDetail: React.FC = () => {
       fetchCostCategoryOptions();
       fetchMonthlyForecasts();
       fetchProjectTasks();
+      fetchProjectTeamMembers();
     }
   }, [id]);
 
@@ -523,7 +530,9 @@ const ProjectDetail: React.FC = () => {
               start_date: startDate,
               duration: task.duration,
               progress: task.progress || 0,
-              parent: task.parent
+              parent: task.parent,
+              owner_id: task.owner_id,
+              owner_name: task.owner_name
             };
           });
         }
@@ -534,6 +543,32 @@ const ProjectDetail: React.FC = () => {
     } catch (error) {
       console.error('Error fetching project tasks:', error);
       setProjectTasks({ data: [], links: [] });
+    }
+  };
+
+  const fetchProjectTeamMembers = async () => {
+    if (!id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('project_team_members')
+        .select(`
+          id,
+          resource_id,
+          resources (
+            id,
+            display_name
+          )
+        `)
+        .eq('project_id', id);
+
+      if (error) {
+        console.error('Error fetching project team members:', error);
+      } else {
+        setProjectTeamMembers(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching team members:', error);
     }
   };
 
@@ -561,9 +596,16 @@ const ProjectDetail: React.FC = () => {
           start_date: task.start_date,
           duration: task.duration,
           progress: task.progress || 0,
-          parent: task.parent || 0
+          parent: task.parent || 0,
+          owner_id: task.owner_id,
+          owner_name: task.owner_name
         })),
-        links: currentTasks.links || []
+        links: (currentTasks.links || []).map((link: any) => ({
+          id: link.id,
+          source: link.source,
+          target: link.target,
+          type: link.type
+        }))
       };
 
       console.log("Cleaned data:", cleanedData);
@@ -1381,24 +1423,71 @@ const ProjectDetail: React.FC = () => {
     }
 
     try {
-      // Generate new task ID
-      const newTaskId = projectTasks.data.length > 0
-        ? Math.max(...projectTasks.data.map((t: any) => t.id)) + 1
-        : 1;
+      let updatedTaskData;
 
-      // Create new task object with time component for dhtmlx-gantt
-      const newTask = {
-        id: newTaskId,
-        text: taskForm.description,
-        start_date: `${taskForm.start_date} 00:00`,
-        duration: taskForm.duration
-      };
+      if (editingTaskId) {
+        // Update existing task
+        updatedTaskData = {
+          data: projectTasks.data.map((task: any) => {
+            if (task.id === editingTaskId) {
+              const updatedTask: any = {
+                ...task,
+                text: taskForm.description,
+                start_date: `${taskForm.start_date} 00:00`,
+                duration: taskForm.duration
+              };
 
-      // Add to existing tasks
-      const updatedTaskData = {
-        data: [...projectTasks.data, newTask],
-        links: projectTasks.links || []
-      };
+              // Update owner if selected
+              if (taskForm.owner_id) {
+                updatedTask.owner_id = taskForm.owner_id;
+                const owner = projectTeamMembers.find((m: any) => m.resource_id === taskForm.owner_id);
+                if (owner?.resources) {
+                  updatedTask.owner_name = owner.resources.display_name;
+                }
+              } else {
+                updatedTask.owner_id = undefined;
+                updatedTask.owner_name = undefined;
+              }
+
+              return updatedTask;
+            }
+            return task;
+          }),
+          links: projectTasks.links || []
+        };
+      } else {
+        // Create new task
+        const newTaskId = projectTasks.data.length > 0
+          ? Math.max(...projectTasks.data.map((t: any) => t.id)) + 1
+          : 1;
+
+        const newTask: any = {
+          id: newTaskId,
+          text: taskForm.description,
+          start_date: `${taskForm.start_date} 00:00`,
+          duration: taskForm.duration
+        };
+
+        // Add parent if this is a subtask
+        if (taskForm.parent_id) {
+          newTask.parent = taskForm.parent_id;
+        }
+
+        // Add owner if selected
+        if (taskForm.owner_id) {
+          newTask.owner_id = taskForm.owner_id;
+          const owner = projectTeamMembers.find((m: any) => m.resource_id === taskForm.owner_id);
+          if (owner?.resources) {
+            newTask.owner_name = owner.resources.display_name;
+          }
+        }
+
+        // Add to existing tasks
+        updatedTaskData = {
+          data: [...projectTasks.data, newTask],
+          links: projectTasks.links || []
+        };
+      }
 
       // Check if project_tasks record exists
       const { data: existingData } = await supabase
@@ -1433,12 +1522,15 @@ const ProjectDetail: React.FC = () => {
       // Update local state
       setProjectTasks(updatedTaskData);
 
-      alert('Task created successfully!');
+      alert(editingTaskId ? 'Task updated successfully!' : 'Task created successfully!');
       setShowTaskModal(false);
+      setEditingTaskId(null);
       setTaskForm({
         description: '',
         start_date: '',
-        duration: 1
+        duration: 1,
+        owner_id: '',
+        parent_id: undefined
       });
     } catch (error: any) {
       console.error('Error creating task:', error);
@@ -1918,7 +2010,10 @@ const ProjectDetail: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
               <button
-                onClick={() => setShowTaskModal(true)}
+                onClick={() => {
+                  setTaskForm({ ...taskForm, parent_id: undefined });
+                  setShowTaskModal(true);
+                }}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 <Plus className="w-4 h-4" />
@@ -1926,17 +2021,55 @@ const ProjectDetail: React.FC = () => {
               </button>
             </div>
             <div style={{ width: "100%", height: "600px", overflow: "auto" }}>
-              <Gantt projecttasks={projectTasks} onTaskUpdate={saveProjectTasks} />
+              <Gantt
+                projecttasks={projectTasks}
+                onTaskUpdate={saveProjectTasks}
+                onOpenTaskModal={(parentId) => {
+                  setTaskForm({ ...taskForm, parent_id: parentId });
+                  setEditingTaskId(null);
+                  setShowTaskModal(true);
+                }}
+                onEditTask={(taskId) => {
+                  console.log("onEditTask callback called with taskId:", taskId);
+                  console.log("projectTasks.data:", projectTasks.data);
+                  const task = projectTasks.data.find((t: any) => t.id === taskId);
+                  console.log("Found task:", task);
+                  if (task) {
+                    let startDate = task.start_date;
+                    if (startDate && startDate.includes(' ')) {
+                      startDate = startDate.split(' ')[0];
+                    }
+                    console.log("Setting task form with:", {
+                      description: task.text,
+                      start_date: startDate,
+                      duration: task.duration,
+                      owner_id: task.owner_id || '',
+                      parent_id: task.parent || undefined
+                    });
+                    setTaskForm({
+                      description: task.text,
+                      start_date: startDate,
+                      duration: task.duration,
+                      owner_id: task.owner_id || '',
+                      parent_id: task.parent || undefined
+                    });
+                    setEditingTaskId(taskId);
+                    console.log("Opening modal with editingTaskId:", taskId);
+                    setShowTaskModal(true);
+                  } else {
+                    console.error("Task not found for ID:", taskId);
+                  }
+                }}
+              />
             </div>
           </div>
         )}
 
-        {activeTab === 'team' && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-            <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Team Management Coming Soon</h3>
-            <p className="text-gray-600">Team member management will be available in future updates.</p>
-          </div>
+        {activeTab === 'team' && id && (
+          <ProjectTeams
+            projectId={id}
+            onTeamMembersChange={fetchProjectTeamMembers}
+          />
         )}
 
         {activeTab === 'risks-issues' && (
@@ -3011,9 +3144,32 @@ const ProjectDetail: React.FC = () => {
           <div className="bg-white rounded-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-gray-900">Create New Task</h3>
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">
+                    {editingTaskId
+                      ? 'Edit Task'
+                      : taskForm.parent_id
+                        ? 'Create Subtask'
+                        : 'Create New Task'}
+                  </h3>
+                  {!editingTaskId && taskForm.parent_id && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      This will be created as a subtask under task #{taskForm.parent_id}
+                    </p>
+                  )}
+                </div>
                 <button
-                  onClick={() => setShowTaskModal(false)}
+                  onClick={() => {
+                    setShowTaskModal(false);
+                    setEditingTaskId(null);
+                    setTaskForm({
+                      description: '',
+                      start_date: '',
+                      duration: 1,
+                      owner_id: '',
+                      parent_id: undefined
+                    });
+                  }}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   <X className="w-5 h-5" />
@@ -3063,13 +3219,36 @@ const ProjectDetail: React.FC = () => {
                   />
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Task Owner
+                  </label>
+                  <select
+                    value={taskForm.owner_id}
+                    onChange={(e) => setTaskForm({ ...taskForm, owner_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select team member...</option>
+                    {projectTeamMembers.map((member: any) => (
+                      <option key={member.id} value={member.resource_id}>
+                        {member.resources?.display_name || 'Unknown'}
+                      </option>
+                    ))}
+                  </select>
+                  {projectTeamMembers.length === 0 && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      No team members assigned. Add team members in the Team tab first.
+                    </p>
+                  )}
+                </div>
+
                 <div className="flex space-x-3 pt-4">
                   <button
                     type="submit"
                     className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
                   >
                     <Save className="w-4 h-4" />
-                    <span>Create Task</span>
+                    <span>{editingTaskId ? 'Update Task' : 'Create Task'}</span>
                   </button>
                   <button
                     type="button"
