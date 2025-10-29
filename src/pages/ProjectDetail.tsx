@@ -117,6 +117,8 @@ interface Budget {
   id: string;
   project_id: string;
   categories: string[];
+  budget_amount?: number;
+  notes?: string;
   created_at: string;
   updated_at: string;
 }
@@ -222,7 +224,8 @@ const ProjectDetail: React.FC = () => {
   });
 
   const [budgetForm, setBudgetForm] = useState({
-    categories: [] as string[]
+    categories: [] as string[],
+    budget_amount: '0'
   });
 
   const [taskForm, setTaskForm] = useState({
@@ -1551,7 +1554,8 @@ const ProjectDetail: React.FC = () => {
 
   const handleAddBudget = () => {
     setBudgetForm({
-      categories: []
+      categories: [],
+      budget_amount: '0'
     });
     setEditingBudget(null);
     setShowBudgetModal(true);
@@ -1559,7 +1563,8 @@ const ProjectDetail: React.FC = () => {
 
   const handleEditBudget = (budget: Budget) => {
     setBudgetForm({
-      categories: budget.categories || []
+      categories: budget.categories || [],
+      budget_amount: budget.budget_amount?.toString() || '0'
     });
     setEditingBudget(budget);
     setShowBudgetModal(true);
@@ -1581,7 +1586,10 @@ const ProjectDetail: React.FC = () => {
       if (editingBudget) {
         const { error } = await supabase
           .from('project_budgets')
-          .update({ categories: budgetForm.categories })
+          .update({
+            categories: budgetForm.categories,
+            budget_amount: parseFloat(budgetForm.budget_amount) || 0
+          })
           .eq('id', editingBudget.id);
 
         if (error) {
@@ -1619,7 +1627,8 @@ const ProjectDetail: React.FC = () => {
           .from('project_budgets')
           .insert([{
             project_id: id,
-            categories: budgetForm.categories
+            categories: budgetForm.categories,
+            budget_amount: parseFloat(budgetForm.budget_amount) || 0
           }]);
 
         if (error) {
@@ -1644,6 +1653,11 @@ const ProjectDetail: React.FC = () => {
       await fetchBudgets();
       await fetchMonthlyForecasts();
       setShowBudgetModal(false);
+      setEditingBudget(null);
+      setBudgetForm({
+        categories: [],
+        budget_amount: '0'
+      });
       alert(editingBudget ? 'Budget updated successfully!' : 'Budget added successfully!');
     } catch (error: any) {
       console.error('Error saving budget:', error);
@@ -2736,6 +2750,20 @@ const ProjectDetail: React.FC = () => {
               {editingBudget ? 'Edit Budget Categories' : 'Add Budget Categories'}
             </h3>
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Budget Amount
+                </label>
+                <input
+                  type="number"
+                  value={budgetForm.budget_amount}
+                  onChange={(e) => setBudgetForm({ ...budgetForm, budget_amount: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter budget amount"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Select Categories (you can select multiple)
