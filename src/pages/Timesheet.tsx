@@ -41,6 +41,7 @@ interface TimesheetRow {
 
 const Timesheet: React.FC = () => {
   const [rows, setRows] = useState<TimesheetRow[]>([]);
+  const [addedRows, setAddedRows] = useState<TimesheetRow[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [initiationRequests, setInitiationRequests] = useState<InitiationRequest[]>([]);
   const [categories, setCategories] = useState<NonProjectCategory[]>([]);
@@ -81,7 +82,7 @@ const Timesheet: React.FC = () => {
         .select('id, project_name, status')
         .order('project_name'),
       supabase
-        .from('non_project_categories')
+        .from('non_project_work_categories')
         .select('*')
         .eq('is_active', true)
         .order('name')
@@ -152,7 +153,19 @@ const Timesheet: React.FC = () => {
       }
     });
 
-    setRows(Array.from(rowsMap.values()));
+    const entriesRows = Array.from(rowsMap.values());
+
+    const allRows = [...addedRows];
+    entriesRows.forEach(entryRow => {
+      const existingIndex = allRows.findIndex(r => r.id === entryRow.id);
+      if (existingIndex >= 0) {
+        allRows[existingIndex] = entryRow;
+      } else {
+        allRows.push(entryRow);
+      }
+    });
+
+    setRows(allRows);
   };
 
   const getWeekDates = () => {
@@ -232,6 +245,7 @@ const Timesheet: React.FC = () => {
       };
     }
 
+    setAddedRows([...addedRows, newRow]);
     setRows([...rows, newRow]);
     setShowAddModal(false);
     setNewRowForm({ type: 'project', selectedId: '' });
