@@ -229,6 +229,7 @@ interface Task {
 function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] }) {
   const weeks = 12;
   const [allocations, setAllocations] = useState<Map<string, Map<string, number>>>(new Map());
+  const [weekStartDates, setWeekStartDates] = useState<Date[]>([]);
   const [projectId, setProjectId] = useState<string>('');
 
   useEffect(() => {
@@ -266,11 +267,18 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
         }
       }
 
+      // Get the current Monday (start of work week)
       const today = new Date();
+      const currentDay = today.getDay();
+      const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1; // If Sunday, go back 6 days, else go back to Monday
+      const currentMonday = new Date(today);
+      currentMonday.setDate(today.getDate() - daysFromMonday);
+      currentMonday.setHours(0, 0, 0, 0);
+
+      // Create week starts for each Monday
       const weekStarts = Array.from({ length: weeks }, (_, i) => {
-        const date = new Date(today);
-        date.setDate(date.getDate() + (i * 7));
-        date.setHours(0, 0, 0, 0);
+        const date = new Date(currentMonday);
+        date.setDate(currentMonday.getDate() + (i * 7));
         return date;
       });
 
@@ -280,9 +288,9 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
         const memberTasks = allTasks.filter(task => task.owner_id === member.resource_id);
 
         for (let i = 0; i < weeks; i++) {
-          const weekStart = weekStarts[i];
+          const weekStart = weekStarts[i]; // Monday
           const weekEnd = new Date(weekStart);
-          weekEnd.setDate(weekEnd.getDate() + 7);
+          weekEnd.setDate(weekEnd.getDate() + 5); // Friday (5 days from Monday)
 
           let totalHours = 0;
 
@@ -296,9 +304,8 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
 
             if (overlapStart < overlapEnd) {
               const overlapDays = Math.ceil((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24));
-              const taskDuration = task.duration || 1;
-              const hoursPerDay = (40 / 5);
-              const taskHours = Math.min(overlapDays * hoursPerDay, taskDuration * hoursPerDay);
+              const hoursPerDay = 8; // 8 hours per work day
+              const taskHours = overlapDays * hoursPerDay;
               totalHours += taskHours;
             }
           }
@@ -310,9 +317,23 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
       }
 
       setAllocations(allocationMap);
+      setWeekStartDates(weekStarts);
     } catch (error) {
       console.error('Error calculating allocations:', error);
     }
+  };
+
+  const formatWeekRange = (startDate: Date) => {
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 4); // Friday (4 days from Monday)
+
+    const formatDate = (date: Date) => {
+      const month = date.toLocaleDateString('en-US', { month: 'short' });
+      const day = date.getDate();
+      return `${month} ${day}`;
+    };
+
+    return `${formatDate(startDate)} - ${formatDate(endDate)}`;
   };
 
   const getColorClass = (hours: number) => {
@@ -372,25 +393,30 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
 
             <div className="flex-1 overflow-x-auto">
               <div className="flex">
-                {Array.from({ length: weeks }).map((_, weekIndex) => (
-                  <div key={weekIndex} className="flex-1 min-w-20">
-                    <div className="h-10 border-b border-l border-gray-200 flex items-center justify-center text-xs font-medium text-gray-600">
-                      Week {weekIndex + 1}
+                {Array.from({ length: weeks }).map((_, weekIndex) => {
+                  const weekStart = weekStartDates[weekIndex];
+                  const weekLabel = weekStart ? formatWeekRange(weekStart) : `Week ${weekIndex + 1}`;
+
+                  return (
+                    <div key={weekIndex} className="flex-1 min-w-32">
+                      <div className="h-10 border-b border-l border-gray-200 flex items-center justify-center text-xs font-medium text-gray-600 px-2">
+                        {weekLabel}
+                      </div>
+                      {teamMembers.map((member) => {
+                        const hours = allocations.get(member.id)?.get(`week-${weekIndex}`) || 0;
+                        return (
+                          <div
+                            key={`${member.id}-${weekIndex}`}
+                            className={`h-12 border-b border-l border-gray-200 flex items-center justify-center text-sm font-medium ${getColorClass(hours)}`}
+                            title={`${member.resource?.display_name} - ${weekLabel}: ${hours}h`}
+                          >
+                            {hours > 0 ? `${hours}h` : ''}
+                          </div>
+                        );
+                      })}
                     </div>
-                    {teamMembers.map((member) => {
-                      const hours = allocations.get(member.id)?.get(`week-${weekIndex}`) || 0;
-                      return (
-                        <div
-                          key={`${member.id}-${weekIndex}`}
-                          className={`h-12 border-b border-l border-gray-200 flex items-center justify-center text-sm font-medium ${getColorClass(hours)}`}
-                          title={`${member.resource?.display_name} - Week ${weekIndex + 1}: ${hours}h`}
-                        >
-                          {hours > 0 ? `${hours}h` : ''}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
