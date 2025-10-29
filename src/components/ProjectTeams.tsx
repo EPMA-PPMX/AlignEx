@@ -216,30 +216,95 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
   );
 }
 
+interface Task {
+  id: number;
+  text: string;
+  start_date: string;
+  duration: number;
+  owner_id?: string;
+  owner_name?: string;
+  parent?: number;
+}
+
 function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] }) {
   const weeks = 12;
   const [allocations, setAllocations] = useState<Map<string, Map<string, number>>>(new Map());
+  const [projectId, setProjectId] = useState<string>('');
 
   useEffect(() => {
-    fetchAllocations();
+    if (teamMembers.length > 0) {
+      setProjectId(teamMembers[0].project_id);
+    }
   }, [teamMembers]);
+
+  useEffect(() => {
+    if (projectId) {
+      fetchAllocations();
+    }
+  }, [teamMembers, projectId]);
 
   const fetchAllocations = async () => {
     const allocationMap = new Map<string, Map<string, number>>();
 
-    for (const member of teamMembers) {
-      const weekMap = new Map<string, number>();
-      const hoursPerWeek = (member.allocation_percentage / 100) * 40;
+    try {
+      const { data: taskData, error } = await supabase
+        .from('project_tasks')
+        .select('task_data')
+        .eq('project_id', projectId)
+        .maybeSingle();
 
-      for (let i = 0; i < weeks; i++) {
-        const variance = Math.random() * 10 - 5;
-        const hours = Math.max(0, Math.min(40, Math.floor(hoursPerWeek + variance)));
-        weekMap.set(`week-${i}`, hours);
+      if (error) {
+        console.error('Error fetching tasks:', error);
+        return;
       }
-      allocationMap.set(member.id, weekMap);
-    }
 
-    setAllocations(allocationMap);
+      const tasks: Task[] = taskData?.task_data?.data || [];
+      const today = new Date();
+      const weekStarts = Array.from({ length: weeks }, (_, i) => {
+        const date = new Date(today);
+        date.setDate(date.getDate() + (i * 7));
+        date.setHours(0, 0, 0, 0);
+        return date;
+      });
+
+      for (const member of teamMembers) {
+        const weekMap = new Map<string, number>();
+        const memberTasks = tasks.filter(task => task.owner_id === member.resource_id);
+
+        for (let i = 0; i < weeks; i++) {
+          const weekStart = weekStarts[i];
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekEnd.getDate() + 7);
+
+          let totalHours = 0;
+
+          for (const task of memberTasks) {
+            const taskStart = new Date(task.start_date);
+            const taskEnd = new Date(taskStart);
+            taskEnd.setDate(taskEnd.getDate() + task.duration);
+
+            const overlapStart = taskStart > weekStart ? taskStart : weekStart;
+            const overlapEnd = taskEnd < weekEnd ? taskEnd : weekEnd;
+
+            if (overlapStart < overlapEnd) {
+              const overlapDays = Math.ceil((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24));
+              const taskDuration = task.duration || 1;
+              const hoursPerDay = (40 / 5);
+              const taskHours = Math.min(overlapDays * hoursPerDay, taskDuration * hoursPerDay);
+              totalHours += taskHours;
+            }
+          }
+
+          weekMap.set(`week-${i}`, Math.min(Math.round(totalHours), 40));
+        }
+
+        allocationMap.set(member.id, weekMap);
+      }
+
+      setAllocations(allocationMap);
+    } catch (error) {
+      console.error('Error calculating allocations:', error);
+    }
   };
 
   const getColorClass = (hours: number) => {
