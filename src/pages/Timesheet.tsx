@@ -75,12 +75,10 @@ const Timesheet: React.FC = () => {
       supabase
         .from('projects')
         .select('id, name, state')
-        .eq('state', 'active')
         .order('name'),
       supabase
         .from('project_initiation_requests')
         .select('id, project_name, status')
-        .in('status', ['approved', 'in_progress'])
         .order('project_name'),
       supabase
         .from('non_project_categories')
@@ -201,9 +199,42 @@ const Timesheet: React.FC = () => {
       return;
     }
 
+    let newRow: TimesheetRow;
+    if (newRowForm.type === 'project') {
+      const project = projects.find(p => p.id === newRowForm.selectedId);
+      if (!project) return;
+      newRow = {
+        id: `project-${project.id}`,
+        name: project.name,
+        type: 'project',
+        typeId: project.id,
+        entries: {}
+      };
+    } else if (newRowForm.type === 'initiation') {
+      const request = initiationRequests.find(r => r.id === newRowForm.selectedId);
+      if (!request) return;
+      newRow = {
+        id: `initiation-${request.id}`,
+        name: request.project_name,
+        type: 'initiation',
+        typeId: request.id,
+        entries: {}
+      };
+    } else {
+      const category = categories.find(c => c.id === newRowForm.selectedId);
+      if (!category) return;
+      newRow = {
+        id: `category-${category.id}`,
+        name: category.name,
+        type: 'category',
+        typeId: category.id,
+        entries: {}
+      };
+    }
+
+    setRows([...rows, newRow]);
     setShowAddModal(false);
     setNewRowForm({ type: 'project', selectedId: '' });
-    await fetchData();
   };
 
   const handleCellUpdate = async (row: TimesheetRow, date: Date, billable: number, nonBillable: number, notes: string) => {
