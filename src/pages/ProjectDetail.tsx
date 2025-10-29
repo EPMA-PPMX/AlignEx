@@ -87,7 +87,7 @@ interface Issue {
 interface ChangeRequest {
   id: string;
   project_id: string;
-  title: string;
+  request_title: string;
   type: string;
   description: string;
   justification: string;
@@ -1080,17 +1080,21 @@ const ProjectDetail: React.FC = () => {
 
     try {
       const attachmentsData = JSON.stringify(uploadedFiles);
+      const { title, ...restForm } = changeRequestForm;
       const payload = {
-        ...changeRequestForm,
+        ...restForm,
+        request_title: title,
         attachments: attachmentsData,
         project_id: id
       };
 
       if (editingChangeRequest) {
+        const { title, ...restForm } = changeRequestForm;
         const { error } = await supabase
           .from('change_requests')
           .update({
-            ...changeRequestForm,
+            ...restForm,
+            request_title: title,
             attachments: attachmentsData
           })
           .eq('id', editingChangeRequest.id);
@@ -1155,7 +1159,7 @@ const ProjectDetail: React.FC = () => {
   const handleEditChangeRequest = (changeRequest: ChangeRequest) => {
     setEditingChangeRequest(changeRequest);
     setChangeRequestForm({
-      title: changeRequest.title,
+      title: changeRequest.request_title,
       type: changeRequest.type,
       description: changeRequest.description,
       justification: changeRequest.justification,
@@ -2297,7 +2301,7 @@ const ProjectDetail: React.FC = () => {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {changeRequests.map((changeRequest) => (
                         <tr key={changeRequest.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{changeRequest.title}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{changeRequest.request_title}</td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                               changeRequest.type === 'Scope Change' ? 'bg-blue-100 text-blue-800' :
@@ -2999,7 +3003,7 @@ const ProjectDetail: React.FC = () => {
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-500 mb-1">Title</label>
-                  <p className="text-base text-gray-900 font-semibold">{viewingChangeRequest.title}</p>
+                  <p className="text-base text-gray-900 font-semibold">{viewingChangeRequest.request_title}</p>
                 </div>
 
                 <div>
