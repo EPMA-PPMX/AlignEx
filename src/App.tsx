@@ -10,6 +10,7 @@ import OrganizationalPriorities from './pages/OrganizationalPriorities';
 import Resources from './pages/Resources';
 import Skills from './pages/Skills';
 import ActionItems from './pages/ActionItems';
+import Timesheet from './pages/Timesheet';
 import Settings from './pages/Settings';
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
           <Route path="/resources" element={<Resources />} />
           <Route path="/skills" element={<Skills />} />
           <Route path="/action-items" element={<ActionItems />} />
+          <Route path="/timesheet" element={<Timesheet />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </Layout>
