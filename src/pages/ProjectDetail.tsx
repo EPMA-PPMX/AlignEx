@@ -127,31 +127,10 @@ interface MonthlyBudgetForecast {
   id: string;
   project_id: string;
   category: string;
-  year: number;
-  january_forecast: number;
-  january_actual: number;
-  february_forecast: number;
-  february_actual: number;
-  march_forecast: number;
-  march_actual: number;
-  april_forecast: number;
-  april_actual: number;
-  may_forecast: number;
-  may_actual: number;
-  june_forecast: number;
-  june_actual: number;
-  july_forecast: number;
-  july_actual: number;
-  august_forecast: number;
-  august_actual: number;
-  september_forecast: number;
-  september_actual: number;
-  october_forecast: number;
-  october_actual: number;
-  november_forecast: number;
-  november_actual: number;
-  december_forecast: number;
-  december_actual: number;
+  month_year: string;
+  forecasted_amount: number;
+  actual_amount: number | null;
+  notes?: string;
   created_at: string;
   updated_at: string;
 }
@@ -224,8 +203,7 @@ const ProjectDetail: React.FC = () => {
   });
 
   const [budgetForm, setBudgetForm] = useState({
-    categories: [] as string[],
-    budget_amount: '0'
+    categories: [] as string[]
   });
 
   const [taskForm, setTaskForm] = useState({
@@ -398,12 +376,17 @@ const ProjectDetail: React.FC = () => {
   const fetchMonthlyForecasts = async () => {
     if (!id) return;
     try {
+      const startDate = `${selectedYear}-01-01`;
+      const endDate = `${selectedYear}-12-31`;
+
       const { data, error } = await supabase
         .from('budget_forecast_monthly')
         .select('*')
         .eq('project_id', id)
-        .eq('year', selectedYear)
-        .order('category', { ascending: true });
+        .gte('month_year', startDate)
+        .lte('month_year', endDate)
+        .order('category', { ascending: true })
+        .order('month_year', { ascending: true });
 
       if (error) {
         console.error('Error fetching monthly forecasts:', error);
@@ -1554,8 +1537,7 @@ const ProjectDetail: React.FC = () => {
 
   const handleAddBudget = () => {
     setBudgetForm({
-      categories: [],
-      budget_amount: '0'
+      categories: []
     });
     setEditingBudget(null);
     setShowBudgetModal(true);
@@ -1563,8 +1545,7 @@ const ProjectDetail: React.FC = () => {
 
   const handleEditBudget = (budget: Budget) => {
     setBudgetForm({
-      categories: budget.categories || [],
-      budget_amount: budget.budget_amount?.toString() || '0'
+      categories: budget.categories || []
     });
     setEditingBudget(budget);
     setShowBudgetModal(true);
@@ -1588,7 +1569,7 @@ const ProjectDetail: React.FC = () => {
           .from('project_budgets')
           .update({
             categories: budgetForm.categories,
-            budget_amount: parseFloat(budgetForm.budget_amount) || 0
+            budget_amount: 0
           })
           .eq('id', editingBudget.id);
 
@@ -1610,13 +1591,20 @@ const ProjectDetail: React.FC = () => {
         }
 
         for (const category of addedCategories) {
-          const { error: insertError } = await supabase
-            .from('budget_forecast_monthly')
-            .insert([{
+          const months = [];
+          for (let month = 0; month < 12; month++) {
+            months.push({
               project_id: id,
               category: category,
-              year: selectedYear
-            }]);
+              month_year: `${selectedYear}-${String(month + 1).padStart(2, '0')}-01`,
+              forecasted_amount: 0,
+              actual_amount: null
+            });
+          }
+
+          const { error: insertError } = await supabase
+            .from('budget_forecast_monthly')
+            .insert(months);
 
           if (insertError && insertError.code !== '23505') {
             console.error('Error creating forecast:', insertError);
@@ -1628,7 +1616,7 @@ const ProjectDetail: React.FC = () => {
           .insert([{
             project_id: id,
             categories: budgetForm.categories,
-            budget_amount: parseFloat(budgetForm.budget_amount) || 0
+            budget_amount: 0
           }]);
 
         if (error) {
@@ -1636,13 +1624,20 @@ const ProjectDetail: React.FC = () => {
         }
 
         for (const category of budgetForm.categories) {
-          const { error: insertError } = await supabase
-            .from('budget_forecast_monthly')
-            .insert([{
+          const months = [];
+          for (let month = 0; month < 12; month++) {
+            months.push({
               project_id: id,
               category: category,
-              year: selectedYear
-            }]);
+              month_year: `${selectedYear}-${String(month + 1).padStart(2, '0')}-01`,
+              forecasted_amount: 0,
+              actual_amount: null
+            });
+          }
+
+          const { error: insertError } = await supabase
+            .from('budget_forecast_monthly')
+            .insert(months);
 
           if (insertError && insertError.code !== '23505') {
             console.error('Error creating forecast:', insertError);
@@ -1655,8 +1650,7 @@ const ProjectDetail: React.FC = () => {
       setShowBudgetModal(false);
       setEditingBudget(null);
       setBudgetForm({
-        categories: [],
-        budget_amount: '0'
+        categories: []
       });
       alert(editingBudget ? 'Budget updated successfully!' : 'Budget added successfully!');
     } catch (error: any) {
@@ -1689,17 +1683,13 @@ const ProjectDetail: React.FC = () => {
 
   const handleUpdateMonthlyValue = async (
     forecastId: string,
-    month: string,
-    type: 'forecast' | 'actual',
-    value: string
+    field: 'forecasted_amount' | 'actual_amount',
+    value: number
   ) => {
-    const numValue = parseFloat(value) || 0;
-    const fieldName = `${month}_${type}`;
-
     try {
       const { error } = await supabase
         .from('budget_forecast_monthly')
-        .update({ [fieldName]: numValue })
+        .update({ [field]: value })
         .eq('id', forecastId);
 
       if (error) {
@@ -1709,7 +1699,7 @@ const ProjectDetail: React.FC = () => {
       setMonthlyForecasts(prev =>
         prev.map(f =>
           f.id === forecastId
-            ? { ...f, [fieldName]: numValue }
+            ? { ...f, [field]: value }
             : f
         )
       );
@@ -1719,37 +1709,17 @@ const ProjectDetail: React.FC = () => {
     }
   };
 
-  const calculateVariance = (forecast: number, actual: number): { percentage: number; color: string } => {
-    if (forecast === 0) {
-      return { percentage: 0, color: 'text-gray-600' };
-    }
-
-    const variance = ((actual - forecast) / forecast) * 100;
-    let color = 'text-gray-600';
-
-    if (variance > 10) {
-      color = 'text-red-600';
-    } else if (variance < -10) {
-      color = 'text-green-600';
-    }
-
-    return { percentage: Math.round(variance * 10) / 10, color };
-  };
-
   const calculateBudgetMetrics = () => {
-    const MONTHS = [
-      'january', 'february', 'march', 'april', 'may', 'june',
-      'july', 'august', 'september', 'october', 'november', 'december'
-    ];
-
     if (budgetViewFilter === 'monthly') {
-      const monthName = MONTHS[selectedMonth];
+      const targetMonth = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-01`;
       let totalBudget = 0;
       let totalSpent = 0;
 
       monthlyForecasts.forEach((forecast) => {
-        totalBudget += forecast[`${monthName}_forecast` as keyof MonthlyBudgetForecast] as number || 0;
-        totalSpent += forecast[`${monthName}_actual` as keyof MonthlyBudgetForecast] as number || 0;
+        if (forecast.month_year === targetMonth) {
+          totalBudget += forecast.forecasted_amount || 0;
+          totalSpent += forecast.actual_amount || 0;
+        }
       });
 
       const remaining = totalBudget - totalSpent;
@@ -1761,10 +1731,8 @@ const ProjectDetail: React.FC = () => {
       let totalSpent = 0;
 
       monthlyForecasts.forEach((forecast) => {
-        MONTHS.forEach((month) => {
-          totalBudget += forecast[`${month}_forecast` as keyof MonthlyBudgetForecast] as number || 0;
-          totalSpent += forecast[`${month}_actual` as keyof MonthlyBudgetForecast] as number || 0;
-        });
+        totalBudget += forecast.forecasted_amount || 0;
+        totalSpent += forecast.actual_amount || 0;
       });
 
       const remaining = totalBudget - totalSpent;
@@ -2488,8 +2456,8 @@ const ProjectDetail: React.FC = () => {
                 </div>
                 <MonthlyBudgetGrid
                   forecasts={monthlyForecasts}
+                  selectedYear={selectedYear}
                   onUpdateValue={handleUpdateMonthlyValue}
-                  calculateVariance={calculateVariance}
                 />
               </div>
             )}
@@ -2750,20 +2718,6 @@ const ProjectDetail: React.FC = () => {
               {editingBudget ? 'Edit Budget Categories' : 'Add Budget Categories'}
             </h3>
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Budget Amount
-                </label>
-                <input
-                  type="number"
-                  value={budgetForm.budget_amount}
-                  onChange={(e) => setBudgetForm({ ...budgetForm, budget_amount: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter budget amount"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Select Categories (you can select multiple)
