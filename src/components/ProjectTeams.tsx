@@ -310,8 +310,7 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
   const getColorClass = (hours: number) => {
     if (hours === 0) return 'bg-gray-100';
     if (hours <= 10) return 'bg-green-200';
-    if (hours <= 20) return 'bg-yellow-200';
-    if (hours <= 30) return 'bg-orange-300';
+    if (hours <= 30) return 'bg-yellow-200';
     return 'bg-red-400';
   };
 
@@ -329,23 +328,19 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
         <div className="flex items-center gap-4 text-xs">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-gray-100 border border-gray-300"></div>
-            <span className="text-gray-600">0h</span>
+            <span className="text-gray-600">0h - No allocation</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-green-200"></div>
-            <span className="text-gray-600">1-10h</span>
+            <span className="text-gray-600">1-10h - Available</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-yellow-200"></div>
-            <span className="text-gray-600">11-20h</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-orange-300"></div>
-            <span className="text-gray-600">21-30h</span>
+            <span className="text-gray-600">11-30h - Moderate Load</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-red-400"></div>
-            <span className="text-gray-600">31-40h</span>
+            <span className="text-gray-600">31-40h - Overloaded</span>
           </div>
         </div>
       </div>
