@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { User, Bell, Shield, Database, Palette, Globe, Settings2, Award, Users } from 'lucide-react';
+import { User, Bell, Shield, Database, Palette, Globe, Settings2, Award, Users, Clock } from 'lucide-react';
 import CustomFields from '../components/CustomFields';
 import ProjectTemplates from '../components/ProjectTemplates';
 import OverviewPageDesigner from '../components/OverviewPageDesigner';
 import SkillCategoriesManagement from '../components/settings/SkillCategoriesManagement';
 import SkillsManagement from '../components/settings/SkillsManagement';
 import RoleManagement from '../components/settings/RoleManagement';
+import TimesheetCategoriesManagement from '../components/settings/TimesheetCategoriesManagement';
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('profile');
@@ -17,9 +18,10 @@ const Settings: React.FC = () => {
     { id: 'appearance', name: 'Appearance', icon: Palette },
     { id: 'integrations', name: 'Integrations', icon: Database },
     { id: 'general', name: 'General', icon: Globe },
-    { id: 'project-templates', name: 'Project Templates', icon: Settings2 },
+    { id: 'project-templates', name: 'Project Types', icon: Settings2 },
     { id: 'custom-fields', name: 'Custom Fields', icon: Settings2 },
     { id: 'overview-designer', name: 'Overview Page Designer', icon: Settings2 },
+    { id: 'timesheet-categories', name: 'Timesheet Categories', icon: Clock },
     { id: 'skill-categories', name: 'Skill Categories', icon: Award },
     { id: 'skills-management', name: 'Skills Management', icon: Award },
     { id: 'role-management', name: 'Role Management', icon: Users },
@@ -221,6 +223,10 @@ const Settings: React.FC = () => {
 
             {activeTab === 'role-management' && (
               <RoleManagement />
+            )}
+
+            {activeTab === 'timesheet-categories' && (
+              <TimesheetCategoriesManagement />
             )}
 
             {(activeTab === 'integrations' || activeTab === 'general') && (

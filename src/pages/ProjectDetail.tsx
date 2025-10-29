@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign } from 'lucide-react';
+import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { MonthlyBudgetGrid } from '../components/MonthlyBudgetGrid';
 import { BudgetSummaryTiles } from '../components/BudgetSummaryTiles';
 import Gantt from "../components/Gantt/Gantt";
 import ProjectStatusDropdown from '../components/ProjectStatusDropdown';
 import ProjectHealthStatus from '../components/ProjectHealthStatus';
+import BenefitTracking from '../components/BenefitTracking';
 import ProjectTeams from '../components/ProjectTeams';
 
 interface Project {
@@ -56,7 +57,7 @@ interface ProjectFieldValue {
   id: string;
   project_id: string;
   field_id: string;
-  field_value: any;
+  value: any;
 }
 
 interface Risk {
@@ -254,6 +255,7 @@ const ProjectDetail: React.FC = () => {
     { id: 'risks-issues', name: 'Risks & Issues', icon: AlertTriangle },
     { id: 'change-management', name: 'Change Management', icon: FileText },
     { id: 'budget', name: 'Budget', icon: DollarSign },
+    { id: 'benefit-tracking', name: 'Benefit Tracking', icon: TrendingUp },
     { id: 'settings', name: 'Documents', icon: FileText },
   ];
 
@@ -343,7 +345,7 @@ const ProjectDetail: React.FC = () => {
       } else if (data) {
         const values: { [key: string]: any } = {};
         data.forEach((item: ProjectFieldValue) => {
-          values[item.field_id] = item.field_value;
+          values[item.field_id] = item.value;
         });
         setFieldValues(values);
       }
@@ -662,7 +664,7 @@ const ProjectDetail: React.FC = () => {
       const records = Object.entries(fieldValues).map(([fieldId, value]) => ({
         project_id: id,
         field_id: fieldId,
-        field_value: value
+        value: value
       }));
 
       if (records.length === 0) {
@@ -2474,6 +2476,10 @@ const ProjectDetail: React.FC = () => {
               </div>
             )}
           </div>
+        )}
+
+        {activeTab === 'benefit-tracking' && (
+          <BenefitTracking projectId={id!} />
         )}
 
         {activeTab === 'settings' && (

@@ -120,6 +120,11 @@ export default function ProjectInitiation() {
         .eq('id', id);
 
       if (error) throw error;
+
+      if (newStatus === 'Approved') {
+        await createProjectFromRequest(id);
+      }
+
       fetchRequests();
 
       const updatedRequest = requests.find(r => r.id === id);
@@ -128,6 +133,68 @@ export default function ProjectInitiation() {
       }
     } catch (error) {
       console.error('Error updating status:', error);
+      alert('Error updating status. Please try again.');
+    }
+  };
+
+  const createProjectFromRequest = async (requestId: string) => {
+    try {
+      const request = requests.find(r => r.id === requestId);
+      if (!request) {
+        throw new Error('Request not found');
+      }
+
+      const { data: templateData } = await supabase
+        .from('project_templates')
+        .select('id')
+        .eq('template_name', request.project_type)
+        .maybeSingle();
+
+      const { data: projectData, error: projectError } = await supabase
+        .from('projects')
+        .insert([{
+          name: request.project_name,
+          description: request.description || null,
+          template_id: templateData?.id || null,
+          status: 'Planning',
+          state: 'Active',
+          project_status: 'On Track'
+        }])
+        .select();
+
+      if (projectError) throw projectError;
+
+      if (projectData && projectData[0]) {
+        const projectId = projectData[0].id;
+
+        const { data: prioritiesData } = await supabase
+          .from('project_request_priorities')
+          .select('priority_id, expected_contribution')
+          .eq('request_id', requestId);
+
+        if (prioritiesData && prioritiesData.length > 0) {
+          const impactRecords = prioritiesData.map(p => ({
+            project_id: projectId,
+            priority_id: p.priority_id,
+            planned_impact: p.expected_contribution,
+            actual_impact: null,
+            notes: null
+          }));
+
+          const { error: impactError } = await supabase
+            .from('project_priority_impacts')
+            .insert(impactRecords);
+
+          if (impactError) {
+            console.error('Error linking priorities to project:', impactError);
+          }
+        }
+
+        alert(`Project "${request.project_name}" created successfully!`);
+      }
+    } catch (error) {
+      console.error('Error creating project from request:', error);
+      alert('Error creating project. Please try again or create it manually.');
     }
   };
 

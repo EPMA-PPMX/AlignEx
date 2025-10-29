@@ -44,7 +44,7 @@ const NewProject: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching project templates:', error);
+        console.error('Error fetching project types:', error);
       } else {
         setTemplates(data || []);
       }
@@ -80,7 +80,7 @@ const NewProject: React.FC = () => {
     e.preventDefault();
 
     if (!formData.name.trim() || !formData.template_id) {
-      alert('Project name and template are required');
+      alert('Project name and project type are required');
       return;
     }
 
@@ -196,12 +196,12 @@ const NewProject: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label htmlFor="template_id" className="block text-sm font-medium text-gray-700 mb-2">
-                Project Template <span className="text-red-500">*</span>
+                Project Type <span className="text-red-500">*</span>
               </label>
               {templatesLoading ? (
                 <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 flex items-center">
                   <Loader className="w-4 h-4 animate-spin mr-2" />
-                  <span className="text-gray-500">Loading templates...</span>
+                  <span className="text-gray-500">Loading project types...</span>
                 </div>
               ) : (
                 <select
@@ -213,7 +213,7 @@ const NewProject: React.FC = () => {
                   disabled={loading}
                   required
                 >
-                  <option value="">Select a template</option>
+                  <option value="">Select a project type</option>
                   {templates.map((template) => (
                     <option key={template.id} value={template.id}>
                       {template.template_name}
@@ -223,7 +223,7 @@ const NewProject: React.FC = () => {
               )}
               {templates.length === 0 && !templatesLoading && (
                 <p className="text-sm text-red-500 mt-1">
-                  No templates available. Please create templates in Settings first.
+                  No project types available. Please create project types in Settings first.
                 </p>
               )}
             </div>
