@@ -270,6 +270,7 @@ const Timesheet: React.FC = () => {
 
       if (billable > 0) {
         entriesToInsert.push({
+          user_id: 'anonymous',
           entry_date: dateKey,
           hours: billable,
           is_billable: true,
@@ -282,6 +283,7 @@ const Timesheet: React.FC = () => {
 
       if (nonBillable > 0) {
         entriesToInsert.push({
+          user_id: 'anonymous',
           entry_date: dateKey,
           hours: nonBillable,
           is_billable: false,
