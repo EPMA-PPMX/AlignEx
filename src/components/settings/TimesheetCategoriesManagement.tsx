@@ -25,7 +25,7 @@ const TimesheetCategoriesManagement: React.FC = () => {
 
   const fetchCategories = async () => {
     const { data, error } = await supabase
-      .from('non_project_categories')
+      .from('non_project_work_categories')
       .select('*')
       .order('name');
 
@@ -44,7 +44,7 @@ const TimesheetCategoriesManagement: React.FC = () => {
 
     if (editingId) {
       const { error } = await supabase
-        .from('non_project_categories')
+        .from('non_project_work_categories')
         .update(formData)
         .eq('id', editingId);
 
@@ -58,7 +58,7 @@ const TimesheetCategoriesManagement: React.FC = () => {
       }
     } else {
       const { error } = await supabase
-        .from('non_project_categories')
+        .from('non_project_work_categories')
         .insert([formData]);
 
       if (error) {
@@ -92,7 +92,7 @@ const TimesheetCategoriesManagement: React.FC = () => {
     }
 
     const { error } = await supabase
-      .from('non_project_categories')
+      .from('non_project_work_categories')
       .delete()
       .eq('id', id);
 
@@ -106,7 +106,7 @@ const TimesheetCategoriesManagement: React.FC = () => {
 
   const toggleActive = async (category: Category) => {
     const { error } = await supabase
-      .from('non_project_categories')
+      .from('non_project_work_categories')
       .update({ is_active: !category.is_active })
       .eq('id', category.id);
 
