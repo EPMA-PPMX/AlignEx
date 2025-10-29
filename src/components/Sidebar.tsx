@@ -43,6 +43,11 @@ const Sidebar: React.FC = () => {
       icon: CheckSquare,
     },
     {
+      name: 'Timesheet',
+      path: '/timesheet',
+      icon: Clock,
+    },
+    {
       name: 'Settings',
       path: '/settings',
       icon: Settings,
