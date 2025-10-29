@@ -247,18 +247,25 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
     const allocationMap = new Map<string, Map<string, number>>();
 
     try {
-      const { data: taskData, error } = await supabase
+      // Fetch ALL project tasks across all projects
+      const { data: allProjectTasks, error } = await supabase
         .from('project_tasks')
-        .select('task_data')
-        .eq('project_id', projectId)
-        .maybeSingle();
+        .select('task_data, project_id');
 
       if (error) {
         console.error('Error fetching tasks:', error);
         return;
       }
 
-      const tasks: Task[] = taskData?.task_data?.data || [];
+      // Flatten all tasks from all projects into a single array
+      const allTasks: Task[] = [];
+      if (allProjectTasks) {
+        for (const projectTask of allProjectTasks) {
+          const tasks = projectTask.task_data?.data || [];
+          allTasks.push(...tasks);
+        }
+      }
+
       const today = new Date();
       const weekStarts = Array.from({ length: weeks }, (_, i) => {
         const date = new Date(today);
@@ -269,7 +276,8 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
 
       for (const member of teamMembers) {
         const weekMap = new Map<string, number>();
-        const memberTasks = tasks.filter(task => task.owner_id === member.resource_id);
+        // Filter tasks across ALL projects for this resource
+        const memberTasks = allTasks.filter(task => task.owner_id === member.resource_id);
 
         for (let i = 0; i < weeks; i++) {
           const weekStart = weekStarts[i];
