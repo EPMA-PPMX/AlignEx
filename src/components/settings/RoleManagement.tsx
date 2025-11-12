@@ -200,7 +200,10 @@ export default function RoleManagement() {
         .delete()
         .eq('role_id', managingSkillsFor);
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error('Delete error:', deleteError);
+        throw deleteError;
+      }
 
       const requirementsToInsert = Object.entries(selectedSkills)
         .filter(([_, level]) => level !== 'None')
@@ -210,20 +213,25 @@ export default function RoleManagement() {
           required_level: level,
         }));
 
+      console.log('Requirements to insert:', requirementsToInsert);
+
       if (requirementsToInsert.length > 0) {
         const { error: insertError } = await supabase
           .from('role_skill_requirements')
           .insert(requirementsToInsert);
 
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error('Insert error:', insertError);
+          throw insertError;
+        }
       }
 
       await fetchRoleRequirements(managingSkillsFor);
       setManagingSkillsFor(null);
       setSelectedSkills({});
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving skill requirements:', error);
-      alert('Failed to save skill requirements');
+      alert(`Failed to save skill requirements: ${error.message || 'Unknown error'}`);
     }
   };
 

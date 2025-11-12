@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FolderKanban, Settings, Target, TrendingUp, FileText, Award, Users, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, Settings, Target, TrendingUp, FileText, Award, Users, CheckSquare, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
@@ -36,6 +36,16 @@ const Sidebar: React.FC = () => {
       name: 'Skills',
       path: '/skills',
       icon: Award,
+    },
+    {
+      name: 'Action Items',
+      path: '/action-items',
+      icon: CheckSquare,
+    },
+    {
+      name: 'Timesheet',
+      path: '/timesheet',
+      icon: Clock,
     },
     {
       name: 'Settings',

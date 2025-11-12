@@ -7,7 +7,7 @@ interface CustomField {
   field_name: string;
   field_type: string;
   field_label: string;
-  field_description?: string;
+  description?: string;
   is_required: boolean;
   default_value?: string;
   options?: string[];
@@ -25,7 +25,7 @@ const CustomFields: React.FC = () => {
     field_name: '',
     field_type: 'text',
     field_label: '',
-    field_description: '',
+    description: '',
     is_required: false,
     default_value: '',
     entity_type: 'project' as 'project' | 'resource',
@@ -128,7 +128,7 @@ const CustomFields: React.FC = () => {
       field_name: field.field_name,
       field_type: field.field_type,
       field_label: field.field_label,
-      field_description: field.field_description || '',
+      description: field.description || '',
       is_required: field.is_required,
       default_value: field.default_value || '',
       entity_type: field.entity_type,
@@ -168,7 +168,7 @@ const CustomFields: React.FC = () => {
       field_name: '',
       field_type: 'text',
       field_label: '',
-      field_description: '',
+      description: '',
       is_required: false,
       default_value: '',
       entity_type: 'project',
@@ -281,8 +281,8 @@ const CustomFields: React.FC = () => {
             </label>
             <input
               type="text"
-              value={formData.field_description}
-              onChange={(e) => setFormData({ ...formData, field_description: e.target.value })}
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Additional guidance for users filling this field"
             />
