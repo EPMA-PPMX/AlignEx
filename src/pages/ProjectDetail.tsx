@@ -2067,7 +2067,13 @@ const ProjectDetail: React.FC = () => {
                 projecttasks={projectTasks}
                 onTaskUpdate={saveProjectTasks}
                 onOpenTaskModal={(parentId) => {
-                  setTaskForm({ ...taskForm, parent_id: parentId });
+                  setTaskForm({
+                    description: '',
+                    start_date: '',
+                    duration: 1,
+                    owner_id: '',
+                    parent_id: parentId
+                  });
                   setEditingTaskId(null);
                   setShowTaskModal(true);
                 }}

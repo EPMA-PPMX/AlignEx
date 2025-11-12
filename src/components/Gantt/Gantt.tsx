@@ -71,7 +71,10 @@ export default class Gantt extends Component<GanttProps> {
       gantt.attachEvent("onBeforeTaskAdd", (id: any, task: any) => {
         // Use the captured parent ID or the task's parent
         const parentId = this.pendingParentId !== undefined ? this.pendingParentId : (task.parent || undefined);
-        console.log("Opening modal with parent:", parentId);
+        console.log("onBeforeTaskAdd - Task object:", task);
+        console.log("onBeforeTaskAdd - Pending parent ID:", this.pendingParentId);
+        console.log("onBeforeTaskAdd - Task parent:", task.parent);
+        console.log("onBeforeTaskAdd - Final parent ID:", parentId);
         onOpenTaskModal(parentId);
 
         // Reset the pending parent
