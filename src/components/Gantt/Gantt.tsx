@@ -39,6 +39,14 @@ export default class Gantt extends Component<GanttProps> {
     gantt.config.readonly = false;
     gantt.config.details_on_dblclick = true;
 
+    // Configure to skip weekends
+    gantt.config.skip_off_time = true;
+    gantt.config.work_time = true;
+
+    // Set weekend days (0 = Sunday, 6 = Saturday)
+    gantt.setWorkTime({ day: 0, hours: false });
+    gantt.setWorkTime({ day: 6, hours: false });
+
     // Add owner column
     gantt.config.columns = [
       { name: "text", label: "Task name", tree: true, width: "*" },

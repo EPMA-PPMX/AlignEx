@@ -147,6 +147,27 @@ const ProjectDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
+
+  // Utility function to adjust date to skip weekends
+  const adjustToWorkday = (dateString: string): string => {
+    const date = new Date(dateString);
+    const dayOfWeek = date.getDay();
+
+    // If Saturday (6), move to Monday
+    if (dayOfWeek === 6) {
+      date.setDate(date.getDate() + 2);
+    }
+    // If Sunday (0), move to Monday
+    else if (dayOfWeek === 0) {
+      date.setDate(date.getDate() + 1);
+    }
+
+    // Format back to YYYY-MM-DD
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
   const [project, setProject] = useState<Project | null>(null);
   const [overviewConfig, setOverviewConfig] = useState<OverviewConfiguration | null>(null);
   const [fieldValues, setFieldValues] = useState<{ [key: string]: any }>({});
@@ -1447,6 +1468,9 @@ const ProjectDetail: React.FC = () => {
     try {
       let updatedTaskData;
 
+      // Adjust start date to skip weekends
+      const adjustedStartDate = adjustToWorkday(taskForm.start_date);
+
       if (editingTaskId) {
         // Update existing task
         updatedTaskData = {
@@ -1455,7 +1479,7 @@ const ProjectDetail: React.FC = () => {
               const updatedTask: any = {
                 ...task,
                 text: taskForm.description,
-                start_date: `${taskForm.start_date} 00:00`,
+                start_date: `${adjustedStartDate} 00:00`,
                 duration: taskForm.duration
               };
 
@@ -1486,7 +1510,7 @@ const ProjectDetail: React.FC = () => {
         const newTask: any = {
           id: newTaskId,
           text: taskForm.description,
-          start_date: `${taskForm.start_date} 00:00`,
+          start_date: `${adjustedStartDate} 00:00`,
           duration: taskForm.duration
         };
 
