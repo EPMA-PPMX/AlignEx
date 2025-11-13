@@ -218,27 +218,31 @@ export default class Gantt extends Component<GanttProps> {
       console.log("Links in projecttasks:", projecttasks.links);
       gantt.parse(projecttasks);
 
-      // After initialization, attach click handlers to add buttons
+      // Use event delegation to capture add button clicks
       if (onOpenTaskModal) {
-        setTimeout(() => {
-          const addButtons = this.ganttContainer.current?.querySelectorAll('.gantt_add');
-          console.log("Found add buttons:", addButtons?.length);
-          addButtons?.forEach((button, index) => {
-            button.addEventListener('click', (e: any) => {
-              console.log("=== Add button clicked ===");
-              // Find which row this button belongs to
-              const row = (e.target as HTMLElement).closest('.gantt_row');
-              if (row) {
-                const taskId = row.getAttribute('task_id');
-                console.log("Add button clicked for task ID:", taskId);
-                if (taskId) {
-                  this.pendingParentId = parseInt(taskId);
-                  console.log("Set pendingParentId to:", this.pendingParentId);
-                }
+        this.ganttContainer.current.addEventListener('click', (e: any) => {
+          const target = e.target as HTMLElement;
+
+          // Check if click is on add button or its child elements
+          const addButton = target.closest('.gantt_add');
+          if (addButton) {
+            console.log("=== Add button clicked (via delegation) ===");
+
+            // Find the grid row that contains this button
+            const gridRow = target.closest('.gantt_grid_data .gantt_row');
+            if (gridRow) {
+              const taskId = gridRow.getAttribute('task_id');
+              console.log("Grid row task_id:", taskId);
+
+              if (taskId) {
+                this.pendingParentId = parseInt(taskId);
+                console.log("Set pendingParentId to:", this.pendingParentId);
               }
-            });
-          });
-        }, 100);
+            } else {
+              console.log("Could not find grid row");
+            }
+          }
+        }, true); // Use capture phase to get the event before Gantt's handler
       }
     }
 
