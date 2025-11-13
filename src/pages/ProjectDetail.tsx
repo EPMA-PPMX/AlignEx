@@ -1460,6 +1460,10 @@ const ProjectDetail: React.FC = () => {
   const handleTaskSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    console.log('=== Task Submit Started ===');
+    console.log('taskForm:', taskForm);
+    console.log('editingTaskId:', editingTaskId);
+
     if (!taskForm.description || !taskForm.start_date || !taskForm.duration) {
       alert('Please fill in all required fields');
       return;
@@ -1470,6 +1474,7 @@ const ProjectDetail: React.FC = () => {
 
       // Adjust start date to skip weekends
       const adjustedStartDate = adjustToWorkday(taskForm.start_date);
+      console.log('Adjusted start date:', adjustedStartDate);
 
       if (editingTaskId) {
         // Update existing task
@@ -1515,9 +1520,15 @@ const ProjectDetail: React.FC = () => {
         };
 
         // Add parent if this is a subtask
-        if (taskForm.parent_id) {
+        console.log('Checking parent_id:', taskForm.parent_id);
+        console.log('parent_id type:', typeof taskForm.parent_id);
+        if (taskForm.parent_id !== undefined && taskForm.parent_id !== null) {
           newTask.parent = taskForm.parent_id;
+          console.log('Setting parent to:', taskForm.parent_id);
+        } else {
+          console.log('No parent_id - creating as main task');
         }
+        console.log('New task object:', newTask);
 
         // Add owner if selected
         if (taskForm.owner_id) {
@@ -2067,7 +2078,17 @@ const ProjectDetail: React.FC = () => {
                 projecttasks={projectTasks}
                 onTaskUpdate={saveProjectTasks}
                 onOpenTaskModal={(parentId) => {
+                  console.log('=== onOpenTaskModal called ===');
+                  console.log('parentId received:', parentId);
+                  console.log('parentId type:', typeof parentId);
                   setTaskForm({
+                    description: '',
+                    start_date: '',
+                    duration: 1,
+                    owner_id: '',
+                    parent_id: parentId
+                  });
+                  console.log('Task form after setting:', {
                     description: '',
                     start_date: '',
                     duration: 1,
