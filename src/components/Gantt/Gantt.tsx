@@ -39,6 +39,9 @@ export default class Gantt extends Component<GanttProps> {
     gantt.config.readonly = false;
     gantt.config.details_on_dblclick = true;
 
+    // Enable column resizing
+    gantt.config.grid_resize = true;
+
     // Configure to skip weekends
     gantt.config.skip_off_time = true;
     gantt.config.work_time = true;
@@ -49,12 +52,12 @@ export default class Gantt extends Component<GanttProps> {
 
     const { projecttasks, onTaskUpdate, onOpenTaskModal, onEditTask } = this.props;
 
-    // Custom add button column
+    // Custom add button column with resizable columns
     gantt.config.columns = [
-      { name: "text", label: "Task name", tree: true, width: "*" },
-      { name: "owner_name", label: "Owner", align: "center", width: 120 },
-      { name: "start_date", label: "Start time", align: "center", width: 80 },
-      { name: "duration", label: "Duration", align: "center", width: 70 },
+      { name: "text", label: "Task name", tree: true, width: 250, resize: true },
+      { name: "owner_name", label: "Owner", align: "center", width: 120, resize: true },
+      { name: "start_date", label: "Start time", align: "center", width: 80, resize: true },
+      { name: "duration", label: "Duration", align: "center", width: 70, resize: true },
       { name: "add", label: "", width: 44 }
     ];
 
