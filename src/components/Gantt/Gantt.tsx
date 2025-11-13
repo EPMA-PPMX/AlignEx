@@ -47,7 +47,9 @@ export default class Gantt extends Component<GanttProps> {
     gantt.setWorkTime({ day: 0, hours: false });
     gantt.setWorkTime({ day: 6, hours: false });
 
-    // Add owner column
+    const { projecttasks, onTaskUpdate, onOpenTaskModal, onEditTask } = this.props;
+
+    // Custom add button column
     gantt.config.columns = [
       { name: "text", label: "Task name", tree: true, width: "*" },
       { name: "owner_name", label: "Owner", align: "center", width: 120 },
@@ -56,32 +58,28 @@ export default class Gantt extends Component<GanttProps> {
       { name: "add", label: "", width: 44 }
     ];
 
-    const { projecttasks, onTaskUpdate, onOpenTaskModal, onEditTask } = this.props;
-
     // Intercept task creation to use custom modal
     if (onOpenTaskModal) {
-      // Capture which row's Add button was clicked
-      gantt.attachEvent("onTaskCreated", (task: any) => {
-        // This event gives us the task object with parent info when Add button is clicked
-        this.pendingParentId = task.parent || undefined;
-        console.log("Task creation initiated, parent:", this.pendingParentId);
-        return true;
+      // Override the onclick handler for the add button
+      gantt.attachEvent("onGanttReady", () => {
+        console.log("Gantt is ready, setting up add button handler");
       });
 
-      gantt.attachEvent("onBeforeTaskAdd", (id: any, task: any) => {
-        // Use the captured parent ID or the task's parent
-        const parentId = this.pendingParentId !== undefined ? this.pendingParentId : (task.parent || undefined);
-        console.log("onBeforeTaskAdd - Task object:", task);
-        console.log("onBeforeTaskAdd - Pending parent ID:", this.pendingParentId);
-        console.log("onBeforeTaskAdd - Task parent:", task.parent);
-        console.log("onBeforeTaskAdd - Final parent ID:", parentId);
-        onOpenTaskModal(parentId);
+      // Listen for when a task is created (when Add button is clicked)
+      gantt.attachEvent("onTaskCreated", (task: any) => {
+        console.log("=== onTaskCreated Event ===");
+        console.log("Task object:", task);
+        console.log("task.parent:", task.parent);
+        console.log("task.$rendered_parent:", task.$rendered_parent);
+        console.log("task.$local_index:", task.$local_index);
+        console.log("task.$index:", task.$index);
 
-        // Reset the pending parent
-        this.pendingParentId = undefined;
-
-        // Prevent the default task from being added
-        return false;
+        // Capture the parent - check various parent properties
+        const parentId = task.$rendered_parent || task.parent;
+        // 0 means root level, so treat it as undefined
+        this.pendingParentId = (parentId && parentId !== 0) ? parentId : undefined;
+        console.log("Captured parent ID:", this.pendingParentId);
+        return true;
       });
     }
 
@@ -130,24 +128,30 @@ export default class Gantt extends Component<GanttProps> {
 
     // Also handle onBeforeLightbox as a fallback
     gantt.attachEvent("onBeforeLightbox", (id: any) => {
-      console.log("onBeforeLightbox triggered for task ID:", id);
+      console.log("=== onBeforeLightbox Event ===");
+      console.log("Task ID:", id);
       try {
         // Check if task exists
         if (!gantt.isTaskExists(id)) {
           console.log("Task does not exist");
-          if (onOpenTaskModal) onOpenTaskModal();
+          if (onOpenTaskModal) onOpenTaskModal(this.pendingParentId);
+          this.pendingParentId = undefined;
           return false;
         }
 
         // Check if this is a new task (temporary ID)
         const task = gantt.getTask(id);
-        console.log("Task data in onBeforeLightbox:", task);
+        console.log("Task data:", task);
 
         if (!task.text || task.text === "New task") {
           console.log("New task detected, opening create modal");
-          const parentId = task.parent || undefined;
+          // Use the pending parent ID we captured in onTaskCreated
+          const parentId = this.pendingParentId;
+          console.log("Using pendingParentId:", parentId);
           gantt.deleteTask(id);
           if (onOpenTaskModal) onOpenTaskModal(parentId);
+          // Reset pending parent
+          this.pendingParentId = undefined;
           return false;
         }
 
@@ -163,7 +167,8 @@ export default class Gantt extends Component<GanttProps> {
         return true;
       } catch (error) {
         console.error("Error in onBeforeLightbox:", error);
-        if (onOpenTaskModal) onOpenTaskModal();
+        if (onOpenTaskModal) onOpenTaskModal(this.pendingParentId);
+        this.pendingParentId = undefined;
         return false;
       }
     });
@@ -212,6 +217,29 @@ export default class Gantt extends Component<GanttProps> {
       console.log("Initializing Gantt with data:", projecttasks);
       console.log("Links in projecttasks:", projecttasks.links);
       gantt.parse(projecttasks);
+
+      // After initialization, attach click handlers to add buttons
+      if (onOpenTaskModal) {
+        setTimeout(() => {
+          const addButtons = this.ganttContainer.current?.querySelectorAll('.gantt_add');
+          console.log("Found add buttons:", addButtons?.length);
+          addButtons?.forEach((button, index) => {
+            button.addEventListener('click', (e: any) => {
+              console.log("=== Add button clicked ===");
+              // Find which row this button belongs to
+              const row = (e.target as HTMLElement).closest('.gantt_row');
+              if (row) {
+                const taskId = row.getAttribute('task_id');
+                console.log("Add button clicked for task ID:", taskId);
+                if (taskId) {
+                  this.pendingParentId = parseInt(taskId);
+                  console.log("Set pendingParentId to:", this.pendingParentId);
+                }
+              }
+            });
+          });
+        }, 100);
+      }
     }
 
     // Expose gantt instance globally for access from parent
