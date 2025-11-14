@@ -58,12 +58,25 @@ export default class Gantt extends Component<GanttProps> {
 
     const { projecttasks, onTaskUpdate, onOpenTaskModal, onEditTask } = this.props;
 
-    // Custom add button column with resizable columns
+    // Define inline editors
+    const textEditor = { type: "text", map_to: "text" };
+    const dateEditor = {
+      type: "date",
+      map_to: "start_date"
+    };
+    const durationEditor = {
+      type: "number",
+      map_to: "duration",
+      min: 1,
+      max: 365
+    };
+
+    // Custom add button column with resizable columns and inline editors
     gantt.config.columns = [
-      { name: "text", label: "Task name", tree: true, width: 250, resize: true },
+      { name: "text", label: "Task name", tree: true, width: 250, resize: true, editor: textEditor },
       { name: "owner_name", label: "Owner", align: "center", width: 120, resize: true },
-      { name: "start_date", label: "Start time", align: "center", width: 80, resize: true },
-      { name: "duration", label: "Duration", align: "center", width: 70, resize: true },
+      { name: "start_date", label: "Start time", align: "center", width: 80, resize: true, editor: dateEditor },
+      { name: "duration", label: "Duration", align: "center", width: 70, resize: true, editor: durationEditor },
       { name: "add", label: "", width: 44 }
     ];
 
