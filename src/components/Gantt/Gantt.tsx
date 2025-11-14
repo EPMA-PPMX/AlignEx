@@ -10,7 +10,7 @@ interface Task {
   start_date: string;
   duration: number;
   progress?: number;
-  parent?: number;
+  parent?: number; 
 }
 
 interface Link {
