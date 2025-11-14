@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface Props {
@@ -7,18 +7,25 @@ interface Props {
   updateReportData: (field: string, value: any) => void;
 }
 
+interface Issue {
+  id: string;
+  project_id: string;
+  title: string;
+  description: string;
+  severity: string;
+  status: string;
+  impact: string;
+}
+
 export default function StepIssues({ reportData, updateReportData }: Props) {
-  const [issues, setIssues] = useState<any[]>([]);
+  const [issues, setIssues] = useState<Issue[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [formData, setFormData] = useState({
-    issue_id: null,
+  const [newIssue, setNewIssue] = useState({
     title: '',
     description: '',
     severity: 'medium',
     status: 'open',
     impact: '',
-    is_new: true,
   });
 
   useEffect(() => {
@@ -26,12 +33,6 @@ export default function StepIssues({ reportData, updateReportData }: Props) {
       loadProjectIssues();
     }
   }, [reportData.projectId]);
-
-  useEffect(() => {
-    if (reportData.issues.length > 0) {
-      setIssues(reportData.issues);
-    }
-  }, []);
 
   const loadProjectIssues = async () => {
     try {
@@ -42,63 +43,78 @@ export default function StepIssues({ reportData, updateReportData }: Props) {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-
-      const existingIssues = (data || []).map((issue) => ({
-        issue_id: issue.id,
-        title: issue.title,
-        description: issue.description,
-        severity: issue.severity,
-        status: issue.status,
-        impact: issue.impact || '',
-        is_new: false,
-      }));
-
-      setIssues(existingIssues);
-      updateReportData('issues', existingIssues);
+      setIssues(data || []);
     } catch (error) {
       console.error('Error loading issues:', error);
     }
   };
 
-  const handleAdd = () => {
-    const newIssues = [...issues, formData];
-    setIssues(newIssues);
-    updateReportData('issues', newIssues);
-    resetForm();
+  const handleUpdateIssue = async (issueId: string, field: string, value: any) => {
+    try {
+      const { error } = await supabase
+        .from('project_issues')
+        .update({ [field]: value, updated_at: new Date().toISOString() })
+        .eq('id', issueId);
+
+      if (error) throw error;
+
+      setIssues(issues.map(issue =>
+        issue.id === issueId ? { ...issue, [field]: value } : issue
+      ));
+    } catch (error) {
+      console.error('Error updating issue:', error);
+      alert('Failed to update issue. Please try again.');
+    }
   };
 
-  const handleUpdate = () => {
-    const newIssues = [...issues];
-    newIssues[editingIndex!] = formData;
-    setIssues(newIssues);
-    updateReportData('issues', newIssues);
-    resetForm();
+  const handleAddIssue = async () => {
+    if (!newIssue.title.trim()) {
+      alert('Please enter an issue title');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('project_issues')
+        .insert({
+          project_id: reportData.projectId,
+          ...newIssue,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setIssues([data, ...issues]);
+      setNewIssue({
+        title: '',
+        description: '',
+        severity: 'medium',
+        status: 'open',
+        impact: '',
+      });
+      setShowAddForm(false);
+    } catch (error) {
+      console.error('Error adding issue:', error);
+      alert('Failed to add issue. Please try again.');
+    }
   };
 
-  const handleDelete = (index: number) => {
-    const newIssues = issues.filter((_, i) => i !== index);
-    setIssues(newIssues);
-    updateReportData('issues', newIssues);
-  };
+  const handleDeleteIssue = async (issueId: string) => {
+    if (!confirm('Are you sure you want to delete this issue?')) return;
 
-  const handleEdit = (index: number) => {
-    setFormData(issues[index]);
-    setEditingIndex(index);
-    setShowAddForm(true);
-  };
+    try {
+      const { error } = await supabase
+        .from('project_issues')
+        .delete()
+        .eq('id', issueId);
 
-  const resetForm = () => {
-    setFormData({
-      issue_id: null,
-      title: '',
-      description: '',
-      severity: 'medium',
-      status: 'open',
-      impact: '',
-      is_new: true,
-    });
-    setShowAddForm(false);
-    setEditingIndex(null);
+      if (error) throw error;
+      setIssues(issues.filter(issue => issue.id !== issueId));
+    } catch (error) {
+      console.error('Error deleting issue:', error);
+      alert('Failed to delete issue. Please try again.');
+    }
   };
 
   const getSeverityColor = (severity: string) => {
@@ -115,50 +131,84 @@ export default function StepIssues({ reportData, updateReportData }: Props) {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Project Issues</h2>
-        <p className="text-gray-600">Review and update issues for this week</p>
+        <p className="text-gray-600">Review and update issues - changes are saved immediately</p>
       </div>
 
       <div className="space-y-4">
-        {issues.map((issue, index) => (
-          <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <h4 className="font-semibold text-gray-900">{issue.title}</h4>
-                  {issue.is_new && (
-                    <span className="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded border border-green-200">
-                      New
-                    </span>
-                  )}
+        {issues.map((issue) => (
+          <div key={issue.id} className="bg-white border border-gray-200 rounded-lg p-4">
+            <div className="space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={issue.title}
+                    onChange={(e) => handleUpdateIssue(issue.id, 'title', e.target.value)}
+                    className="w-full font-semibold text-gray-900 border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none px-2 py-1 -ml-2"
+                    placeholder="Issue title"
+                  />
                 </div>
-                <p className="text-sm text-gray-600 mb-3">{issue.description}</p>
-                <div className="flex flex-wrap gap-2">
-                  <span className={`px-2 py-1 text-xs font-medium rounded border ${getSeverityColor(issue.severity)}`}>
-                    {issue.severity}
-                  </span>
-                  <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded border border-gray-200">
-                    {issue.status}
-                  </span>
-                </div>
-                {issue.impact && (
-                  <p className="text-sm text-gray-600 mt-2">
-                    <strong>Impact:</strong> {issue.impact}
-                  </p>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => handleEdit(index)} className="p-2 text-blue-600 hover:bg-blue-50 rounded">
-                  <Edit2 className="w-4 h-4" />
-                </button>
-                <button onClick={() => handleDelete(index)} className="p-2 text-red-600 hover:bg-red-50 rounded">
+                <button
+                  onClick={() => handleDeleteIssue(issue.id)}
+                  className="p-2 text-red-600 hover:bg-red-50 rounded flex-shrink-0"
+                >
                   <Trash2 className="w-4 h-4" />
                 </button>
+              </div>
+
+              <textarea
+                value={issue.description || ''}
+                onChange={(e) => handleUpdateIssue(issue.id, 'description', e.target.value)}
+                className="w-full text-sm text-gray-600 border border-gray-200 rounded px-3 py-2 hover:border-gray-300 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                rows={2}
+                placeholder="Issue description"
+              />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Severity</label>
+                  <select
+                    value={issue.severity}
+                    onChange={(e) => handleUpdateIssue(issue.id, 'severity', e.target.value)}
+                    className={`w-full px-3 py-2 text-sm rounded border font-medium ${getSeverityColor(issue.severity)}`}
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={issue.status}
+                    onChange={(e) => handleUpdateIssue(issue.id, 'status', e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded border border-gray-200 font-medium"
+                  >
+                    <option value="open">Open</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="closed">Closed</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Impact</label>
+                <textarea
+                  value={issue.impact || ''}
+                  onChange={(e) => handleUpdateIssue(issue.id, 'impact', e.target.value)}
+                  className="w-full text-sm text-gray-600 border border-gray-200 rounded px-3 py-2 hover:border-gray-300 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  rows={2}
+                  placeholder="Describe the impact of this issue"
+                />
               </div>
             </div>
           </div>
         ))}
 
-        {issues.length === 0 && (
+        {issues.length === 0 && !showAddForm && (
           <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
             <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
             <p className="text-gray-600 mb-4">No issues found for this project</p>
@@ -171,15 +221,13 @@ export default function StepIssues({ reportData, updateReportData }: Props) {
             className="flex items-center gap-2 px-4 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50"
           >
             <Plus className="w-4 h-4" />
-            Add {issues.length === 0 ? 'First' : 'New'} Issue
+            Add New Issue
           </button>
         )}
 
         {showAddForm && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 space-y-4">
-            <h3 className="font-semibold text-gray-900">
-              {editingIndex !== null ? 'Edit Issue' : 'Add New Issue'}
-            </h3>
+            <h3 className="font-semibold text-gray-900">Add New Issue</h3>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -187,19 +235,21 @@ export default function StepIssues({ reportData, updateReportData }: Props) {
               </label>
               <input
                 type="text"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                value={newIssue.title}
+                onChange={(e) => setNewIssue({ ...newIssue, title: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Enter issue title"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
               <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                value={newIssue.description}
+                onChange={(e) => setNewIssue({ ...newIssue, description: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 rows={3}
+                placeholder="Describe the issue"
               />
             </div>
 
@@ -207,9 +257,9 @@ export default function StepIssues({ reportData, updateReportData }: Props) {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Severity</label>
                 <select
-                  value={formData.severity}
-                  onChange={(e) => setFormData({ ...formData, severity: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  value={newIssue.severity}
+                  onChange={(e) => setNewIssue({ ...newIssue, severity: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 >
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
@@ -221,9 +271,9 @@ export default function StepIssues({ reportData, updateReportData }: Props) {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                 <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  value={newIssue.status}
+                  onChange={(e) => setNewIssue({ ...newIssue, status: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 >
                   <option value="open">Open</option>
                   <option value="in_progress">In Progress</option>
@@ -236,22 +286,35 @@ export default function StepIssues({ reportData, updateReportData }: Props) {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Impact</label>
               <textarea
-                value={formData.impact}
-                onChange={(e) => setFormData({ ...formData, impact: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={newIssue.impact}
+                onChange={(e) => setNewIssue({ ...newIssue, impact: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 rows={2}
+                placeholder="Describe the impact"
               />
             </div>
 
             <div className="flex gap-3">
               <button
-                onClick={editingIndex !== null ? handleUpdate : handleAdd}
-                disabled={!formData.title}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                onClick={handleAddIssue}
+                disabled={!newIssue.title.trim()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {editingIndex !== null ? 'Update' : 'Add'} Issue
+                Add Issue
               </button>
-              <button onClick={resetForm} className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+              <button
+                onClick={() => {
+                  setShowAddForm(false);
+                  setNewIssue({
+                    title: '',
+                    description: '',
+                    severity: 'medium',
+                    status: 'open',
+                    impact: '',
+                  });
+                }}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
                 Cancel
               </button>
             </div>

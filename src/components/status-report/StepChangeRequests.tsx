@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, FileText } from 'lucide-react';
+import { Plus, Trash2, FileText } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface Props {
