@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp } from 'lucide-react';
+import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp, Search } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { MonthlyBudgetGrid } from '../components/MonthlyBudgetGrid';
 import { BudgetSummaryTiles } from '../components/BudgetSummaryTiles';
@@ -265,6 +265,8 @@ const ProjectDetail: React.FC = () => {
     data: [],
     links: []
   });
+
+  const [taskSearchQuery, setTaskSearchQuery] = useState('');
 
   const tabs = [
     { id: 'overview', name: 'Overview', icon: Target },
@@ -2073,10 +2075,23 @@ const ProjectDetail: React.FC = () => {
                 Create Task
               </button>
             </div>
+            <div className="mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search tasks by name..."
+                  value={taskSearchQuery}
+                  onChange={(e) => setTaskSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
             <div style={{ width: "100%", height: "600px", overflow: "auto" }}>
               <Gantt
                 projecttasks={projectTasks}
                 onTaskUpdate={saveProjectTasks}
+                searchQuery={taskSearchQuery}
                 onOpenTaskModal={(parentId) => {
                   console.log('=== onOpenTaskModal called ===');
                   console.log('parentId received:', parentId);

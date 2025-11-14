@@ -28,11 +28,13 @@ interface GanttProps {
   onTaskUpdate?: () => void;
   onOpenTaskModal?: (parentId?: number) => void;
   onEditTask?: (taskId: number) => void;
+  searchQuery?: string;
 }
 
 export default class Gantt extends Component<GanttProps> {
   private ganttContainer = createRef<HTMLDivElement>();
   private pendingParentId: number | undefined = undefined;
+  private allTasks: Task[] = [];
 
   componentDidMount(): void {
     gantt.config.date_format = "%Y-%m-%d %H:%i";
@@ -223,6 +225,7 @@ export default class Gantt extends Component<GanttProps> {
       gantt.init(this.ganttContainer.current);
       console.log("Initializing Gantt with data:", projecttasks);
       console.log("Links in projecttasks:", projecttasks.links);
+      this.allTasks = projecttasks.data || [];
       gantt.parse(projecttasks);
 
       // Use event delegation to capture add button clicks
@@ -258,12 +261,44 @@ export default class Gantt extends Component<GanttProps> {
   }
 
   componentDidUpdate(prevProps: GanttProps): void {
-    const { projecttasks } = this.props;
+    const { projecttasks, searchQuery } = this.props;
 
     if (JSON.stringify(prevProps.projecttasks) !== JSON.stringify(projecttasks)) {
+      this.allTasks = projecttasks.data || [];
       gantt.clearAll();
       gantt.parse(projecttasks);
     }
+
+    if (prevProps.searchQuery !== searchQuery) {
+      this.filterTasks(searchQuery || '');
+    }
+  }
+
+  private filterTasks(query: string): void {
+    const { projecttasks } = this.props;
+
+    if (!query.trim()) {
+      gantt.clearAll();
+      gantt.parse(projecttasks);
+      return;
+    }
+
+    const lowerQuery = query.toLowerCase();
+    const filteredData = this.allTasks.filter((task: Task) =>
+      task.text.toLowerCase().includes(lowerQuery)
+    );
+
+    const filteredLinks = (projecttasks.links || []).filter((link: Link) => {
+      const sourceExists = filteredData.some(t => t.id === link.source);
+      const targetExists = filteredData.some(t => t.id === link.target);
+      return sourceExists && targetExists;
+    });
+
+    gantt.clearAll();
+    gantt.parse({
+      data: filteredData,
+      links: filteredLinks
+    });
   }
 
   componentWillUnmount(): void {
