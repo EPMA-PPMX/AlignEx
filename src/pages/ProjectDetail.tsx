@@ -1475,6 +1475,7 @@ const ProjectDetail: React.FC = () => {
 
     try {
       let updatedTaskData;
+      let currentTaskId = editingTaskId; // Track the task ID being worked with
 
       // Adjust start date to skip weekends
       const adjustedStartDate = adjustToWorkday(taskForm.start_date);
@@ -1558,6 +1559,9 @@ const ProjectDetail: React.FC = () => {
           data: [...projectTasks.data, newTask],
           links: projectTasks.links || []
         };
+
+        // Store the new task ID for later use
+        currentTaskId = newTask.id;
       }
 
       // Check if project_tasks record exists
@@ -1591,8 +1595,7 @@ const ProjectDetail: React.FC = () => {
       }
 
       // Save resource assignments to junction table
-      const taskIdToUpdate = editingTaskId || newTask.id;
-      if (taskForm.resource_ids.length > 0 && taskIdToUpdate) {
+      if (taskForm.resource_ids.length > 0 && currentTaskId) {
         // First, get the actual database task ID by finding it in task_data
         const { data: taskRecord } = await supabase
           .from('project_tasks')
