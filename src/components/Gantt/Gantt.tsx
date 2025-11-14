@@ -36,33 +36,8 @@ export default class Gantt extends Component<GanttProps> {
   private pendingParentId: number | undefined = undefined;
   private allTasks: Task[] = [];
   private isGrouped: boolean = false;
-  private isSorted: boolean = false;
   private originalTasks: any[] = [];
   private groupHeaderIdStart: number = 999900;
-
-  public toggleSortByOwner = (): void => {
-    if (this.isSorted) {
-      // Reset to original order
-      gantt.sort((a: any, b: any) => {
-        return a.id - b.id;
-      });
-      this.isSorted = false;
-    } else {
-      // Sort tasks by owner_name
-      gantt.sort((a: any, b: any) => {
-        const ownerA = a.owner_name || 'Unassigned';
-        const ownerB = b.owner_name || 'Unassigned';
-
-        if (ownerA === ownerB) {
-          // If same owner, maintain original order
-          return a.id - b.id;
-        }
-
-        return ownerA.localeCompare(ownerB);
-      });
-      this.isSorted = true;
-    }
-  };
 
   public toggleGroupByOwner = (): void => {
     if (this.isGrouped) {

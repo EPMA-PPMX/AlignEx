@@ -2069,17 +2069,6 @@ const ProjectDetail: React.FC = () => {
                 <button
                   onClick={() => {
                     if (ganttRef.current) {
-                      ganttRef.current.toggleSortByOwner();
-                    }
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                >
-                  <Group className="w-4 h-4" />
-                  Sort by Owner
-                </button>
-                <button
-                  onClick={() => {
-                    if (ganttRef.current) {
                       ganttRef.current.toggleGroupByOwner();
                     }
                   }}
