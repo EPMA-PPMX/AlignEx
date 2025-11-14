@@ -52,8 +52,17 @@ export default function RoleComparisonTab() {
   const [selectedRole, setSelectedRole] = useState<string>('');
   const [comparisons, setComparisons] = useState<SkillComparison[]>([]);
   const [loading, setLoading] = useState(true);
-  const [addingGoalForSkill, setAddingGoalForSkill] = useState<string | null>(null);
-  const [goalNotes, setGoalNotes] = useState('');
+  const [showGoalModal, setShowGoalModal] = useState(false);
+  const [selectedSkillForGoal, setSelectedSkillForGoal] = useState<SkillComparison | null>(null);
+
+  const [goalForm, setGoalForm] = useState({
+    title: '',
+    description: '',
+    goal_type: 'training' as const,
+    target_date: '',
+    status: 'not_started' as const,
+    notes: ''
+  });
 
   useEffect(() => {
     fetchRoles();
@@ -168,31 +177,59 @@ export default function RoleComparisonTab() {
     }
   };
 
-  const handleAddToGoals = async (comp: SkillComparison) => {
-    try {
-      const roleName = roles.find(r => r.id === selectedRole)?.name || 'role';
-      const goalTitle = `Improve ${comp.skill.name} to ${comp.requiredLevel} level`;
+  const openGoalModal = (comp: SkillComparison) => {
+    const roleName = roles.find(r => r.id === selectedRole)?.name || 'role';
+    setSelectedSkillForGoal(comp);
+    setGoalForm({
+      title: `Improve ${comp.skill.name} to ${comp.requiredLevel} level`,
+      description: `Required for ${roleName} role. Current level: ${comp.currentLevel}, Required level: ${comp.requiredLevel}`,
+      goal_type: 'training',
+      target_date: '',
+      status: 'not_started',
+      notes: ''
+    });
+    setShowGoalModal(true);
+  };
 
+  const handleSaveGoal = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!selectedSkillForGoal) return;
+
+    try {
       const { error } = await supabase
         .from('skill_goals')
         .insert([{
-          skill_id: comp.skill.id,
-          title: goalTitle,
-          description: `Required for ${roleName} role. Current level: ${comp.currentLevel}, Required level: ${comp.requiredLevel}`,
-          goal_type: 'training',
-          status: 'not_started',
-          notes: goalNotes || null
+          skill_id: selectedSkillForGoal.skill.id,
+          title: goalForm.title,
+          description: goalForm.description,
+          goal_type: goalForm.goal_type,
+          target_date: goalForm.target_date || null,
+          status: goalForm.status,
+          notes: goalForm.notes || null
         }]);
 
       if (error) throw error;
 
       alert('Goal added successfully! Check the "My Goals" tab to track your progress.');
-      setAddingGoalForSkill(null);
-      setGoalNotes('');
+      resetGoalForm();
     } catch (error: any) {
       console.error('Error adding goal:', error);
       alert(`Error: ${error.message}`);
     }
+  };
+
+  const resetGoalForm = () => {
+    setShowGoalModal(false);
+    setSelectedSkillForGoal(null);
+    setGoalForm({
+      title: '',
+      description: '',
+      goal_type: 'training',
+      target_date: '',
+      status: 'not_started',
+      notes: ''
+    });
   };
 
   const getStatusBadge = (status: string) => {
@@ -311,7 +348,7 @@ export default function RoleComparisonTab() {
                         <div className="flex items-center gap-3">
                           {comp.status === 'gap' && (
                             <button
-                              onClick={() => setAddingGoalForSkill(comp.skill.id)}
+                              onClick={() => openGoalModal(comp)}
                               className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                             >
                               <Target className="w-4 h-4" />
@@ -321,49 +358,142 @@ export default function RoleComparisonTab() {
                           <div>{getStatusBadge(comp.status)}</div>
                         </div>
                       </div>
-
-                      {addingGoalForSkill === comp.skill.id && (
-                        <div className="ml-6 mt-3 mb-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                          <h4 className="text-sm font-semibold text-slate-900 mb-2">Add to Goals</h4>
-                          <p className="text-sm text-slate-600 mb-3">
-                            Create a goal to improve your {comp.skill.name} skills from {comp.currentLevel} to {comp.requiredLevel}
-                          </p>
-                          <div className="mb-3">
-                            <label className="block text-sm font-medium text-slate-700 mb-1">
-                              Notes (optional)
-                            </label>
-                            <textarea
-                              value={goalNotes}
-                              onChange={(e) => setGoalNotes(e.target.value)}
-                              rows={2}
-                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                              placeholder="E.g., Enroll in online course, find a mentor, practice on projects..."
-                            />
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleAddToGoals(comp)}
-                              className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                            >
-                              Create Goal
-                            </button>
-                            <button
-                              onClick={() => {
-                                setAddingGoalForSkill(null);
-                                setGoalNotes('');
-                              }}
-                              className="px-3 py-2 text-sm border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>
               </div>
             ))}
+        </div>
+      )}
+
+      {showGoalModal && selectedSkillForGoal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">
+                Create Skill Goal
+              </h3>
+              <form onSubmit={handleSaveGoal} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Goal Title <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={goalForm.title}
+                    onChange={(e) => setGoalForm({ ...goalForm, title: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Related Skill
+                  </label>
+                  <input
+                    type="text"
+                    disabled
+                    value={selectedSkillForGoal.skill.name}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    This skill will be automatically linked to your goal
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Goal Type <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      required
+                      value={goalForm.goal_type}
+                      onChange={(e) => setGoalForm({ ...goalForm, goal_type: e.target.value as any })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="certification">Certification</option>
+                      <option value="training">Training</option>
+                      <option value="self_study">Self Study</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Target Date
+                    </label>
+                    <input
+                      type="date"
+                      value={goalForm.target_date}
+                      onChange={(e) => setGoalForm({ ...goalForm, target_date: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    required
+                    value={goalForm.status}
+                    onChange={(e) => setGoalForm({ ...goalForm, status: e.target.value as any })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="not_started">Not Started</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                    <option value="on_hold">On Hold</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    value={goalForm.description}
+                    onChange={(e) => setGoalForm({ ...goalForm, description: e.target.value })}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Describe what you want to achieve..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Notes
+                  </label>
+                  <textarea
+                    value={goalForm.notes}
+                    onChange={(e) => setGoalForm({ ...goalForm, notes: e.target.value })}
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="E.g., Enroll in online course, find a mentor, practice on projects..."
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Create Goal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetGoalForm}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
       )}
     </div>
