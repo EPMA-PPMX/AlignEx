@@ -106,36 +106,52 @@ export default function StatusReport() {
       throw new Error('Project and week ending date are required');
     }
 
-    let statusReportId = reportData.statusReportId;
-
-    if (statusReportId) {
-      const { error } = await supabase
+    try {
+      const existingReport = await supabase
         .from('status_reports')
-        .update({
-          status,
-          status_comment: reportData.statusComment,
-          submitted_at: status === 'submitted' ? new Date().toISOString() : null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', statusReportId);
+        .select('id')
+        .eq('project_id', reportData.projectId)
+        .eq('week_ending_date', reportData.weekEndingDate)
+        .maybeSingle();
 
-      if (error) throw error;
-    } else {
-      const { data, error } = await supabase
-        .from('status_reports')
-        .insert({
-          project_id: reportData.projectId,
-          week_ending_date: reportData.weekEndingDate,
-          status,
-          status_comment: reportData.statusComment,
-          submitted_at: status === 'submitted' ? new Date().toISOString() : null,
-        })
-        .select()
-        .single();
+      if (existingReport.error && existingReport.error.code !== 'PGRST116') {
+        throw existingReport.error;
+      }
 
-      if (error) throw error;
-      statusReportId = data.id;
-      setReportData((prev) => ({ ...prev, statusReportId }));
+      let statusReportId = existingReport.data?.id || reportData.statusReportId;
+
+      if (statusReportId) {
+        const { error } = await supabase
+          .from('status_reports')
+          .update({
+            status,
+            status_comment: reportData.statusComment || '',
+            submitted_at: status === 'submitted' ? new Date().toISOString() : null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', statusReportId);
+
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase
+          .from('status_reports')
+          .insert({
+            project_id: reportData.projectId,
+            week_ending_date: reportData.weekEndingDate,
+            status,
+            status_comment: reportData.statusComment || '',
+            submitted_at: status === 'submitted' ? new Date().toISOString() : null,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        statusReportId = data.id;
+        setReportData((prev) => ({ ...prev, statusReportId }));
+      }
+    } catch (error) {
+      console.error('Save error:', error);
+      throw error;
     }
   };
 
