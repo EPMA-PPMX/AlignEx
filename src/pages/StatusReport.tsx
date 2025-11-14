@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Check, AlertTriangle, FileText, DollarSign, CheckSquare, Users, TrendingUp, Send, Save } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, AlertTriangle, FileText, DollarSign, CheckSquare, Users, TrendingUp, Send, Save, History, Plus, Eye } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import StepProjectSelection from '../components/status-report/StepProjectSelection';
@@ -40,6 +40,7 @@ interface StatusReportData {
 
 export default function StatusReport() {
   const navigate = useNavigate();
+  const [viewMode, setViewMode] = useState<'create' | 'history'>('create');
   const [currentStep, setCurrentStep] = useState(0);
   const [reportData, setReportData] = useState<StatusReportData>({
     projectId: '',
@@ -55,8 +56,37 @@ export default function StatusReport() {
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pastReports, setPastReports] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const currentStepId = STEPS[currentStep].id;
+
+  useEffect(() => {
+    if (viewMode === 'history') {
+      loadPastReports();
+    }
+  }, [viewMode]);
+
+  const loadPastReports = async () => {
+    try {
+      setLoadingHistory(true);
+      const { data, error } = await supabase
+        .from('status_reports')
+        .select(`
+          *,
+          project:projects(name)
+        `)
+        .order('week_ending_date', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      setPastReports(data || []);
+    } catch (error) {
+      console.error('Error loading past reports:', error);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
 
   const updateReportData = (field: string, value: any) => {
     setReportData((prev) => ({ ...prev, [field]: value }));
@@ -160,10 +190,103 @@ export default function StatusReport() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-lg shadow-lg">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h1 className="text-2xl font-bold text-gray-900">Weekly Status Report</h1>
-            <p className="text-sm text-gray-600 mt-1">Create a comprehensive status report for your project</p>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Status Reports</h1>
+                <p className="text-sm text-gray-600 mt-1">Create and review weekly status reports</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setViewMode('create')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium ${
+                    viewMode === 'create'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <Plus className="w-4 h-4" />
+                  New Report
+                </button>
+                <button
+                  onClick={() => setViewMode('history')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium ${
+                    viewMode === 'history'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <History className="w-4 h-4" />
+                  View History
+                </button>
+              </div>
+            </div>
           </div>
 
+          {viewMode === 'history' ? (
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">Past Status Reports</h2>
+              {loadingHistory ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-500">Loading reports...</p>
+                </div>
+              ) : pastReports.length === 0 ? (
+                <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                  <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-gray-600">No status reports found</p>
+                  <button
+                    onClick={() => setViewMode('create')}
+                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    Create Your First Report
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {pastReports.map((report) => (
+                    <div
+                      key={report.id}
+                      className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-gray-900">{report.project?.name || 'Unknown Project'}</h3>
+                          <p className="text-sm text-gray-600 mt-1">
+                            Week Ending: {new Date(report.week_ending_date).toLocaleDateString()}
+                          </p>
+                          {report.status_comment && (
+                            <p className="text-sm text-gray-700 mt-2 line-clamp-2">{report.status_comment}</p>
+                          )}
+                          <div className="flex gap-3 mt-2">
+                            <span
+                              className={`px-2 py-1 text-xs font-medium rounded ${
+                                report.status === 'submitted'
+                                  ? 'bg-green-100 text-green-700'
+                                  : report.status === 'approved'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-gray-100 text-gray-700'
+                              }`}
+                            >
+                              {report.status}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {report.submitted_at
+                                ? `Submitted ${new Date(report.submitted_at).toLocaleDateString()}`
+                                : 'Draft'}
+                            </span>
+                          </div>
+                        </div>
+                        <button className="flex items-center gap-2 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg">
+                          <Eye className="w-4 h-4" />
+                          View
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
           <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
             <div className="flex items-center justify-between">
               {STEPS.map((step, index) => {
@@ -273,6 +396,8 @@ export default function StatusReport() {
               )}
             </div>
           </div>
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -13,7 +13,10 @@ interface TeamMember {
   role: string;
   allocation_percentage: number;
   resource: {
-    name: string;
+    display_name: string;
+    resource_name: string;
+    first_name: string;
+    last_name: string;
     email: string;
   };
   out_of_office_start?: string;
@@ -38,7 +41,7 @@ export default function StepTeam({ reportData, updateReportData }: Props) {
         .from('project_team_members')
         .select(`
           *,
-          resource:resources(name, email)
+          resource:resources(display_name, resource_name, first_name, last_name, email)
         `)
         .eq('project_id', reportData.projectId)
         .order('created_at');
@@ -94,7 +97,9 @@ export default function StepTeam({ reportData, updateReportData }: Props) {
               <div className="space-y-3">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h4 className="font-semibold text-gray-900">{member.resource.name}</h4>
+                    <h4 className="font-semibold text-gray-900">
+                      {member.resource.display_name || member.resource.resource_name || `${member.resource.first_name} ${member.resource.last_name}`.trim()}
+                    </h4>
                     <p className="text-sm text-gray-600">{member.resource.email}</p>
                     <div className="flex gap-4 mt-2 text-sm">
                       <span className="text-gray-700"><strong>Role:</strong> {member.role}</span>
