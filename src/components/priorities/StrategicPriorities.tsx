@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, CheckCircle, Circle, Pause, XCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { formatCurrencyInput, extractNumericValue } from '../../lib/utils';
 
 interface Priority {
   id: string;
@@ -203,16 +204,26 @@ export default function StrategicPriorities() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Target Value <span className="text-red-500">*</span>
+                  Target Value ($) <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
                   value={formData.target_value}
-                  onChange={(e) => setFormData({ ...formData, target_value: e.target.value })}
+                  onChange={(e) => {
+                    const formatted = formatCurrencyInput(e.target.value);
+                    setFormData({ ...formData, target_value: formatted });
+                  }}
+                  onBlur={(e) => {
+                    if (e.target.value && !e.target.value.startsWith('$')) {
+                      const formatted = formatCurrencyInput(e.target.value);
+                      setFormData({ ...formData, target_value: formatted });
+                    }
+                  }}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="e.g., 20% reduction, $500K savings"
+                  placeholder="e.g., $500,000"
                 />
+                <p className="text-xs text-slate-500 mt-1">Enter dollar amount only</p>
               </div>
 
               <div>
