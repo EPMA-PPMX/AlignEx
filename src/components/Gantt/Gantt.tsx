@@ -35,15 +35,51 @@ export default class Gantt extends Component<GanttProps> {
   private ganttContainer = createRef<HTMLDivElement>();
   private pendingParentId: number | undefined = undefined;
   private allTasks: Task[] = [];
+  private isGrouped: boolean = false;
+
+  public toggleGroupByOwner = (): void => {
+    if (this.isGrouped) {
+      gantt.groupBy(false);
+      this.isGrouped = false;
+    } else {
+      const owners = new Set<string>();
+      this.allTasks.forEach((task: any) => {
+        if (task.owner_name) {
+          owners.add(task.owner_name);
+        }
+      });
+
+      const ownersList: any[] = [];
+      owners.forEach((owner) => {
+        ownersList.push({
+          key: owner,
+          label: owner
+        });
+      });
+
+      gantt.serverList("owner", ownersList);
+
+      gantt.groupBy({
+        groups: gantt.serverList("owner"),
+        relation_property: "owner_name",
+        group_id: "key",
+        group_text: "label",
+        default_group_label: "Unassigned",
+        save_tree_structure: true
+      });
+      this.isGrouped = true;
+    }
+  };
 
   componentDidMount(): void {
     gantt.config.date_format = "%Y-%m-%d %H:%i";
     gantt.config.readonly = false;
     gantt.config.details_on_dblclick = true;
 
-    // Enable keyboard navigation plugin for inline editing
+    // Enable keyboard navigation plugin for inline editing and grouping
     gantt.plugins({
-      keyboard_navigation: true
+      keyboard_navigation: true,
+      grouping: true
     });
     gantt.config.keyboard_navigation_cells = true;
 

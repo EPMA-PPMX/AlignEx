@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp, Search } from 'lucide-react';
+import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp, Search, Group } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { MonthlyBudgetGrid } from '../components/MonthlyBudgetGrid';
 import { BudgetSummaryTiles } from '../components/BudgetSummaryTiles';
@@ -267,6 +267,7 @@ const ProjectDetail: React.FC = () => {
   });
 
   const [taskSearchQuery, setTaskSearchQuery] = useState('');
+  const ganttRef = useRef<any>(null);
 
   const tabs = [
     { id: 'overview', name: 'Overview', icon: Target },
@@ -2064,16 +2065,29 @@ const ProjectDetail: React.FC = () => {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
-              <button
-                onClick={() => {
-                  setTaskForm({ ...taskForm, parent_id: undefined });
-                  setShowTaskModal(true);
-                }}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Create Task
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (ganttRef.current) {
+                      ganttRef.current.toggleGroupByOwner();
+                    }
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                >
+                  <Group className="w-4 h-4" />
+                  Group by Owner
+                </button>
+                <button
+                  onClick={() => {
+                    setTaskForm({ ...taskForm, parent_id: undefined });
+                    setShowTaskModal(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Create Task
+                </button>
+              </div>
             </div>
             <div className="mb-4">
               <div className="relative">
@@ -2089,6 +2103,7 @@ const ProjectDetail: React.FC = () => {
             </div>
             <div style={{ width: "100%", height: "600px", overflow: "auto" }}>
               <Gantt
+                ref={ganttRef}
                 projecttasks={projectTasks}
                 onTaskUpdate={saveProjectTasks}
                 searchQuery={taskSearchQuery}
