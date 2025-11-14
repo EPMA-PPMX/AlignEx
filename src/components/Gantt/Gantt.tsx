@@ -151,7 +151,35 @@ export default class Gantt extends Component<GanttProps> {
     // Custom add button column with resizable columns and inline editors
     gantt.config.columns = [
       { name: "text", label: "Task name", tree: true, width: 250, resize: true, editor: textEditor },
-      { name: "owner_name", label: "Owner", align: "center", width: 120, resize: true },
+      {
+        name: "owner_name",
+        label: "Owners",
+        align: "center",
+        width: 150,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+
+          // Check if task has resource_ids array (multiple resources)
+          if (task.resource_ids && Array.isArray(task.resource_ids) && task.resource_ids.length > 0) {
+            const owners = task.resource_names || [];
+            if (owners.length === 0) return "Unassigned";
+
+            // Create owner badges
+            const badges = owners.map((name: string, index: number) => {
+              const initial = name.charAt(0).toUpperCase();
+              const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+              const color = colors[index % colors.length];
+              return `<span class="owner-badge" style="background-color: ${color};" title="${name}">${initial}</span>`;
+            }).join('');
+
+            return `<div class="owner-badges-container">${badges}</div>`;
+          }
+
+          // Fallback to single owner_name for backward compatibility
+          return task.owner_name || "Unassigned";
+        }
+      },
       { name: "start_date", label: "Start time", align: "center", width: 80, resize: true, editor: dateEditor },
       { name: "duration", label: "Duration", align: "center", width: 70, resize: true, editor: durationEditor },
       { name: "add", label: "", width: 44 }

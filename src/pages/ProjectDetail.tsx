@@ -248,6 +248,7 @@ const ProjectDetail: React.FC = () => {
     start_date: '',
     duration: 1,
     owner_id: '',
+    resource_ids: [] as string[],
     parent_id: undefined as number | undefined
   });
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
@@ -1491,14 +1492,20 @@ const ProjectDetail: React.FC = () => {
                 duration: taskForm.duration
               };
 
-              // Update owner if selected
-              if (taskForm.owner_id) {
-                updatedTask.owner_id = taskForm.owner_id;
-                const owner = projectTeamMembers.find((m: any) => m.resource_id === taskForm.owner_id);
-                if (owner?.resources) {
-                  updatedTask.owner_name = owner.resources.display_name;
-                }
+              // Update resources if selected
+              if (taskForm.resource_ids.length > 0) {
+                updatedTask.resource_ids = taskForm.resource_ids;
+                const resourceNames = taskForm.resource_ids.map(resId => {
+                  const member = projectTeamMembers.find((m: any) => m.resource_id === resId);
+                  return member?.resources?.display_name || 'Unknown';
+                });
+                updatedTask.resource_names = resourceNames;
+                // Backward compatibility: set first resource as owner
+                updatedTask.owner_id = taskForm.resource_ids[0];
+                updatedTask.owner_name = resourceNames[0];
               } else {
+                updatedTask.resource_ids = [];
+                updatedTask.resource_names = [];
                 updatedTask.owner_id = undefined;
                 updatedTask.owner_name = undefined;
               }
@@ -1533,13 +1540,17 @@ const ProjectDetail: React.FC = () => {
         }
         console.log('New task object:', newTask);
 
-        // Add owner if selected
-        if (taskForm.owner_id) {
-          newTask.owner_id = taskForm.owner_id;
-          const owner = projectTeamMembers.find((m: any) => m.resource_id === taskForm.owner_id);
-          if (owner?.resources) {
-            newTask.owner_name = owner.resources.display_name;
-          }
+        // Add resources if selected
+        if (taskForm.resource_ids.length > 0) {
+          newTask.resource_ids = taskForm.resource_ids;
+          const resourceNames = taskForm.resource_ids.map(resId => {
+            const member = projectTeamMembers.find((m: any) => m.resource_id === resId);
+            return member?.resources?.display_name || 'Unknown';
+          });
+          newTask.resource_names = resourceNames;
+          // Backward compatibility: set first resource as owner
+          newTask.owner_id = taskForm.resource_ids[0];
+          newTask.owner_name = resourceNames[0];
         }
 
         // Add to existing tasks
@@ -1579,6 +1590,39 @@ const ProjectDetail: React.FC = () => {
         if (error) throw error;
       }
 
+      // Save resource assignments to junction table
+      const taskIdToUpdate = editingTaskId || newTask.id;
+      if (taskForm.resource_ids.length > 0 && taskIdToUpdate) {
+        // First, get the actual database task ID by finding it in task_data
+        const { data: taskRecord } = await supabase
+          .from('project_tasks')
+          .select('id, task_data')
+          .eq('project_id', id)
+          .maybeSingle();
+
+        if (taskRecord?.id) {
+          // Delete existing assignments for this task
+          await supabase
+            .from('task_resource_assignments')
+            .delete()
+            .eq('task_id', taskRecord.id);
+
+          // Insert new assignments
+          const assignments = taskForm.resource_ids.map(resourceId => ({
+            task_id: taskRecord.id,
+            resource_id: resourceId
+          }));
+
+          const { error: assignmentError } = await supabase
+            .from('task_resource_assignments')
+            .insert(assignments);
+
+          if (assignmentError) {
+            console.error('Error saving resource assignments:', assignmentError);
+          }
+        }
+      }
+
       // Update local state
       setProjectTasks(updatedTaskData);
 
@@ -1590,6 +1634,7 @@ const ProjectDetail: React.FC = () => {
         start_date: '',
         duration: 1,
         owner_id: '',
+        resource_ids: [],
         parent_id: undefined
       });
     } catch (error: any) {
@@ -2116,6 +2161,7 @@ const ProjectDetail: React.FC = () => {
                     start_date: '',
                     duration: 1,
                     owner_id: '',
+                    resource_ids: [],
                     parent_id: parentId
                   });
                   console.log('Task form after setting:', {
@@ -2150,6 +2196,7 @@ const ProjectDetail: React.FC = () => {
                       start_date: startDate,
                       duration: task.duration,
                       owner_id: task.owner_id || '',
+                      resource_ids: task.resource_ids || [],
                       parent_id: task.parent || undefined
                     });
                     setEditingTaskId(taskId);
@@ -3367,6 +3414,7 @@ const ProjectDetail: React.FC = () => {
                       start_date: '',
                       duration: 1,
                       owner_id: '',
+                      resource_ids: [],
                       parent_id: undefined
                     });
                   }}
@@ -3421,23 +3469,50 @@ const ProjectDetail: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Task Owner
+                    Task Owners (Multiple Selection)
                   </label>
-                  <select
-                    value={taskForm.owner_id}
-                    onChange={(e) => setTaskForm({ ...taskForm, owner_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Select team member...</option>
-                    {projectTeamMembers.map((member: any) => (
-                      <option key={member.id} value={member.resource_id}>
-                        {member.resources?.display_name || 'Unknown'}
-                      </option>
-                    ))}
-                  </select>
-                  {projectTeamMembers.length === 0 && (
+                  <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto">
+                    {projectTeamMembers.length === 0 ? (
+                      <p className="text-sm text-gray-500">
+                        No team members assigned. Add team members in the Team tab first.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {projectTeamMembers.map((member: any) => (
+                          <label
+                            key={member.id}
+                            className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={taskForm.resource_ids.includes(member.resource_id)}
+                              onChange={(e) => {
+                                const resourceId = member.resource_id;
+                                if (e.target.checked) {
+                                  setTaskForm({
+                                    ...taskForm,
+                                    resource_ids: [...taskForm.resource_ids, resourceId]
+                                  });
+                                } else {
+                                  setTaskForm({
+                                    ...taskForm,
+                                    resource_ids: taskForm.resource_ids.filter(id => id !== resourceId)
+                                  });
+                                }
+                              }}
+                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700">
+                              {member.resources?.display_name || 'Unknown'}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {taskForm.resource_ids.length > 0 && (
                     <p className="text-xs text-gray-500 mt-1">
-                      No team members assigned. Add team members in the Team tab first.
+                      {taskForm.resource_ids.length} team member(s) selected
                     </p>
                   )}
                 </div>
