@@ -80,13 +80,33 @@ export default function ContributingProjects() {
 
       if (requestPrioritiesError) throw requestPrioritiesError;
 
+      const { data: benefitTrackingData, error: benefitTrackingError } = await supabase
+        .from('monthly_benefit_tracking')
+        .select('project_id, priority_id, actual_benefit_value');
+
+      if (benefitTrackingError) throw benefitTrackingError;
+
       const prioritiesWithProjects = (prioritiesData || []).map((priority) => {
         const projectImpacts = (impactsData || [])
           .filter((impact: any) => impact.priority_id === priority.id)
-          .map((impact: any) => ({
-            ...impact,
-            source: 'project' as const,
-          }));
+          .map((impact: any) => {
+            const totalActualBenefits = (benefitTrackingData || [])
+              .filter((bt: any) =>
+                bt.project_id === impact.project_id &&
+                bt.priority_id === priority.id
+              )
+              .reduce((sum: number, bt: any) => sum + (parseFloat(bt.actual_benefit_value) || 0), 0);
+
+            const formattedActualImpact = totalActualBenefits > 0
+              ? `$${totalActualBenefits.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              : null;
+
+            return {
+              ...impact,
+              actual_impact: formattedActualImpact,
+              source: 'project' as const,
+            };
+          });
 
         const initiativeImpacts = (requestPrioritiesData || [])
           .filter((rp: any) =>
