@@ -41,6 +41,12 @@ export default class Gantt extends Component<GanttProps> {
     gantt.config.readonly = false;
     gantt.config.details_on_dblclick = true;
 
+    // Enable keyboard navigation plugin for inline editing
+    gantt.plugins({
+      keyboard_navigation: true
+    });
+    gantt.config.keyboard_navigation_cells = true;
+
     // Enable column resizing
     gantt.config.grid_resize = true;
 
