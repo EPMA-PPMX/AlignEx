@@ -36,14 +36,17 @@ export default class Gantt extends Component<GanttProps> {
   private pendingParentId: number | undefined = undefined;
   private allTasks: Task[] = [];
   private isGrouped: boolean = false;
+  private isSorted: boolean = false;
+  private originalTasks: any[] = [];
+  private groupHeaderIdStart: number = 999900;
 
-  public toggleGroupByOwner = (): void => {
-    if (this.isGrouped) {
+  public toggleSortByOwner = (): void => {
+    if (this.isSorted) {
       // Reset to original order
       gantt.sort((a: any, b: any) => {
         return a.id - b.id;
       });
-      this.isGrouped = false;
+      this.isSorted = false;
     } else {
       // Sort tasks by owner_name
       gantt.sort((a: any, b: any) => {
@@ -57,6 +60,74 @@ export default class Gantt extends Component<GanttProps> {
 
         return ownerA.localeCompare(ownerB);
       });
+      this.isSorted = true;
+    }
+  };
+
+  public toggleGroupByOwner = (): void => {
+    if (this.isGrouped) {
+      // Remove grouping - restore original tasks
+      gantt.clearAll();
+      gantt.parse({
+        data: this.originalTasks,
+        links: []
+      });
+      this.isGrouped = false;
+    } else {
+      // Save original tasks
+      this.originalTasks = [];
+      gantt.eachTask((task: any) => {
+        this.originalTasks.push({ ...task });
+      });
+
+      // Group tasks by owner
+      const ownerGroups: { [key: string]: any[] } = {};
+
+      gantt.eachTask((task: any) => {
+        const owner = task.owner_name || 'Unassigned';
+        if (!ownerGroups[owner]) {
+          ownerGroups[owner] = [];
+        }
+        ownerGroups[owner].push({ ...task });
+      });
+
+      // Create new task structure with group headers
+      const newTasks: any[] = [];
+      let groupId = this.groupHeaderIdStart;
+
+      Object.keys(ownerGroups).sort().forEach((owner) => {
+        // Add group header
+        const groupHeader = {
+          id: groupId++,
+          text: `👤 ${owner}`,
+          start_date: null,
+          duration: null,
+          parent: 0,
+          type: gantt.config.types.project,
+          open: true,
+          readonly: true,
+          owner_name: '',
+          $group_header: true
+        };
+        newTasks.push(groupHeader);
+
+        // Add tasks under this group
+        ownerGroups[owner].forEach((task: any) => {
+          newTasks.push({
+            ...task,
+            parent: groupHeader.id,
+            $original_parent: task.parent
+          });
+        });
+      });
+
+      // Clear and reload with grouped structure
+      gantt.clearAll();
+      gantt.parse({
+        data: newTasks,
+        links: []
+      });
+
       this.isGrouped = true;
     }
   };
@@ -110,6 +181,27 @@ export default class Gantt extends Component<GanttProps> {
       { name: "duration", label: "Duration", align: "center", width: 70, resize: true, editor: durationEditor },
       { name: "add", label: "", width: 44 }
     ];
+
+    // Custom styling for group headers
+    gantt.templates.task_class = (start: any, end: any, task: any) => {
+      if (task.$group_header) {
+        return "group-header-task";
+      }
+      return "";
+    };
+
+    gantt.templates.grid_row_class = (start: any, end: any, task: any) => {
+      if (task.$group_header) {
+        return "group-header-row";
+      }
+      return "";
+    };
+
+    // Prevent editing group headers
+    gantt.attachEvent("onBeforeTaskDrag", (id: any) => {
+      const task = gantt.getTask(id);
+      return !task.$group_header;
+    });
 
     // Intercept task creation to use custom modal
     if (onOpenTaskModal) {
