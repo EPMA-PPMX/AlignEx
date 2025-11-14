@@ -9,6 +9,24 @@
   overflow: auto !important;
 }
 
+.gantt_grid_head_cell {
+  position: relative;
+}
+
+.gantt_grid_head_cell .gantt_resize_wrap {
+  cursor: col-resize;
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 10px;
+  height: 100%;
+  z-index: 10;
+}
+
+.gantt_grid_column_resize_wrap {
+  cursor: col-resize !important;
+}
+
 .group-header-row {
   background-color: #f3f4f6 !important;
   font-weight: 600 !important;

@@ -158,8 +158,9 @@ export default class Gantt extends Component<GanttProps> {
     });
     gantt.config.keyboard_navigation_cells = true;
 
-    // Enable column resizing
+    // Enable column resizing - must be set before columns configuration
     gantt.config.grid_resize = true;
+    gantt.config.keep_grid_width = false;
 
     // Enable autosize to fit all tasks without scrolling
     gantt.config.autosize = "xy";
@@ -190,7 +191,7 @@ export default class Gantt extends Component<GanttProps> {
 
     // Custom add button column with resizable columns and inline editors
     gantt.config.columns = [
-      { name: "text", label: "Task name", tree: true, width: 250, resize: true, editor: textEditor },
+      { name: "text", label: "Task name", tree: true, width: 250, min_width: 150, max_width: 500, resize: true, editor: textEditor },
       {
         name: "owner_name",
         label: "Owners",
