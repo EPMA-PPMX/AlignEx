@@ -2075,7 +2075,7 @@ const ProjectDetail: React.FC = () => {
                   className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                 >
                   <Group className="w-4 h-4" />
-                  Group by Owner
+                  Sort by Owner
                 </button>
                 <button
                   onClick={() => {

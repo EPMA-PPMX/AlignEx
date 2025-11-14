@@ -39,33 +39,23 @@ export default class Gantt extends Component<GanttProps> {
 
   public toggleGroupByOwner = (): void => {
     if (this.isGrouped) {
-      gantt.groupBy(false);
+      // Reset to original order
+      gantt.sort((a: any, b: any) => {
+        return a.id - b.id;
+      });
       this.isGrouped = false;
     } else {
-      const owners = new Set<string>();
-      this.allTasks.forEach((task: any) => {
-        if (task.owner_name) {
-          owners.add(task.owner_name);
+      // Sort tasks by owner_name
+      gantt.sort((a: any, b: any) => {
+        const ownerA = a.owner_name || 'Unassigned';
+        const ownerB = b.owner_name || 'Unassigned';
+
+        if (ownerA === ownerB) {
+          // If same owner, maintain original order
+          return a.id - b.id;
         }
-      });
 
-      const ownersList: any[] = [];
-      owners.forEach((owner) => {
-        ownersList.push({
-          key: owner,
-          label: owner
-        });
-      });
-
-      gantt.serverList("owner", ownersList);
-
-      gantt.groupBy({
-        groups: gantt.serverList("owner"),
-        relation_property: "owner_name",
-        group_id: "key",
-        group_text: "label",
-        default_group_label: "Unassigned",
-        save_tree_structure: true
+        return ownerA.localeCompare(ownerB);
       });
       this.isGrouped = true;
     }
@@ -76,10 +66,9 @@ export default class Gantt extends Component<GanttProps> {
     gantt.config.readonly = false;
     gantt.config.details_on_dblclick = true;
 
-    // Enable keyboard navigation plugin for inline editing and grouping
+    // Enable keyboard navigation plugin for inline editing
     gantt.plugins({
-      keyboard_navigation: true,
-      grouping: true
+      keyboard_navigation: true
     });
     gantt.config.keyboard_navigation_cells = true;
 
