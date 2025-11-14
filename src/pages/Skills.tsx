@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { User, Target } from 'lucide-react';
+import { User, Target, Trophy } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import MySkillsTab from '../components/skills/MySkillsTab';
 import RoleComparisonTab from '../components/skills/RoleComparisonTab';
+import MyGoalsTab from '../components/skills/MyGoalsTab';
 
 interface SkillCategory {
   id: string;
@@ -34,7 +35,7 @@ interface UserSkill {
 
 const USER_ID = 'current-user';
 
-type TabType = 'my-skills' | 'role-comparison';
+type TabType = 'my-skills' | 'role-comparison' | 'my-goals';
 
 export default function Skills() {
   const [activeTab, setActiveTab] = useState<TabType>('my-skills');
@@ -111,6 +112,17 @@ export default function Skills() {
             <Target className="w-5 h-5" />
             Role Comparison
           </button>
+          <button
+            onClick={() => setActiveTab('my-goals')}
+            className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors border-b-2 ${
+              activeTab === 'my-goals'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Trophy className="w-5 h-5" />
+            My Goals
+          </button>
         </div>
       </div>
 
@@ -124,6 +136,7 @@ export default function Skills() {
           />
         )}
         {activeTab === 'role-comparison' && <RoleComparisonTab />}
+        {activeTab === 'my-goals' && <MyGoalsTab />}
       </div>
     </div>
   );
