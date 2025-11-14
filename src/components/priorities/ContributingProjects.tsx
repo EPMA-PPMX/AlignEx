@@ -89,7 +89,10 @@ export default function ContributingProjects() {
           }));
 
         const initiativeImpacts = (requestPrioritiesData || [])
-          .filter((rp: any) => rp.priority_id === priority.id && rp.request?.status === 'Approved')
+          .filter((rp: any) =>
+            rp.priority_id === priority.id &&
+            rp.request?.status === 'Pending'
+          )
           .map((rp: any) => ({
             id: rp.id,
             project_id: rp.request.id,
@@ -100,7 +103,7 @@ export default function ContributingProjects() {
             project: {
               id: rp.request.id,
               name: rp.request.project_name,
-              status: 'Approved Initiative',
+              status: 'Pending Request',
             },
             source: 'initiative' as const,
           }));
@@ -172,7 +175,7 @@ export default function ContributingProjects() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <p className="text-slate-600">
-          View all projects and initiatives contributing to organizational priorities
+          View all projects and pending requests contributing to organizational priorities
         </p>
         <div>
           <label className="text-sm font-medium text-slate-700 mr-2">Filter by Priority:</label>
@@ -216,7 +219,7 @@ export default function ContributingProjects() {
 
               {priority.impacts.length === 0 ? (
                 <p className="text-center py-8 text-slate-500">
-                  No projects or initiatives are currently contributing to this priority.
+                  No projects or pending requests are currently contributing to this priority.
                 </p>
               ) : (
                 <div className="overflow-x-auto">
@@ -224,7 +227,7 @@ export default function ContributingProjects() {
                     <thead>
                       <tr className="border-b border-slate-200">
                         <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">
-                          Project / Initiative
+                          Project / Request
                         </th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">
                           Status
@@ -252,7 +255,7 @@ export default function ContributingProjects() {
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-2">
                               {impact.source === 'initiative' && (
-                                <FileText className="w-4 h-4 text-blue-500" title="Approved Initiative" />
+                                <FileText className="w-4 h-4 text-yellow-500" title="Pending Request" />
                               )}
                               <span className="font-medium text-slate-900">{impact.project.name}</span>
                             </div>
@@ -266,8 +269,8 @@ export default function ContributingProjects() {
                                   ? 'bg-blue-100 text-blue-800'
                                   : impact.project.status === 'Planning'
                                   ? 'bg-amber-100 text-amber-800'
-                                  : impact.project.status === 'Approved Initiative'
-                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : impact.project.status === 'Pending Request'
+                                  ? 'bg-yellow-100 text-yellow-800'
                                   : 'bg-slate-100 text-slate-800'
                               }`}
                             >
@@ -298,7 +301,7 @@ export default function ContributingProjects() {
                                 }
                               }}
                               className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm font-medium"
-                              title={impact.source === 'initiative' ? 'View in Project Initiation' : 'View project details'}
+                              title={impact.source === 'initiative' ? 'View pending request' : 'View project details'}
                             >
                               View
                               <ExternalLink className="w-4 h-4" />
@@ -320,9 +323,9 @@ export default function ContributingProjects() {
                         {priority.impacts.length} {priority.impacts.length === 1 ? 'item' : 'items'}
                       </p>
                     </div>
-                    <div className="bg-emerald-50 rounded-lg p-3">
-                      <p className="text-slate-600 mb-1">Approved Initiatives</p>
-                      <p className="text-lg font-semibold text-emerald-700">
+                    <div className="bg-yellow-50 rounded-lg p-3">
+                      <p className="text-slate-600 mb-1">Pending Requests</p>
+                      <p className="text-lg font-semibold text-yellow-700">
                         {priority.impacts.filter((i) => i.source === 'initiative').length}
                       </p>
                     </div>
