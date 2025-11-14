@@ -261,9 +261,9 @@ export default function ProjectInitiation() {
     <div className="p-8 space-y-6">
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Project Initiation</h1>
+          <h1 className="text-3xl font-bold text-slate-900">Project Request</h1>
           <p className="text-slate-600 mt-2">
-            Submit and manage project initiation requests
+            Submit and manage project requests
           </p>
         </div>
         <button

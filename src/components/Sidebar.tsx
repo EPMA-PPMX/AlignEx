@@ -8,22 +8,22 @@ const Sidebar: React.FC = () => {
 
   const navItems = [
     {
-      name: 'Dashboard',
+      name: 'My Hub',
       path: '/',
       icon: LayoutDashboard,
     },
     {
-      name: 'Project Initiation',
+      name: 'Project Request',
       path: '/initiation',
       icon: FileText,
     },
     {
-      name: 'Projects',
+      name: 'Project Center',
       path: '/projects',
       icon: FolderKanban,
     },
     {
-      name: 'Organizational Priorities',
+      name: 'Strategic Priorities',
       path: '/priorities',
       icon: TrendingUp,
     },
@@ -33,14 +33,9 @@ const Sidebar: React.FC = () => {
       icon: Users,
     },
     {
-      name: 'Skills',
+      name: 'My Skills',
       path: '/skills',
       icon: Award,
-    },
-    {
-      name: 'Action Items',
-      path: '/action-items',
-      icon: CheckSquare,
     },
     {
       name: 'Timesheet',
