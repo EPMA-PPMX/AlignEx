@@ -4,7 +4,13 @@ import { supabase } from '../../lib/supabase';
 
 interface Skill {
   id: string;
-  skill_name: string;
+  name: string;
+  category_id: string;
+}
+
+interface SkillCategory {
+  id: string;
+  name: string;
 }
 
 interface SkillGoal {
@@ -40,6 +46,7 @@ export default function MyGoalsTab() {
   const [goals, setGoals] = useState<SkillGoal[]>([]);
   const [tasks, setTasks] = useState<{ [goalId: string]: GoalTask[] }>({});
   const [skills, setSkills] = useState<Skill[]>([]);
+  const [categories, setCategories] = useState<SkillCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddGoalForm, setShowAddGoalForm] = useState(false);
   const [editingGoal, setEditingGoal] = useState<SkillGoal | null>(null);
@@ -71,26 +78,42 @@ export default function MyGoalsTab() {
     try {
       setLoading(true);
 
-      const [goalsResult, skillsResult] = await Promise.all([
+      const [goalsResult, skillsResult, categoriesResult] = await Promise.all([
         supabase
           .from('skill_goals')
           .select(`
             *,
-            skill:skills(id, skill_name)
+            skill:skills(id, name, category_id)
           `)
           .order('created_at', { ascending: false }),
         supabase
           .from('skills')
-          .select('id, skill_name')
-          .order('skill_name')
+          .select('id, name, category_id')
+          .order('name'),
+        supabase
+          .from('skill_categories')
+          .select('id, name')
+          .order('name')
       ]);
 
-      if (goalsResult.error) throw goalsResult.error;
-      if (skillsResult.error) throw skillsResult.error;
+      if (goalsResult.error) {
+        console.error('Goals error:', goalsResult.error);
+        throw goalsResult.error;
+      }
+      if (skillsResult.error) {
+        console.error('Skills error:', skillsResult.error);
+        throw skillsResult.error;
+      }
+      if (categoriesResult.error) {
+        console.error('Categories error:', categoriesResult.error);
+        throw categoriesResult.error;
+      }
 
       const goalsData = goalsResult.data || [];
+      console.log('Loaded goals:', goalsData);
       setGoals(goalsData);
       setSkills(skillsResult.data || []);
+      setCategories(categoriesResult.data || []);
 
       if (goalsData.length > 0) {
         const tasksResult = await supabase
