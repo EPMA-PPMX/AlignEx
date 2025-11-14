@@ -55,26 +55,55 @@ export default class Gantt extends Component<GanttProps> {
         this.originalTasks.push({ ...task });
       });
 
-      // Group tasks by owner
-      const ownerGroups: { [key: string]: any[] } = {};
+      // Collect all unique resources from tasks
+      const resourceMap: { [key: string]: string } = {};
+      const resourceTasksMap: { [key: string]: any[] } = {};
 
       gantt.eachTask((task: any) => {
-        const owner = task.owner_name || 'Unassigned';
-        if (!ownerGroups[owner]) {
-          ownerGroups[owner] = [];
+        // Handle tasks with multiple resources (resource_ids array)
+        if (task.resource_ids && Array.isArray(task.resource_ids) && task.resource_ids.length > 0) {
+          task.resource_ids.forEach((resourceId: string, index: number) => {
+            const resourceName = task.resource_names?.[index] || 'Unknown';
+
+            if (!resourceMap[resourceId]) {
+              resourceMap[resourceId] = resourceName;
+              resourceTasksMap[resourceId] = [];
+            }
+
+            // Add this task to the resource's task list
+            resourceTasksMap[resourceId].push({ ...task });
+          });
+        } else {
+          // Fallback for tasks with single owner (backward compatibility)
+          const ownerId = task.owner_id || 'unassigned';
+          const ownerName = task.owner_name || 'Unassigned';
+
+          if (!resourceMap[ownerId]) {
+            resourceMap[ownerId] = ownerName;
+            resourceTasksMap[ownerId] = [];
+          }
+
+          resourceTasksMap[ownerId].push({ ...task });
         }
-        ownerGroups[owner].push({ ...task });
       });
 
       // Create new task structure with group headers
       const newTasks: any[] = [];
       let groupId = this.groupHeaderIdStart;
+      const taskIdMapping: { [key: number]: number[] } = {}; // Maps original task ID to new IDs
 
-      Object.keys(ownerGroups).sort().forEach((owner) => {
+      // Sort resources by name
+      const sortedResourceIds = Object.keys(resourceMap).sort((a, b) => {
+        return resourceMap[a].localeCompare(resourceMap[b]);
+      });
+
+      sortedResourceIds.forEach((resourceId) => {
+        const resourceName = resourceMap[resourceId];
+
         // Add group header
         const groupHeader = {
           id: groupId++,
-          text: `👤 ${owner}`,
+          text: `👤 ${resourceName}`,
           start_date: null,
           duration: null,
           parent: 0,
@@ -87,9 +116,20 @@ export default class Gantt extends Component<GanttProps> {
         newTasks.push(groupHeader);
 
         // Add tasks under this group
-        ownerGroups[owner].forEach((task: any) => {
+        resourceTasksMap[resourceId].forEach((task: any) => {
+          // Create a unique ID for this task instance under this resource
+          const newTaskId = groupId++;
+
+          // Track mapping for tasks that appear under multiple resources
+          if (!taskIdMapping[task.id]) {
+            taskIdMapping[task.id] = [];
+          }
+          taskIdMapping[task.id].push(newTaskId);
+
           newTasks.push({
             ...task,
+            id: newTaskId, // Use new unique ID
+            $original_id: task.id, // Store original ID
             parent: groupHeader.id,
             $original_parent: task.parent
           });
