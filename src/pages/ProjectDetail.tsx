@@ -566,7 +566,9 @@ const ProjectDetail: React.FC = () => {
               progress: task.progress || 0,
               parent: task.parent,
               owner_id: task.owner_id,
-              owner_name: task.owner_name
+              owner_name: task.owner_name,
+              resource_ids: task.resource_ids || [],
+              resource_names: task.resource_names || []
             };
           });
         }
@@ -626,18 +628,31 @@ const ProjectDetail: React.FC = () => {
       const currentTasks = ganttInstance.serialize();
       console.log("Current tasks from Gantt:", currentTasks);
 
-      // Clean the data before saving
+      // Clean the data before saving - filter out group headers and deduplicate
+      const taskMap = new Map();
+      currentTasks.data
+        .filter((task: any) => !task.$group_header) // Exclude group headers
+        .forEach((task: any) => {
+          const taskId = task.$original_id || task.id;
+          // Only add if not already in map (handles duplicates from grouping)
+          if (!taskMap.has(taskId)) {
+            taskMap.set(taskId, {
+              id: taskId,
+              text: task.text,
+              start_date: task.start_date,
+              duration: task.duration,
+              progress: task.progress || 0,
+              parent: task.$original_parent !== undefined ? task.$original_parent : (task.parent || 0),
+              owner_id: task.owner_id,
+              owner_name: task.owner_name,
+              resource_ids: task.resource_ids || [],
+              resource_names: task.resource_names || []
+            });
+          }
+        });
+
       const cleanedData = {
-        data: currentTasks.data.map((task: any) => ({
-          id: task.id,
-          text: task.text,
-          start_date: task.start_date,
-          duration: task.duration,
-          progress: task.progress || 0,
-          parent: task.parent || 0,
-          owner_id: task.owner_id,
-          owner_name: task.owner_name
-        })),
+        data: Array.from(taskMap.values()),
         links: (currentTasks.links || []).map((link: any) => ({
           id: link.id,
           source: link.source,
