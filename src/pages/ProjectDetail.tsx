@@ -530,11 +530,15 @@ const ProjectDetail: React.FC = () => {
 
   const fetchProjectTasks = async () => {
     try {
-      const { data, error } = await supabase
+      // Get the most recent record for this project
+      const { data: records, error } = await supabase
         .from('project_tasks')
         .select('*')
         .eq('project_id', id)
-        .maybeSingle();
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      const data = records && records.length > 0 ? records[0] : null;
 
       if (error) {
         console.error('Error fetching project tasks:', error);
@@ -663,23 +667,24 @@ const ProjectDetail: React.FC = () => {
 
       console.log("Cleaned data:", cleanedData);
 
-      // Check if project_tasks record exists
+      // Check if project_tasks record exists (get the most recent one)
       const { data: existingData } = await supabase
         .from('project_tasks')
         .select('id')
         .eq('project_id', id)
-        .maybeSingle();
+        .order('created_at', { ascending: false })
+        .limit(1);
 
-      if (existingData) {
-        // Update existing record
-        console.log("Updating existing record");
+      if (existingData && existingData.length > 0) {
+        // Update the most recent record
+        console.log("Updating existing record:", existingData[0].id);
         const { error } = await supabase
           .from('project_tasks')
           .update({
             task_data: cleanedData,
             updated_at: new Date().toISOString()
           })
-          .eq('project_id', id);
+          .eq('id', existingData[0].id);
 
         if (error) {
           console.error('Error updating tasks:', error);
@@ -687,7 +692,7 @@ const ProjectDetail: React.FC = () => {
           console.log("Tasks updated successfully");
         }
       } else {
-        // Insert new record
+        // Insert new record only if none exists
         console.log("Inserting new record");
         const { error } = await supabase
           .from('project_tasks')
@@ -1590,26 +1595,27 @@ const ProjectDetail: React.FC = () => {
         currentTaskId = newTask.id;
       }
 
-      // Check if project_tasks record exists
-      const { data: existingData } = await supabase
+      // Check if project_tasks record exists (get the most recent one)
+      const { data: existingData, error: fetchError } = await supabase
         .from('project_tasks')
         .select('id')
         .eq('project_id', id)
-        .maybeSingle();
+        .order('created_at', { ascending: false })
+        .limit(1);
 
-      if (existingData) {
-        // Update existing record
+      if (existingData && existingData.length > 0) {
+        // Update the most recent record
         const { error } = await supabase
           .from('project_tasks')
           .update({
             task_data: updatedTaskData,
             updated_at: new Date().toISOString()
           })
-          .eq('project_id', id);
+          .eq('id', existingData[0].id);
 
         if (error) throw error;
       } else {
-        // Insert new record
+        // Insert new record only if none exists
         const { error } = await supabase
           .from('project_tasks')
           .insert({
