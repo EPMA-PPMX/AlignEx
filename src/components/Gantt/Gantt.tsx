@@ -477,28 +477,80 @@ export default class Gantt extends Component<GanttProps> {
   private filterTasks(query: string): void {
     const { projecttasks } = this.props;
 
+    // If no search query, restore to either grouped or ungrouped view
     if (!query.trim()) {
-      gantt.clearAll();
-      gantt.parse(projecttasks);
+      if (this.isGrouped) {
+        // Restore grouped view
+        gantt.clearAll();
+        gantt.parse({
+          data: this.originalTasks,
+          links: this.originalLinks
+        });
+        // Re-apply grouping
+        this.isGrouped = false; // Reset flag
+        this.toggleGroupByOwner(); // Re-group
+      } else {
+        // Restore ungrouped view
+        gantt.clearAll();
+        gantt.parse(projecttasks);
+      }
       return;
     }
 
     const lowerQuery = query.toLowerCase();
-    const filteredData = this.allTasks.filter((task: Task) =>
-      task.text.toLowerCase().includes(lowerQuery)
-    );
 
-    const filteredLinks = (projecttasks.links || []).filter((link: Link) => {
-      const sourceExists = filteredData.some(t => t.id === link.source);
-      const targetExists = filteredData.some(t => t.id === link.target);
-      return sourceExists && targetExists;
-    });
+    // If grouped, search within the current grouped view
+    if (this.isGrouped) {
+      // Get all current tasks (including group headers)
+      const currentTasks: any[] = [];
+      gantt.eachTask((task: any) => {
+        currentTasks.push(task);
+      });
 
-    gantt.clearAll();
-    gantt.parse({
-      data: filteredData,
-      links: filteredLinks
-    });
+      // Filter tasks but keep group headers if they have matching children
+      const groupHeadersWithMatches = new Set<number>();
+      const matchingTasks = currentTasks.filter((task: any) => {
+        if (task.$group_header) {
+          return false; // We'll add these back later if needed
+        }
+        const matches = task.text.toLowerCase().includes(lowerQuery);
+        if (matches && task.parent) {
+          groupHeadersWithMatches.add(task.parent);
+        }
+        return matches;
+      });
+
+      // Add group headers that have matching tasks
+      const filteredData = [
+        ...currentTasks.filter((task: any) =>
+          task.$group_header && groupHeadersWithMatches.has(task.id)
+        ),
+        ...matchingTasks
+      ];
+
+      gantt.clearAll();
+      gantt.parse({
+        data: filteredData,
+        links: []
+      });
+    } else {
+      // Regular ungrouped filtering
+      const filteredData = this.allTasks.filter((task: Task) =>
+        task.text.toLowerCase().includes(lowerQuery)
+      );
+
+      const filteredLinks = (projecttasks.links || []).filter((link: Link) => {
+        const sourceExists = filteredData.some(t => t.id === link.source);
+        const targetExists = filteredData.some(t => t.id === link.target);
+        return sourceExists && targetExists;
+      });
+
+      gantt.clearAll();
+      gantt.parse({
+        data: filteredData,
+        links: filteredLinks
+      });
+    }
   }
 
   componentWillUnmount(): void {
