@@ -571,12 +571,16 @@ const ProjectDetail: React.FC = () => {
           });
         }
         setProjectTasks({ data: taskData.data || [], links: taskData.links || [] });
+        // Reset grouping state when new data is loaded
+        setIsGroupedByOwner(false);
       } else {
         setProjectTasks({ data: [], links: [] });
+        setIsGroupedByOwner(false);
       }
     } catch (error) {
       console.error('Error fetching project tasks:', error);
       setProjectTasks({ data: [], links: [] });
+      setIsGroupedByOwner(false);
     }
   };
 
@@ -1635,6 +1639,8 @@ const ProjectDetail: React.FC = () => {
 
       // Update local state
       setProjectTasks(updatedTaskData);
+      // Reset grouping state when tasks are updated
+      setIsGroupedByOwner(false);
 
       alert(editingTaskId ? 'Task updated successfully!' : 'Task created successfully!');
       setShowTaskModal(false);

@@ -37,6 +37,7 @@ export default class Gantt extends Component<GanttProps> {
   private allTasks: Task[] = [];
   private isGrouped: boolean = false;
   private originalTasks: any[] = [];
+  private originalLinks: any[] = [];
   private groupHeaderIdStart: number = 999900;
 
   public isGroupedByOwner = (): boolean => {
@@ -46,18 +47,29 @@ export default class Gantt extends Component<GanttProps> {
   public toggleGroupByOwner = (): void => {
     if (this.isGrouped) {
       // Remove grouping - restore original tasks
+      console.log('Ungrouping: restoring original tasks', this.originalTasks);
+      console.log('Ungrouping: restoring original links', this.originalLinks);
       gantt.clearAll();
       gantt.parse({
         data: this.originalTasks,
-        links: []
+        links: this.originalLinks
       });
       this.isGrouped = false;
     } else {
-      // Save original tasks
+      // Save original tasks and links
       this.originalTasks = [];
+      this.originalLinks = [];
+
       gantt.eachTask((task: any) => {
         this.originalTasks.push({ ...task });
       });
+
+      gantt.getLinks().forEach((link: any) => {
+        this.originalLinks.push({ ...link });
+      });
+
+      console.log('Grouping: saved original tasks', this.originalTasks);
+      console.log('Grouping: saved original links', this.originalLinks);
 
       // Collect all unique resources from tasks
       const resourceMap: { [key: string]: string } = {};
@@ -449,6 +461,10 @@ export default class Gantt extends Component<GanttProps> {
 
     if (JSON.stringify(prevProps.projecttasks) !== JSON.stringify(projecttasks)) {
       this.allTasks = projecttasks.data || [];
+      // Reset grouping state when data changes
+      this.isGrouped = false;
+      this.originalTasks = [];
+      this.originalLinks = [];
       gantt.clearAll();
       gantt.parse(projecttasks);
     }
