@@ -181,6 +181,7 @@ const ProjectDetail: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [budgetViewFilter, setBudgetViewFilter] = useState<'monthly' | 'yearly'>('yearly');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [isGroupedByOwner, setIsGroupedByOwner] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -2122,12 +2123,13 @@ const ProjectDetail: React.FC = () => {
                   onClick={() => {
                     if (ganttRef.current) {
                       ganttRef.current.toggleGroupByOwner();
+                      setIsGroupedByOwner(!isGroupedByOwner);
                     }
                   }}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
                 >
                   <Group className="w-4 h-4" />
-                  Group by Owner
+                  {isGroupedByOwner ? 'Show All Tasks' : 'Group by Owner'}
                 </button>
                 <button
                   onClick={() => {

@@ -39,6 +39,10 @@ export default class Gantt extends Component<GanttProps> {
   private originalTasks: any[] = [];
   private groupHeaderIdStart: number = 999900;
 
+  public isGroupedByOwner = (): boolean => {
+    return this.isGrouped;
+  };
+
   public toggleGroupByOwner = (): void => {
     if (this.isGrouped) {
       // Remove grouping - restore original tasks
