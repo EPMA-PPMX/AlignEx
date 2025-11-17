@@ -205,6 +205,46 @@ export default class Gantt extends Component<GanttProps> {
       max: 365
     };
 
+    // Configure layout with horizontal scroll for grid
+    gantt.config.layout = {
+      css: "gantt_container",
+      cols: [
+        {
+          width: 400,
+          min_width: 300,
+          rows: [
+            {
+              view: "grid",
+              scrollX: "gridScroll",
+              scrollable: true,
+              scrollY: "scrollVer"
+            },
+            {
+              view: "scrollbar",
+              id: "gridScroll",
+              group: "horizontal"
+            }
+          ]
+        },
+        { resizer: true, width: 1 },
+        {
+          rows: [
+            {
+              view: "timeline",
+              scrollX: "scrollHor",
+              scrollY: "scrollVer"
+            },
+            {
+              view: "scrollbar",
+              id: "scrollHor",
+              group: "horizontal"
+            }
+          ]
+        },
+        { view: "scrollbar", id: "scrollVer" }
+      ]
+    };
+
     // Custom add button column with resizable columns and inline editors
     gantt.config.columns = [
       { name: "text", label: "Task name", tree: true, width: 250, min_width: 150, max_width: 500, resize: true, editor: textEditor },

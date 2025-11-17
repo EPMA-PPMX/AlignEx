@@ -1,12 +1,12 @@
 .gantt-container {
   height: 100%;
   width: 100%;
-  overflow: auto;
   position: relative;
 }
 
 .gantt_container {
-  overflow: auto !important;
+  height: 100%;
+  width: 100%;
 }
 
 .gantt_grid_head_cell {
