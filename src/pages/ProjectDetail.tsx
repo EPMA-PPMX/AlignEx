@@ -499,25 +499,25 @@ const ProjectDetail: React.FC = () => {
   const fetchCostCategoryOptions = async () => {
     try {
       const { data, error } = await supabase
-        .from('custom_fields')
-        .select('options')
-        .eq('field_name', 'Cost Category')
-        .maybeSingle();
+        .from('budget_categories')
+        .select('name')
+        .eq('is_active', true)
+        .order('name');
 
       if (error) {
-        console.error('Error fetching cost category options:', error);
-        setCostCategoryOptions(['Labor', 'Materials', 'Equipment', 'Software', 'Travel', 'Other']);
+        console.error('Error fetching budget categories:', error);
+        setCostCategoryOptions([]);
         return;
       }
 
-      if (data && data.options) {
-        setCostCategoryOptions(data.options as string[]);
+      if (data && data.length > 0) {
+        setCostCategoryOptions(data.map(cat => cat.name));
       } else {
-        setCostCategoryOptions(['Labor', 'Materials', 'Equipment', 'Software', 'Travel', 'Other']);
+        setCostCategoryOptions([]);
       }
     } catch (error) {
-      console.error('Error fetching cost category options:', error);
-      setCostCategoryOptions(['Labor', 'Materials', 'Equipment', 'Software', 'Travel', 'Other']);
+      console.error('Error fetching budget categories:', error);
+      setCostCategoryOptions([]);
     }
   };
 
@@ -1647,10 +1647,7 @@ const ProjectDetail: React.FC = () => {
   };
 
   const getCostCategoryOptions = (): string[] => {
-    if (costCategoryOptions.length > 0) {
-      return costCategoryOptions;
-    }
-    return ['Labor', 'Materials', 'Equipment', 'Software', 'Travel', 'Other'];
+    return costCategoryOptions;
   };
 
   const handleAddBudget = () => {
@@ -2987,20 +2984,27 @@ const ProjectDetail: React.FC = () => {
                   Select Categories (you can select multiple)
                 </label>
                 <div className="space-y-2 max-h-96 overflow-y-auto border border-gray-300 rounded-lg p-3">
-                  {getCostCategoryOptions().map((category) => (
-                    <label
-                      key={category}
-                      className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={budgetForm.categories.includes(category)}
-                        onChange={() => handleCategoryToggle(category)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <span className="text-sm text-gray-900">{category}</span>
-                    </label>
-                  ))}
+                  {getCostCategoryOptions().length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <p className="text-sm mb-2">No budget categories available.</p>
+                      <p className="text-xs">Please add budget categories in Settings → Budget Categories first.</p>
+                    </div>
+                  ) : (
+                    getCostCategoryOptions().map((category) => (
+                      <label
+                        key={category}
+                        className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={budgetForm.categories.includes(category)}
+                          onChange={() => handleCategoryToggle(category)}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-900">{category}</span>
+                      </label>
+                    ))
+                  )}
                 </div>
                 {budgetForm.categories.length > 0 && (
                   <div className="mt-3">
