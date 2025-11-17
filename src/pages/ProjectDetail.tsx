@@ -498,6 +498,7 @@ const ProjectDetail: React.FC = () => {
 
   const fetchCostCategoryOptions = async () => {
     try {
+      console.log('Fetching budget categories...');
       const { data, error } = await supabase
         .from('budget_categories')
         .select('name')
@@ -510,9 +511,14 @@ const ProjectDetail: React.FC = () => {
         return;
       }
 
+      console.log('Budget categories fetched:', data);
+
       if (data && data.length > 0) {
-        setCostCategoryOptions(data.map(cat => cat.name));
+        const categoryNames = data.map(cat => cat.name);
+        console.log('Setting category options:', categoryNames);
+        setCostCategoryOptions(categoryNames);
       } else {
+        console.log('No budget categories found');
         setCostCategoryOptions([]);
       }
     } catch (error) {
@@ -1647,6 +1653,7 @@ const ProjectDetail: React.FC = () => {
   };
 
   const getCostCategoryOptions = (): string[] => {
+    console.log('getCostCategoryOptions called, current options:', costCategoryOptions);
     return costCategoryOptions;
   };
 
