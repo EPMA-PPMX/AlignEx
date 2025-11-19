@@ -3621,48 +3621,35 @@ const ProjectDetail: React.FC = () => {
                     Successor Tasks (Multiple Selection)
                   </label>
                   <p className="text-xs text-gray-500 mb-2">
-                    Select tasks that should start only after this task is completed
+                    Select tasks that should start only after this task is completed. Hold Ctrl/Cmd to select multiple.
                   </p>
-                  <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto">
-                    {getAllTasksWithWBS().length === 0 ? (
-                      <p className="text-sm text-gray-500">
-                        No tasks available. Create the task first, then edit it to add successors.
-                      </p>
+                  <select
+                    multiple
+                    value={taskForm.successor_ids.map(String)}
+                    onChange={(e) => {
+                      const selectedOptions = Array.from(e.target.selectedOptions).map(option => parseInt(option.value));
+                      setTaskForm({
+                        ...taskForm,
+                        successor_ids: selectedOptions
+                      });
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    size={6}
+                  >
+                    {getAllTasksWithWBS()
+                      .filter(task => editingTaskId ? task.id !== editingTaskId : true)
+                      .length === 0 ? (
+                      <option disabled>No tasks available. Create the task first, then edit it to add successors.</option>
                     ) : (
-                      <div className="space-y-2">
-                        {getAllTasksWithWBS()
-                          .filter(task => editingTaskId ? task.id !== editingTaskId : true)
-                          .map((task) => (
-                            <label
-                              key={task.id}
-                              className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={taskForm.successor_ids.includes(task.id)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setTaskForm({
-                                      ...taskForm,
-                                      successor_ids: [...taskForm.successor_ids, task.id]
-                                    });
-                                  } else {
-                                    setTaskForm({
-                                      ...taskForm,
-                                      successor_ids: taskForm.successor_ids.filter(id => id !== task.id)
-                                    });
-                                  }
-                                }}
-                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                              />
-                              <span className="text-sm text-gray-700">
-                                {task.wbs ? `${task.wbs} - ` : ''}{task.text}
-                              </span>
-                            </label>
-                          ))}
-                      </div>
+                      getAllTasksWithWBS()
+                        .filter(task => editingTaskId ? task.id !== editingTaskId : true)
+                        .map((task) => (
+                          <option key={task.id} value={task.id}>
+                            {task.wbs ? `${task.wbs} - ` : ''}{task.text}
+                          </option>
+                        ))
                     )}
-                  </div>
+                  </select>
                   {taskForm.successor_ids.length > 0 && (
                     <p className="text-xs text-gray-500 mt-1">
                       {taskForm.successor_ids.length} successor task(s) selected
