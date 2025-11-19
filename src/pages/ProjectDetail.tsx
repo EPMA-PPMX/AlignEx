@@ -250,7 +250,8 @@ const ProjectDetail: React.FC = () => {
     duration: 1,
     owner_id: '',
     resource_ids: [] as string[],
-    parent_id: undefined as number | undefined
+    parent_id: undefined as number | undefined,
+    successor_ids: [] as number[]
   });
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
 
@@ -1492,6 +1493,27 @@ const ProjectDetail: React.FC = () => {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
 
+  // Helper function to get all tasks with their WBS codes
+  const getAllTasksWithWBS = () => {
+    const tasksWithWBS: Array<{ id: number; text: string; wbs: string }> = [];
+
+    if (projectTasks && projectTasks.data && Array.isArray(projectTasks.data)) {
+      projectTasks.data.forEach((task: any) => {
+        // Skip group headers
+        if (!task.$group_header) {
+          const wbs = (window as any).gantt?.getWBSCode?.(task) || '';
+          tasksWithWBS.push({
+            id: task.id,
+            text: task.text || 'Untitled Task',
+            wbs: wbs
+          });
+        }
+      });
+    }
+
+    return tasksWithWBS;
+  };
+
   const handleTaskSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -1514,6 +1536,19 @@ const ProjectDetail: React.FC = () => {
 
       if (editingTaskId) {
         // Update existing task
+        const existingLinks = projectTasks.links || [];
+
+        // Remove old links where this task is the source
+        const filteredLinks = existingLinks.filter((link: any) => link.source !== editingTaskId);
+
+        // Create new links for successor tasks
+        const newLinks = taskForm.successor_ids.map((successorId, index) => ({
+          id: Date.now() + index,
+          source: editingTaskId,
+          target: successorId,
+          type: "0" // Finish-to-Start dependency
+        }));
+
         updatedTaskData = {
           data: projectTasks.data.map((task: any) => {
             if (task.id === editingTaskId) {
@@ -1546,7 +1581,7 @@ const ProjectDetail: React.FC = () => {
             }
             return task;
           }),
-          links: projectTasks.links || []
+          links: [...filteredLinks, ...newLinks]
         };
       } else {
         // Create new task
@@ -1586,9 +1621,19 @@ const ProjectDetail: React.FC = () => {
         }
 
         // Add to existing tasks
+        const existingLinks = projectTasks.links || [];
+
+        // Create links for successor tasks
+        const newLinks = taskForm.successor_ids.map((successorId, index) => ({
+          id: Date.now() + index,
+          source: newTask.id,
+          target: successorId,
+          type: "0" // Finish-to-Start dependency
+        }));
+
         updatedTaskData = {
           data: [...projectTasks.data, newTask],
-          links: projectTasks.links || []
+          links: [...existingLinks, ...newLinks]
         };
 
         // Store the new task ID for later use
@@ -1672,7 +1717,8 @@ const ProjectDetail: React.FC = () => {
         duration: 1,
         owner_id: '',
         resource_ids: [],
-        parent_id: undefined
+        parent_id: undefined,
+        successor_ids: []
       });
     } catch (error: any) {
       console.error('Error creating task:', error);
@@ -2198,7 +2244,8 @@ const ProjectDetail: React.FC = () => {
                     duration: 1,
                     owner_id: '',
                     resource_ids: [],
-                    parent_id: parentId
+                    parent_id: parentId,
+                    successor_ids: []
                   });
                   console.log('Task form after setting:', {
                     description: '',
@@ -2220,12 +2267,19 @@ const ProjectDetail: React.FC = () => {
                     if (startDate && startDate.includes(' ')) {
                       startDate = startDate.split(' ')[0];
                     }
+
+                    // Find successor tasks from links
+                    const successorIds = (projectTasks.links || [])
+                      .filter((link: any) => link.source === taskId)
+                      .map((link: any) => link.target);
+
                     console.log("Setting task form with:", {
                       description: task.text,
                       start_date: startDate,
                       duration: task.duration,
                       owner_id: task.owner_id || '',
-                      parent_id: task.parent || undefined
+                      parent_id: task.parent || undefined,
+                      successor_ids: successorIds
                     });
                     setTaskForm({
                       description: task.text,
@@ -2233,7 +2287,8 @@ const ProjectDetail: React.FC = () => {
                       duration: task.duration,
                       owner_id: task.owner_id || '',
                       resource_ids: task.resource_ids || [],
-                      parent_id: task.parent || undefined
+                      parent_id: task.parent || undefined,
+                      successor_ids: successorIds
                     });
                     setEditingTaskId(taskId);
                     console.log("Opening modal with editingTaskId:", taskId);
@@ -3458,7 +3513,8 @@ const ProjectDetail: React.FC = () => {
                       duration: 1,
                       owner_id: '',
                       resource_ids: [],
-                      parent_id: undefined
+                      parent_id: undefined,
+                      successor_ids: []
                     });
                   }}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -3556,6 +3612,60 @@ const ProjectDetail: React.FC = () => {
                   {taskForm.resource_ids.length > 0 && (
                     <p className="text-xs text-gray-500 mt-1">
                       {taskForm.resource_ids.length} team member(s) selected
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Successor Tasks (Multiple Selection)
+                  </label>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Select tasks that should start only after this task is completed
+                  </p>
+                  <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto">
+                    {getAllTasksWithWBS().length === 0 ? (
+                      <p className="text-sm text-gray-500">
+                        No tasks available. Create the task first, then edit it to add successors.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {getAllTasksWithWBS()
+                          .filter(task => editingTaskId ? task.id !== editingTaskId : true)
+                          .map((task) => (
+                            <label
+                              key={task.id}
+                              className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={taskForm.successor_ids.includes(task.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setTaskForm({
+                                      ...taskForm,
+                                      successor_ids: [...taskForm.successor_ids, task.id]
+                                    });
+                                  } else {
+                                    setTaskForm({
+                                      ...taskForm,
+                                      successor_ids: taskForm.successor_ids.filter(id => id !== task.id)
+                                    });
+                                  }
+                                }}
+                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                              <span className="text-sm text-gray-700">
+                                {task.wbs ? `${task.wbs} - ` : ''}{task.text}
+                              </span>
+                            </label>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                  {taskForm.successor_ids.length > 0 && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {taskForm.successor_ids.length} successor task(s) selected
                     </p>
                   )}
                 </div>
