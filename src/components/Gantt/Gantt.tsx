@@ -245,8 +245,18 @@ export default class Gantt extends Component<GanttProps> {
       ]
     };
 
+    // Enable auto types for WBS
+    gantt.config.auto_types = true;
+
     // Custom add button column with resizable columns and inline editors
     gantt.config.columns = [
+      {
+        name: "wbs",
+        label: "WBS",
+        width: 60,
+        resize: true,
+        template: gantt.getWBSCode
+      },
       { name: "text", label: "Task name", tree: true, width: 250, min_width: 150, max_width: 500, resize: true, editor: textEditor },
       {
         name: "owner_name",
