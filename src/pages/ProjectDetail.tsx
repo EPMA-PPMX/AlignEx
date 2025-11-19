@@ -327,7 +327,41 @@ const ProjectDetail: React.FC = () => {
       if (error && error.code !== 'PGRST116') {
         console.error('Error fetching overview configuration:', error);
       } else if (data) {
-        setOverviewConfig(data);
+        // Fetch current custom field data to get track_history flag
+        const fieldIds = data.sections.flatMap((section: any) =>
+          section.fields.map((f: any) => f.customField.id)
+        );
+
+        if (fieldIds.length > 0) {
+          const { data: customFieldsData, error: fieldsError } = await supabase
+            .from('custom_fields')
+            .select('id, track_history')
+            .in('id', fieldIds);
+
+          if (!fieldsError && customFieldsData) {
+            // Update the sections with current track_history values
+            const fieldTrackingMap = new Map(
+              customFieldsData.map(cf => [cf.id, cf.track_history])
+            );
+
+            const updatedSections = data.sections.map((section: any) => ({
+              ...section,
+              fields: section.fields.map((field: any) => ({
+                ...field,
+                customField: {
+                  ...field.customField,
+                  track_history: fieldTrackingMap.get(field.customField.id) || false
+                }
+              }))
+            }));
+
+            setOverviewConfig({ ...data, sections: updatedSections });
+          } else {
+            setOverviewConfig(data);
+          }
+        } else {
+          setOverviewConfig(data);
+        }
       }
     } catch (error) {
       console.error('Error fetching overview configuration:', error);
