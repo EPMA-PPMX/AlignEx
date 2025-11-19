@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { trackFieldHistory, shouldTrackFieldHistory } from '../lib/fieldHistoryTracker';
 import { MonthlyBudgetGrid } from '../components/MonthlyBudgetGrid';
 import { BudgetSummaryTiles } from '../components/BudgetSummaryTiles';
 import Gantt from "../components/Gantt/Gantt";
@@ -687,6 +688,23 @@ const ProjectDetail: React.FC = () => {
         alert(`Error saving field values: ${error.message}\n\nDetails: ${error.details || 'No additional details'}\n\nHint: ${error.hint || 'Check database constraints and permissions'}`);
       } else {
         alert('Field values saved successfully!');
+
+        // Track history for fields that have history tracking enabled
+        for (const [fieldId, value] of Object.entries(fieldValues)) {
+          const shouldTrack = await shouldTrackFieldHistory(fieldId);
+          if (shouldTrack) {
+            const field = customFields.find(f => f.id === fieldId);
+            if (field && project) {
+              await trackFieldHistory({
+                projectId: id,
+                fieldId: fieldId,
+                fieldValue: String(value),
+                projectName: project.name,
+                fieldName: field.field_label
+              });
+            }
+          }
+        }
       }
     } catch (error) {
       console.error('Error saving field values:', error);
