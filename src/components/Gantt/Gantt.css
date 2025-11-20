@@ -70,3 +70,29 @@
   cursor: default;
   user-select: none;
 }
+
+/* Milestone styling - custom diamond shape */
+.gantt_task_line.gantt_milestone {
+  width: 20px !important;
+  height: 20px !important;
+  background: #3b82f6 !important;
+  border: 2px solid #1e40af !important;
+  transform: rotate(45deg);
+  margin-top: 5px;
+  border-radius: 2px;
+}
+
+.gantt_task_line.gantt_milestone .gantt_task_content {
+  display: none;
+}
+
+.gantt_task_line.gantt_milestone .gantt_task_progress {
+  display: none;
+}
+
+/* Milestone text displayed to the right */
+.gantt_side_content.gantt_right {
+  color: #374151;
+  font-weight: 600;
+  padding-left: 10px;
+}

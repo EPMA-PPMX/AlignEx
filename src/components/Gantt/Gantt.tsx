@@ -246,19 +246,14 @@ export default class Gantt extends Component<GanttProps> {
       ]
     };
 
+    // Configure task types - MUST be done before parsing data
+    // DHTMLX Gantt recognizes these specific type values
+    gantt.config.types.task = "task";
+    gantt.config.types.project = "project";
+    gantt.config.types.milestone = "milestone";
+
     // Enable auto types for WBS
     gantt.config.auto_types = true;
-
-    // Configure task types - must be done before parsing data
-    if (!gantt.config.types.milestone) {
-      gantt.config.types.milestone = "milestone";
-    }
-    if (!gantt.config.types.project) {
-      gantt.config.types.project = "project";
-    }
-    if (!gantt.config.types.task) {
-      gantt.config.types.task = "task";
-    }
 
     // Custom add button column with resizable columns and inline editors
     gantt.config.columns = [
@@ -308,6 +303,9 @@ export default class Gantt extends Component<GanttProps> {
     gantt.templates.task_class = (start: any, end: any, task: any) => {
       if (task.$group_header) {
         return "group-header-task";
+      }
+      if (task.type === "milestone" || task.type === gantt.config.types.milestone) {
+        return "gantt_milestone";
       }
       return "";
     };
@@ -491,8 +489,16 @@ export default class Gantt extends Component<GanttProps> {
       gantt.init(this.ganttContainer.current);
       console.log("Initializing Gantt with data:", projecttasks);
       console.log("Links in projecttasks:", projecttasks.links);
+      console.log("Task types config:", gantt.config.types);
       this.allTasks = projecttasks.data || [];
       gantt.parse(projecttasks);
+
+      // Debug: Log milestone tasks
+      gantt.eachTask((task: any) => {
+        if (task.type === "milestone" || task.type === gantt.config.types.milestone) {
+          console.log("Milestone task found:", task);
+        }
+      });
 
       // Use event delegation to capture add button clicks
       if (onOpenTaskModal) {
