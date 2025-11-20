@@ -248,6 +248,13 @@ export default class Gantt extends Component<GanttProps> {
     // Enable auto types for WBS
     gantt.config.auto_types = true;
 
+    // Configure task types
+    gantt.config.types = {
+      task: "task",
+      project: "project",
+      milestone: "milestone"
+    };
+
     // Custom add button column with resizable columns and inline editors
     gantt.config.columns = [
       {

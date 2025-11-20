@@ -251,7 +251,8 @@ const ProjectDetail: React.FC = () => {
     owner_id: '',
     resource_ids: [] as string[],
     parent_id: undefined as number | undefined,
-    successor_ids: [] as number[]
+    successor_ids: [] as number[],
+    type: 'task' as string
   });
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
 
@@ -1556,7 +1557,8 @@ const ProjectDetail: React.FC = () => {
                 ...task,
                 text: taskForm.description,
                 start_date: `${adjustedStartDate} 00:00`,
-                duration: taskForm.duration
+                duration: taskForm.type === 'milestone' ? 0 : taskForm.duration,
+                type: taskForm.type
               };
 
               // Update resources if selected
@@ -1593,7 +1595,8 @@ const ProjectDetail: React.FC = () => {
           id: newTaskId,
           text: taskForm.description,
           start_date: `${adjustedStartDate} 00:00`,
-          duration: taskForm.duration
+          duration: taskForm.type === 'milestone' ? 0 : taskForm.duration,
+          type: taskForm.type
         };
 
         // Add parent if this is a subtask
@@ -1718,7 +1721,8 @@ const ProjectDetail: React.FC = () => {
         owner_id: '',
         resource_ids: [],
         parent_id: undefined,
-        successor_ids: []
+        successor_ids: [],
+        type: 'task'
       });
     } catch (error: any) {
       console.error('Error creating task:', error);
@@ -2245,7 +2249,8 @@ const ProjectDetail: React.FC = () => {
                     owner_id: '',
                     resource_ids: [],
                     parent_id: parentId,
-                    successor_ids: []
+                    successor_ids: [],
+                    type: 'task'
                   });
                   console.log('Task form after setting:', {
                     description: '',
@@ -2288,7 +2293,8 @@ const ProjectDetail: React.FC = () => {
                       owner_id: task.owner_id || '',
                       resource_ids: task.resource_ids || [],
                       parent_id: task.parent || undefined,
-                      successor_ids: successorIds
+                      successor_ids: successorIds,
+                      type: task.type || 'task'
                     });
                     setEditingTaskId(taskId);
                     console.log("Opening modal with editingTaskId:", taskId);
@@ -3514,7 +3520,8 @@ const ProjectDetail: React.FC = () => {
                       owner_id: '',
                       resource_ids: [],
                       parent_id: undefined,
-                      successor_ids: []
+                      successor_ids: [],
+                      type: 'task'
                     });
                   }}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -3540,6 +3547,27 @@ const ProjectDetail: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Task Type <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={taskForm.type}
+                    onChange={(e) => setTaskForm({ ...taskForm, type: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  >
+                    <option value="task">Task</option>
+                    <option value="project">Summary Task</option>
+                    <option value="milestone">Milestone</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {taskForm.type === 'task' && 'Standard task with start date, duration, and progress tracking'}
+                    {taskForm.type === 'project' && 'Container for subtasks with automatic duration calculation'}
+                    {taskForm.type === 'milestone' && 'Key event or goal marker with zero duration'}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Start Date <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -3553,17 +3581,28 @@ const ProjectDetail: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Duration (Days) <span className="text-red-500">*</span>
+                    Duration (Days) {taskForm.type !== 'milestone' && <span className="text-red-500">*</span>}
                   </label>
                   <input
                     type="number"
-                    min="1"
-                    value={taskForm.duration}
+                    min={taskForm.type === 'milestone' ? '0' : '1'}
+                    value={taskForm.type === 'milestone' ? 0 : taskForm.duration}
                     onChange={(e) => setTaskForm({ ...taskForm, duration: parseInt(e.target.value) || 1 })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
                     placeholder="Enter duration in days..."
-                    required
+                    required={taskForm.type !== 'milestone'}
+                    disabled={taskForm.type === 'milestone' || taskForm.type === 'project'}
                   />
+                  {taskForm.type === 'milestone' && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Milestones have zero duration by default
+                    </p>
+                  )}
+                  {taskForm.type === 'project' && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Summary task duration is calculated from subtasks
+                    </p>
+                  )}
                 </div>
 
                 <div>
