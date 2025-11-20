@@ -10,7 +10,8 @@ interface Task {
   start_date: string;
   duration: number;
   progress?: number;
-  parent?: number; 
+  parent?: number;
+  type?: string;
 }
 
 interface Link {
@@ -248,12 +249,16 @@ export default class Gantt extends Component<GanttProps> {
     // Enable auto types for WBS
     gantt.config.auto_types = true;
 
-    // Configure task types
-    gantt.config.types = {
-      task: "task",
-      project: "project",
-      milestone: "milestone"
-    };
+    // Configure task types - must be done before parsing data
+    if (!gantt.config.types.milestone) {
+      gantt.config.types.milestone = "milestone";
+    }
+    if (!gantt.config.types.project) {
+      gantt.config.types.project = "project";
+    }
+    if (!gantt.config.types.task) {
+      gantt.config.types.task = "task";
+    }
 
     // Custom add button column with resizable columns and inline editors
     gantt.config.columns = [
@@ -310,6 +315,14 @@ export default class Gantt extends Component<GanttProps> {
     gantt.templates.grid_row_class = (start: any, end: any, task: any) => {
       if (task.$group_header) {
         return "group-header-row";
+      }
+      return "";
+    };
+
+    // Configure milestone text to display on the right side
+    gantt.templates.rightside_text = function(start: any, end: any, task: any) {
+      if (task.type === gantt.config.types.milestone) {
+        return task.text;
       }
       return "";
     };
