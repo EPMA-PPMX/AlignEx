@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-.py-4 {   
-    padding-left: 1rem;  
+body {
+  background: linear-gradient(135deg, #7e22ce 0%, #a855f7 30%, #c026d3 70%, #d946ef 100%);
+  min-height: 100vh;
+}
+
+.py-4 {
+    padding-left: 1rem;
 }

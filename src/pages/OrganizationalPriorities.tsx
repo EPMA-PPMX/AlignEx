@@ -36,7 +36,7 @@ export default function OrganizationalPriorities() {
                   flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors
                   ${
                     activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
+                      ? 'border-primary-500 text-primary-600'
                       : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                   }
                 `}

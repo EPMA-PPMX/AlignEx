@@ -107,7 +107,7 @@ export const MonthlyBudgetGrid: React.FC<MonthlyBudgetGridProps> = ({
                         </span>
                       </div>
                     </td>
-                    <td className="px-2 py-2 text-xs text-gray-600 text-center border-r border-gray-200 bg-blue-50">
+                    <td className="px-2 py-2 text-xs text-gray-600 text-center border-r border-gray-200 bg-primary-50">
                       Forecast
                     </td>
                     {MONTHS.map((month) => {
@@ -120,7 +120,7 @@ export const MonthlyBudgetGrid: React.FC<MonthlyBudgetGridProps> = ({
                             min="0"
                             value={value || ''}
                             onChange={(e) => onUpdateValue(forecast.id, month, 'forecast', e.target.value)}
-                            className="w-full px-2 py-1 text-sm text-right border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-2 py-1 text-sm text-right border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                             placeholder="0.00"
                           />
                         </td>

@@ -250,7 +250,7 @@ export default function RoleManagement() {
           <div className="flex gap-2">
             <button
               onClick={handleSaveSkillRequirements}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
             >
               <Save className="w-4 h-4" />
               Save Requirements
@@ -273,7 +273,7 @@ export default function RoleManagement() {
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           >
             <option value="">All Categories</option>
             {categories.map((cat) => (
@@ -312,7 +312,7 @@ export default function RoleManagement() {
                         onChange={(e) =>
                           setSelectedSkills((prev) => ({ ...prev, [skill.id]: e.target.value }))
                         }
-                        className="px-3 py-1 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="px-3 py-1 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                       >
                         {PROFICIENCY_LEVELS.map((level) => (
                           <option key={level} value={level}>
@@ -342,7 +342,7 @@ export default function RoleManagement() {
         </div>
         <button
           onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
         >
           <Plus className="w-4 h-4" />
           Add Role
@@ -350,7 +350,7 @@ export default function RoleManagement() {
       </div>
 
       {showAddForm && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="bg-primary-50 border border-blue-200 rounded-lg p-4">
           <h3 className="font-medium text-slate-900 mb-4">New Role</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
@@ -361,7 +361,7 @@ export default function RoleManagement() {
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="e.g., Project Manager"
               />
             </div>
@@ -371,7 +371,7 @@ export default function RoleManagement() {
                 type="text"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Brief description"
               />
             </div>
@@ -379,7 +379,7 @@ export default function RoleManagement() {
           <div className="flex gap-2">
             <button
               onClick={handleAdd}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
             >
               <Save className="w-4 h-4" />
               Save
@@ -414,13 +414,13 @@ export default function RoleManagement() {
                         type="text"
                         value={role.name}
                         onChange={(e) => handleRoleChange(role.id, 'name', e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                       />
                       <input
                         type="text"
                         value={role.description}
                         onChange={(e) => handleRoleChange(role.id, 'description', e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                         placeholder="Description"
                       />
                     </div>
@@ -458,7 +458,7 @@ export default function RoleManagement() {
                     <>
                       <button
                         onClick={() => handleManageSkills(role.id)}
-                        className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                        className="flex items-center gap-2 px-3 py-2 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700 transition-colors"
                         title="Manage Skills"
                       >
                         <Users className="w-4 h-4" />
@@ -466,7 +466,7 @@ export default function RoleManagement() {
                       </button>
                       <button
                         onClick={() => setEditingId(role.id)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        className="p-2 text-primary-600 hover:bg-primary-50 rounded transition-colors"
                         title="Edit"
                       >
                         <Edit2 className="w-4 h-4" />

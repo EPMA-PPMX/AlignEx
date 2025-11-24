@@ -116,7 +116,7 @@ export default function RequestCard({ request, onEdit, onDelete, onStatusChange 
             {(request.status === 'Draft' || request.status === 'More Information Needed') && (
               <button
                 onClick={() => onEdit(request)}
-                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                 title="Edit request"
               >
                 <Edit2 className="w-4 h-4" />
@@ -159,11 +159,11 @@ export default function RequestCard({ request, onEdit, onDelete, onStatusChange 
           )}
 
           {request.review_comments && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className="bg-primary-50 border border-blue-200 rounded-lg p-3">
               <span className="font-medium text-blue-900">Review Comments:</span>
               <p className="text-blue-800 mt-1">{request.review_comments}</p>
               {request.reviewed_at && (
-                <p className="text-xs text-blue-600 mt-2">
+                <p className="text-xs text-primary-600 mt-2">
                   Reviewed on {formatDate(request.reviewed_at)}
                 </p>
               )}
@@ -189,7 +189,7 @@ export default function RequestCard({ request, onEdit, onDelete, onStatusChange 
             </button>
             <button
               onClick={() => openReviewDialog('More Information Needed')}
-              className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+              className="flex items-center gap-2 px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm"
             >
               <AlertCircle className="w-4 h-4" />
               Request More Info
@@ -222,7 +222,7 @@ export default function RequestCard({ request, onEdit, onDelete, onStatusChange 
                 value={reviewComments}
                 onChange={(e) => setReviewComments(e.target.value)}
                 rows={4}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Enter your comments..."
               />
             </div>
@@ -241,7 +241,7 @@ export default function RequestCard({ request, onEdit, onDelete, onStatusChange 
               <button
                 onClick={handleReviewSubmit}
                 disabled={reviewAction !== 'Approved' && !reviewComments.trim()}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Submit
               </button>

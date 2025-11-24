@@ -44,11 +44,11 @@ const Settings: React.FC = () => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${
                     activeTab === tab.id
-                      ? 'bg-blue-50 text-blue-700 border-r-4 border-blue-700'
+                      ? 'bg-primary-50 text-primary-700 border-r-4 border-blue-700'
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }`}
                 >
-                  <Icon className={`w-5 h-5 ${activeTab === tab.id ? 'text-blue-700' : 'text-gray-400'}`} />
+                  <Icon className={`w-5 h-5 ${activeTab === tab.id ? 'text-primary-700' : 'text-gray-400'}`} />
                   <span className="font-medium">{tab.name}</span>
                 </button>
               );
@@ -69,7 +69,7 @@ const Settings: React.FC = () => {
                       <input
                         type="text"
                         defaultValue="John"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                       />
                     </div>
                     <div>
@@ -77,7 +77,7 @@ const Settings: React.FC = () => {
                       <input
                         type="text"
                         defaultValue="Doe"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                       />
                     </div>
                   </div>
@@ -86,7 +86,7 @@ const Settings: React.FC = () => {
                     <input
                       type="email"
                       defaultValue="john.doe@company.com"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -94,7 +94,7 @@ const Settings: React.FC = () => {
                     <textarea
                       rows={4}
                       defaultValue="Project Manager with 5+ years of experience in managing complex software development projects."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   </div>
                 </div>
@@ -118,7 +118,7 @@ const Settings: React.FC = () => {
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" defaultChecked className="sr-only peer" />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
                       </label>
                     </div>
                   ))}
@@ -137,7 +137,7 @@ const Settings: React.FC = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
                         <input
                           type="password"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                         />
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -145,14 +145,14 @@ const Settings: React.FC = () => {
                           <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
                           <input
                             type="password"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                           />
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
                           <input
                             type="password"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                           />
                         </div>
                       </div>
@@ -184,7 +184,7 @@ const Settings: React.FC = () => {
                         <div
                           key={theme.id}
                           className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
-                            theme.current ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                            theme.current ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
                           }`}
                         >
                           <div className="text-center">
@@ -237,7 +237,7 @@ const Settings: React.FC = () => {
               <button className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
                 Cancel
               </button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              <button className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
                 Save Changes
               </button>
             </div>

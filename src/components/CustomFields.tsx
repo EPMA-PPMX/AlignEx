@@ -221,7 +221,7 @@ const CustomFields: React.FC = () => {
                 type="text"
                 value={formData.field_name}
                 onChange={(e) => setFormData({ ...formData, field_name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="e.g., project_priority"
                 required
               />
@@ -234,7 +234,7 @@ const CustomFields: React.FC = () => {
               <select
                 value={formData.field_type}
                 onChange={(e) => setFormData({ ...formData, field_type: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 required
               >
                 {fieldTypes.map((type) => (
@@ -252,7 +252,7 @@ const CustomFields: React.FC = () => {
               <select
                 value={formData.entity_type}
                 onChange={(e) => setFormData({ ...formData, entity_type: e.target.value as 'project' | 'resource' })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 required
               >
                 <option value="project">Project Fields</option>
@@ -269,7 +269,7 @@ const CustomFields: React.FC = () => {
               type="text"
               value={formData.field_label}
               onChange={(e) => setFormData({ ...formData, field_label: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               placeholder="e.g., Select the priority level for this project"
               required
             />
@@ -283,7 +283,7 @@ const CustomFields: React.FC = () => {
               type="text"
               value={formData.field_description}
               onChange={(e) => setFormData({ ...formData, field_description: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               placeholder="Additional guidance for users filling this field"
             />
           </div>
@@ -297,7 +297,7 @@ const CustomFields: React.FC = () => {
                 type="text"
                 value={formData.default_value}
                 onChange={(e) => setFormData({ ...formData, default_value: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Optional default value"
               />
             </div>
@@ -314,7 +314,7 @@ const CustomFields: React.FC = () => {
                         type="text"
                         value={option}
                         onChange={(e) => updateOption(index, e.target.value)}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                         placeholder={`Option ${index + 1}`}
                       />
                       {optionsList.length > 1 && (
@@ -331,7 +331,7 @@ const CustomFields: React.FC = () => {
                   <button
                     type="button"
                     onClick={addOption}
-                    className="flex items-center space-x-2 px-3 py-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+                    className="flex items-center space-x-2 px-3 py-2 text-primary-600 hover:text-blue-800 hover:bg-primary-50 rounded-lg transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Add Option</span>
@@ -347,7 +347,7 @@ const CustomFields: React.FC = () => {
               id="is_required"
               checked={formData.is_required}
               onChange={(e) => setFormData({ ...formData, is_required: e.target.checked })}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
             />
             <label htmlFor="is_required" className="ml-2 block text-sm text-gray-700">
               Required field
@@ -358,7 +358,7 @@ const CustomFields: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              className="flex items-center space-x-2 px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
               <span>{editingField ? 'Update Field' : 'Create Field'}</span>
@@ -485,7 +485,7 @@ const CustomFields: React.FC = () => {
                       <div className="flex space-x-2">
                         <button
                           onClick={() => handleEdit(field)}
-                          className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                          className="text-primary-600 hover:text-blue-900 p-1 rounded hover:bg-primary-50"
                           title="Edit"
                         >
                           <Edit2 className="w-4 h-4" />

@@ -93,7 +93,7 @@ export default function Skills() {
             onClick={() => setActiveTab('my-skills')}
             className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors border-b-2 ${
               activeTab === 'my-skills'
-                ? 'border-blue-600 text-blue-600'
+                ? 'border-blue-600 text-primary-600'
                 : 'border-transparent text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -104,7 +104,7 @@ export default function Skills() {
             onClick={() => setActiveTab('role-comparison')}
             className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors border-b-2 ${
               activeTab === 'role-comparison'
-                ? 'border-blue-600 text-blue-600'
+                ? 'border-blue-600 text-primary-600'
                 : 'border-transparent text-slate-600 hover:text-slate-900'
             }`}
           >

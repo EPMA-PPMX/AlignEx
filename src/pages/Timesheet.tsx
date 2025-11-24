@@ -370,7 +370,7 @@ export default function Timesheet() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Clock className="w-8 h-8 text-blue-600" />
+          <Clock className="w-8 h-8 text-primary-600" />
           <h1 className="text-2xl font-bold text-gray-900">Timesheet</h1>
         </div>
         <button
@@ -389,7 +389,7 @@ export default function Timesheet() {
             <select
               value={selectedResource}
               onChange={(e) => setSelectedResource(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
               {resources.map(resource => (
                 <option key={resource.id} value={resource.id}>
@@ -408,7 +408,7 @@ export default function Timesheet() {
             </button>
             <button
               onClick={goToCurrentWeek}
-              className="px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              className="px-4 py-2 text-sm font-medium text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
             >
               Today
             </button>
@@ -447,7 +447,7 @@ export default function Timesheet() {
             <tbody className="divide-y divide-gray-200">
               {tasks.length > 0 && (
                 <>
-                  <tr className="bg-blue-50">
+                  <tr className="bg-primary-50">
                     <td colSpan={9} className="px-6 py-2 text-sm font-semibold text-blue-900">
                       Project Tasks
                     </td>
@@ -474,7 +474,7 @@ export default function Timesheet() {
                               value={displayHours}
                               onChange={(e) => handleHoursChange(String(task.id), null, day.dateString, e.target.value)}
                               onBlur={() => saveTimeEntry(String(task.id), null, day.dateString)}
-                              className="w-full px-2 py-1 text-center text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              className="w-full px-2 py-1 text-center text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                               placeholder="0"
                             />
                           </td>
@@ -519,7 +519,7 @@ export default function Timesheet() {
                               value={displayHours}
                               onChange={(e) => handleHoursChange(null, category.id, day.dateString, e.target.value)}
                               onBlur={() => saveTimeEntry(null, category.id, day.dateString)}
-                              className="w-full px-2 py-1 text-center text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              className="w-full px-2 py-1 text-center text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                               placeholder="0"
                             />
                           </td>
@@ -685,7 +685,7 @@ function CategoryManager({ onClose }: { onClose: () => void }) {
                     type="text"
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="e.g., PTO, Training"
                   />
                 </div>
@@ -697,14 +697,14 @@ function CategoryManager({ onClose }: { onClose: () => void }) {
                     type="text"
                     value={form.description}
                     onChange={(e) => setForm({ ...form, description: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="Optional description"
                   />
                 </div>
                 <div className="flex gap-2">
                   <button
                     onClick={saveCategory}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                   >
                     <Save className="w-4 h-4" />
                     Save
@@ -725,7 +725,7 @@ function CategoryManager({ onClose }: { onClose: () => void }) {
           ) : (
             <button
               onClick={() => setShowAddForm(true)}
-              className="mb-4 flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="mb-4 flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
             >
               <Plus className="w-4 h-4" />
               Add Category
@@ -763,7 +763,7 @@ function CategoryManager({ onClose }: { onClose: () => void }) {
                         setForm({ name: category.name, description: category.description || '' });
                         setShowAddForm(false);
                       }}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>

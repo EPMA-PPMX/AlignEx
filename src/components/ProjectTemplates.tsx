@@ -163,7 +163,7 @@ const ProjectTemplates: React.FC = () => {
                 type="text"
                 value={formData.template_name}
                 onChange={(e) => setFormData({ ...formData, template_name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="e.g., Website Development Template"
                 required
                 disabled={loading}
@@ -177,7 +177,7 @@ const ProjectTemplates: React.FC = () => {
               <textarea
                 value={formData.template_description}
                 onChange={(e) => setFormData({ ...formData, template_description: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-vertical"
                 placeholder="Describe what this template is for..."
                 rows={3}
                 disabled={loading}
@@ -189,7 +189,7 @@ const ProjectTemplates: React.FC = () => {
             <button
               type="submit"
               disabled={loading || !formData.template_name.trim()}
-              className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center space-x-2 px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="w-4 h-4" />
               <span>{editingTemplate ? 'Update Template' : 'Create Template'}</span>
@@ -262,7 +262,7 @@ const ProjectTemplates: React.FC = () => {
                       <div className="flex space-x-2">
                         <button
                           onClick={() => handleEdit(template)}
-                          className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                          className="text-primary-600 hover:text-blue-900 p-1 rounded hover:bg-primary-50"
                           title="Edit"
                           disabled={loading}
                         >
