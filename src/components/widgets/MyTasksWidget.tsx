@@ -115,14 +115,14 @@ export default function MyTasksWidget() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 h-full">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <CheckSquare className="w-5 h-5" />
+      <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 h-full">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+            <CheckSquare className="w-4 h-4" />
             My Tasks
           </h3>
         </div>
-        <div className="animate-pulse space-y-3">
+        <div className="animate-pulse space-y-2">
           {[1, 2, 3].map(i => (
             <div key={i} className="h-20 bg-gray-200 rounded"></div>
           ))}
@@ -132,10 +132,10 @@ export default function MyTasksWidget() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 h-full flex flex-col">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-          <CheckSquare className="w-5 h-5 text-blue-600" />
+    <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 h-full flex flex-col">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+          <CheckSquare className="w-4 h-4 text-blue-600" />
           My Tasks
         </h3>
         <div className="flex items-center gap-2">
@@ -170,7 +170,7 @@ export default function MyTasksWidget() {
               <Link
                 key={task.id}
                 to={`/projects/${task.project_id}`}
-                className="block bg-gray-50 p-4 rounded-lg border border-gray-200 hover:border-blue-300 transition-all"
+                className="block bg-gray-50 p-3 rounded-lg border border-gray-200 hover:border-blue-300 transition-all"
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1 min-w-0">
@@ -213,8 +213,8 @@ export default function MyTasksWidget() {
       )}
 
       {sortedTasks.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-gray-200">
-          <div className="flex items-center justify-between text-sm">
+        <div className="mt-3 pt-3 border-t border-gray-200">
+          <div className="flex items-center justify-between text-xs">
             <span className="text-gray-600">{sortedTasks.length} active tasks</span>
             <button className="text-blue-600 hover:text-blue-700 flex items-center gap-1">
               View All

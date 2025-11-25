@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Settings } from 'lucide-react';
 import { useCurrentUser } from '../lib/useCurrentUser';
 import PersonalGoalsWidget from '../components/widgets/PersonalGoalsWidget';
@@ -7,9 +7,16 @@ import MyProjectsWidget from '../components/widgets/MyProjectsWidget';
 import DeadlinesWidget from '../components/widgets/DeadlinesWidget';
 import TimesheetQuickWidget from '../components/widgets/TimesheetQuickWidget';
 import RecentActivityWidget from '../components/widgets/RecentActivityWidget';
+import CustomizeWidgetsModal from '../components/CustomizeWidgetsModal';
 
 const Dashboard: React.FC = () => {
-  const { user, widgets, loading } = useCurrentUser();
+  const { user, widgets, loading, toggleWidget, refetch } = useCurrentUser();
+  const [showCustomizeModal, setShowCustomizeModal] = useState(false);
+
+  const handleToggleWidget = async (widgetId: string, isEnabled: boolean) => {
+    await toggleWidget(widgetId, isEnabled);
+    refetch();
+  };
 
   if (loading) {
     return (
@@ -65,6 +72,7 @@ const Dashboard: React.FC = () => {
           </p>
         </div>
         <button
+          onClick={() => setShowCustomizeModal(true)}
           className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg transition-all border border-gray-300 shadow-sm"
           title="Customize Dashboard"
         >
@@ -74,7 +82,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Widgets Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-fr">
         {widgets
           .filter(w => w.is_enabled)
           .sort((a, b) => a.position_order - b.position_order)
@@ -89,7 +97,7 @@ const Dashboard: React.FC = () => {
             }[widget.size];
 
             return (
-              <div key={widget.id} className={`${sizeClass} min-h-[320px]`}>
+              <div key={widget.id} className={`${sizeClass} min-h-[280px]`}>
                 {component}
               </div>
             );
@@ -99,11 +107,21 @@ const Dashboard: React.FC = () => {
       {widgets.filter(w => w.is_enabled).length === 0 && (
         <div className="text-center py-12 bg-white rounded-lg border border-gray-200 shadow-sm">
           <p className="text-gray-600 mb-4">No widgets enabled</p>
-          <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+          <button
+            onClick={() => setShowCustomizeModal(true)}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          >
             Add Widgets
           </button>
         </div>
       )}
+
+      <CustomizeWidgetsModal
+        isOpen={showCustomizeModal}
+        onClose={() => setShowCustomizeModal(false)}
+        widgets={widgets}
+        onToggleWidget={handleToggleWidget}
+      />
     </div>
   );
 };

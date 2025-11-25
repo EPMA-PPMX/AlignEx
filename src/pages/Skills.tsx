@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Target, Trophy } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import MySkillsTab from '../components/skills/MySkillsTab';
 import RoleComparisonTab from '../components/skills/RoleComparisonTab';
@@ -38,11 +39,19 @@ const USER_ID = 'current-user';
 type TabType = 'my-skills' | 'role-comparison' | 'my-goals';
 
 export default function Skills() {
-  const [activeTab, setActiveTab] = useState<TabType>('my-skills');
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab') as TabType | null;
+  const [activeTab, setActiveTab] = useState<TabType>(tabParam || 'my-skills');
   const [categories, setCategories] = useState<SkillCategory[]>([]);
   const [allSkills, setAllSkills] = useState<Skill[]>([]);
   const [userSkills, setUserSkills] = useState<Record<string, UserSkill>>({});
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (tabParam && ['my-skills', 'role-comparison', 'my-goals'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
 
   useEffect(() => {
     fetchData();

@@ -36,8 +36,7 @@ export default function PersonalGoalsWidget() {
         .select('id, title, status, target_date, goal_type')
         .eq('user_id', DEMO_USER_ID)
         .in('status', ['not_started', 'in_progress'])
-        .order('target_date', { ascending: true, nullsLast: true })
-        .limit(5);
+        .order('target_date', { ascending: true, nullsLast: true });
 
       if (goalsError) throw goalsError;
 
@@ -93,51 +92,50 @@ export default function PersonalGoalsWidget() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 h-full">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <Target className="w-5 h-5" />
+      <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 h-full">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+            <Target className="w-4 h-4" />
             My Goals
           </h3>
         </div>
-        <div className="animate-pulse space-y-3">
-          <div className="h-16 bg-gray-200 rounded"></div>
-          <div className="h-16 bg-gray-200 rounded"></div>
-          <div className="h-16 bg-gray-200 rounded"></div>
+        <div className="animate-pulse space-y-2">
+          <div className="h-12 bg-gray-200 rounded"></div>
+          <div className="h-12 bg-gray-200 rounded"></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 h-full flex flex-col">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-          <Target className="w-5 h-5 text-blue-600" />
+    <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 h-full flex flex-col">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+          <Target className="w-4 h-4 text-blue-600" />
           My Goals
         </h3>
         <Link
-          to="/skills"
-          className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+          to="/skills?tab=my-goals"
+          className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
         >
           View All
-          <ChevronRight className="w-4 h-4" />
+          <ChevronRight className="w-3 h-3" />
         </Link>
       </div>
 
       {goals.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-center py-8">
-          <Target className="w-12 h-12 text-gray-400 mb-3" />
-          <p className="text-gray-600 mb-2">No active goals</p>
+        <div className="flex-1 flex flex-col items-center justify-center text-center py-6">
+          <Target className="w-10 h-10 text-gray-400 mb-2" />
+          <p className="text-sm text-gray-600 mb-2">No active goals</p>
           <Link
-            to="/skills"
-            className="text-sm text-blue-600 hover:text-blue-700"
+            to="/skills?tab=my-goals"
+            className="text-xs text-blue-600 hover:text-blue-700"
           >
             Create your first goal
           </Link>
         </div>
       ) : (
-        <div className="space-y-3 flex-1 overflow-auto">
+        <div className="space-y-2 flex-1 overflow-auto">
           {goals.map((goal) => {
             const progress = getProgress(goal.id);
             const daysUntil = getDaysUntil(goal.target_date);
@@ -145,13 +143,14 @@ export default function PersonalGoalsWidget() {
             const isDueSoon = daysUntil !== null && daysUntil > 0 && daysUntil <= 7;
 
             return (
-              <div
+              <Link
                 key={goal.id}
-                className="bg-gray-50 p-4 rounded-lg border border-gray-200 hover:border-blue-300 transition-all"
+                to={`/skills?tab=my-goals&goalId=${goal.id}`}
+                className="block bg-gray-50 p-3 rounded-lg border border-gray-200 hover:border-blue-300 transition-all"
               >
-                <div className="flex items-start justify-between mb-2">
+                <div className="flex items-start justify-between mb-1.5">
                   <div className="flex-1">
-                    <h4 className="text-gray-900 font-medium text-sm mb-1">{goal.title}</h4>
+                    <h4 className="text-gray-900 font-medium text-xs mb-1">{goal.title}</h4>
                     <div className="flex items-center gap-2 text-xs">
                       <span className={`px-2 py-0.5 rounded ${getStatusColor(goal.status)} text-white`}>
                         {goal.status.replace('_', ' ')}
@@ -170,12 +169,12 @@ export default function PersonalGoalsWidget() {
                 </div>
 
                 {progress > 0 && (
-                  <div className="mt-3">
-                    <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
-                      <span>Progress</span>
-                      <span>{progress}%</span>
+                  <div className="mt-2">
+                    <div className="flex items-center justify-between text-xs text-gray-600 mb-0.5">
+                      <span className="text-xs">Progress</span>
+                      <span className="text-xs">{progress}%</span>
                     </div>
-                    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
                       <div
                         className="h-full bg-blue-600 transition-all"
                         style={{ width: `${progress}%` }}
@@ -183,24 +182,24 @@ export default function PersonalGoalsWidget() {
                     </div>
                   </div>
                 )}
-              </div>
+              </Link>
             );
           })}
         </div>
       )}
 
       {goals.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-gray-200">
-          <div className="flex items-center justify-between text-sm">
+        <div className="mt-3 pt-3 border-t border-gray-200">
+          <div className="flex items-center justify-between text-xs">
             <span className="text-gray-600">
               {goals.filter(g => g.status === 'in_progress').length} active goals
             </span>
             <Link
-              to="/skills"
+              to="/skills?tab=my-goals"
               className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
             >
               Manage Goals
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-3 h-3" />
             </Link>
           </div>
         </div>
