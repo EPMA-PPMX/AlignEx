@@ -41,6 +41,10 @@ export default function PeoplePicker({ value, onChange, placeholder = 'Select a 
   }, [value, resources, selectedResource]);
 
   useEffect(() => {
+    console.log('PeoplePicker: isOpen=', isOpen, 'filteredResources=', filteredResources.length, 'loading=', loading);
+  }, [isOpen, filteredResources, loading]);
+
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
@@ -82,6 +86,7 @@ export default function PeoplePicker({ value, onChange, placeholder = 'Select a 
         .order('display_name');
 
       if (error) throw error;
+      console.log('PeoplePicker: Fetched resources:', data?.length || 0);
       setResources(data || []);
       setFilteredResources(data || []);
     } catch (err) {
@@ -106,6 +111,7 @@ export default function PeoplePicker({ value, onChange, placeholder = 'Select a 
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
+    console.log('PeoplePicker: Input changed:', newValue);
     setSearchTerm(newValue);
     setIsOpen(true);
 
@@ -116,6 +122,7 @@ export default function PeoplePicker({ value, onChange, placeholder = 'Select a 
   };
 
   const handleInputFocus = () => {
+    console.log('PeoplePicker: Input focused, opening dropdown');
     setIsOpen(true);
   };
 
@@ -151,11 +158,16 @@ export default function PeoplePicker({ value, onChange, placeholder = 'Select a 
       </div>
 
       {isOpen && !disabled && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
+        <div className="absolute z-[9999] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
           {loading ? (
             <div className="p-4 text-center text-gray-500">Loading...</div>
           ) : filteredResources.length === 0 ? (
-            <div className="p-4 text-center text-gray-500">No people found</div>
+            <div className="p-4 text-center text-gray-500">
+              No people found{searchTerm && ` for "${searchTerm}"`}
+              <div className="text-xs text-gray-400 mt-1">
+                {resources.length} total people available
+              </div>
+            </div>
           ) : (
             <ul className="py-1">
               {filteredResources.map((resource) => (

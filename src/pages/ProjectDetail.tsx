@@ -2063,17 +2063,17 @@ const ProjectDetail: React.FC = () => {
       </div>
 
       {/* Tab Content */}
-      <div className="space-y-6">
+      <div className="space-y-6 overflow-visible">
         {activeTab === 'overview' && (
-          <div>
+          <div className="overflow-visible">
             {overviewConfig && overviewConfig.sections.length > 0 ? (
-              <div className="space-y-8">
+              <div className="space-y-8 overflow-visible">
                 {overviewConfig.sections.map((section) => (
-                  <div key={section.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <div key={section.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 overflow-visible">
                     <h3 className="text-lg font-semibold text-gray-900 mb-6">{section.name}</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 overflow-visible">
                       {section.fields.map((field) => (
-                        <div key={field.id}>
+                        <div key={field.id} className="overflow-visible">
                           <div className="flex items-center justify-between mb-1">
                             <label className="block text-sm font-medium text-gray-700">
                               {field.customField.field_name.split('_').map(word =>
