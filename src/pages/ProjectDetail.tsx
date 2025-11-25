@@ -10,6 +10,7 @@ import ProjectStatusDropdown from '../components/ProjectStatusDropdown';
 import ProjectHealthStatus from '../components/ProjectHealthStatus';
 import BenefitTracking from '../components/BenefitTracking';
 import ProjectTeams from '../components/ProjectTeams';
+import PeoplePicker from '../components/PeoplePicker';
 
 interface Project {
   id: string;
@@ -924,6 +925,17 @@ const ProjectDetail: React.FC = () => {
             />
             <span className="text-sm text-gray-700">{customField.field_label}</span>
           </label>
+        );
+      case 'people_picker':
+        return (
+          <PeoplePicker
+            value={value}
+            onChange={(resourceId, displayName) => {
+              handleFieldValueChange(customField.id, resourceId, 'people_picker');
+            }}
+            placeholder={`Select ${customField.field_label.toLowerCase()}`}
+            disabled={false}
+          />
         );
       default:
         return (

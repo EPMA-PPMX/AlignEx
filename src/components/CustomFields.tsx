@@ -43,7 +43,8 @@ const CustomFields: React.FC = () => {
     { value: 'textarea', label: 'Multiline Text' },
     { value: 'dropdown', label: 'Dropdown' },
     { value: 'radio', label: 'Radio Button' },
-    { value: 'checkbox', label: 'Checkbox' }
+    { value: 'checkbox', label: 'Checkbox' },
+    { value: 'people_picker', label: 'People Picker' }
   ];
 
   useEffect(() => {
