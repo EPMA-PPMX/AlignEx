@@ -96,3 +96,20 @@
   font-weight: 600;
   padding-left: 10px;
 }
+
+/* Regular task bar styling - yellow theme */
+.gantt_task_line {
+  background-color: #eab308 !important;
+  border: 1px solid #ca8a04 !important;
+}
+
+/* Task progress bar - darker yellow */
+.gantt_task_progress {
+  background-color: #ca8a04 !important;
+}
+
+/* Project/Summary task styling - yellow theme */
+.gantt_task_line.gantt_project {
+  background-color: #fbbf24 !important;
+  border: 2px solid #d97706 !important;
+}
