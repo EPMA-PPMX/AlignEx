@@ -99,17 +99,17 @@
 
 /* Regular task bar styling - purple gradient theme */
 .gantt_task_line {
-  background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%) !important;
+  background: linear-gradient(135deg, #e9d5ff 0%, #7c3aed 100%) !important;
   border: 1px solid #6b21a8 !important;
 }
 
 /* Task progress bar - darker purple gradient */
 .gantt_task_progress {
-  background: linear-gradient(135deg, #7c3aed 0%, #6b21a8 100%) !important;
+  background: linear-gradient(135deg, #a855f7 0%, #581c87 100%) !important;
 }
 
 /* Project/Summary task styling - purple gradient theme */
 .gantt_task_line.gantt_project {
-  background: linear-gradient(135deg, #c084fc 0%, #a855f7 100%) !important;
+  background: linear-gradient(135deg, #f3e8ff 0%, #9333ea 100%) !important;
   border: 2px solid #7c3aed !important;
 }
