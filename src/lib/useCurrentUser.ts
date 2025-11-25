@@ -53,7 +53,6 @@ export function useCurrentUser() {
           .from('user_dashboard_widgets')
           .select('*')
           .eq('user_id', userData.id)
-          .eq('is_enabled', true)
           .order('position_order');
 
         if (widgetsError) throw widgetsError;
@@ -98,6 +97,29 @@ export function useCurrentUser() {
     }
   };
 
+  const reorderWidgets = async (reorderedWidgets: DashboardWidget[]) => {
+    try {
+      const updates = reorderedWidgets.map(widget => ({
+        id: widget.id,
+        position_order: widget.position_order,
+        updated_at: new Date().toISOString()
+      }));
+
+      for (const update of updates) {
+        const { error } = await supabase
+          .from('user_dashboard_widgets')
+          .update({ position_order: update.position_order, updated_at: update.updated_at })
+          .eq('id', update.id);
+
+        if (error) throw error;
+      }
+
+      fetchCurrentUser();
+    } catch (err: any) {
+      console.error('Error reordering widgets:', err);
+    }
+  };
+
   return {
     user,
     widgets,
@@ -105,6 +127,7 @@ export function useCurrentUser() {
     error,
     updateWidgetSettings,
     toggleWidget,
+    reorderWidgets,
     refetch: fetchCurrentUser
   };
 }

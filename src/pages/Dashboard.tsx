@@ -10,12 +10,16 @@ import RecentActivityWidget from '../components/widgets/RecentActivityWidget';
 import CustomizeWidgetsModal from '../components/CustomizeWidgetsModal';
 
 const Dashboard: React.FC = () => {
-  const { user, widgets, loading, toggleWidget, refetch } = useCurrentUser();
+  const { user, widgets, loading, toggleWidget, reorderWidgets, refetch } = useCurrentUser();
   const [showCustomizeModal, setShowCustomizeModal] = useState(false);
 
   const handleToggleWidget = async (widgetId: string, isEnabled: boolean) => {
     await toggleWidget(widgetId, isEnabled);
     refetch();
+  };
+
+  const handleReorderWidgets = async (reorderedWidgets: any[]) => {
+    await reorderWidgets(reorderedWidgets);
   };
 
   if (loading) {
@@ -121,6 +125,7 @@ const Dashboard: React.FC = () => {
         onClose={() => setShowCustomizeModal(false)}
         widgets={widgets}
         onToggleWidget={handleToggleWidget}
+        onReorderWidgets={handleReorderWidgets}
       />
     </div>
   );
