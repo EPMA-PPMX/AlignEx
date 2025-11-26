@@ -709,6 +709,10 @@ export default class Gantt extends Component<GanttProps> {
 
     if (JSON.stringify(prevProps.projecttasks) !== JSON.stringify(projecttasks)) {
       this.allTasks = projecttasks.data || [];
+      console.log("=== Gantt parsing tasks ===");
+      console.log("Tasks data:", projecttasks.data);
+      console.log("Milestone tasks:", projecttasks.data?.filter((t: any) => t.type === 'milestone'));
+
       // Reset grouping state when data changes
       this.isGrouped = false;
       this.originalTasks = [];
