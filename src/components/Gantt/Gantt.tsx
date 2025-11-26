@@ -373,6 +373,12 @@ export default class Gantt extends Component<GanttProps> {
         const task = gantt.getTask(id);
         console.log("Task data:", task);
 
+        // Check if this is a group header
+        if (task.$group_header) {
+          console.log("Group header clicked, ignoring");
+          return false;
+        }
+
         // Check if this is a new task (temporary ID)
         if (!task.text || task.text === "New task") {
           console.log("New task detected, opening create modal");
@@ -385,8 +391,10 @@ export default class Gantt extends Component<GanttProps> {
         // Open custom modal for editing existing tasks
         console.log("Existing task detected, opening edit modal");
         if (onEditTask) {
-          console.log("Calling onEditTask with ID:", id);
-          onEditTask(id);
+          // Use original ID if this is a grouped task, otherwise use the current ID
+          const taskIdToEdit = task.$original_id || id;
+          console.log("Calling onEditTask with ID:", taskIdToEdit, "(original ID from grouped view)");
+          onEditTask(taskIdToEdit);
           return false;
         }
 
@@ -416,6 +424,12 @@ export default class Gantt extends Component<GanttProps> {
         const task = gantt.getTask(id);
         console.log("Task data:", task);
 
+        // Check if this is a group header
+        if (task.$group_header) {
+          console.log("Group header in lightbox, ignoring");
+          return false;
+        }
+
         if (!task.text || task.text === "New task") {
           console.log("New task detected, opening create modal");
           // Use the pending parent ID we captured in onTaskCreated
@@ -431,7 +445,10 @@ export default class Gantt extends Component<GanttProps> {
         // Open custom modal for editing existing tasks
         console.log("Existing task detected in onBeforeLightbox, opening edit modal");
         if (onEditTask) {
-          onEditTask(id);
+          // Use original ID if this is a grouped task
+          const taskIdToEdit = task.$original_id || id;
+          console.log("Calling onEditTask with ID:", taskIdToEdit);
+          onEditTask(taskIdToEdit);
           return false;
         }
 
