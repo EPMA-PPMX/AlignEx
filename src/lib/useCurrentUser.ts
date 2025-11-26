@@ -120,6 +120,21 @@ export function useCurrentUser() {
     }
   };
 
+  const changeWidgetSize = async (widgetId: string, size: 'small' | 'medium' | 'large') => {
+    try {
+      const { error } = await supabase
+        .from('user_dashboard_widgets')
+        .update({ size, updated_at: new Date().toISOString() })
+        .eq('id', widgetId);
+
+      if (error) throw error;
+
+      fetchCurrentUser();
+    } catch (err: any) {
+      console.error('Error changing widget size:', err);
+    }
+  };
+
   return {
     user,
     widgets,
@@ -128,6 +143,7 @@ export function useCurrentUser() {
     updateWidgetSettings,
     toggleWidget,
     reorderWidgets,
+    changeWidgetSize,
     refetch: fetchCurrentUser
   };
 }

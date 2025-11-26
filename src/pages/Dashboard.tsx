@@ -4,13 +4,15 @@ import { useCurrentUser } from '../lib/useCurrentUser';
 import PersonalGoalsWidget from '../components/widgets/PersonalGoalsWidget';
 import MyTasksWidget from '../components/widgets/MyTasksWidget';
 import MyProjectsWidget from '../components/widgets/MyProjectsWidget';
+import MyRisksWidget from '../components/widgets/MyRisksWidget';
+import MyIssuesWidget from '../components/widgets/MyIssuesWidget';
 import DeadlinesWidget from '../components/widgets/DeadlinesWidget';
 import TimesheetQuickWidget from '../components/widgets/TimesheetQuickWidget';
 import RecentActivityWidget from '../components/widgets/RecentActivityWidget';
 import CustomizeWidgetsModal from '../components/CustomizeWidgetsModal';
 
 const Dashboard: React.FC = () => {
-  const { user, widgets, loading, toggleWidget, reorderWidgets, refetch } = useCurrentUser();
+  const { user, widgets, loading, toggleWidget, reorderWidgets, changeWidgetSize, refetch } = useCurrentUser();
   const [showCustomizeModal, setShowCustomizeModal] = useState(false);
 
   const handleToggleWidget = async (widgetId: string, isEnabled: boolean) => {
@@ -20,6 +22,11 @@ const Dashboard: React.FC = () => {
 
   const handleReorderWidgets = async (reorderedWidgets: any[]) => {
     await reorderWidgets(reorderedWidgets);
+  };
+
+  const handleChangeWidgetSize = async (widgetId: string, size: 'small' | 'medium' | 'large') => {
+    await changeWidgetSize(widgetId, size);
+    refetch();
   };
 
   if (loading) {
@@ -49,6 +56,8 @@ const Dashboard: React.FC = () => {
     personal_goals: <PersonalGoalsWidget key="personal_goals" />,
     my_tasks: <MyTasksWidget key="my_tasks" />,
     my_projects: <MyProjectsWidget key="my_projects" />,
+    my_risks: <MyRisksWidget key="my_risks" />,
+    my_issues: <MyIssuesWidget key="my_issues" />,
     deadlines: <DeadlinesWidget key="deadlines" />,
     timesheet_quick: <TimesheetQuickWidget key="timesheet_quick" />,
     recent_activity: <RecentActivityWidget key="recent_activity" />,
@@ -126,6 +135,7 @@ const Dashboard: React.FC = () => {
         widgets={widgets}
         onToggleWidget={handleToggleWidget}
         onReorderWidgets={handleReorderWidgets}
+        onChangeWidgetSize={handleChangeWidgetSize}
       />
     </div>
   );
