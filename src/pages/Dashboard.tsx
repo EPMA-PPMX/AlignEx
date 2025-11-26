@@ -104,9 +104,9 @@ const Dashboard: React.FC = () => {
             if (!component) return null;
 
             const sizeClass = {
-              small: 'lg:col-span-1 lg:row-span-1',
-              medium: 'lg:col-span-1 lg:row-span-2',
-              large: 'lg:col-span-2 lg:row-span-2'
+              small: 'lg:col-span-1 lg:row-span-2',
+              medium: 'lg:col-span-1 lg:row-span-4',
+              large: 'lg:col-span-2 lg:row-span-4'
             }[widget.size];
 
             return (
