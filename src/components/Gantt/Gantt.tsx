@@ -258,6 +258,10 @@ export default class Gantt extends Component<GanttProps> {
     // Ensure tree structure is visible - open all parent tasks by default
     gantt.config.open_tree_initially = true;
 
+    // Enable branch ordering and tree structure
+    gantt.config.order_branch = true;
+    gantt.config.order_branch_free = true;
+
     // Custom add button column with resizable columns and inline editors
     gantt.config.columns = [
       {
@@ -578,14 +582,29 @@ export default class Gantt extends Component<GanttProps> {
       this.allTasks = projecttasks.data || [];
       gantt.parse(projecttasks);
 
+      // Sort tasks to ensure proper parent-child hierarchy display
+      gantt.sort((a: any, b: any) => {
+        // First sort by parent - tasks with no parent (0) come first
+        if (a.parent !== b.parent) {
+          if (a.parent === 0) return -1;
+          if (b.parent === 0) return 1;
+          return a.parent - b.parent;
+        }
+        // Within same parent, sort by ID
+        return a.id - b.id;
+      });
+
       // Open all parent tasks to show subtasks
       gantt.eachTask((task: any) => {
         if (gantt.hasChild(task.id)) {
           gantt.open(task.id);
         }
-        // Debug: Log milestone tasks
+        // Debug: Log milestone tasks and parent relationships
         if (task.type === "milestone" || task.type === gantt.config.types.milestone) {
           console.log("Milestone task found:", task);
+        }
+        if (task.parent) {
+          console.log(`Task ${task.id} (${task.text}) has parent: ${task.parent}`);
         }
       });
 
@@ -651,6 +670,18 @@ export default class Gantt extends Component<GanttProps> {
       this.originalLinks = [];
       gantt.clearAll();
       gantt.parse(projecttasks);
+
+      // Sort tasks to ensure proper parent-child hierarchy display
+      gantt.sort((a: any, b: any) => {
+        // First sort by parent - tasks with no parent (0) come first
+        if (a.parent !== b.parent) {
+          if (a.parent === 0) return -1;
+          if (b.parent === 0) return 1;
+          return a.parent - b.parent;
+        }
+        // Within same parent, sort by ID
+        return a.id - b.id;
+      });
 
       // Open all parent tasks to show subtasks
       gantt.eachTask((task: any) => {
