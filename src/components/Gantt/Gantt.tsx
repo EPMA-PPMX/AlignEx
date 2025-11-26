@@ -255,6 +255,9 @@ export default class Gantt extends Component<GanttProps> {
     // Enable auto types for WBS
     gantt.config.auto_types = true;
 
+    // Ensure tree structure is visible - open all parent tasks by default
+    gantt.config.open_tree_initially = true;
+
     // Custom add button column with resizable columns and inline editors
     gantt.config.columns = [
       {
@@ -575,8 +578,12 @@ export default class Gantt extends Component<GanttProps> {
       this.allTasks = projecttasks.data || [];
       gantt.parse(projecttasks);
 
-      // Debug: Log milestone tasks
+      // Open all parent tasks to show subtasks
       gantt.eachTask((task: any) => {
+        if (gantt.hasChild(task.id)) {
+          gantt.open(task.id);
+        }
+        // Debug: Log milestone tasks
         if (task.type === "milestone" || task.type === gantt.config.types.milestone) {
           console.log("Milestone task found:", task);
         }
@@ -644,6 +651,13 @@ export default class Gantt extends Component<GanttProps> {
       this.originalLinks = [];
       gantt.clearAll();
       gantt.parse(projecttasks);
+
+      // Open all parent tasks to show subtasks
+      gantt.eachTask((task: any) => {
+        if (gantt.hasChild(task.id)) {
+          gantt.open(task.id);
+        }
+      });
     }
 
     if (prevProps.searchQuery !== searchQuery) {
