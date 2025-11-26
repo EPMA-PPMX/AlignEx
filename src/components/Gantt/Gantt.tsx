@@ -262,6 +262,9 @@ export default class Gantt extends Component<GanttProps> {
     gantt.config.order_branch = true;
     gantt.config.order_branch_free = true;
 
+    // Configure WBS code to work properly with parent-child relationships
+    gantt.config.wbs_strict = true;
+
     // Custom add button column with resizable columns and inline editors
     gantt.config.columns = [
       {

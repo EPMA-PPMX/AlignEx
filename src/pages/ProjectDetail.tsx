@@ -572,7 +572,7 @@ const ProjectDetail: React.FC = () => {
               duration: task.duration,
               progress: task.progress || 0,
               type: task.type || 'task',
-              parent: task.parent,
+              parent: task.parent !== undefined && task.parent !== null ? task.parent : 0,
               owner_id: task.owner_id,
               owner_name: task.owner_name,
               resource_ids: task.resource_ids || [],
@@ -1604,14 +1604,15 @@ const ProjectDetail: React.FC = () => {
           progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
         };
 
-        // Add parent if this is a subtask
+        // Set parent - MUST be 0 for root tasks, not undefined
         console.log('Checking parent_id:', taskForm.parent_id);
         console.log('parent_id type:', typeof taskForm.parent_id);
         if (taskForm.parent_id !== undefined && taskForm.parent_id !== null) {
           newTask.parent = taskForm.parent_id;
           console.log('Setting parent to:', taskForm.parent_id);
         } else {
-          console.log('No parent_id - creating as main task');
+          newTask.parent = 0; // Explicitly set to 0 for root tasks
+          console.log('No parent_id - creating as root task with parent = 0');
         }
         console.log('New task object:', newTask);
 
