@@ -9,6 +9,9 @@ import MyIssuesWidget from '../components/widgets/MyIssuesWidget';
 import DeadlinesWidget from '../components/widgets/DeadlinesWidget';
 import TimesheetQuickWidget from '../components/widgets/TimesheetQuickWidget';
 import RecentActivityWidget from '../components/widgets/RecentActivityWidget';
+import PendingApprovalsWidget from '../components/widgets/PendingApprovalsWidget';
+import ProjectHealthWidget from '../components/widgets/ProjectHealthWidget';
+import TeamCapacityWidget from '../components/widgets/TeamCapacityWidget';
 import CustomizeWidgetsModal from '../components/CustomizeWidgetsModal';
 
 const Dashboard: React.FC = () => {
@@ -61,6 +64,9 @@ const Dashboard: React.FC = () => {
     deadlines: <DeadlinesWidget key="deadlines" />,
     timesheet_quick: <TimesheetQuickWidget key="timesheet_quick" />,
     recent_activity: <RecentActivityWidget key="recent_activity" />,
+    pending_approvals: <PendingApprovalsWidget key="pending_approvals" />,
+    project_health: <ProjectHealthWidget key="project_health" />,
+    team_capacity: <TeamCapacityWidget key="team_capacity" />,
   };
 
   return (
