@@ -27,46 +27,73 @@ export default function MyProjectsWidget() {
     try {
       setLoading(true);
 
-      let projectIds: string[] = [];
-
-      if (user?.system_role === 'Project Manager') {
-        const { data, error } = await supabase
-          .from('projects')
-          .select('id, name, state, health_status, description')
-          .in('state', ['Active', 'Planning'])
-          .order('name')
-          .limit(6);
-
-        if (error) throw error;
-
-        setProjects(data || []);
-        return;
-      } else {
-        const { data: teamData, error: teamError } = await supabase
-          .from('project_team_members')
-          .select('project_id')
-          .eq('resource_id', user?.resource_id || '');
-
-        if (teamError) throw teamError;
-
-        projectIds = (teamData || []).map(t => t.project_id);
-      }
-
-      if (projectIds.length > 0) {
-        const { data, error } = await supabase
-          .from('projects')
-          .select('id, name, state, health_status, description')
-          .in('id', projectIds)
-          .in('state', ['Active', 'Planning'])
-          .order('name')
-          .limit(6);
-
-        if (error) throw error;
-
-        setProjects(data || []);
-      } else {
+      if (!user?.resource_id) {
+        console.log('MyProjectsWidget: User has no resource_id, cannot fetch projects');
         setProjects([]);
+        return;
       }
+
+      // First, get the Project Manager field ID
+      const { data: pmField, error: pmFieldError } = await supabase
+        .from('custom_fields')
+        .select('id')
+        .eq('field_name', 'Project Manager')
+        .eq('entity_type', 'project')
+        .maybeSingle();
+
+      if (pmFieldError) {
+        console.error('Error fetching Project Manager field:', pmFieldError);
+        throw pmFieldError;
+      }
+
+      if (!pmField) {
+        console.log('MyProjectsWidget: Project Manager field not found');
+        setProjects([]);
+        return;
+      }
+
+      // Get all projects where the user is the Project Manager
+      const { data: projectFieldValues, error: pfvError } = await supabase
+        .from('project_field_values')
+        .select('project_id')
+        .eq('field_id', pmField.id)
+        .eq('value', user.resource_id);
+
+      if (pfvError) {
+        console.error('Error fetching project field values:', pfvError);
+        throw pfvError;
+      }
+
+      const projectIds = (projectFieldValues || []).map(pfv => pfv.project_id);
+
+      console.log('MyProjectsWidget: Found', projectIds.length, 'projects where user is PM');
+
+      if (projectIds.length === 0) {
+        setProjects([]);
+        return;
+      }
+
+      // Fetch project details
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name, state, status, description')
+        .in('id', projectIds)
+        .in('state', ['Active', 'Planning'])
+        .order('name')
+        .limit(6);
+
+      if (error) {
+        console.error('Error fetching projects:', error);
+        throw error;
+      }
+
+      // Map status to health_status for compatibility
+      const projectsWithHealth = (data || []).map(p => ({
+        ...p,
+        health_status: p.status || 'On Track'
+      }));
+
+      setProjects(projectsWithHealth);
     } catch (err) {
       console.error('Error fetching projects:', err);
     } finally {
@@ -119,7 +146,7 @@ export default function MyProjectsWidget() {
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
           <FolderKanban className="w-5 h-5 text-blue-600" />
-          {user?.system_role === 'Project Manager' ? 'My Projects' : 'Assigned Projects'}
+          My Projects
         </h3>
         {atRiskCount > 0 && (
           <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full flex items-center gap-1 font-medium">
@@ -134,9 +161,7 @@ export default function MyProjectsWidget() {
           <FolderKanban className="w-12 h-12 text-gray-400 mb-3" />
           <p className="text-gray-600 mb-1">No active projects</p>
           <p className="text-sm text-gray-500">
-            {user?.system_role === 'Project Manager'
-              ? 'Create a new project to get started'
-              : 'You are not assigned to any projects'}
+            You are not assigned as Project Manager on any projects
           </p>
         </div>
       ) : (
