@@ -14,7 +14,7 @@ interface CustomizeWidgetsModalProps {
 const widgetInfo: { [key: string]: { name: string; description: string } } = {
   personal_goals: { name: 'Personal Goals', description: 'Track your skill development goals and progress' },
   my_tasks: { name: 'My Tasks', description: 'View tasks assigned to you with deadlines and priorities' },
-  my_projects: { name: 'My Projects', description: 'Monitor projects you manage or are assigned to' },
+  my_projects: { name: 'My Projects', description: 'Monitor projects you manage with health status overview' },
   my_risks: { name: 'My Risks', description: 'Track risks from your projects and assigned risks' },
   my_issues: { name: 'My Issues', description: 'Monitor issues from your projects and assigned issues' },
   pending_approvals: { name: 'Pending Approvals', description: 'Review change requests and approvals needing attention' },
@@ -22,7 +22,7 @@ const widgetInfo: { [key: string]: { name: string; description: string } } = {
   timesheet_quick: { name: 'Timesheet Quick Entry', description: 'Log hours and view weekly summary' },
   recent_activity: { name: 'Recent Activity', description: 'Stay updated on recent project changes' },
   project_health: { name: 'Project Health', description: 'Overview of project health across your portfolio' },
-  team_capacity: { name: 'Team Capacity', description: 'Monitor team allocation and availability' }
+  team_capacity: { name: 'My Team Capacity', description: 'Monitor allocation of resources working on your projects, sorted by overallocation' }
 };
 
 export default function CustomizeWidgetsModal({ isOpen, onClose, widgets, onToggleWidget, onReorderWidgets, onChangeWidgetSize }: CustomizeWidgetsModalProps) {

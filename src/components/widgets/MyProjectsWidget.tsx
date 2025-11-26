@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FolderKanban, AlertTriangle, ChevronRight } from 'lucide-react';
+import { FolderKanban, AlertTriangle, ChevronRight, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useCurrentUser } from '../../lib/useCurrentUser';
 import { Link } from 'react-router-dom';
@@ -8,7 +8,8 @@ interface Project {
   id: string;
   name: string;
   state: string;
-  health_status: string;
+  status: string;
+  project_status: string;
   description?: string;
 }
 
@@ -76,24 +77,17 @@ export default function MyProjectsWidget() {
       // Fetch project details
       const { data, error } = await supabase
         .from('projects')
-        .select('id, name, state, status, description')
+        .select('id, name, state, status, project_status, description')
         .in('id', projectIds)
         .in('state', ['Active', 'Planning'])
-        .order('name')
-        .limit(6);
+        .order('name');
 
       if (error) {
         console.error('Error fetching projects:', error);
         throw error;
       }
 
-      // Map status to health_status for compatibility
-      const projectsWithHealth = (data || []).map(p => ({
-        ...p,
-        health_status: p.status || 'On Track'
-      }));
-
-      setProjects(projectsWithHealth);
+      setProjects(data || []);
     } catch (err) {
       console.error('Error fetching projects:', err);
     } finally {
@@ -101,26 +95,45 @@ export default function MyProjectsWidget() {
     }
   };
 
-  const getHealthColor = (health: string) => {
-    switch (health) {
-      case 'On Track': return 'bg-green-500';
-      case 'At Risk': return 'bg-yellow-500';
-      case 'Delayed': case 'Critical': return 'bg-red-500';
+  const getHealthColor = (projectStatus: string) => {
+    switch (projectStatus?.toLowerCase()) {
+      case 'on track': return 'bg-green-500';
+      case 'at risk': return 'bg-yellow-500';
+      case 'off track': return 'bg-red-500';
       default: return 'bg-gray-500';
     }
   };
 
-  const getHealthTextColor = (health: string) => {
-    switch (health) {
-      case 'On Track': return 'text-green-700';
-      case 'At Risk': return 'text-yellow-700';
-      case 'Delayed': case 'Critical': return 'text-red-700';
+  const getHealthTextColor = (projectStatus: string) => {
+    switch (projectStatus?.toLowerCase()) {
+      case 'on track': return 'text-green-700';
+      case 'at risk': return 'text-yellow-700';
+      case 'off track': return 'text-red-700';
       default: return 'text-gray-700';
     }
   };
 
+  const getHealthIcon = (projectStatus: string) => {
+    switch (projectStatus?.toLowerCase()) {
+      case 'on track':
+        return <TrendingUp className="w-4 h-4 text-green-600" />;
+      case 'at risk':
+        return <Minus className="w-4 h-4 text-yellow-600" />;
+      case 'off track':
+        return <TrendingDown className="w-4 h-4 text-red-600" />;
+      default:
+        return null;
+    }
+  };
+
+  const healthCounts = projects.reduce((acc, project) => {
+    const health = project.project_status?.toLowerCase() || 'unknown';
+    acc[health] = (acc[health] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
   const atRiskCount = projects.filter(p =>
-    p.health_status === 'At Risk' || p.health_status === 'Delayed' || p.health_status === 'Critical'
+    p.project_status?.toLowerCase() === 'at risk' || p.project_status?.toLowerCase() === 'off track'
   ).length;
 
   if (loading) {
@@ -142,22 +155,52 @@ export default function MyProjectsWidget() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 h-full flex flex-col">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-          <FolderKanban className="w-5 h-5 text-blue-600" />
+    <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 h-full flex flex-col">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+          <FolderKanban className="w-4 h-4 text-blue-600" />
           My Projects
         </h3>
-        {atRiskCount > 0 && (
-          <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full flex items-center gap-1 font-medium">
-            <AlertTriangle className="w-3 h-3" />
-            {atRiskCount} at risk
-          </span>
-        )}
+        <span className="text-xs text-gray-500">
+          {projects.length} active
+        </span>
       </div>
 
+      {/* Health Summary KPIs */}
+      {projects.length > 0 && (
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <TrendingUp className="w-4 h-4 text-green-600" />
+              <span className="text-xs font-medium text-green-700">On Track</span>
+            </div>
+            <p className="text-2xl font-bold text-green-700 text-center">
+              {healthCounts['on track'] || 0}
+            </p>
+          </div>
+          <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Minus className="w-4 h-4 text-yellow-600" />
+              <span className="text-xs font-medium text-yellow-700">At Risk</span>
+            </div>
+            <p className="text-2xl font-bold text-yellow-700 text-center">
+              {healthCounts['at risk'] || 0}
+            </p>
+          </div>
+          <div className="bg-red-50 p-3 rounded-lg border border-red-200">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <TrendingDown className="w-4 h-4 text-red-600" />
+              <span className="text-xs font-medium text-red-700">Off Track</span>
+            </div>
+            <p className="text-2xl font-bold text-red-700 text-center">
+              {healthCounts['off track'] || 0}
+            </p>
+          </div>
+        </div>
+      )}
+
       {projects.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-center py-8">
+        <div className="flex-1 flex flex-col items-center justify-center text-center py-4">
           <FolderKanban className="w-12 h-12 text-gray-400 mb-3" />
           <p className="text-gray-600 mb-1">No active projects</p>
           <p className="text-sm text-gray-500">
@@ -165,51 +208,43 @@ export default function MyProjectsWidget() {
           </p>
         </div>
       ) : (
-        <div className="space-y-3 flex-1 overflow-auto">
+        <div className="space-y-2 flex-1 overflow-auto">
           {projects.map((project) => (
             <Link
               key={project.id}
               to={`/projects/${project.id}`}
-              className="block bg-gray-50 p-4 rounded-lg border border-gray-200 hover:border-blue-300 transition-all"
+              className="block bg-gray-50 p-3 rounded-lg border border-gray-200 hover:border-blue-300 transition-all"
             >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-gray-900 font-medium text-sm mb-1 truncate">{project.name}</h4>
-                  {project.description && (
-                    <p className="text-xs text-gray-600 truncate">{project.description}</p>
-                  )}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  {getHealthIcon(project.project_status)}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm text-gray-900 truncate">
+                      {project.name}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {project.state}
+                    </p>
+                  </div>
                 </div>
-                <div className={`w-2 h-2 rounded-full ${getHealthColor(project.health_status)} flex-shrink-0 ml-2 mt-1`} />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-700">
-                    {project.state}
+                {project.project_status && (
+                  <span className={`px-2 py-1 text-xs rounded-full font-medium whitespace-nowrap ${getHealthColor(project.project_status)} ${getHealthTextColor(project.project_status).replace('text-', 'bg-').replace('-700', '-100')}`}>
+                    {project.project_status}
                   </span>
-                  <span className={`text-xs font-medium ${getHealthTextColor(project.health_status)}`}>
-                    {project.health_status}
-                  </span>
-                </div>
+                )}
               </div>
             </Link>
           ))}
         </div>
       )}
 
-      {projects.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-gray-200">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600">{projects.length} active projects</span>
-            <Link
-              to="/projects"
-              className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
-            >
-              View All
-              <ChevronRight className="w-4 h-4" />
-            </Link>
-          </div>
-        </div>
+      {projects.length > 5 && (
+        <Link
+          to="/projects"
+          className="block text-center text-sm text-blue-600 hover:text-blue-700 pt-2 mt-2 border-t border-gray-200"
+        >
+          View all {projects.length} projects
+        </Link>
       )}
     </div>
   );

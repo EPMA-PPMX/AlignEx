@@ -1,78 +1,128 @@
 import { useState, useEffect } from 'react';
 import { Users, TrendingUp, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useCurrentUser } from '../../lib/useCurrentUser';
 import { Link } from 'react-router-dom';
 
 interface TeamMember {
   id: string;
-  full_name: string;
+  display_name: string;
   allocation_percentage: number;
   project_count: number;
 }
 
 export default function TeamCapacityWidget() {
+  const { user } = useCurrentUser();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchTeamCapacity();
-  }, []);
+    if (user) {
+      fetchTeamCapacity();
+    }
+  }, [user]);
 
   const fetchTeamCapacity = async () => {
     try {
       setLoading(true);
 
-      const { data: projectTeams, error: teamsError } = await supabase
-        .from('project_team_members')
-        .select(`
-          user_id,
-          allocation_percentage,
-          project:projects!inner (
-            id,
-            status
-          )
-        `);
-
-      if (teamsError) throw teamsError;
-
-      const activeTeams = (projectTeams || []).filter(
-        (team: any) => team.project?.status !== 'completed' && team.project?.status !== 'cancelled'
-      );
-
-      const capacityMap = activeTeams.reduce((acc: any, team: any) => {
-        if (!acc[team.user_id]) {
-          acc[team.user_id] = {
-            user_id: team.user_id,
-            total_allocation: 0,
-            project_count: 0
-          };
-        }
-        acc[team.user_id].total_allocation += team.allocation_percentage || 0;
-        acc[team.user_id].project_count += 1;
-        return acc;
-      }, {});
-
-      const userIds = Object.keys(capacityMap);
-      if (userIds.length === 0) {
+      if (!user?.resource_id) {
         setTeamMembers([]);
         return;
       }
 
-      const { data: users, error: usersError } = await supabase
-        .from('users')
-        .select('id, full_name')
-        .in('id', userIds);
+      // First, get the Project Manager field ID
+      const { data: pmField, error: pmFieldError } = await supabase
+        .from('custom_fields')
+        .select('id')
+        .eq('field_name', 'Project Manager')
+        .eq('entity_type', 'project')
+        .maybeSingle();
 
-      if (usersError) throw usersError;
+      if (pmFieldError) throw pmFieldError;
+      if (!pmField) {
+        setTeamMembers([]);
+        return;
+      }
 
-      const members = (users || []).map(user => ({
-        id: user.id,
-        full_name: user.full_name,
-        allocation_percentage: capacityMap[user.id].total_allocation,
-        project_count: capacityMap[user.id].project_count
+      // Get all projects where the user is the Project Manager
+      const { data: projectFieldValues, error: pfvError } = await supabase
+        .from('project_field_values')
+        .select('project_id')
+        .eq('field_id', pmField.id)
+        .eq('value', user.resource_id);
+
+      if (pfvError) throw pfvError;
+
+      const projectIds = (projectFieldValues || []).map(pfv => pfv.project_id);
+
+      if (projectIds.length === 0) {
+        setTeamMembers([]);
+        return;
+      }
+
+      // Get team members from those projects
+      const { data: projectTeams, error: teamsError } = await supabase
+        .from('project_team_members')
+        .select(`
+          resource_id,
+          allocation_percentage,
+          projects:projects!inner (
+            id,
+            status
+          )
+        `)
+        .in('project_id', projectIds);
+
+      if (teamsError) throw teamsError;
+
+      const activeTeams = (projectTeams || []).filter(
+        (team: any) => team.projects?.status !== 'Completed' && team.projects?.status !== 'Cancelled'
+      );
+
+      const capacityMap = activeTeams.reduce((acc: any, team: any) => {
+        if (!acc[team.resource_id]) {
+          acc[team.resource_id] = {
+            resource_id: team.resource_id,
+            total_allocation: 0,
+            project_count: 0
+          };
+        }
+        acc[team.resource_id].total_allocation += team.allocation_percentage || 0;
+        acc[team.resource_id].project_count += 1;
+        return acc;
+      }, {});
+
+      const resourceIds = Object.keys(capacityMap);
+      if (resourceIds.length === 0) {
+        setTeamMembers([]);
+        return;
+      }
+
+      const { data: resources, error: resourcesError } = await supabase
+        .from('resources')
+        .select('id, display_name')
+        .in('id', resourceIds);
+
+      if (resourcesError) throw resourcesError;
+
+      const members = (resources || []).map(resource => ({
+        id: resource.id,
+        display_name: resource.display_name,
+        allocation_percentage: capacityMap[resource.id].total_allocation,
+        project_count: capacityMap[resource.id].project_count
       }));
 
-      members.sort((a, b) => b.allocation_percentage - a.allocation_percentage);
+      // Sort by overallocation first (highest first), then by allocation percentage
+      members.sort((a, b) => {
+        const aOver = a.allocation_percentage >= 100;
+        const bOver = b.allocation_percentage >= 100;
+
+        if (aOver && !bOver) return -1;
+        if (!aOver && bOver) return 1;
+
+        return b.allocation_percentage - a.allocation_percentage;
+      });
 
       setTeamMembers(members);
     } catch (error) {
@@ -110,7 +160,7 @@ export default function TeamCapacityWidget() {
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
             <Users className="w-4 h-4" />
-            Team Capacity
+            My Team Capacity
           </h3>
         </div>
         <div className="animate-pulse space-y-2">
@@ -127,7 +177,7 @@ export default function TeamCapacityWidget() {
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
           <Users className="w-4 h-4 text-blue-600" />
-          Team Capacity
+          My Team Capacity
         </h3>
         <div className="flex items-center gap-2">
           {overallocatedCount > 0 && (
@@ -158,7 +208,7 @@ export default function TeamCapacityWidget() {
         <div className="flex-1 flex flex-col items-center justify-center text-center py-4">
           <Users className="w-12 h-12 text-gray-400 mb-3" />
           <p className="text-gray-600 mb-1">No team allocations</p>
-          <p className="text-sm text-gray-500">Assign team members to projects</p>
+          <p className="text-sm text-gray-500">Assign team members to your projects</p>
         </div>
       ) : (
         <div className="space-y-2 flex-1 overflow-auto">
@@ -170,7 +220,7 @@ export default function TeamCapacityWidget() {
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm text-gray-900 truncate">
-                    {member.full_name}
+                    {member.display_name}
                   </p>
                   <p className="text-xs text-gray-500">
                     {member.project_count} {member.project_count === 1 ? 'project' : 'projects'}
