@@ -2250,15 +2250,21 @@ const ProjectDetail: React.FC = () => {
                   console.log('=== onOpenTaskModal called ===');
                   console.log('parentId received:', parentId);
                   console.log('parentId type:', typeof parentId);
+                  console.log('All tasks:', projectTasks.data);
 
-                  // Find parent task and get its WBS code
+                  // Find parent task and get its text/name
                   let parentWbs = '';
                   if (parentId) {
                     const parentTask = projectTasks.data.find((t: any) => t.id === parentId);
+                    console.log('Searching for parent task with ID:', parentId);
+                    console.log('Parent task found:', parentTask);
                     if (parentTask) {
-                      parentWbs = parentTask.wbs || parentTask.$wbs || `Task #${parentId}`;
-                      console.log('Parent task found:', parentTask);
-                      console.log('Parent WBS:', parentWbs);
+                      // Use task text (name) as the identifier, fallback to ID
+                      parentWbs = parentTask.text || parentTask.description || `Task ID: ${parentId}`;
+                      console.log('Parent task identifier:', parentWbs);
+                    } else {
+                      console.log('WARNING: Parent task NOT found for ID:', parentId);
+                      parentWbs = `Task ID: ${parentId}`;
                     }
                   }
 
@@ -2274,14 +2280,7 @@ const ProjectDetail: React.FC = () => {
                     type: 'task',
                     progress: 0
                   });
-                  console.log('Task form after setting:', {
-                    description: '',
-                    start_date: '',
-                    duration: 1,
-                    owner_id: '',
-                    parent_id: parentId,
-                    parent_wbs: parentWbs
-                  });
+                  console.log('Task form after setting - parent_wbs:', parentWbs);
                   setEditingTaskId(null);
                   setShowTaskModal(true);
                 }}
