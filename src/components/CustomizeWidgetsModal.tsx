@@ -22,7 +22,7 @@ const widgetInfo: { [key: string]: { name: string; description: string } } = {
   timesheet_quick: { name: 'Timesheet Quick Entry', description: 'Log hours and view weekly summary' },
   recent_activity: { name: 'Recent Activity', description: 'Stay updated on recent project changes' },
   project_health: { name: 'Project Health', description: 'Overview of project health across your portfolio' },
-  team_capacity: { name: 'My Team Capacity', description: 'Monitor allocation of resources working on your projects, sorted by overallocation' }
+  team_capacity: { name: 'My Team Workload', description: 'View 4-week workload heatmap for resources working on your projects' }
 };
 
 export default function CustomizeWidgetsModal({ isOpen, onClose, widgets, onToggleWidget, onReorderWidgets, onChangeWidgetSize }: CustomizeWidgetsModalProps) {
