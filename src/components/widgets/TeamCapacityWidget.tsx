@@ -1,20 +1,31 @@
 import { useState, useEffect } from 'react';
-import { Users, TrendingUp, AlertCircle } from 'lucide-react';
+import { Users, Calendar } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useCurrentUser } from '../../lib/useCurrentUser';
 import { Link } from 'react-router-dom';
 
 interface TeamMember {
   id: string;
+  resource_id: string;
   display_name: string;
-  allocation_percentage: number;
-  project_count: number;
+}
+
+interface Task {
+  id: string;
+  text: string;
+  start_date: string;
+  duration: number;
+  owner_id?: string;
 }
 
 export default function TeamCapacityWidget() {
   const { user } = useCurrentUser();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [allocations, setAllocations] = useState<Map<string, Map<string, number>>>(new Map());
+  const [weekStartDates, setWeekStartDates] = useState<Date[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const weeks = 4;
 
   useEffect(() => {
     if (user) {
@@ -65,11 +76,15 @@ export default function TeamCapacityWidget() {
       const { data: projectTeams, error: teamsError } = await supabase
         .from('project_team_members')
         .select(`
+          id,
           resource_id,
-          allocation_percentage,
           projects:projects!inner (
             id,
             status
+          ),
+          resources (
+            id,
+            display_name
           )
         `)
         .in('project_id', projectIds);
@@ -80,51 +95,25 @@ export default function TeamCapacityWidget() {
         (team: any) => team.projects?.status !== 'Completed' && team.projects?.status !== 'Cancelled'
       );
 
-      const capacityMap = activeTeams.reduce((acc: any, team: any) => {
-        if (!acc[team.resource_id]) {
-          acc[team.resource_id] = {
+      // Get unique resources
+      const uniqueResources = new Map<string, TeamMember>();
+      activeTeams.forEach((team: any) => {
+        if (team.resource_id && team.resources && !uniqueResources.has(team.resource_id)) {
+          uniqueResources.set(team.resource_id, {
+            id: team.id,
             resource_id: team.resource_id,
-            total_allocation: 0,
-            project_count: 0
-          };
+            display_name: team.resources.display_name
+          });
         }
-        acc[team.resource_id].total_allocation += team.allocation_percentage || 0;
-        acc[team.resource_id].project_count += 1;
-        return acc;
-      }, {});
-
-      const resourceIds = Object.keys(capacityMap);
-      if (resourceIds.length === 0) {
-        setTeamMembers([]);
-        return;
-      }
-
-      const { data: resources, error: resourcesError } = await supabase
-        .from('resources')
-        .select('id, display_name')
-        .in('id', resourceIds);
-
-      if (resourcesError) throw resourcesError;
-
-      const members = (resources || []).map(resource => ({
-        id: resource.id,
-        display_name: resource.display_name,
-        allocation_percentage: capacityMap[resource.id].total_allocation,
-        project_count: capacityMap[resource.id].project_count
-      }));
-
-      // Sort by overallocation first (highest first), then by allocation percentage
-      members.sort((a, b) => {
-        const aOver = a.allocation_percentage >= 100;
-        const bOver = b.allocation_percentage >= 100;
-
-        if (aOver && !bOver) return -1;
-        if (!aOver && bOver) return 1;
-
-        return b.allocation_percentage - a.allocation_percentage;
       });
 
+      const members = Array.from(uniqueResources.values());
       setTeamMembers(members);
+
+      // Calculate allocations
+      if (members.length > 0) {
+        await calculateAllocations(members);
+      }
     } catch (error) {
       console.error('Error fetching team capacity:', error);
     } finally {
@@ -132,27 +121,104 @@ export default function TeamCapacityWidget() {
     }
   };
 
-  const getCapacityColor = (allocation: number) => {
-    if (allocation >= 100) return 'bg-red-500';
-    if (allocation >= 80) return 'bg-yellow-500';
-    return 'bg-green-500';
+  const calculateAllocations = async (members: TeamMember[]) => {
+    const allocationMap = new Map<string, Map<string, number>>();
+
+    try {
+      // Fetch ALL project tasks across all projects
+      const { data: allProjectTasks, error } = await supabase
+        .from('project_tasks')
+        .select('task_data, project_id');
+
+      if (error) {
+        console.error('Error fetching tasks:', error);
+        return;
+      }
+
+      // Flatten all tasks from all projects into a single array
+      const allTasks: Task[] = [];
+      if (allProjectTasks) {
+        for (const projectTask of allProjectTasks) {
+          const tasks = projectTask.task_data?.data || [];
+          allTasks.push(...tasks);
+        }
+      }
+
+      // Get the current Monday (start of work week)
+      const today = new Date();
+      const currentDay = today.getDay();
+      const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1;
+      const currentMonday = new Date(today);
+      currentMonday.setDate(today.getDate() - daysFromMonday);
+      currentMonday.setHours(0, 0, 0, 0);
+
+      // Create week starts for each Monday
+      const weekStarts = Array.from({ length: weeks }, (_, i) => {
+        const date = new Date(currentMonday);
+        date.setDate(currentMonday.getDate() + (i * 7));
+        return date;
+      });
+
+      for (const member of members) {
+        const weekMap = new Map<string, number>();
+        // Filter tasks across ALL projects for this resource
+        const memberTasks = allTasks.filter(task => task.owner_id === member.resource_id);
+
+        for (let i = 0; i < weeks; i++) {
+          const weekStart = weekStarts[i]; // Monday
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekEnd.getDate() + 5); // Friday (5 days from Monday)
+
+          let totalHours = 0;
+
+          for (const task of memberTasks) {
+            const taskStart = new Date(task.start_date);
+            const taskEnd = new Date(taskStart);
+            taskEnd.setDate(taskEnd.getDate() + task.duration);
+
+            const overlapStart = taskStart > weekStart ? taskStart : weekStart;
+            const overlapEnd = taskEnd < weekEnd ? taskEnd : weekEnd;
+
+            if (overlapStart < overlapEnd) {
+              const overlapDays = Math.ceil((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24));
+              const hoursPerDay = 8; // 8 hours per work day
+              const taskHours = overlapDays * hoursPerDay;
+              totalHours += taskHours;
+            }
+          }
+
+          weekMap.set(`week-${i}`, Math.min(Math.round(totalHours), 40));
+        }
+
+        allocationMap.set(member.resource_id, weekMap);
+      }
+
+      setAllocations(allocationMap);
+      setWeekStartDates(weekStarts);
+    } catch (error) {
+      console.error('Error calculating allocations:', error);
+    }
   };
 
-  const getCapacityStatus = (allocation: number) => {
-    if (allocation >= 100) return 'Overallocated';
-    if (allocation >= 80) return 'Near Capacity';
-    return 'Available';
+  const formatWeekRange = (startDate: Date) => {
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 4); // Friday (4 days from Monday)
+
+    const formatDate = (date: Date) => {
+      const month = date.toLocaleDateString('en-US', { month: 'short' });
+      const day = date.getDate();
+      return `${month} ${day}`;
+    };
+
+    return `${formatDate(startDate)} - ${formatDate(endDate)}`;
   };
 
-  const getCapacityStatusColor = (allocation: number) => {
-    if (allocation >= 100) return 'text-red-700 bg-red-100';
-    if (allocation >= 80) return 'text-yellow-700 bg-yellow-100';
-    return 'text-green-700 bg-green-100';
+  const getColorClass = (hours: number) => {
+    if (hours === 0) return 'bg-gray-100';
+    if (hours <= 10) return 'bg-green-200';
+    if (hours <= 30) return 'bg-yellow-200';
+    return 'bg-red-400';
   };
-
-  const overallocatedCount = teamMembers.filter(m => m.allocation_percentage >= 100).length;
-  const nearCapacityCount = teamMembers.filter(m => m.allocation_percentage >= 80 && m.allocation_percentage < 100).length;
-  const availableCount = teamMembers.filter(m => m.allocation_percentage < 80).length;
 
   if (loading) {
     return (
@@ -179,29 +245,9 @@ export default function TeamCapacityWidget() {
           <Users className="w-4 h-4 text-blue-600" />
           My Team Capacity
         </h3>
-        <div className="flex items-center gap-2">
-          {overallocatedCount > 0 && (
-            <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full font-medium">
-              {overallocatedCount} over
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Capacity Summary */}
-      <div className="grid grid-cols-3 gap-2 mb-4">
-        <div className="bg-green-50 p-2 rounded-lg border border-green-200">
-          <p className="text-xs text-green-700 font-medium mb-1">Available</p>
-          <p className="text-xl font-bold text-green-700">{availableCount}</p>
-        </div>
-        <div className="bg-yellow-50 p-2 rounded-lg border border-yellow-200">
-          <p className="text-xs text-yellow-700 font-medium mb-1">Near Cap</p>
-          <p className="text-xl font-bold text-yellow-700">{nearCapacityCount}</p>
-        </div>
-        <div className="bg-red-50 p-2 rounded-lg border border-red-200">
-          <p className="text-xs text-red-700 font-medium mb-1">Over</p>
-          <p className="text-xl font-bold text-red-700">{overallocatedCount}</p>
-        </div>
+        <span className="text-xs text-gray-500">
+          Next {weeks} weeks
+        </span>
       </div>
 
       {teamMembers.length === 0 ? (
@@ -211,44 +257,80 @@ export default function TeamCapacityWidget() {
           <p className="text-sm text-gray-500">Assign team members to your projects</p>
         </div>
       ) : (
-        <div className="space-y-2 flex-1 overflow-auto">
-          {teamMembers.map((member) => (
-            <div
-              key={member.id}
-              className="bg-gray-50 p-3 rounded-lg border border-gray-200"
-            >
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm text-gray-900 truncate">
-                    {member.display_name}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {member.project_count} {member.project_count === 1 ? 'project' : 'projects'}
-                  </p>
-                </div>
-                <span className={`px-2 py-1 text-xs rounded-full font-medium whitespace-nowrap ${getCapacityStatusColor(member.allocation_percentage)}`}>
-                  {member.allocation_percentage}%
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className={`h-2 rounded-full transition-all ${getCapacityColor(member.allocation_percentage)}`}
-                  style={{ width: `${Math.min(member.allocation_percentage, 100)}%` }}
-                />
-              </div>
-              <p className="text-xs text-gray-600 mt-1">
-                {getCapacityStatus(member.allocation_percentage)}
-              </p>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Legend */}
+          <div className="flex items-center gap-3 text-xs mb-3 pb-3 border-b border-gray-200">
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 bg-gray-100 border border-gray-300 rounded"></div>
+              <span className="text-gray-600">0h</span>
             </div>
-          ))}
-          {teamMembers.length > 5 && (
-            <Link
-              to="/teams"
-              className="block text-center text-sm text-blue-600 hover:text-blue-700 pt-2"
-            >
-              View all team members
-            </Link>
-          )}
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 bg-green-200 rounded"></div>
+              <span className="text-gray-600">1-10h</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 bg-yellow-200 rounded"></div>
+              <span className="text-gray-600">11-30h</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 bg-red-400 rounded"></div>
+              <span className="text-gray-600">31-40h</span>
+            </div>
+          </div>
+
+          {/* Heatmap */}
+          <div className="flex-1 overflow-auto">
+            <div className="flex">
+              {/* Resource Names */}
+              <div className="w-36 flex-shrink-0 pr-2">
+                <div className="h-8 flex items-center text-xs font-medium text-gray-900">
+                  Resource
+                </div>
+                {teamMembers.map((member) => (
+                  <div
+                    key={member.resource_id}
+                    className="h-10 flex items-center text-xs text-gray-700 border-b border-gray-100"
+                  >
+                    <span className="truncate">{member.display_name}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Week Columns */}
+              <div className="flex-1 flex">
+                {Array.from({ length: weeks }).map((_, weekIndex) => {
+                  const weekStart = weekStartDates[weekIndex];
+                  const weekLabel = weekStart ? formatWeekRange(weekStart) : `Week ${weekIndex + 1}`;
+
+                  return (
+                    <div key={weekIndex} className="flex-1 min-w-20">
+                      <div className="h-8 flex items-center justify-center text-xs font-medium text-gray-600 border-l border-gray-200">
+                        <span className="text-center">{weekLabel}</span>
+                      </div>
+                      {teamMembers.map((member) => {
+                        const hours = allocations.get(member.resource_id)?.get(`week-${weekIndex}`) || 0;
+                        return (
+                          <div
+                            key={`${member.resource_id}-${weekIndex}`}
+                            className="h-10 flex items-center justify-center border-l border-b border-gray-200"
+                          >
+                            <div
+                              className={`w-full h-full flex items-center justify-center ${getColorClass(hours)}`}
+                              title={`${hours}h workload`}
+                            >
+                              <span className="text-xs font-medium text-gray-700">
+                                {hours}h
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
