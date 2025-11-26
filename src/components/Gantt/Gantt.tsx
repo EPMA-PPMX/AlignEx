@@ -669,12 +669,14 @@ export default class Gantt extends Component<GanttProps> {
               console.log("Parent closest .gantt_row:", gridRow);
             }
 
+            let parentTaskId: number | undefined = undefined;
             if (gridRow) {
               const taskId = gridRow.getAttribute('task_id');
               console.log("Grid row task_id:", taskId);
 
               if (taskId) {
-                this.pendingParentId = parseInt(taskId);
+                parentTaskId = parseInt(taskId);
+                this.pendingParentId = parentTaskId;
                 console.log("Set pendingParentId to:", this.pendingParentId);
               }
             } else {
@@ -687,6 +689,12 @@ export default class Gantt extends Component<GanttProps> {
                 depth++;
               }
             }
+
+            // Directly open the modal with parent ID
+            console.log("Calling onOpenTaskModal directly with parentId:", parentTaskId);
+            onOpenTaskModal(parentTaskId);
+            e.stopPropagation();
+            e.preventDefault();
           }
         }
       }, true); // Use capture phase to get the event before Gantt's handler
