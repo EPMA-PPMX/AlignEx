@@ -119,11 +119,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  cursor: pointer !important;
   color: #6b7280;
   padding: 4px;
   border-radius: 4px;
   transition: all 0.2s ease;
+  pointer-events: auto !important;
+  z-index: 10;
+  position: relative;
 }
 
 .gantt_edit_btn:hover {
@@ -134,4 +137,9 @@
 .gantt_edit_btn svg {
   width: 16px;
   height: 16px;
+  pointer-events: none;
+}
+
+.gantt_edit_btn svg path {
+  pointer-events: none;
 }

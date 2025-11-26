@@ -535,12 +535,18 @@ export default class Gantt extends Component<GanttProps> {
       // Use event delegation to capture add and edit button clicks
       this.ganttContainer.current.addEventListener('click', (e: any) => {
         const target = e.target as HTMLElement;
+        console.log("Click detected on:", target);
 
         // Check if click is on edit button or its child elements
         const editButton = target.closest('.gantt_edit_btn');
-        if (editButton && onEditTask) {
+        console.log("Edit button found:", editButton);
+        console.log("onEditTask available:", !!onEditTask);
+
+        if (editButton) {
           const taskId = editButton.getAttribute('data-task-id');
-          if (taskId) {
+          console.log("Task ID from edit button:", taskId);
+
+          if (taskId && onEditTask) {
             console.log("Edit button clicked for task:", taskId);
             onEditTask(parseInt(taskId));
             e.stopPropagation();
