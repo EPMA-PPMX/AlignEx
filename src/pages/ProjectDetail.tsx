@@ -2269,7 +2269,11 @@ const ProjectDetail: React.FC = () => {
                   console.log("Found task:", task);
                   if (task) {
                     let startDate = task.start_date;
-                    if (startDate && startDate.includes(' ')) {
+
+                    // Convert Date object to string if needed
+                    if (startDate instanceof Date) {
+                      startDate = startDate.toISOString().split('T')[0];
+                    } else if (typeof startDate === 'string' && startDate.includes(' ')) {
                       startDate = startDate.split(' ')[0];
                     }
 
