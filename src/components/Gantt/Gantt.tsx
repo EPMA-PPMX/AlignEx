@@ -413,20 +413,34 @@ export default class Gantt extends Component<GanttProps> {
         console.log("Gantt is ready, setting up add button handler");
       });
 
+      // Listen for when task is about to be added (BEFORE it's created)
+      gantt.attachEvent("onBeforeTaskAdd", (id: any, task: any) => {
+        console.log("=== onBeforeTaskAdd Event ===");
+        console.log("Task ID:", id);
+        console.log("Task object:", task);
+        console.log("task.parent:", task.parent);
+        console.log("task.$rendered_parent:", task.$rendered_parent);
+
+        // Capture the parent ID from the task
+        const parentId = task.parent || task.$rendered_parent;
+        this.pendingParentId = (parentId && parentId !== 0) ? parentId : undefined;
+        console.log("Captured pendingParentId:", this.pendingParentId);
+
+        // Return false to prevent the task from being added - we'll open our modal instead
+        return false;
+      });
+
       // Listen for when a task is created (when Add button is clicked)
       gantt.attachEvent("onTaskCreated", (task: any) => {
         console.log("=== onTaskCreated Event ===");
         console.log("Task object:", task);
         console.log("task.parent:", task.parent);
         console.log("task.$rendered_parent:", task.$rendered_parent);
-        console.log("task.$local_index:", task.$local_index);
-        console.log("task.$index:", task.$index);
 
         // Capture the parent - check various parent properties
         const parentId = task.$rendered_parent || task.parent;
 
-        // If we already set pendingParentId from the add button click, use that
-        // Otherwise use the parent from the task object (0 means root level)
+        // If we already set pendingParentId, use that; otherwise use task's parent
         if (this.pendingParentId === undefined) {
           this.pendingParentId = (parentId && parentId !== 0) ? parentId : undefined;
         }
