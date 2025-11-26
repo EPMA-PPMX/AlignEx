@@ -258,6 +258,21 @@ export default class Gantt extends Component<GanttProps> {
     // Custom add button column with resizable columns and inline editors
     gantt.config.columns = [
       {
+        name: "edit",
+        label: "",
+        width: 40,
+        align: "center",
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          return `<div class="gantt_edit_btn" data-task-id="${task.$original_id || task.id}" title="Edit task">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </div>`;
+        }
+      },
+      {
         name: "wbs",
         label: "WBS",
         width: 60,
@@ -517,12 +532,25 @@ export default class Gantt extends Component<GanttProps> {
         }
       });
 
-      // Use event delegation to capture add button clicks
-      if (onOpenTaskModal) {
-        this.ganttContainer.current.addEventListener('click', (e: any) => {
-          const target = e.target as HTMLElement;
+      // Use event delegation to capture add and edit button clicks
+      this.ganttContainer.current.addEventListener('click', (e: any) => {
+        const target = e.target as HTMLElement;
 
-          // Check if click is on add button or its child elements
+        // Check if click is on edit button or its child elements
+        const editButton = target.closest('.gantt_edit_btn');
+        if (editButton && onEditTask) {
+          const taskId = editButton.getAttribute('data-task-id');
+          if (taskId) {
+            console.log("Edit button clicked for task:", taskId);
+            onEditTask(parseInt(taskId));
+            e.stopPropagation();
+            e.preventDefault();
+            return;
+          }
+        }
+
+        // Check if click is on add button or its child elements
+        if (onOpenTaskModal) {
           const addButton = target.closest('.gantt_add');
           if (addButton) {
             console.log("=== Add button clicked (via delegation) ===");
@@ -541,8 +569,8 @@ export default class Gantt extends Component<GanttProps> {
               console.log("Could not find grid row");
             }
           }
-        }, true); // Use capture phase to get the event before Gantt's handler
-      }
+        }
+      }, true); // Use capture phase to get the event before Gantt's handler
     }
 
     // Expose gantt instance globally for access from parent
