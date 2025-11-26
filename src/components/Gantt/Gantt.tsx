@@ -321,38 +321,38 @@ export default class Gantt extends Component<GanttProps> {
           if (task.$group_header) return "";
 
           const progress = Math.round((task.progress || 0) * 100);
-          const radius = 16;
+          const radius = 12;
           const circumference = 2 * Math.PI * radius;
           const strokeDashoffset = circumference - (progress / 100) * circumference;
 
           return `
             <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">
-              <svg width="40" height="40" viewBox="0 0 40 40" style="transform: rotate(-90deg);">
+              <svg width="32" height="32" viewBox="0 0 32 32" style="transform: rotate(-90deg);">
                 <circle
-                  cx="20"
-                  cy="20"
+                  cx="16"
+                  cy="16"
                   r="${radius}"
                   fill="none"
                   stroke="#e5e7eb"
-                  stroke-width="3"
+                  stroke-width="2.5"
                 />
                 <circle
-                  cx="20"
-                  cy="20"
+                  cx="16"
+                  cy="16"
                   r="${radius}"
                   fill="none"
                   stroke="#10b981"
-                  stroke-width="3"
+                  stroke-width="2.5"
                   stroke-dasharray="${circumference}"
                   stroke-dashoffset="${strokeDashoffset}"
                   stroke-linecap="round"
                 />
                 <text
-                  x="20"
-                  y="20"
+                  x="16"
+                  y="16"
                   text-anchor="middle"
                   dominant-baseline="central"
-                  style="transform: rotate(90deg); transform-origin: center; font-size: 10px; font-weight: 600; fill: #374151;"
+                  style="transform: rotate(90deg); transform-origin: center; font-size: 8px; font-weight: 600; fill: #374151;"
                 >
                   ${progress}%
                 </text>
