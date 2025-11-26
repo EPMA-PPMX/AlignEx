@@ -251,6 +251,7 @@ const ProjectDetail: React.FC = () => {
     owner_id: '',
     resource_ids: [] as string[],
     parent_id: undefined as number | undefined,
+    parent_wbs: '' as string,
     successor_ids: [] as number[],
     type: 'task' as string,
     progress: 0
@@ -2249,6 +2250,18 @@ const ProjectDetail: React.FC = () => {
                   console.log('=== onOpenTaskModal called ===');
                   console.log('parentId received:', parentId);
                   console.log('parentId type:', typeof parentId);
+
+                  // Find parent task and get its WBS code
+                  let parentWbs = '';
+                  if (parentId) {
+                    const parentTask = projectTasks.data.find((t: any) => t.id === parentId);
+                    if (parentTask) {
+                      parentWbs = parentTask.wbs || parentTask.$wbs || `Task #${parentId}`;
+                      console.log('Parent task found:', parentTask);
+                      console.log('Parent WBS:', parentWbs);
+                    }
+                  }
+
                   setTaskForm({
                     description: '',
                     start_date: '',
@@ -2256,6 +2269,7 @@ const ProjectDetail: React.FC = () => {
                     owner_id: '',
                     resource_ids: [],
                     parent_id: parentId,
+                    parent_wbs: parentWbs,
                     successor_ids: [],
                     type: 'task',
                     progress: 0
@@ -2265,7 +2279,8 @@ const ProjectDetail: React.FC = () => {
                     start_date: '',
                     duration: 1,
                     owner_id: '',
-                    parent_id: parentId
+                    parent_id: parentId,
+                    parent_wbs: parentWbs
                   });
                   setEditingTaskId(null);
                   setShowTaskModal(true);
@@ -2290,12 +2305,22 @@ const ProjectDetail: React.FC = () => {
                       .filter((link: any) => link.source === taskId)
                       .map((link: any) => link.target);
 
+                    // Get parent WBS if task has a parent
+                    let parentWbs = '';
+                    if (task.parent && task.parent !== 0) {
+                      const parentTask = projectTasks.data.find((t: any) => t.id === task.parent);
+                      if (parentTask) {
+                        parentWbs = parentTask.wbs || parentTask.$wbs || `Task #${task.parent}`;
+                      }
+                    }
+
                     console.log("Setting task form with:", {
                       description: task.text,
                       start_date: startDate,
                       duration: task.duration,
                       owner_id: task.owner_id || '',
                       parent_id: task.parent || undefined,
+                      parent_wbs: parentWbs,
                       successor_ids: successorIds
                     });
                     setTaskForm({
@@ -2305,6 +2330,7 @@ const ProjectDetail: React.FC = () => {
                       owner_id: task.owner_id || '',
                       resource_ids: task.resource_ids || [],
                       parent_id: task.parent || undefined,
+                      parent_wbs: parentWbs,
                       successor_ids: successorIds,
                       type: task.type || 'task',
                       progress: Math.round((task.progress || 0) * 100)
@@ -3516,9 +3542,9 @@ const ProjectDetail: React.FC = () => {
                         ? 'Create Subtask'
                         : 'Create New Task'}
                   </h3>
-                  {!editingTaskId && taskForm.parent_id && (
+                  {!editingTaskId && taskForm.parent_wbs && (
                     <p className="text-sm text-gray-500 mt-1">
-                      This will be created as a subtask under task #{taskForm.parent_id}
+                      This will be created as a subtask under {taskForm.parent_wbs}
                     </p>
                   )}
                 </div>
@@ -3533,6 +3559,7 @@ const ProjectDetail: React.FC = () => {
                       owner_id: '',
                       resource_ids: [],
                       parent_id: undefined,
+                      parent_wbs: '',
                       successor_ids: [],
                       type: 'task',
                       progress: 0
@@ -3545,6 +3572,24 @@ const ProjectDetail: React.FC = () => {
               </div>
 
               <form onSubmit={handleTaskSubmit} className="space-y-4">
+                {taskForm.parent_wbs && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Parent Task
+                    </label>
+                    <input
+                      type="text"
+                      value={taskForm.parent_wbs}
+                      readOnly
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed"
+                      placeholder="No parent task"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      This task will be created as a subtask under the parent task shown above
+                    </p>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Task Name <span className="text-red-500">*</span>
