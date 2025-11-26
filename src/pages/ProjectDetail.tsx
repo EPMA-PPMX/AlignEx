@@ -252,7 +252,8 @@ const ProjectDetail: React.FC = () => {
     resource_ids: [] as string[],
     parent_id: undefined as number | undefined,
     successor_ids: [] as number[],
-    type: 'task' as string
+    type: 'task' as string,
+    progress: 0
   });
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
 
@@ -1558,7 +1559,8 @@ const ProjectDetail: React.FC = () => {
                 text: taskForm.description,
                 start_date: `${adjustedStartDate} 00:00`,
                 duration: taskForm.type === 'milestone' ? 0 : taskForm.duration,
-                type: taskForm.type
+                type: taskForm.type,
+                progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
               };
 
               // Update resources if selected
@@ -1596,7 +1598,8 @@ const ProjectDetail: React.FC = () => {
           text: taskForm.description,
           start_date: `${adjustedStartDate} 00:00`,
           duration: taskForm.type === 'milestone' ? 0 : taskForm.duration,
-          type: taskForm.type
+          type: taskForm.type,
+          progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
         };
 
         // Add parent if this is a subtask
@@ -1722,7 +1725,8 @@ const ProjectDetail: React.FC = () => {
         resource_ids: [],
         parent_id: undefined,
         successor_ids: [],
-        type: 'task'
+        type: 'task',
+        progress: 0
       });
     } catch (error: any) {
       console.error('Error creating task:', error);
@@ -2250,7 +2254,8 @@ const ProjectDetail: React.FC = () => {
                     resource_ids: [],
                     parent_id: parentId,
                     successor_ids: [],
-                    type: 'task'
+                    type: 'task',
+                    progress: 0
                   });
                   console.log('Task form after setting:', {
                     description: '',
@@ -2298,7 +2303,8 @@ const ProjectDetail: React.FC = () => {
                       resource_ids: task.resource_ids || [],
                       parent_id: task.parent || undefined,
                       successor_ids: successorIds,
-                      type: task.type || 'task'
+                      type: task.type || 'task',
+                      progress: Math.round((task.progress || 0) * 100)
                     });
                     setEditingTaskId(taskId);
                     console.log("Opening modal with editingTaskId:", taskId);
@@ -3525,7 +3531,8 @@ const ProjectDetail: React.FC = () => {
                       resource_ids: [],
                       parent_id: undefined,
                       successor_ids: [],
-                      type: 'task'
+                      type: 'task',
+                      progress: 0
                     });
                   }}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -3655,6 +3662,47 @@ const ProjectDetail: React.FC = () => {
                   {taskForm.resource_ids.length > 0 && (
                     <p className="text-xs text-gray-500 mt-1">
                       {taskForm.resource_ids.length} team member(s) selected
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Task Progress
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={taskForm.progress}
+                      onChange={(e) => setTaskForm({ ...taskForm, progress: parseInt(e.target.value) })}
+                      className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                      disabled={taskForm.type === 'milestone'}
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={taskForm.progress}
+                      onChange={(e) => {
+                        const value = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                        setTaskForm({ ...taskForm, progress: value });
+                      }}
+                      className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center disabled:bg-gray-100 disabled:text-gray-500"
+                      disabled={taskForm.type === 'milestone'}
+                    />
+                    <span className="text-sm font-medium text-gray-700">%</span>
+                  </div>
+                  {taskForm.type === 'milestone' && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Milestones don't track progress
+                    </p>
+                  )}
+                  {taskForm.type === 'project' && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Summary task progress is calculated from subtasks
                     </p>
                   )}
                 </div>
