@@ -95,7 +95,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Widgets Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-[200px]">
         {widgets
           .filter(w => w.is_enabled)
           .sort((a, b) => a.position_order - b.position_order)
@@ -104,19 +104,13 @@ const Dashboard: React.FC = () => {
             if (!component) return null;
 
             const sizeClass = {
-              small: 'lg:col-span-1',
-              medium: 'lg:col-span-1',
-              large: 'lg:col-span-2'
-            }[widget.size];
-
-            const heightClass = {
-              small: 'h-[240px]',
-              medium: 'h-[480px]',
-              large: 'h-[480px]'
+              small: 'lg:col-span-1 lg:row-span-1',
+              medium: 'lg:col-span-1 lg:row-span-2',
+              large: 'lg:col-span-2 lg:row-span-2'
             }[widget.size];
 
             return (
-              <div key={widget.id} className={`${sizeClass} ${heightClass}`}>
+              <div key={widget.id} className={sizeClass}>
                 {component}
               </div>
             );
