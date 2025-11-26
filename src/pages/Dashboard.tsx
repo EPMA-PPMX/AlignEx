@@ -109,8 +109,14 @@ const Dashboard: React.FC = () => {
               large: 'lg:col-span-2'
             }[widget.size];
 
+            const heightClass = {
+              small: 'min-h-[200px] max-h-[200px]',
+              medium: 'min-h-[280px]',
+              large: 'min-h-[280px]'
+            }[widget.size];
+
             return (
-              <div key={widget.id} className={`${sizeClass} min-h-[280px]`}>
+              <div key={widget.id} className={`${sizeClass} ${heightClass}`}>
                 {component}
               </div>
             );
