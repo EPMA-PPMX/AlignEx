@@ -110,7 +110,7 @@ const Dashboard: React.FC = () => {
             }[widget.size];
 
             const heightClass = {
-              small: 'min-h-[200px] max-h-[200px]',
+              small: 'min-h-[140px] max-h-[140px]',
               medium: 'min-h-[280px]',
               large: 'min-h-[280px]'
             }[widget.size];
