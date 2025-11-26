@@ -424,9 +424,13 @@ export default class Gantt extends Component<GanttProps> {
 
         // Capture the parent - check various parent properties
         const parentId = task.$rendered_parent || task.parent;
-        // 0 means root level, so treat it as undefined
-        this.pendingParentId = (parentId && parentId !== 0) ? parentId : undefined;
-        console.log("Captured parent ID:", this.pendingParentId);
+
+        // If we already set pendingParentId from the add button click, use that
+        // Otherwise use the parent from the task object (0 means root level)
+        if (this.pendingParentId === undefined) {
+          this.pendingParentId = (parentId && parentId !== 0) ? parentId : undefined;
+        }
+        console.log("Final pendingParentId:", this.pendingParentId);
         return true;
       });
     }
@@ -639,9 +643,18 @@ export default class Gantt extends Component<GanttProps> {
           const addButton = target.closest('.gantt_add');
           if (addButton) {
             console.log("=== Add button clicked (via delegation) ===");
+            console.log("Add button element:", addButton);
 
             // Find the grid row that contains this button
-            const gridRow = target.closest('.gantt_grid_data .gantt_row');
+            // Try multiple methods to find the row
+            let gridRow = addButton.closest('.gantt_row');
+            console.log("Closest .gantt_row:", gridRow);
+
+            if (!gridRow) {
+              gridRow = addButton.parentElement?.closest('.gantt_row');
+              console.log("Parent closest .gantt_row:", gridRow);
+            }
+
             if (gridRow) {
               const taskId = gridRow.getAttribute('task_id');
               console.log("Grid row task_id:", taskId);
@@ -651,7 +664,14 @@ export default class Gantt extends Component<GanttProps> {
                 console.log("Set pendingParentId to:", this.pendingParentId);
               }
             } else {
-              console.log("Could not find grid row");
+              console.log("Could not find grid row - add button parent chain:");
+              let elem = addButton.parentElement;
+              let depth = 0;
+              while (elem && depth < 10) {
+                console.log(`Parent ${depth}:`, elem.className, elem);
+                elem = elem.parentElement;
+                depth++;
+              }
             }
           }
         }
