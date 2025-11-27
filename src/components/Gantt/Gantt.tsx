@@ -221,7 +221,11 @@ export default class Gantt extends Component<GanttProps> {
       if (task.planned_start && task.planned_end && !task.$group_header) {
         try {
           const sizes = gantt.getTaskPosition(task, task.planned_start, task.planned_end);
-          console.log(`Baseline sizes for task ${task.id}:`, sizes);
+          const actualTaskSizes = gantt.getTaskPosition(task, task.start_date, task.end_date);
+
+          console.log(`Task ${task.id} - baseline sizes:`, sizes);
+          console.log(`Task ${task.id} - actual task sizes:`, actualTaskSizes);
+          console.log(`Task ${task.id} - row_height: ${gantt.config.row_height}, task_height: ${gantt.config.task_height}`);
 
           const el = document.createElement('div');
           el.className = 'baseline-bar';
@@ -229,14 +233,15 @@ export default class Gantt extends Component<GanttProps> {
           el.style.left = sizes.left + 'px';
           el.style.width = sizes.width + 'px';
 
-          // Position baseline below the task bar
-          // Row height is 50px, task height is 30px, so task is centered with 10px padding at top
-          // Task bar top is at sizes.top + 10px
-          // Task bar bottom is at sizes.top + 10px + 30px = sizes.top + 40px
-          // Baseline should be at task bar bottom + small gap
-          const rowPadding = (gantt.config.row_height - gantt.config.task_height) / 2;
-          el.style.top = (sizes.top + rowPadding + gantt.config.task_height + 2) + 'px';
+          // Use the actual task's top position and add task height to place baseline below
+          // sizes.top is the top of the row, task bar is centered in the row
+          const taskBarTop = actualTaskSizes.top;
+          const taskBarBottom = taskBarTop + gantt.config.task_height;
+          const baselineTop = taskBarBottom + 2;
 
+          console.log(`Task ${task.id} - calculated: taskBarTop=${taskBarTop}, taskBarBottom=${taskBarBottom}, baselineTop=${baselineTop}`);
+
+          el.style.top = baselineTop + 'px';
           el.style.height = '6px';
           el.style.background = '#ec4899';
           el.style.border = '1px solid #db2777';
@@ -252,7 +257,7 @@ export default class Gantt extends Component<GanttProps> {
           if (timelineArea) {
             timelineArea.appendChild(el);
             baselineCount++;
-            console.log(`Baseline rendered for task ${task.id}`);
+            console.log(`Baseline rendered for task ${task.id} at top: ${baselineTop}px`);
           } else {
             console.warn("Timeline area not found for baseline rendering");
           }
