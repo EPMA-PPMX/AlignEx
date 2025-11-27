@@ -233,13 +233,18 @@ export default class Gantt extends Component<GanttProps> {
           el.style.left = sizes.left + 'px';
           el.style.width = sizes.width + 'px';
 
-          // Use the actual task's top position and add task height to place baseline below
+          // Use the actual task's top position and add actual task height to place baseline below
           // sizes.top is the top of the row, task bar is centered in the row
-          const taskBarTop = actualTaskSizes.top;
-          const taskBarBottom = taskBarTop + gantt.config.task_height;
+          // sizes.height is the actual height of the rendered task bar
+          const rowTop = actualTaskSizes.top;
+          const rowHeight = actualTaskSizes.rowHeight;
+          const taskBarHeight = actualTaskSizes.height;
+          const taskBarVerticalOffset = (rowHeight - taskBarHeight) / 2;
+          const taskBarTop = rowTop + taskBarVerticalOffset;
+          const taskBarBottom = taskBarTop + taskBarHeight;
           const baselineTop = taskBarBottom + 2;
 
-          console.log(`Task ${task.id} - calculated: taskBarTop=${taskBarTop}, taskBarBottom=${taskBarBottom}, baselineTop=${baselineTop}`);
+          console.log(`Task ${task.id} - calculated: rowTop=${rowTop}, taskBarTop=${taskBarTop}, taskBarBottom=${taskBarBottom}, baselineTop=${baselineTop}`);
 
           el.style.top = baselineTop + 'px';
           el.style.height = '6px';
