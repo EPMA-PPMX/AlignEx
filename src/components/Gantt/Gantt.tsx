@@ -503,12 +503,12 @@ export default class Gantt extends Component<GanttProps> {
           return task.owner_name || "Unassigned";
         }
       },
-      { name: "start_date", label: "Start time", align: "center", width: 80, resize: true, editor: dateEditor },
+      { name: "start_date", label: "Start time", align: "center", width: 120, resize: true, editor: dateEditor },
       {
         name: "end_date",
         label: "End time",
         align: "center",
-        width: 80,
+        width: 120,
         resize: true,
         template: (task: any) => {
           if (task.$group_header) return "";
