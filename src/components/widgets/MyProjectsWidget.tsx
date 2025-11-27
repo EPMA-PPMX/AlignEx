@@ -9,7 +9,7 @@ interface Project {
   name: string;
   state: string;
   status: string;
-  health_status: string;
+  project_status: string;
   description?: string;
 }
 
@@ -77,7 +77,7 @@ export default function MyProjectsWidget() {
       // Fetch project details
       const { data, error } = await supabase
         .from('projects')
-        .select('id, name, state, status, health_status, description')
+        .select('id, name, state, status, project_status, description')
         .in('id', projectIds)
         .in('state', ['Active', 'Planning'])
         .order('name');
@@ -95,49 +95,45 @@ export default function MyProjectsWidget() {
     }
   };
 
-  const getHealthColor = (healthStatus: string) => {
-    switch (healthStatus?.toLowerCase()) {
+  const getHealthColor = (projectStatus: string) => {
+    switch (projectStatus?.toLowerCase()) {
       case 'on track': return 'bg-green-500';
       case 'at risk': return 'bg-yellow-500';
-      case 'delayed': return 'bg-red-500';
-      case 'completed': return 'bg-blue-500';
+      case 'off track': return 'bg-red-500';
       default: return 'bg-gray-500';
     }
   };
 
-  const getHealthTextColor = (healthStatus: string) => {
-    switch (healthStatus?.toLowerCase()) {
+  const getHealthTextColor = (projectStatus: string) => {
+    switch (projectStatus?.toLowerCase()) {
       case 'on track': return 'text-green-700';
       case 'at risk': return 'text-yellow-700';
-      case 'delayed': return 'text-red-700';
-      case 'completed': return 'text-blue-700';
+      case 'off track': return 'text-red-700';
       default: return 'text-gray-700';
     }
   };
 
-  const getHealthIcon = (healthStatus: string) => {
-    switch (healthStatus?.toLowerCase()) {
+  const getHealthIcon = (projectStatus: string) => {
+    switch (projectStatus?.toLowerCase()) {
       case 'on track':
         return <TrendingUp className="w-4 h-4 text-green-600" />;
       case 'at risk':
         return <Minus className="w-4 h-4 text-yellow-600" />;
-      case 'delayed':
+      case 'off track':
         return <TrendingDown className="w-4 h-4 text-red-600" />;
-      case 'completed':
-        return <TrendingUp className="w-4 h-4 text-blue-600" />;
       default:
         return null;
     }
   };
 
   const healthCounts = projects.reduce((acc, project) => {
-    const health = project.health_status?.toLowerCase() || 'unknown';
+    const health = project.project_status?.toLowerCase() || 'unknown';
     acc[health] = (acc[health] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
   const atRiskCount = projects.filter(p =>
-    p.health_status?.toLowerCase() === 'at risk' || p.health_status?.toLowerCase() === 'delayed'
+    p.project_status?.toLowerCase() === 'at risk' || p.project_status?.toLowerCase() === 'off track'
   ).length;
 
   if (loading) {
@@ -194,10 +190,10 @@ export default function MyProjectsWidget() {
           <div className="bg-red-50 p-3 rounded-lg border border-red-200">
             <div className="flex items-center justify-center gap-1 mb-1">
               <TrendingDown className="w-4 h-4 text-red-600" />
-              <span className="text-xs font-medium text-red-700">Delayed</span>
+              <span className="text-xs font-medium text-red-700">Off Track</span>
             </div>
             <p className="text-2xl font-bold text-red-700 text-center">
-              {healthCounts['delayed'] || 0}
+              {healthCounts['off track'] || 0}
             </p>
           </div>
         </div>
@@ -221,7 +217,7 @@ export default function MyProjectsWidget() {
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                  {getHealthIcon(project.health_status)}
+                  {getHealthIcon(project.project_status)}
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm text-gray-900 truncate">
                       {project.name}
@@ -231,9 +227,9 @@ export default function MyProjectsWidget() {
                     </p>
                   </div>
                 </div>
-                {project.health_status && (
-                  <span className={`px-2 py-1 text-xs rounded-full font-medium whitespace-nowrap ${getHealthColor(project.health_status)} ${getHealthTextColor(project.health_status).replace('text-', 'bg-').replace('-700', '-100')}`}>
-                    {project.health_status}
+                {project.project_status && (
+                  <span className={`px-2 py-1 text-xs rounded-full font-medium whitespace-nowrap ${getHealthColor(project.project_status)} ${getHealthTextColor(project.project_status).replace('text-', 'bg-').replace('-700', '-100')}`}>
+                    {project.project_status}
                   </span>
                 )}
               </div>
