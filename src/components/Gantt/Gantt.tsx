@@ -228,12 +228,12 @@ export default class Gantt extends Component<GanttProps> {
           el.style.position = 'absolute';
           el.style.left = sizes.left + 'px';
           el.style.width = sizes.width + 'px';
-          el.style.top = (sizes.top + gantt.config.task_height + 3) + 'px';
-          el.style.height = '8px';
-          el.style.background = '#cbd5e1';
-          el.style.border = '1px solid #94a3b8';
-          el.style.opacity = '0.7';
-          el.style.borderRadius = '2px';
+          el.style.top = (sizes.top + gantt.config.task_height + 8) + 'px';
+          el.style.height = '6px';
+          el.style.background = '#ec4899';
+          el.style.border = '1px solid #db2777';
+          el.style.opacity = '0.8';
+          el.style.borderRadius = '3px';
           el.style.pointerEvents = 'none';
           el.style.zIndex = '1';
 
