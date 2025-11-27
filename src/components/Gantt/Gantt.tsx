@@ -289,10 +289,7 @@ export default class Gantt extends Component<GanttProps> {
     // Enable column resizing - must be set before columns configuration
     gantt.config.grid_resize = true;
     gantt.config.keep_grid_width = false;
-
-    // Enable autosize to fit all tasks without scrolling
-    gantt.config.autosize = "xy";
-    gantt.config.autosize_min_width = 800;
+    gantt.config.grid_width = 800;
 
     // Configure to skip weekends
     gantt.config.skip_off_time = true;
