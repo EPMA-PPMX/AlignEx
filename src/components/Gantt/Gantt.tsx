@@ -506,6 +506,9 @@ export default class Gantt extends Component<GanttProps> {
       if (task.type === "milestone" || task.type === gantt.config.types.milestone) {
         return "gantt_milestone";
       }
+      if (task.type === "project" || task.type === gantt.config.types.project) {
+        return "gantt_project_task";
+      }
       return "";
     };
 

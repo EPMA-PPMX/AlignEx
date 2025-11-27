@@ -88,12 +88,12 @@
   user-select: none;
 }
 
-/* Milestone styling - custom diamond shape */
+/* Milestone styling - custom diamond shape in yellow */
 .gantt_task_line.gantt_milestone {
   width: 20px !important;
   height: 20px !important;
-  background: #22c55e !important;
-  border: 2px solid #16a34a !important;
+  background: #fbbf24 !important;
+  border: 2px solid #f59e0b !important;
   transform: rotate(45deg);
   margin-top: 5px;
   border-radius: 2px;
@@ -125,10 +125,20 @@
   background: linear-gradient(135deg, #a855f7 0%, #581c87 100%) !important;
 }
 
-/* Project/Summary task styling - purple gradient theme */
+/* Project/Summary task styling - sky blue theme */
 .gantt_task_line.gantt_project {
-  background: linear-gradient(135deg, #f3e8ff 0%, #9333ea 100%) !important;
-  border: 2px solid #7c3aed !important;
+  background: #7dd3fc !important;
+  border: 2px solid #0284c7 !important;
+}
+
+.gantt_task_line.gantt_project_task {
+  background: #7dd3fc !important;
+  border: 2px solid #0284c7 !important;
+}
+
+.gantt_task_line.gantt_project .gantt_task_progress,
+.gantt_task_line.gantt_project_task .gantt_task_progress {
+  background: #0284c7 !important;
 }
 
 /* Edit button styling */
