@@ -88,39 +88,22 @@
   user-select: none;
 }
 
-/* Milestone styling - diamond shape in yellow */
-.gantt_task_line.gantt_milestone {
-  width: 16px !important;
-  height: 16px !important;
-  background: #fbbf24 !important;
-  border: 2px solid #f59e0b !important;
-  transform: rotate(45deg) !important;
-  margin-top: 8px !important;
-  border-radius: 2px !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.gantt_task_line.gantt_milestone .gantt_task_content {
-  display: none !important;
-}
-
-.gantt_task_line.gantt_milestone .gantt_task_progress {
-  display: none !important;
-}
-
-.gantt_task_line.gantt_milestone::before {
-  display: none !important;
-}
-
-.gantt_task_line.gantt_milestone::after {
-  display: none !important;
-}
-
 /* Milestone text displayed to the right */
 .gantt_side_content.gantt_right {
   color: #374151;
   font-weight: 600;
   padding-left: 10px;
+}
+
+/* Regular task bar styling - purple gradient theme */
+.gantt_task_line {
+  background: linear-gradient(135deg, #e9d5ff 0%, #7c3aed 100%) !important;
+  border: 1px solid #6b21a8 !important;
+}
+
+/* Task progress bar - darker purple gradient */
+.gantt_task_progress {
+  background: linear-gradient(135deg, #a855f7 0%, #581c87 100%) !important;
 }
 
 /* Project/Summary task styling - sky blue theme */
@@ -139,15 +122,32 @@
   background: #0284c7 !important;
 }
 
-/* Regular task bar styling - purple gradient theme */
-.gantt_task_line {
-  background: linear-gradient(135deg, #e9d5ff 0%, #7c3aed 100%) !important;
-  border: 1px solid #6b21a8 !important;
+/* Milestone styling - diamond shape in yellow - MUST COME AFTER regular task styling */
+.gantt_task_line.gantt_milestone {
+  width: 16px !important;
+  height: 16px !important;
+  background: #fbbf24 !important;
+  border: 2px solid #f59e0b !important;
+  transform: rotate(45deg) !important;
+  margin-top: 8px !important;
+  border-radius: 2px !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
 }
 
-/* Task progress bar - darker purple gradient */
-.gantt_task_progress {
-  background: linear-gradient(135deg, #a855f7 0%, #581c87 100%) !important;
+.gantt_task_line.gantt_milestone .gantt_task_content {
+  display: none !important;
+}
+
+.gantt_task_line.gantt_milestone .gantt_task_progress {
+  display: none !important;
+}
+
+.gantt_task_line.gantt_milestone::before {
+  display: none !important;
+}
+
+.gantt_task_line.gantt_milestone::after {
+  display: none !important;
 }
 
 /* Edit button styling */
