@@ -519,12 +519,17 @@ export default class Gantt extends Component<GanttProps> {
       return "";
     };
 
-    // Configure milestone text to display on the right side
+    // Hide milestone text on the chart - name only appears in grid
     gantt.templates.rightside_text = function(start: any, end: any, task: any) {
-      if (task.type === gantt.config.types.milestone) {
-        return task.text;
-      }
       return "";
+    };
+
+    // Hide text inside milestone diamond
+    gantt.templates.task_text = function(start: any, end: any, task: any) {
+      if (task.type === gantt.config.types.milestone) {
+        return "";
+      }
+      return task.text;
     };
 
     // Prevent editing group headers
