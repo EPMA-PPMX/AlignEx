@@ -9,6 +9,19 @@
   width: 100%;
 }
 
+/* Grid resizer styling */
+.gantt_layout_cell_border_right {
+  cursor: col-resize !important;
+  background-color: #d1d5db !important;
+  width: 3px !important;
+  transition: background-color 0.2s ease;
+}
+
+.gantt_layout_cell_border_right:hover {
+  background-color: #3b82f6 !important;
+  width: 3px !important;
+}
+
 .gantt_grid_head_cell {
   position: relative;
 }
