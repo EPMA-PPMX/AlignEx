@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp, Search, Group, Flag, ZoomIn, ZoomOut } from 'lucide-react';
+import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp, Search, Group, Flag, ZoomIn, ZoomOut, Maximize2, Minimize2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { MonthlyBudgetGrid } from '../components/MonthlyBudgetGrid';
 import { BudgetSummaryTiles } from '../components/BudgetSummaryTiles';
@@ -182,6 +182,7 @@ const ProjectDetail: React.FC = () => {
   const [budgetViewFilter, setBudgetViewFilter] = useState<'monthly' | 'yearly'>('yearly');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [isGroupedByOwner, setIsGroupedByOwner] = useState(false);
+  const [isGanttFullscreen, setIsGanttFullscreen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -2219,7 +2220,7 @@ const ProjectDetail: React.FC = () => {
         )}
 
         {activeTab === 'timeline' && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className={isGanttFullscreen ? "fixed inset-0 z-50 bg-white p-6" : "bg-white rounded-lg shadow-sm border border-gray-200 p-6"}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
               <div className="flex items-center gap-2">
@@ -2244,6 +2245,13 @@ const ProjectDetail: React.FC = () => {
                   title="Zoom Out"
                 >
                   <ZoomOut className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setIsGanttFullscreen(!isGanttFullscreen)}
+                  className="inline-flex items-center justify-center w-9 h-9 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  title={isGanttFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+                >
+                  {isGanttFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
                 </button>
                 <button
                   onClick={() => {
@@ -2330,7 +2338,7 @@ const ProjectDetail: React.FC = () => {
                 />
               </div>
             </div>
-            <div style={{ width: "100%", height: "600px", overflow: "auto" }}>
+            <div style={{ width: "100%", height: isGanttFullscreen ? "calc(100vh - 150px)" : "600px", overflow: "auto" }}>
               <Gantt
                 ref={ganttRef}
                 projecttasks={projectTasks}
