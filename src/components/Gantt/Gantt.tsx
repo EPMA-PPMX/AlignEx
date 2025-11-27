@@ -359,7 +359,7 @@ export default class Gantt extends Component<GanttProps> {
     };
 
     gantt.ext.zoom.init(zoomConfig);
-    gantt.ext.zoom.setLevel("month");
+    gantt.ext.zoom.setLevel("day");
     gantt.config.grid_width = 800;
     gantt.config.min_grid_column_width = 50;
 
