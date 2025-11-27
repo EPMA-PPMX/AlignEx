@@ -377,8 +377,8 @@ export default class Gantt extends Component<GanttProps> {
     gantt.config.wbs_strict = true;
 
     // Increase row height to accommodate baseline bars
-    gantt.config.row_height = 50;
-    gantt.config.task_height = 30;
+    gantt.config.row_height = 42;
+    gantt.config.task_height = 26;
 
     // Custom add button column with resizable columns and inline editors
     gantt.config.columns = [
