@@ -435,7 +435,6 @@ export default class Gantt extends Component<GanttProps> {
         }
       },
       { name: "start_date", label: "Start time", align: "center", width: 80, resize: true, editor: dateEditor },
-      { name: "duration", label: "Duration", align: "center", width: 70, resize: true, editor: durationEditor },
       {
         name: "end_date",
         label: "End time",
@@ -447,6 +446,7 @@ export default class Gantt extends Component<GanttProps> {
           return gantt.templates.date_grid(task.end_date, task);
         }
       },
+      { name: "duration", label: "Duration", align: "center", width: 70, resize: true, editor: durationEditor },
       {
         name: "progress",
         label: "Progress",
