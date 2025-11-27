@@ -53,35 +53,33 @@ export default class Gantt extends Component<GanttProps> {
       // Skip group headers
       if (task.$group_header) return;
 
-      // Create baseline entry for this task
+      // Format dates properly
+      const startDate = gantt.date.parseDate(task.start_date, "xml_date");
+      const endDate = gantt.calculateEndDate({
+        start_date: startDate,
+        duration: task.duration
+      });
+
+      // Create baseline entry for this task - DHTMLX format
       const baseline = {
+        id: gantt.uid(),
         task_id: task.id,
-        start_date: new Date(task.start_date),
-        end_date: gantt.calculateEndDate({
-          start_date: new Date(task.start_date),
-          duration: task.duration
-        }),
-        duration: task.duration,
-        progress: task.progress || 0
+        start_date: startDate,
+        end_date: endDate,
+        duration: task.duration
       };
 
       baselineData.push(baseline);
     });
 
-    // Store baselines in the datastore
-    if (!gantt.getDatastore("baseline")) {
-      gantt.createDatastore({
-        name: "baseline",
-        initItem: function(item: any) {
-          item.id = gantt.uid();
-          return item;
-        }
-      });
-    }
+    console.log("Setting baseline data:", baselineData);
 
+    // Get baseline datastore and populate it
     const baselineStore = gantt.getDatastore("baseline");
     baselineStore.clearAll();
     baselineStore.parse(baselineData);
+
+    console.log("Baseline store after parse:", baselineStore.getItems());
 
     gantt.render();
 
@@ -212,9 +210,10 @@ export default class Gantt extends Component<GanttProps> {
     gantt.config.readonly = false;
     gantt.config.details_on_dblclick = true;
 
-    // Enable keyboard navigation plugin for inline editing
+    // Enable keyboard navigation and baselines plugins
     gantt.plugins({
-      keyboard_navigation: true
+      keyboard_navigation: true,
+      baselines: true
     });
     gantt.config.keyboard_navigation_cells = true;
 
@@ -308,10 +307,26 @@ export default class Gantt extends Component<GanttProps> {
     // Configure WBS code to work properly with parent-child relationships
     gantt.config.wbs_strict = true;
 
+    // Create baseline datastore first
+    gantt.createDatastore({
+      name: "baseline",
+      type: "datastore",
+      initItem: function(item: any) {
+        item.id = item.id || gantt.uid();
+        return item;
+      }
+    });
+
     // Enable baseline display
     gantt.config.baselines = {
       datastore: "baseline",
-      render_mode: "separateRow"
+      render_mode: "separateRow",
+      row_height: 16
+    };
+
+    // Add baseline bar template
+    gantt.templates.baseline_bar = function(baseline: any) {
+      return `<div class='baseline-bar' style='width: 100%; height: 100%; background: #cbd5e1; border: 1px solid #94a3b8; opacity: 0.7;'></div>`;
     };
 
     // Custom add button column with resizable columns and inline editors
@@ -792,21 +807,28 @@ export default class Gantt extends Component<GanttProps> {
       if (projecttasks.baseline && projecttasks.baseline.length > 0) {
         console.log("Loading baseline data:", projecttasks.baseline);
 
-        // Create baseline datastore if it doesn't exist
-        if (!gantt.getDatastore("baseline")) {
-          gantt.createDatastore({
-            name: "baseline",
-            initItem: function(item: any) {
-              item.id = gantt.uid();
-              return item;
-            }
-          });
-        }
-
         const baselineStore = gantt.getDatastore("baseline");
-        baselineStore.clearAll();
-        baselineStore.parse(projecttasks.baseline);
-        gantt.render();
+        if (baselineStore) {
+          baselineStore.clearAll();
+
+          // Parse baseline data with proper formatting
+          const formattedBaselines = projecttasks.baseline.map((baseline: any) => ({
+            id: baseline.id || gantt.uid(),
+            task_id: baseline.task_id,
+            start_date: typeof baseline.start_date === 'string'
+              ? gantt.date.parseDate(baseline.start_date, "xml_date")
+              : baseline.start_date,
+            end_date: typeof baseline.end_date === 'string'
+              ? gantt.date.parseDate(baseline.end_date, "xml_date")
+              : baseline.end_date,
+            duration: baseline.duration
+          }));
+
+          console.log("Formatted baseline data:", formattedBaselines);
+          baselineStore.parse(formattedBaselines);
+          console.log("Baseline store items:", baselineStore.getItems());
+          gantt.render();
+        }
       }
     }
 
