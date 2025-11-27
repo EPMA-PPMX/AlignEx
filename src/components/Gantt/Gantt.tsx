@@ -25,6 +25,7 @@ interface GanttProps {
   projecttasks: {
     data: Task[];
     links?: Link[];
+    baseline?: any[];
   };
   onTaskUpdate?: () => void;
   onOpenTaskModal?: (parentId?: number) => void;
@@ -43,6 +44,48 @@ export default class Gantt extends Component<GanttProps> {
 
   public isGroupedByOwner = (): boolean => {
     return this.isGrouped;
+  };
+
+  public setBaseline = (): any[] => {
+    const baselineData: any[] = [];
+
+    gantt.eachTask((task: any) => {
+      // Skip group headers
+      if (task.$group_header) return;
+
+      // Create baseline entry for this task
+      const baseline = {
+        task_id: task.id,
+        start_date: new Date(task.start_date),
+        end_date: gantt.calculateEndDate({
+          start_date: new Date(task.start_date),
+          duration: task.duration
+        }),
+        duration: task.duration,
+        progress: task.progress || 0
+      };
+
+      baselineData.push(baseline);
+    });
+
+    // Store baselines in the datastore
+    if (!gantt.getDatastore("baseline")) {
+      gantt.createDatastore({
+        name: "baseline",
+        initItem: function(item: any) {
+          item.id = gantt.uid();
+          return item;
+        }
+      });
+    }
+
+    const baselineStore = gantt.getDatastore("baseline");
+    baselineStore.clearAll();
+    baselineStore.parse(baselineData);
+
+    gantt.render();
+
+    return baselineData;
   };
 
   public toggleGroupByOwner = (): void => {
@@ -264,6 +307,12 @@ export default class Gantt extends Component<GanttProps> {
 
     // Configure WBS code to work properly with parent-child relationships
     gantt.config.wbs_strict = true;
+
+    // Enable baseline display
+    gantt.config.baselines = {
+      datastore: "baseline",
+      render_mode: "separateRow"
+    };
 
     // Custom add button column with resizable columns and inline editors
     gantt.config.columns = [
@@ -738,6 +787,27 @@ export default class Gantt extends Component<GanttProps> {
           gantt.open(task.id);
         }
       });
+
+      // Load baseline data if available
+      if (projecttasks.baseline && projecttasks.baseline.length > 0) {
+        console.log("Loading baseline data:", projecttasks.baseline);
+
+        // Create baseline datastore if it doesn't exist
+        if (!gantt.getDatastore("baseline")) {
+          gantt.createDatastore({
+            name: "baseline",
+            initItem: function(item: any) {
+              item.id = gantt.uid();
+              return item;
+            }
+          });
+        }
+
+        const baselineStore = gantt.getDatastore("baseline");
+        baselineStore.clearAll();
+        baselineStore.parse(projecttasks.baseline);
+        gantt.render();
+      }
     }
 
     if (prevProps.searchQuery !== searchQuery) {

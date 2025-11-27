@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp, Search, Group } from 'lucide-react';
+import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp, Search, Group, Flag } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { MonthlyBudgetGrid } from '../components/MonthlyBudgetGrid';
 import { BudgetSummaryTiles } from '../components/BudgetSummaryTiles';
@@ -2215,6 +2215,38 @@ const ProjectDetail: React.FC = () => {
                 >
                   <Group className="w-4 h-4" />
                   {isGroupedByOwner ? 'Show All Tasks' : 'Group by Owner'}
+                </button>
+                <button
+                  onClick={async () => {
+                    if (ganttRef.current) {
+                      const baselineData = ganttRef.current.setBaseline();
+                      console.log('Baseline set:', baselineData);
+
+                      // Save baseline to database
+                      try {
+                        const { error } = await supabase
+                          .from('project_tasks')
+                          .update({
+                            task_data: {
+                              ...tasks,
+                              baseline: baselineData
+                            }
+                          })
+                          .eq('project_id', id);
+
+                        if (error) throw error;
+
+                        alert('Baseline set successfully for all tasks!');
+                      } catch (error) {
+                        console.error('Error saving baseline:', error);
+                        alert('Failed to save baseline');
+                      }
+                    }
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <Flag className="w-4 h-4" />
+                  Set Baseline
                 </button>
                 <button
                   onClick={() => {
