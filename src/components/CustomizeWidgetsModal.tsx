@@ -8,21 +8,24 @@ interface CustomizeWidgetsModalProps {
   widgets: DashboardWidget[];
   onToggleWidget: (widgetId: string, isEnabled: boolean) => void;
   onReorderWidgets: (reorderedWidgets: DashboardWidget[]) => void;
+  onChangeWidgetSize?: (widgetId: string, size: 'small' | 'medium' | 'large') => void;
 }
 
 const widgetInfo: { [key: string]: { name: string; description: string } } = {
   personal_goals: { name: 'Personal Goals', description: 'Track your skill development goals and progress' },
   my_tasks: { name: 'My Tasks', description: 'View tasks assigned to you with deadlines and priorities' },
-  my_projects: { name: 'My Projects', description: 'Monitor projects you manage or are assigned to' },
+  my_projects: { name: 'My Projects', description: 'Monitor projects you manage with health status overview' },
+  my_risks: { name: 'My Risks', description: 'Track risks from your projects and assigned risks' },
+  my_issues: { name: 'My Issues', description: 'Monitor issues from your projects and assigned issues' },
   pending_approvals: { name: 'Pending Approvals', description: 'Review change requests and approvals needing attention' },
   deadlines: { name: 'Deadlines', description: 'See upcoming deadlines from tasks and goals' },
   timesheet_quick: { name: 'Timesheet Quick Entry', description: 'Log hours and view weekly summary' },
   recent_activity: { name: 'Recent Activity', description: 'Stay updated on recent project changes' },
   project_health: { name: 'Project Health', description: 'Overview of project health across your portfolio' },
-  team_capacity: { name: 'Team Capacity', description: 'Monitor team allocation and availability' }
+  team_capacity: { name: 'My Team Workload', description: 'View 4-week workload heatmap for resources working on your projects' }
 };
 
-export default function CustomizeWidgetsModal({ isOpen, onClose, widgets, onToggleWidget, onReorderWidgets }: CustomizeWidgetsModalProps) {
+export default function CustomizeWidgetsModal({ isOpen, onClose, widgets, onToggleWidget, onReorderWidgets, onChangeWidgetSize }: CustomizeWidgetsModalProps) {
   const [localWidgets, setLocalWidgets] = useState<DashboardWidget[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
@@ -115,6 +118,27 @@ export default function CustomizeWidgetsModal({ isOpen, onClose, widgets, onTogg
                   <div className="flex-1 min-w-0">
                     <h3 className="text-sm font-medium text-gray-900">{info.name}</h3>
                     <p className="text-xs text-gray-600 mt-0.5">{info.description}</p>
+                    {onChangeWidgetSize && (
+                      <div className="flex items-center gap-1 mt-2">
+                        <span className="text-xs text-gray-500 mr-1">Size:</span>
+                        {(['small', 'medium', 'large'] as const).map((size) => (
+                          <button
+                            key={size}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onChangeWidgetSize(widget.id, size);
+                            }}
+                            className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                              widget.size === size
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                          >
+                            {size.charAt(0).toUpperCase() + size.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <span className="text-xs text-gray-400 flex-shrink-0">#{widget.position_order}</span>
                 </div>

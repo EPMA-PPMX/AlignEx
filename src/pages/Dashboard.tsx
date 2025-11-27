@@ -4,13 +4,18 @@ import { useCurrentUser } from '../lib/useCurrentUser';
 import PersonalGoalsWidget from '../components/widgets/PersonalGoalsWidget';
 import MyTasksWidget from '../components/widgets/MyTasksWidget';
 import MyProjectsWidget from '../components/widgets/MyProjectsWidget';
+import MyRisksWidget from '../components/widgets/MyRisksWidget';
+import MyIssuesWidget from '../components/widgets/MyIssuesWidget';
 import DeadlinesWidget from '../components/widgets/DeadlinesWidget';
 import TimesheetQuickWidget from '../components/widgets/TimesheetQuickWidget';
 import RecentActivityWidget from '../components/widgets/RecentActivityWidget';
+import PendingApprovalsWidget from '../components/widgets/PendingApprovalsWidget';
+import ProjectHealthWidget from '../components/widgets/ProjectHealthWidget';
+import TeamCapacityWidget from '../components/widgets/TeamCapacityWidget';
 import CustomizeWidgetsModal from '../components/CustomizeWidgetsModal';
 
 const Dashboard: React.FC = () => {
-  const { user, widgets, loading, toggleWidget, reorderWidgets, refetch } = useCurrentUser();
+  const { user, widgets, loading, toggleWidget, reorderWidgets, changeWidgetSize, refetch } = useCurrentUser();
   const [showCustomizeModal, setShowCustomizeModal] = useState(false);
 
   const handleToggleWidget = async (widgetId: string, isEnabled: boolean) => {
@@ -20,6 +25,11 @@ const Dashboard: React.FC = () => {
 
   const handleReorderWidgets = async (reorderedWidgets: any[]) => {
     await reorderWidgets(reorderedWidgets);
+  };
+
+  const handleChangeWidgetSize = async (widgetId: string, size: 'small' | 'medium' | 'large') => {
+    await changeWidgetSize(widgetId, size);
+    refetch();
   };
 
   if (loading) {
@@ -49,9 +59,14 @@ const Dashboard: React.FC = () => {
     personal_goals: <PersonalGoalsWidget key="personal_goals" />,
     my_tasks: <MyTasksWidget key="my_tasks" />,
     my_projects: <MyProjectsWidget key="my_projects" />,
+    my_risks: <MyRisksWidget key="my_risks" />,
+    my_issues: <MyIssuesWidget key="my_issues" />,
     deadlines: <DeadlinesWidget key="deadlines" />,
     timesheet_quick: <TimesheetQuickWidget key="timesheet_quick" />,
     recent_activity: <RecentActivityWidget key="recent_activity" />,
+    pending_approvals: <PendingApprovalsWidget key="pending_approvals" />,
+    project_health: <ProjectHealthWidget key="project_health" />,
+    team_capacity: <TeamCapacityWidget key="team_capacity" />,
   };
 
   return (
@@ -86,7 +101,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Widgets Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-fr">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-[200px]">
         {widgets
           .filter(w => w.is_enabled)
           .sort((a, b) => a.position_order - b.position_order)
@@ -95,13 +110,13 @@ const Dashboard: React.FC = () => {
             if (!component) return null;
 
             const sizeClass = {
-              small: 'lg:col-span-1',
-              medium: 'lg:col-span-1',
-              large: 'lg:col-span-2'
+              small: 'lg:col-span-1 lg:row-span-2',
+              medium: 'lg:col-span-1 lg:row-span-4',
+              large: 'lg:col-span-2 lg:row-span-4'
             }[widget.size];
 
             return (
-              <div key={widget.id} className={`${sizeClass} min-h-[280px]`}>
+              <div key={widget.id} className={sizeClass}>
                 {component}
               </div>
             );
@@ -126,6 +141,7 @@ const Dashboard: React.FC = () => {
         widgets={widgets}
         onToggleWidget={handleToggleWidget}
         onReorderWidgets={handleReorderWidgets}
+        onChangeWidgetSize={handleChangeWidgetSize}
       />
     </div>
   );
