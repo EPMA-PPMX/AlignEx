@@ -199,6 +199,45 @@ export default class Gantt extends Component<GanttProps> {
     }
   };
 
+  private renderBaselines = (): void => {
+    // Remove existing baseline elements
+    const existingBaselines = document.querySelectorAll('.baseline-bar');
+    existingBaselines.forEach(el => el.remove());
+
+    // Render baseline for each task that has planned dates
+    gantt.eachTask((task: any) => {
+      if (task.planned_start && task.planned_end && !task.$group_header) {
+        try {
+          const sizes = gantt.getTaskPosition(task, task.planned_start, task.planned_end);
+          const taskRow = gantt.getTaskNode(task.id);
+
+          if (taskRow) {
+            const el = document.createElement('div');
+            el.className = 'baseline-bar';
+            el.style.position = 'absolute';
+            el.style.left = sizes.left + 'px';
+            el.style.width = sizes.width + 'px';
+            el.style.top = (sizes.top + gantt.config.task_height + 3) + 'px';
+            el.style.height = '8px';
+            el.style.background = '#cbd5e1';
+            el.style.border = '1px solid #94a3b8';
+            el.style.opacity = '0.7';
+            el.style.borderRadius = '2px';
+            el.style.pointerEvents = 'none';
+
+            // Find the timeline area and append
+            const timelineArea = document.querySelector('.gantt_task_bg');
+            if (timelineArea) {
+              timelineArea.appendChild(el);
+            }
+          }
+        } catch (e) {
+          console.error('Error rendering baseline for task', task.id, e);
+        }
+      }
+    });
+  };
+
   componentDidMount(): void {
     gantt.config.date_format = "%Y-%m-%d %H:%i";
     gantt.config.readonly = false;
@@ -299,25 +338,6 @@ export default class Gantt extends Component<GanttProps> {
 
     // Configure WBS code to work properly with parent-child relationships
     gantt.config.wbs_strict = true;
-
-    // Add baseline layer to render baseline bars below tasks
-    gantt.addTaskLayer(function draw_baseline(task: any) {
-      if (task.planned_start && task.planned_end) {
-        const sizes = gantt.getTaskPosition(task, task.planned_start, task.planned_end);
-        const el = document.createElement('div');
-        el.className = 'baseline';
-        el.style.left = sizes.left + 'px';
-        el.style.width = sizes.width + 'px';
-        el.style.top = (sizes.top + gantt.config.task_height + 3) + 'px';
-        el.style.height = '8px';
-        el.style.background = '#cbd5e1';
-        el.style.border = '1px solid #94a3b8';
-        el.style.opacity = '0.7';
-        el.style.position = 'absolute';
-        return el;
-      }
-      return false;
-    });
 
     // Increase row height to accommodate baseline bars
     gantt.config.row_height = 50;
@@ -655,6 +675,12 @@ export default class Gantt extends Component<GanttProps> {
 
     if (this.ganttContainer.current) {
       gantt.init(this.ganttContainer.current);
+
+      // Add baseline rendering after gantt renders
+      gantt.attachEvent("onGanttRender", () => {
+        this.renderBaselines();
+      });
+
       console.log("Initializing Gantt with data:", projecttasks);
       console.log("Links in projecttasks:", projecttasks.links);
       console.log("Task types config:", gantt.config.types);
