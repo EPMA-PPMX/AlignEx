@@ -9,17 +9,21 @@
   width: 100%;
 }
 
-/* Grid resizer styling */
-.gantt_layout_cell_border_right {
+/* Grid resizer styling - the vertical line between grid and timeline */
+.gantt_grid_resize_wrap {
   cursor: col-resize !important;
-  background-color: #d1d5db !important;
+  background-color: #d1d5db;
   width: 3px !important;
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  z-index: 100;
   transition: background-color 0.2s ease;
 }
 
-.gantt_layout_cell_border_right:hover {
+.gantt_grid_resize_wrap:hover {
   background-color: #3b82f6 !important;
-  width: 3px !important;
 }
 
 .gantt_grid_head_cell {

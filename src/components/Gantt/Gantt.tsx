@@ -291,20 +291,6 @@ export default class Gantt extends Component<GanttProps> {
     gantt.config.keep_grid_width = false;
     gantt.config.grid_width = 800;
     gantt.config.min_grid_column_width = 50;
-    gantt.config.layout = {
-      css: "gantt_container",
-      rows: [
-        {
-          cols: [
-            { view: "grid", group: "grids", scrollY: "scrollVer" },
-            { resizer: true, width: 1 },
-            { view: "timeline", scrollX: "scrollHor", scrollY: "scrollVer" },
-            { view: "scrollbar", id: "scrollVer", group: "vertical" }
-          ]
-        },
-        { view: "scrollbar", id: "scrollHor", group: "horizontal" }
-      ]
-    };
 
     // Configure to skip weekends
     gantt.config.skip_off_time = true;
