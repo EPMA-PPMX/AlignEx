@@ -385,19 +385,12 @@ export default class Gantt extends Component<GanttProps> {
       max: 365
     };
 
-    // Calculate initial grid width as 40% of container
-    let initialGridWidth = 400;
-    if (this.ganttContainer.current) {
-      const containerWidth = this.ganttContainer.current.offsetWidth;
-      initialGridWidth = Math.floor(containerWidth * 0.4);
-    }
-
     // Configure layout with horizontal scroll for grid and resizable columns
     gantt.config.layout = {
       css: "gantt_container",
       cols: [
         {
-          width: initialGridWidth,
+          gravity: 1,
           min_width: 300,
           rows: [
             {
@@ -415,7 +408,7 @@ export default class Gantt extends Component<GanttProps> {
         },
         { resizer: true, width: 2 },
         {
-          gravity: 2,
+          gravity: 1.5,
           rows: [
             {
               view: "timeline",
