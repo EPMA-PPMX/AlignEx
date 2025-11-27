@@ -53,34 +53,28 @@ export default class Gantt extends Component<GanttProps> {
       // Skip group headers
       if (task.$group_header) return;
 
-      // Format dates properly
+      // Set planned_start and planned_end on the task itself
       const startDate = gantt.date.parseDate(task.start_date, "xml_date");
       const endDate = gantt.calculateEndDate({
         start_date: startDate,
         duration: task.duration
       });
 
-      // Create baseline entry for this task - DHTMLX format
-      const baseline = {
-        id: gantt.uid(),
-        task_id: task.id,
-        start_date: startDate,
-        end_date: endDate,
-        duration: task.duration
-      };
+      task.planned_start = startDate;
+      task.planned_end = endDate;
 
-      baselineData.push(baseline);
+      // Store baseline data for database
+      baselineData.push({
+        task_id: task.id,
+        planned_start: gantt.date.date_to_str("%Y-%m-%d %H:%i")(startDate),
+        planned_end: gantt.date.date_to_str("%Y-%m-%d %H:%i")(endDate)
+      });
+
+      // Update the task in gantt
+      gantt.updateTask(task.id);
     });
 
     console.log("Setting baseline data:", baselineData);
-
-    // Get baseline datastore and populate it
-    const baselineStore = gantt.getDatastore("baseline");
-    baselineStore.clearAll();
-    baselineStore.parse(baselineData);
-
-    console.log("Baseline store after parse:", baselineStore.getItems());
-
     gantt.render();
 
     return baselineData;
@@ -210,10 +204,9 @@ export default class Gantt extends Component<GanttProps> {
     gantt.config.readonly = false;
     gantt.config.details_on_dblclick = true;
 
-    // Enable keyboard navigation and baselines plugins
+    // Enable keyboard navigation plugin
     gantt.plugins({
-      keyboard_navigation: true,
-      baselines: true
+      keyboard_navigation: true
     });
     gantt.config.keyboard_navigation_cells = true;
 
@@ -307,27 +300,28 @@ export default class Gantt extends Component<GanttProps> {
     // Configure WBS code to work properly with parent-child relationships
     gantt.config.wbs_strict = true;
 
-    // Create baseline datastore first
-    gantt.createDatastore({
-      name: "baseline",
-      type: "datastore",
-      initItem: function(item: any) {
-        item.id = item.id || gantt.uid();
-        return item;
+    // Add baseline layer to render baseline bars below tasks
+    gantt.addTaskLayer(function draw_baseline(task: any) {
+      if (task.planned_start && task.planned_end) {
+        const sizes = gantt.getTaskPosition(task, task.planned_start, task.planned_end);
+        const el = document.createElement('div');
+        el.className = 'baseline';
+        el.style.left = sizes.left + 'px';
+        el.style.width = sizes.width + 'px';
+        el.style.top = (sizes.top + gantt.config.task_height + 3) + 'px';
+        el.style.height = '8px';
+        el.style.background = '#cbd5e1';
+        el.style.border = '1px solid #94a3b8';
+        el.style.opacity = '0.7';
+        el.style.position = 'absolute';
+        return el;
       }
+      return false;
     });
 
-    // Enable baseline display
-    gantt.config.baselines = {
-      datastore: "baseline",
-      render_mode: "separateRow",
-      row_height: 16
-    };
-
-    // Add baseline bar template
-    gantt.templates.baseline_bar = function(baseline: any) {
-      return `<div class='baseline-bar' style='width: 100%; height: 100%; background: #cbd5e1; border: 1px solid #94a3b8; opacity: 0.7;'></div>`;
-    };
+    // Increase row height to accommodate baseline bars
+    gantt.config.row_height = 50;
+    gantt.config.task_height = 30;
 
     // Custom add button column with resizable columns and inline editors
     gantt.config.columns = [
@@ -803,32 +797,27 @@ export default class Gantt extends Component<GanttProps> {
         }
       });
 
-      // Load baseline data if available
+      // Load baseline data if available and apply to tasks
       if (projecttasks.baseline && projecttasks.baseline.length > 0) {
         console.log("Loading baseline data:", projecttasks.baseline);
 
-        const baselineStore = gantt.getDatastore("baseline");
-        if (baselineStore) {
-          baselineStore.clearAll();
+        // Create a map of baseline data by task_id
+        const baselineMap: { [key: number]: any } = {};
+        projecttasks.baseline.forEach((baseline: any) => {
+          baselineMap[baseline.task_id] = baseline;
+        });
 
-          // Parse baseline data with proper formatting
-          const formattedBaselines = projecttasks.baseline.map((baseline: any) => ({
-            id: baseline.id || gantt.uid(),
-            task_id: baseline.task_id,
-            start_date: typeof baseline.start_date === 'string'
-              ? gantt.date.parseDate(baseline.start_date, "xml_date")
-              : baseline.start_date,
-            end_date: typeof baseline.end_date === 'string'
-              ? gantt.date.parseDate(baseline.end_date, "xml_date")
-              : baseline.end_date,
-            duration: baseline.duration
-          }));
+        // Apply baseline data to each task
+        gantt.eachTask((task: any) => {
+          const baseline = baselineMap[task.id];
+          if (baseline) {
+            task.planned_start = gantt.date.parseDate(baseline.planned_start, "xml_date");
+            task.planned_end = gantt.date.parseDate(baseline.planned_end, "xml_date");
+            console.log(`Applied baseline to task ${task.id}:`, task.planned_start, task.planned_end);
+          }
+        });
 
-          console.log("Formatted baseline data:", formattedBaselines);
-          baselineStore.parse(formattedBaselines);
-          console.log("Baseline store items:", baselineStore.getItems());
-          gantt.render();
-        }
+        gantt.render();
       }
     }
 
