@@ -41,7 +41,6 @@ export default class Gantt extends Component<GanttProps> {
   private originalTasks: any[] = [];
   private originalLinks: any[] = [];
   private groupHeaderIdStart: number = 999900;
-  private resizeObserver: ResizeObserver | null = null;
 
   public isGroupedByOwner = (): boolean => {
     return this.isGrouped;
@@ -361,16 +360,6 @@ export default class Gantt extends Component<GanttProps> {
 
     gantt.ext.zoom.init(zoomConfig);
     gantt.ext.zoom.setLevel("day");
-
-    // Set grid width to 40% of container (task pane), leaving 60% for chart
-    const updateGridWidth = () => {
-      if (this.ganttContainer.current) {
-        const containerWidth = this.ganttContainer.current.offsetWidth;
-        gantt.config.grid_width = Math.floor(containerWidth * 0.4);
-      }
-    };
-
-    updateGridWidth();
     gantt.config.min_grid_column_width = 50;
 
     // Configure to skip weekends
@@ -396,12 +385,19 @@ export default class Gantt extends Component<GanttProps> {
       max: 365
     };
 
-    // Configure layout with horizontal scroll for grid
+    // Calculate initial grid width as 40% of container
+    let initialGridWidth = 400;
+    if (this.ganttContainer.current) {
+      const containerWidth = this.ganttContainer.current.offsetWidth;
+      initialGridWidth = Math.floor(containerWidth * 0.4);
+    }
+
+    // Configure layout with horizontal scroll for grid and resizable columns
     gantt.config.layout = {
       css: "gantt_container",
       cols: [
         {
-          width: 400,
+          width: initialGridWidth,
           min_width: 300,
           rows: [
             {
@@ -417,7 +413,7 @@ export default class Gantt extends Component<GanttProps> {
             }
           ]
         },
-        { resizer: true, width: 1 },
+        { resizer: true, width: 2 },
         {
           rows: [
             {
@@ -811,16 +807,6 @@ export default class Gantt extends Component<GanttProps> {
     if (this.ganttContainer.current) {
       gantt.init(this.ganttContainer.current);
 
-      // Set up ResizeObserver to update grid width on container resize
-      this.resizeObserver = new ResizeObserver(() => {
-        if (this.ganttContainer.current) {
-          const containerWidth = this.ganttContainer.current.offsetWidth;
-          gantt.config.grid_width = Math.floor(containerWidth * 0.4);
-          gantt.render();
-        }
-      });
-      this.resizeObserver.observe(this.ganttContainer.current);
-
       // Add baseline rendering after gantt renders
       gantt.attachEvent("onGanttRender", () => {
         this.renderBaselines();
@@ -1077,9 +1063,6 @@ export default class Gantt extends Component<GanttProps> {
   }
 
   componentWillUnmount(): void {
-    if (this.resizeObserver) {
-      this.resizeObserver.disconnect();
-    }
     gantt.clearAll();
   }
 
