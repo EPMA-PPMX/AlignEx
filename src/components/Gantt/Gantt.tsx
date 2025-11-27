@@ -415,6 +415,7 @@ export default class Gantt extends Component<GanttProps> {
         },
         { resizer: true, width: 2 },
         {
+          gravity: 2,
           rows: [
             {
               view: "timeline",
