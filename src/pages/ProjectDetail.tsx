@@ -534,6 +534,8 @@ const ProjectDetail: React.FC = () => {
 
   const fetchProjectTasks = async () => {
     try {
+      console.log('fetchProjectTasks called for project:', id);
+
       // Get the most recent record for this project
       const { data: records, error } = await supabase
         .from('project_tasks')
@@ -543,6 +545,9 @@ const ProjectDetail: React.FC = () => {
         .limit(1);
 
       const data = records && records.length > 0 ? records[0] : null;
+
+      console.log('Fetched project_tasks records:', records);
+      console.log('Selected record:', data);
 
       if (error) {
         console.error('Error fetching project tasks:', error);
@@ -556,6 +561,9 @@ const ProjectDetail: React.FC = () => {
 
             // Handle different date formats
             if (startDate) {
+              // Convert to string if it's not already
+              startDate = String(startDate);
+
               // If date contains 'T' or 'Z', extract just the date part
               if (startDate.includes('T') || startDate.includes('Z')) {
                 startDate = startDate.split('T')[0];
@@ -564,13 +572,18 @@ const ProjectDetail: React.FC = () => {
               if (!startDate.includes(':')) {
                 startDate = `${startDate} 00:00`;
               }
+            } else {
+              // If no start date, use today
+              const today = new Date();
+              startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')} 00:00`;
+              console.warn(`Task ${task.id} missing start_date, using today`);
             }
 
             return {
               id: task.id,
-              text: task.text,
+              text: task.text || 'Untitled Task',
               start_date: startDate,
-              duration: task.duration,
+              duration: task.duration || 1,
               progress: task.progress || 0,
               type: task.type || 'task',
               parent: task.parent !== undefined && task.parent !== null ? task.parent : 0,
@@ -581,6 +594,7 @@ const ProjectDetail: React.FC = () => {
             };
           });
         }
+        console.log('Setting project tasks with data:', taskData.data?.length, 'tasks');
         setProjectTasks({
           data: taskData.data || [],
           links: taskData.links || [],
@@ -589,6 +603,7 @@ const ProjectDetail: React.FC = () => {
         // Reset grouping state when new data is loaded
         setIsGroupedByOwner(false);
       } else {
+        console.log('No task data found for project, setting empty array');
         setProjectTasks({ data: [], links: [] });
         setIsGroupedByOwner(false);
       }
