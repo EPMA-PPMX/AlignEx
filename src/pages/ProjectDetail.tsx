@@ -581,7 +581,11 @@ const ProjectDetail: React.FC = () => {
             };
           });
         }
-        setProjectTasks({ data: taskData.data || [], links: taskData.links || [] });
+        setProjectTasks({
+          data: taskData.data || [],
+          links: taskData.links || [],
+          baseline: taskData.baseline || []
+        });
         // Reset grouping state when new data is loaded
         setIsGroupedByOwner(false);
       } else {
@@ -2218,28 +2222,45 @@ const ProjectDetail: React.FC = () => {
                 </button>
                 <button
                   onClick={async () => {
-                    if (ganttRef.current) {
+                    if (ganttRef.current && id) {
                       const baselineData = ganttRef.current.setBaseline();
                       console.log('Baseline set:', baselineData);
 
                       // Save baseline to database
                       try {
-                        const { error } = await supabase
+                        // First, fetch the current task_data
+                        const { data: currentData, error: fetchError } = await supabase
                           .from('project_tasks')
-                          .update({
-                            task_data: {
-                              ...tasks,
-                              baseline: baselineData
-                            }
-                          })
+                          .select('task_data')
+                          .eq('project_id', id)
+                          .single();
+
+                        if (fetchError) throw fetchError;
+
+                        // Merge baseline into existing task_data
+                        const updatedTaskData = {
+                          ...currentData.task_data,
+                          baseline: baselineData
+                        };
+
+                        // Update the record
+                        const { error: updateError } = await supabase
+                          .from('project_tasks')
+                          .update({ task_data: updatedTaskData })
                           .eq('project_id', id);
 
-                        if (error) throw error;
+                        if (updateError) throw updateError;
+
+                        // Update local state to include baseline
+                        setProjectTasks({
+                          ...projectTasks,
+                          baseline: baselineData
+                        });
 
                         alert('Baseline set successfully for all tasks!');
                       } catch (error) {
                         console.error('Error saving baseline:', error);
-                        alert('Failed to save baseline');
+                        alert('Failed to save baseline: ' + (error as Error).message);
                       }
                     }
                   }}
