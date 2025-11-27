@@ -228,7 +228,15 @@ export default class Gantt extends Component<GanttProps> {
           el.style.position = 'absolute';
           el.style.left = sizes.left + 'px';
           el.style.width = sizes.width + 'px';
-          el.style.top = (sizes.top + gantt.config.task_height + 8) + 'px';
+
+          // Position baseline below the task bar
+          // Row height is 50px, task height is 30px, so task is centered with 10px padding at top
+          // Task bar top is at sizes.top + 10px
+          // Task bar bottom is at sizes.top + 10px + 30px = sizes.top + 40px
+          // Baseline should be at task bar bottom + small gap
+          const rowPadding = (gantt.config.row_height - gantt.config.task_height) / 2;
+          el.style.top = (sizes.top + rowPadding + gantt.config.task_height + 2) + 'px';
+
           el.style.height = '6px';
           el.style.background = '#ec4899';
           el.style.border = '1px solid #db2777';
