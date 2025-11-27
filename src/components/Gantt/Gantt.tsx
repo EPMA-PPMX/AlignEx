@@ -280,16 +280,31 @@ export default class Gantt extends Component<GanttProps> {
     gantt.config.readonly = false;
     gantt.config.details_on_dblclick = true;
 
-    // Enable keyboard navigation plugin
+    // Enable plugins
     gantt.plugins({
       keyboard_navigation: true
     });
     gantt.config.keyboard_navigation_cells = true;
 
-    // Enable column resizing - must be set before columns configuration
+    // Enable grid resizing - allows dragging the splitter between grid and timeline
     gantt.config.grid_resize = true;
     gantt.config.keep_grid_width = false;
     gantt.config.grid_width = 800;
+    gantt.config.min_grid_column_width = 50;
+    gantt.config.layout = {
+      css: "gantt_container",
+      rows: [
+        {
+          cols: [
+            { view: "grid", group: "grids", scrollY: "scrollVer" },
+            { resizer: true, width: 1 },
+            { view: "timeline", scrollX: "scrollHor", scrollY: "scrollVer" },
+            { view: "scrollbar", id: "scrollVer", group: "vertical" }
+          ]
+        },
+        { view: "scrollbar", id: "scrollHor", group: "horizontal" }
+      ]
+    };
 
     // Configure to skip weekends
     gantt.config.skip_off_time = true;
