@@ -1,21 +1,21 @@
 import React from 'react';
 import Sidebar from './Sidebar';
 import ChatbaseWidget from './ChatbaseWidget';
-
+ 
 interface LayoutProps {
   children: React.ReactNode;
 }
-
+ 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      <main className="flex-1 overflow-auto">
+<div className="flex h-screen bg-gray-50">
+<Sidebar />
+<main className="flex-1 overflow-auto">
         {children}
-      </main>
-      <ChatbaseWidget />
-    </div>
+</main>
+<ChatbaseWidget />
+</div>
   );
 };
-
+ 
 export default Layout;
