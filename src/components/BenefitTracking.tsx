@@ -197,7 +197,8 @@ export default function BenefitTracking({ projectId }: BenefitTrackingProps) {
   };
 
   const formatMonthYear = (dateString: string) => {
-    const date = new Date(dateString);
+    const [year, month] = dateString.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1, 1);
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
   };
 
@@ -352,8 +353,11 @@ export default function BenefitTracking({ projectId }: BenefitTrackingProps) {
                     className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                     disabled={!!editingBenefit}
+                    min="2020-01"
+                    max="2030-12"
                   />
                 </div>
+                <p className="text-xs text-gray-500 mt-1">Click the calendar icon and use arrow buttons to change year</p>
               </div>
 
               <div>

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { User, Target } from 'lucide-react';
+import { User, Target, Trophy } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import MySkillsTab from '../components/skills/MySkillsTab';
 import RoleComparisonTab from '../components/skills/RoleComparisonTab';
+import MyGoalsTab from '../components/skills/MyGoalsTab';
 
 interface SkillCategory {
   id: string;
@@ -34,14 +36,22 @@ interface UserSkill {
 
 const USER_ID = 'current-user';
 
-type TabType = 'my-skills' | 'role-comparison';
+type TabType = 'my-skills' | 'role-comparison' | 'my-goals';
 
 export default function Skills() {
-  const [activeTab, setActiveTab] = useState<TabType>('my-skills');
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab') as TabType | null;
+  const [activeTab, setActiveTab] = useState<TabType>(tabParam || 'my-skills');
   const [categories, setCategories] = useState<SkillCategory[]>([]);
   const [allSkills, setAllSkills] = useState<Skill[]>([]);
   const [userSkills, setUserSkills] = useState<Record<string, UserSkill>>({});
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (tabParam && ['my-skills', 'role-comparison', 'my-goals'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
 
   useEffect(() => {
     fetchData();
@@ -83,7 +93,7 @@ export default function Skills() {
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">My Skills Assessment</h1>
+        <h1 className="text-3xl font-bold text-slate-900 mb-2">My Skills</h1>
         <p className="text-slate-600">Rate your proficiency in each skill area</p>
       </div>
 
@@ -111,6 +121,17 @@ export default function Skills() {
             <Target className="w-5 h-5" />
             Role Comparison
           </button>
+          <button
+            onClick={() => setActiveTab('my-goals')}
+            className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors border-b-2 ${
+              activeTab === 'my-goals'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Trophy className="w-5 h-5" />
+            My Goals
+          </button>
         </div>
       </div>
 
@@ -124,6 +145,7 @@ export default function Skills() {
           />
         )}
         {activeTab === 'role-comparison' && <RoleComparisonTab />}
+        {activeTab === 'my-goals' && <MyGoalsTab />}
       </div>
     </div>
   );

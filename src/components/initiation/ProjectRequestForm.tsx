@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Save, Send, Loader } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { parseCurrencyInput } from '../../lib/utils';
+import { formatCurrencyInput } from '../../lib/utils';
 
 interface ProjectRequest {
   id: string;
@@ -128,7 +128,7 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
     const { name, value } = e.target;
 
     if (name === 'initial_estimated_cost') {
-      const formatted = parseCurrencyInput(value);
+      const formatted = formatCurrencyInput(value);
       setFormData((prev) => ({ ...prev, [name]: formatted }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
@@ -150,9 +150,10 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
   };
 
   const handleContributionChange = (priorityId: string, value: string) => {
+    const formatted = formatCurrencyInput(value);
     setPriorityContributions((prev) => ({
       ...prev,
-      [priorityId]: value,
+      [priorityId]: formatted,
     }));
   };
 
@@ -367,7 +368,7 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                Initial Estimated Cost
+                Initial Estimated Cost ($)
               </label>
               <input
                 type="text"
@@ -375,7 +376,7 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
                 value={formData.initial_estimated_cost}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="e.g., 50000"
+                placeholder="e.g., $50,000"
               />
             </div>
           </div>
@@ -463,13 +464,13 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
                         {selectedPriorities.includes(priority.id) && (
                           <div className="mt-3">
                             <label className="block text-sm font-medium text-slate-700 mb-1">
-                              Expected Contribution <span className="text-red-500">*</span>
+                              Expected Contribution ($) <span className="text-red-500">*</span>
                             </label>
                             <input
                               type="text"
                               value={priorityContributions[priority.id] || ''}
                               onChange={(e) => handleContributionChange(priority.id, e.target.value)}
-                              placeholder="e.g., 10% reduction, $100K savings"
+                              placeholder="e.g., $100,000"
                               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             />
                           </div>
