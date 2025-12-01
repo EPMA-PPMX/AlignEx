@@ -73,8 +73,8 @@ const Projects: React.FC = () => {
         ];
 
         const customFieldColumns: ColumnConfig[] = (data || []).map(field => ({
-          key: field.field_name,
-          label: field.field_label,
+          key: field.id,
+          label: field.field_name,
           enabled: false,
           isCustomField: true,
           fieldType: field.field_type
@@ -123,13 +123,13 @@ const Projects: React.FC = () => {
       if (error) {
         console.error('Error fetching project field values:', error);
       } else {
-        // Organize field values by project_id and field_name
+        // Organize field values by project_id and field_id
         const valuesByProject: Record<string, any> = {};
         (data || []).forEach(item => {
           if (!valuesByProject[item.project_id]) {
             valuesByProject[item.project_id] = {};
           }
-          valuesByProject[item.project_id][item.field_name] = item.field_value;
+          valuesByProject[item.project_id][item.field_id] = item.value;
         });
         setProjectFieldValues(valuesByProject);
       }
