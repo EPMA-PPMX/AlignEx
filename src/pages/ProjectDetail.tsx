@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp, Search, Group, Flag, ZoomIn, ZoomOut, Maximize2, Minimize2 } from 'lucide-react';
 import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp, History } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { trackFieldHistory, shouldTrackFieldHistory } from '../lib/fieldHistoryTracker';
@@ -149,6 +150,27 @@ const ProjectDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
+
+  // Utility function to adjust date to skip weekends
+  const adjustToWorkday = (dateString: string): string => {
+    const date = new Date(dateString);
+    const dayOfWeek = date.getDay();
+
+    // If Saturday (6), move to Monday
+    if (dayOfWeek === 6) {
+      date.setDate(date.getDate() + 2);
+    }
+    // If Sunday (0), move to Monday
+    else if (dayOfWeek === 0) {
+      date.setDate(date.getDate() + 1);
+    }
+
+    // Format back to YYYY-MM-DD
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
   const [project, setProject] = useState<Project | null>(null);
   const [overviewConfig, setOverviewConfig] = useState<OverviewConfiguration | null>(null);
   const [fieldValues, setFieldValues] = useState<{ [key: string]: any }>({});
@@ -162,6 +184,8 @@ const ProjectDetail: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [budgetViewFilter, setBudgetViewFilter] = useState<'monthly' | 'yearly'>('yearly');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [isGroupedByOwner, setIsGroupedByOwner] = useState(false);
+  const [isGanttFullscreen, setIsGanttFullscreen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -234,7 +258,12 @@ const ProjectDetail: React.FC = () => {
     start_date: '',
     duration: 1,
     owner_id: '',
-    parent_id: undefined as number | undefined
+    resource_ids: [] as string[],
+    parent_id: undefined as number | undefined,
+    parent_wbs: '' as string,
+    successor_ids: [] as number[],
+    type: 'task' as string,
+    progress: 0
   });
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
 
@@ -251,6 +280,9 @@ const ProjectDetail: React.FC = () => {
     data: [],
     links: []
   });
+
+  const [taskSearchQuery, setTaskSearchQuery] = useState('');
+  const ganttRef = useRef<any>(null);
 
   const tabs = [
     { id: 'overview', name: 'Overview', icon: Target },
@@ -514,36 +546,51 @@ const ProjectDetail: React.FC = () => {
 
   const fetchCostCategoryOptions = async () => {
     try {
+      console.log('Fetching budget categories...');
       const { data, error } = await supabase
-        .from('custom_fields')
-        .select('options')
-        .eq('field_name', 'Cost Category')
-        .maybeSingle();
+        .from('budget_categories')
+        .select('name')
+        .eq('is_active', true)
+        .order('name');
 
       if (error) {
-        console.error('Error fetching cost category options:', error);
-        setCostCategoryOptions(['Labor', 'Materials', 'Equipment', 'Software', 'Travel', 'Other']);
+        console.error('Error fetching budget categories:', error);
+        setCostCategoryOptions([]);
         return;
       }
 
-      if (data && data.options) {
-        setCostCategoryOptions(data.options as string[]);
+      console.log('Budget categories fetched:', data);
+
+      if (data && data.length > 0) {
+        const categoryNames = data.map(cat => cat.name);
+        console.log('Setting category options:', categoryNames);
+        setCostCategoryOptions(categoryNames);
       } else {
-        setCostCategoryOptions(['Labor', 'Materials', 'Equipment', 'Software', 'Travel', 'Other']);
+        console.log('No budget categories found');
+        setCostCategoryOptions([]);
       }
     } catch (error) {
-      console.error('Error fetching cost category options:', error);
-      setCostCategoryOptions(['Labor', 'Materials', 'Equipment', 'Software', 'Travel', 'Other']);
+      console.error('Error fetching budget categories:', error);
+      setCostCategoryOptions([]);
     }
   };
 
   const fetchProjectTasks = async () => {
     try {
-      const { data, error } = await supabase
+      console.log('fetchProjectTasks called for project:', id);
+
+      // Get the most recent record for this project
+      const { data: records, error } = await supabase
         .from('project_tasks')
         .select('*')
         .eq('project_id', id)
-        .maybeSingle();
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      const data = records && records.length > 0 ? records[0] : null;
+
+      console.log('Fetched project_tasks records:', records);
+      console.log('Selected record:', data);
 
       if (error) {
         console.error('Error fetching project tasks:', error);
@@ -557,6 +604,9 @@ const ProjectDetail: React.FC = () => {
 
             // Handle different date formats
             if (startDate) {
+              // Convert to string if it's not already
+              startDate = String(startDate);
+
               // If date contains 'T' or 'Z', extract just the date part
               if (startDate.includes('T') || startDate.includes('Z')) {
                 startDate = startDate.split('T')[0];
@@ -565,27 +615,45 @@ const ProjectDetail: React.FC = () => {
               if (!startDate.includes(':')) {
                 startDate = `${startDate} 00:00`;
               }
+            } else {
+              // If no start date, use today
+              const today = new Date();
+              startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')} 00:00`;
+              console.warn(`Task ${task.id} missing start_date, using today`);
             }
 
             return {
               id: task.id,
-              text: task.text,
+              text: task.text || 'Untitled Task',
               start_date: startDate,
-              duration: task.duration,
+              duration: task.duration || 1,
               progress: task.progress || 0,
-              parent: task.parent,
+              type: task.type || 'task',
+              parent: task.parent !== undefined && task.parent !== null ? task.parent : 0,
               owner_id: task.owner_id,
-              owner_name: task.owner_name
+              owner_name: task.owner_name,
+              resource_ids: task.resource_ids || [],
+              resource_names: task.resource_names || []
             };
           });
         }
-        setProjectTasks({ data: taskData.data || [], links: taskData.links || [] });
+        console.log('Setting project tasks with data:', taskData.data?.length, 'tasks');
+        setProjectTasks({
+          data: taskData.data || [],
+          links: taskData.links || [],
+          baseline: taskData.baseline || []
+        });
+        // Reset grouping state when new data is loaded
+        setIsGroupedByOwner(false);
       } else {
+        console.log('No task data found for project, setting empty array');
         setProjectTasks({ data: [], links: [] });
+        setIsGroupedByOwner(false);
       }
     } catch (error) {
       console.error('Error fetching project tasks:', error);
       setProjectTasks({ data: [], links: [] });
+      setIsGroupedByOwner(false);
     }
   };
 
@@ -631,18 +699,32 @@ const ProjectDetail: React.FC = () => {
       const currentTasks = ganttInstance.serialize();
       console.log("Current tasks from Gantt:", currentTasks);
 
-      // Clean the data before saving
+      // Clean the data before saving - filter out group headers and deduplicate
+      const taskMap = new Map();
+      currentTasks.data
+        .filter((task: any) => !task.$group_header) // Exclude group headers
+        .forEach((task: any) => {
+          const taskId = task.$original_id || task.id;
+          // Only add if not already in map (handles duplicates from grouping)
+          if (!taskMap.has(taskId)) {
+            taskMap.set(taskId, {
+              id: taskId,
+              text: task.text,
+              start_date: task.start_date,
+              duration: task.duration,
+              progress: task.progress || 0,
+              type: task.type || 'task',
+              parent: task.$original_parent !== undefined ? task.$original_parent : (task.parent || 0),
+              owner_id: task.owner_id,
+              owner_name: task.owner_name,
+              resource_ids: task.resource_ids || [],
+              resource_names: task.resource_names || []
+            });
+          }
+        });
+
       const cleanedData = {
-        data: currentTasks.data.map((task: any) => ({
-          id: task.id,
-          text: task.text,
-          start_date: task.start_date,
-          duration: task.duration,
-          progress: task.progress || 0,
-          parent: task.parent || 0,
-          owner_id: task.owner_id,
-          owner_name: task.owner_name
-        })),
+        data: Array.from(taskMap.values()),
         links: (currentTasks.links || []).map((link: any) => ({
           id: link.id,
           source: link.source,
@@ -653,23 +735,24 @@ const ProjectDetail: React.FC = () => {
 
       console.log("Cleaned data:", cleanedData);
 
-      // Check if project_tasks record exists
+      // Check if project_tasks record exists (get the most recent one)
       const { data: existingData } = await supabase
         .from('project_tasks')
         .select('id')
         .eq('project_id', id)
-        .maybeSingle();
+        .order('created_at', { ascending: false })
+        .limit(1);
 
-      if (existingData) {
-        // Update existing record
-        console.log("Updating existing record");
+      if (existingData && existingData.length > 0) {
+        // Update the most recent record
+        console.log("Updating existing record:", existingData[0].id);
         const { error } = await supabase
           .from('project_tasks')
           .update({
             task_data: cleanedData,
             updated_at: new Date().toISOString()
           })
-          .eq('project_id', id);
+          .eq('id', existingData[0].id);
 
         if (error) {
           console.error('Error updating tasks:', error);
@@ -677,7 +760,7 @@ const ProjectDetail: React.FC = () => {
           console.log("Tasks updated successfully");
         }
       } else {
-        // Insert new record
+        // Insert new record only if none exists
         console.log("Inserting new record");
         const { error } = await supabase
           .from('project_tasks')
@@ -1542,8 +1625,33 @@ const ProjectDetail: React.FC = () => {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
 
+  // Helper function to get all tasks with their WBS codes
+  const getAllTasksWithWBS = () => {
+    const tasksWithWBS: Array<{ id: number; text: string; wbs: string }> = [];
+
+    if (projectTasks && projectTasks.data && Array.isArray(projectTasks.data)) {
+      projectTasks.data.forEach((task: any) => {
+        // Skip group headers
+        if (!task.$group_header) {
+          const wbs = (window as any).gantt?.getWBSCode?.(task) || '';
+          tasksWithWBS.push({
+            id: task.id,
+            text: task.text || 'Untitled Task',
+            wbs: wbs
+          });
+        }
+      });
+    }
+
+    return tasksWithWBS;
+  };
+
   const handleTaskSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    console.log('=== Task Submit Started ===');
+    console.log('taskForm:', taskForm);
+    console.log('editingTaskId:', editingTaskId);
 
     if (!taskForm.description || !taskForm.start_date || !taskForm.duration) {
       alert('Please fill in all required fields');
@@ -1552,27 +1660,53 @@ const ProjectDetail: React.FC = () => {
 
     try {
       let updatedTaskData;
+      let currentTaskId = editingTaskId; // Track the task ID being worked with
+
+      // Adjust start date to skip weekends
+      const adjustedStartDate = adjustToWorkday(taskForm.start_date);
+      console.log('Adjusted start date:', adjustedStartDate);
 
       if (editingTaskId) {
         // Update existing task
+        const existingLinks = projectTasks.links || [];
+
+        // Remove old links where this task is the source
+        const filteredLinks = existingLinks.filter((link: any) => link.source !== editingTaskId);
+
+        // Create new links for successor tasks
+        const newLinks = taskForm.successor_ids.map((successorId, index) => ({
+          id: Date.now() + index,
+          source: editingTaskId,
+          target: successorId,
+          type: "0" // Finish-to-Start dependency
+        }));
+
         updatedTaskData = {
           data: projectTasks.data.map((task: any) => {
             if (task.id === editingTaskId) {
               const updatedTask: any = {
                 ...task,
                 text: taskForm.description,
-                start_date: `${taskForm.start_date} 00:00`,
-                duration: taskForm.duration
+                start_date: `${adjustedStartDate} 00:00`,
+                duration: taskForm.type === 'milestone' ? 0 : taskForm.duration,
+                type: taskForm.type,
+                progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
               };
 
-              // Update owner if selected
-              if (taskForm.owner_id) {
-                updatedTask.owner_id = taskForm.owner_id;
-                const owner = projectTeamMembers.find((m: any) => m.resource_id === taskForm.owner_id);
-                if (owner?.resources) {
-                  updatedTask.owner_name = owner.resources.display_name;
-                }
+              // Update resources if selected
+              if (taskForm.resource_ids.length > 0) {
+                updatedTask.resource_ids = taskForm.resource_ids;
+                const resourceNames = taskForm.resource_ids.map(resId => {
+                  const member = projectTeamMembers.find((m: any) => m.resource_id === resId);
+                  return member?.resources?.display_name || 'Unknown';
+                });
+                updatedTask.resource_names = resourceNames;
+                // Backward compatibility: set first resource as owner
+                updatedTask.owner_id = taskForm.resource_ids[0];
+                updatedTask.owner_name = resourceNames[0];
               } else {
+                updatedTask.resource_ids = [];
+                updatedTask.resource_names = [];
                 updatedTask.owner_id = undefined;
                 updatedTask.owner_name = undefined;
               }
@@ -1581,7 +1715,7 @@ const ProjectDetail: React.FC = () => {
             }
             return task;
           }),
-          links: projectTasks.links || []
+          links: [...filteredLinks, ...newLinks]
         };
       } else {
         // Create new task
@@ -1592,51 +1726,78 @@ const ProjectDetail: React.FC = () => {
         const newTask: any = {
           id: newTaskId,
           text: taskForm.description,
-          start_date: `${taskForm.start_date} 00:00`,
-          duration: taskForm.duration
+          start_date: `${adjustedStartDate} 00:00`,
+          duration: taskForm.type === 'milestone' ? 0 : taskForm.duration,
+          type: taskForm.type,
+          progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
         };
 
-        // Add parent if this is a subtask
-        if (taskForm.parent_id) {
+        // Set parent - MUST be 0 for root tasks, not undefined
+        console.log('Checking parent_id:', taskForm.parent_id);
+        console.log('parent_id type:', typeof taskForm.parent_id);
+        if (taskForm.parent_id !== undefined && taskForm.parent_id !== null) {
           newTask.parent = taskForm.parent_id;
+          console.log('Setting parent to:', taskForm.parent_id);
+        } else {
+          newTask.parent = 0; // Explicitly set to 0 for root tasks
+          console.log('No parent_id - creating as root task with parent = 0');
         }
+        console.log('New task object:', newTask);
 
-        // Add owner if selected
-        if (taskForm.owner_id) {
-          newTask.owner_id = taskForm.owner_id;
-          const owner = projectTeamMembers.find((m: any) => m.resource_id === taskForm.owner_id);
-          if (owner?.resources) {
-            newTask.owner_name = owner.resources.display_name;
-          }
+        // Add resources if selected
+        if (taskForm.resource_ids.length > 0) {
+          newTask.resource_ids = taskForm.resource_ids;
+          const resourceNames = taskForm.resource_ids.map(resId => {
+            const member = projectTeamMembers.find((m: any) => m.resource_id === resId);
+            return member?.resources?.display_name || 'Unknown';
+          });
+          newTask.resource_names = resourceNames;
+          // Backward compatibility: set first resource as owner
+          newTask.owner_id = taskForm.resource_ids[0];
+          newTask.owner_name = resourceNames[0];
         }
 
         // Add to existing tasks
+        const existingLinks = projectTasks.links || [];
+
+        // Create links for successor tasks
+        const newLinks = taskForm.successor_ids.map((successorId, index) => ({
+          id: Date.now() + index,
+          source: newTask.id,
+          target: successorId,
+          type: "0" // Finish-to-Start dependency
+        }));
+
         updatedTaskData = {
           data: [...projectTasks.data, newTask],
-          links: projectTasks.links || []
+          links: [...existingLinks, ...newLinks]
         };
+
+        // Store the new task ID for later use
+        currentTaskId = newTask.id;
       }
 
-      // Check if project_tasks record exists
-      const { data: existingData } = await supabase
+      // Check if project_tasks record exists (get the most recent one)
+      const { data: existingData, error: fetchError } = await supabase
         .from('project_tasks')
         .select('id')
         .eq('project_id', id)
-        .maybeSingle();
+        .order('created_at', { ascending: false })
+        .limit(1);
 
-      if (existingData) {
-        // Update existing record
+      if (existingData && existingData.length > 0) {
+        // Update the most recent record
         const { error } = await supabase
           .from('project_tasks')
           .update({
             task_data: updatedTaskData,
             updated_at: new Date().toISOString()
           })
-          .eq('project_id', id);
+          .eq('id', existingData[0].id);
 
         if (error) throw error;
       } else {
-        // Insert new record
+        // Insert new record only if none exists
         const { error } = await supabase
           .from('project_tasks')
           .insert({
@@ -1647,8 +1808,42 @@ const ProjectDetail: React.FC = () => {
         if (error) throw error;
       }
 
+      // Save resource assignments to junction table
+      if (taskForm.resource_ids.length > 0 && currentTaskId) {
+        // First, get the actual database task ID by finding it in task_data
+        const { data: taskRecord } = await supabase
+          .from('project_tasks')
+          .select('id, task_data')
+          .eq('project_id', id)
+          .maybeSingle();
+
+        if (taskRecord?.id) {
+          // Delete existing assignments for this task
+          await supabase
+            .from('task_resource_assignments')
+            .delete()
+            .eq('task_id', taskRecord.id);
+
+          // Insert new assignments
+          const assignments = taskForm.resource_ids.map(resourceId => ({
+            task_id: taskRecord.id,
+            resource_id: resourceId
+          }));
+
+          const { error: assignmentError } = await supabase
+            .from('task_resource_assignments')
+            .insert(assignments);
+
+          if (assignmentError) {
+            console.error('Error saving resource assignments:', assignmentError);
+          }
+        }
+      }
+
       // Update local state
       setProjectTasks(updatedTaskData);
+      // Reset grouping state when tasks are updated
+      setIsGroupedByOwner(false);
 
       alert(editingTaskId ? 'Task updated successfully!' : 'Task created successfully!');
       setShowTaskModal(false);
@@ -1658,7 +1853,11 @@ const ProjectDetail: React.FC = () => {
         start_date: '',
         duration: 1,
         owner_id: '',
-        parent_id: undefined
+        resource_ids: [],
+        parent_id: undefined,
+        successor_ids: [],
+        type: 'task',
+        progress: 0
       });
     } catch (error: any) {
       console.error('Error creating task:', error);
@@ -1667,10 +1866,8 @@ const ProjectDetail: React.FC = () => {
   };
 
   const getCostCategoryOptions = (): string[] => {
-    if (costCategoryOptions.length > 0) {
-      return costCategoryOptions;
-    }
-    return ['Labor', 'Materials', 'Equipment', 'Software', 'Travel', 'Other'];
+    console.log('getCostCategoryOptions called, current options:', costCategoryOptions);
+    return costCategoryOptions;
   };
 
   const handleAddBudget = () => {
@@ -2142,26 +2339,165 @@ const ProjectDetail: React.FC = () => {
         )}
 
         {activeTab === 'timeline' && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className={isGanttFullscreen ? "fixed inset-0 z-50 bg-white p-6" : "bg-white rounded-lg shadow-sm border border-gray-200 p-6"}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
-              <button
-                onClick={() => {
-                  setTaskForm({ ...taskForm, parent_id: undefined });
-                  setShowTaskModal(true);
-                }}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Create Task
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (ganttRef.current) {
+                      ganttRef.current.zoomIn();
+                    }
+                  }}
+                  className="inline-flex items-center justify-center w-9 h-9 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  title="Zoom In"
+                >
+                  <ZoomIn className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    if (ganttRef.current) {
+                      ganttRef.current.zoomOut();
+                    }
+                  }}
+                  className="inline-flex items-center justify-center w-9 h-9 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  title="Zoom Out"
+                >
+                  <ZoomOut className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setIsGanttFullscreen(!isGanttFullscreen)}
+                  className="inline-flex items-center justify-center w-9 h-9 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  title={isGanttFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+                >
+                  {isGanttFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                </button>
+                <button
+                  onClick={() => {
+                    if (ganttRef.current) {
+                      ganttRef.current.toggleGroupByOwner();
+                      setIsGroupedByOwner(!isGroupedByOwner);
+                    }
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  <Group className="w-4 h-4" />
+                  {isGroupedByOwner ? 'Show All Tasks' : 'Group by Owner'}
+                </button>
+                <button
+                  onClick={async () => {
+                    if (ganttRef.current && id) {
+                      const baselineData = ganttRef.current.setBaseline();
+                      console.log('Baseline set:', baselineData);
+
+                      // Save baseline to database
+                      try {
+                        // First, fetch the current task_data
+                        const { data: currentData, error: fetchError } = await supabase
+                          .from('project_tasks')
+                          .select('task_data')
+                          .eq('project_id', id)
+                          .single();
+
+                        if (fetchError) throw fetchError;
+
+                        // Merge baseline into existing task_data
+                        const updatedTaskData = {
+                          ...currentData.task_data,
+                          baseline: baselineData
+                        };
+
+                        // Update the record
+                        const { error: updateError } = await supabase
+                          .from('project_tasks')
+                          .update({ task_data: updatedTaskData })
+                          .eq('project_id', id);
+
+                        if (updateError) throw updateError;
+
+                        // Update local state to include baseline
+                        setProjectTasks({
+                          ...projectTasks,
+                          baseline: baselineData
+                        });
+
+                        alert('Baseline set successfully for all tasks!');
+                      } catch (error) {
+                        console.error('Error saving baseline:', error);
+                        alert('Failed to save baseline: ' + (error as Error).message);
+                      }
+                    }
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <Flag className="w-4 h-4" />
+                  Set Baseline
+                </button>
+                <button
+                  onClick={() => {
+                    setTaskForm({ ...taskForm, parent_id: undefined });
+                    setShowTaskModal(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Create Task
+                </button>
+              </div>
             </div>
-            <div style={{ width: "100%", height: "600px", overflow: "auto" }}>
+            <div className="mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search tasks by name..."
+                  value={taskSearchQuery}
+                  onChange={(e) => setTaskSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+            <div style={{ width: "100%", height: isGanttFullscreen ? "calc(100vh - 150px)" : "600px", overflow: "auto" }}>
               <Gantt
+                ref={ganttRef}
                 projecttasks={projectTasks}
                 onTaskUpdate={saveProjectTasks}
+                searchQuery={taskSearchQuery}
                 onOpenTaskModal={(parentId) => {
-                  setTaskForm({ ...taskForm, parent_id: parentId });
+                  console.log('=== onOpenTaskModal called ===');
+                  console.log('parentId received:', parentId);
+                  console.log('parentId type:', typeof parentId);
+                  console.log('All tasks:', projectTasks.data);
+
+                  // Find parent task and get its text/name
+                  let parentWbs = '';
+                  if (parentId) {
+                    const parentTask = projectTasks.data.find((t: any) => t.id === parentId);
+                    console.log('Searching for parent task with ID:', parentId);
+                    console.log('Parent task found:', parentTask);
+                    if (parentTask) {
+                      // Use task text (name) as the identifier, fallback to ID
+                      parentWbs = parentTask.text || parentTask.description || `Task ID: ${parentId}`;
+                      console.log('Parent task identifier:', parentWbs);
+                    } else {
+                      console.log('WARNING: Parent task NOT found for ID:', parentId);
+                      parentWbs = `Task ID: ${parentId}`;
+                    }
+                  }
+
+                  setTaskForm({
+                    description: '',
+                    start_date: '',
+                    duration: 1,
+                    owner_id: '',
+                    resource_ids: [],
+                    parent_id: parentId,
+                    parent_wbs: parentWbs,
+                    successor_ids: [],
+                    type: 'task',
+                    progress: 0
+                  });
+                  console.log('Task form after setting - parent_wbs:', parentWbs);
                   setEditingTaskId(null);
                   setShowTaskModal(true);
                 }}
@@ -2172,22 +2508,48 @@ const ProjectDetail: React.FC = () => {
                   console.log("Found task:", task);
                   if (task) {
                     let startDate = task.start_date;
-                    if (startDate && startDate.includes(' ')) {
+
+                    // Convert Date object to string if needed
+                    if (startDate instanceof Date) {
+                      startDate = startDate.toISOString().split('T')[0];
+                    } else if (typeof startDate === 'string' && startDate.includes(' ')) {
                       startDate = startDate.split(' ')[0];
                     }
+
+                    // Find successor tasks from links
+                    const successorIds = (projectTasks.links || [])
+                      .filter((link: any) => link.source === taskId)
+                      .map((link: any) => link.target);
+
+                    // Get parent WBS if task has a parent
+                    let parentWbs = '';
+                    if (task.parent && task.parent !== 0) {
+                      const parentTask = projectTasks.data.find((t: any) => t.id === task.parent);
+                      if (parentTask) {
+                        parentWbs = parentTask.wbs || parentTask.$wbs || `Task #${task.parent}`;
+                      }
+                    }
+
                     console.log("Setting task form with:", {
                       description: task.text,
                       start_date: startDate,
                       duration: task.duration,
                       owner_id: task.owner_id || '',
-                      parent_id: task.parent || undefined
+                      parent_id: task.parent || undefined,
+                      parent_wbs: parentWbs,
+                      successor_ids: successorIds
                     });
                     setTaskForm({
                       description: task.text,
                       start_date: startDate,
                       duration: task.duration,
                       owner_id: task.owner_id || '',
-                      parent_id: task.parent || undefined
+                      resource_ids: task.resource_ids || [],
+                      parent_id: task.parent || undefined,
+                      parent_wbs: parentWbs,
+                      successor_ids: successorIds,
+                      type: task.type || 'task',
+                      progress: Math.round((task.progress || 0) * 100)
                     });
                     setEditingTaskId(taskId);
                     console.log("Opening modal with editingTaskId:", taskId);
@@ -2974,20 +3336,27 @@ const ProjectDetail: React.FC = () => {
                   Select Categories (you can select multiple)
                 </label>
                 <div className="space-y-2 max-h-96 overflow-y-auto border border-gray-300 rounded-lg p-3">
-                  {getCostCategoryOptions().map((category) => (
-                    <label
-                      key={category}
-                      className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={budgetForm.categories.includes(category)}
-                        onChange={() => handleCategoryToggle(category)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <span className="text-sm text-gray-900">{category}</span>
-                    </label>
-                  ))}
+                  {getCostCategoryOptions().length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <p className="text-sm mb-2">No budget categories available.</p>
+                      <p className="text-xs">Please add budget categories in Settings → Budget Categories first.</p>
+                    </div>
+                  ) : (
+                    getCostCategoryOptions().map((category) => (
+                      <label
+                        key={category}
+                        className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={budgetForm.categories.includes(category)}
+                          onChange={() => handleCategoryToggle(category)}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-900">{category}</span>
+                      </label>
+                    ))
+                  )}
                 </div>
                 {budgetForm.categories.length > 0 && (
                   <div className="mt-3">
@@ -3389,9 +3758,9 @@ const ProjectDetail: React.FC = () => {
                         ? 'Create Subtask'
                         : 'Create New Task'}
                   </h3>
-                  {!editingTaskId && taskForm.parent_id && (
+                  {!editingTaskId && taskForm.parent_wbs && (
                     <p className="text-sm text-gray-500 mt-1">
-                      This will be created as a subtask under task #{taskForm.parent_id}
+                      This will be created as a subtask under {taskForm.parent_wbs}
                     </p>
                   )}
                 </div>
@@ -3404,7 +3773,12 @@ const ProjectDetail: React.FC = () => {
                       start_date: '',
                       duration: 1,
                       owner_id: '',
-                      parent_id: undefined
+                      resource_ids: [],
+                      parent_id: undefined,
+                      parent_wbs: '',
+                      successor_ids: [],
+                      type: 'task',
+                      progress: 0
                     });
                   }}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -3414,18 +3788,57 @@ const ProjectDetail: React.FC = () => {
               </div>
 
               <form onSubmit={handleTaskSubmit} className="space-y-4">
+                {taskForm.parent_wbs && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Parent Task
+                    </label>
+                    <input
+                      type="text"
+                      value={taskForm.parent_wbs}
+                      readOnly
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed"
+                      placeholder="No parent task"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      This task will be created as a subtask under the parent task shown above
+                    </p>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Task Description <span className="text-red-500">*</span>
+                    Task Name <span className="text-red-500">*</span>
                   </label>
-                  <textarea
+                  <input
+                    type="text"
                     value={taskForm.description}
                     onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
-                    rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter task description..."
+                    placeholder="Enter task name..."
                     required
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Task Type <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={taskForm.type}
+                    onChange={(e) => setTaskForm({ ...taskForm, type: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  >
+                    <option value="task">Task</option>
+                    <option value="project">Summary Task</option>
+                    <option value="milestone">Milestone</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {taskForm.type === 'task' && 'Standard task with start date, duration, and progress tracking'}
+                    {taskForm.type === 'project' && 'Container for subtasks with automatic duration calculation'}
+                    {taskForm.type === 'milestone' && 'Key event or goal marker with zero duration'}
+                  </p>
                 </div>
 
                 <div>
@@ -3443,38 +3856,158 @@ const ProjectDetail: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Duration (Days) <span className="text-red-500">*</span>
+                    Duration (Days) {taskForm.type !== 'milestone' && <span className="text-red-500">*</span>}
                   </label>
                   <input
                     type="number"
-                    min="1"
-                    value={taskForm.duration}
+                    min={taskForm.type === 'milestone' ? '0' : '1'}
+                    value={taskForm.type === 'milestone' ? 0 : taskForm.duration}
                     onChange={(e) => setTaskForm({ ...taskForm, duration: parseInt(e.target.value) || 1 })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
                     placeholder="Enter duration in days..."
-                    required
+                    required={taskForm.type !== 'milestone'}
+                    disabled={taskForm.type === 'milestone' || taskForm.type === 'project'}
                   />
+                  {taskForm.type === 'milestone' && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Milestones have zero duration by default
+                    </p>
+                  )}
+                  {taskForm.type === 'project' && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Summary task duration is calculated from subtasks
+                    </p>
+                  )}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Task Owner
+                    Task Owners (Multiple Selection)
                   </label>
-                  <select
-                    value={taskForm.owner_id}
-                    onChange={(e) => setTaskForm({ ...taskForm, owner_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Select team member...</option>
-                    {projectTeamMembers.map((member: any) => (
-                      <option key={member.id} value={member.resource_id}>
-                        {member.resources?.display_name || 'Unknown'}
-                      </option>
-                    ))}
-                  </select>
-                  {projectTeamMembers.length === 0 && (
+                  <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto">
+                    {projectTeamMembers.length === 0 ? (
+                      <p className="text-sm text-gray-500">
+                        No team members assigned. Add team members in the Team tab first.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {projectTeamMembers.map((member: any) => (
+                          <label
+                            key={member.id}
+                            className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={taskForm.resource_ids.includes(member.resource_id)}
+                              onChange={(e) => {
+                                const resourceId = member.resource_id;
+                                if (e.target.checked) {
+                                  setTaskForm({
+                                    ...taskForm,
+                                    resource_ids: [...taskForm.resource_ids, resourceId]
+                                  });
+                                } else {
+                                  setTaskForm({
+                                    ...taskForm,
+                                    resource_ids: taskForm.resource_ids.filter(id => id !== resourceId)
+                                  });
+                                }
+                              }}
+                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700">
+                              {member.resources?.display_name || 'Unknown'}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {taskForm.resource_ids.length > 0 && (
                     <p className="text-xs text-gray-500 mt-1">
-                      No team members assigned. Add team members in the Team tab first.
+                      {taskForm.resource_ids.length} team member(s) selected
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Task Progress
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={taskForm.progress}
+                      onChange={(e) => setTaskForm({ ...taskForm, progress: parseInt(e.target.value) })}
+                      className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                      disabled={taskForm.type === 'milestone'}
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={taskForm.progress}
+                      onChange={(e) => {
+                        const value = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                        setTaskForm({ ...taskForm, progress: value });
+                      }}
+                      className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center disabled:bg-gray-100 disabled:text-gray-500"
+                      disabled={taskForm.type === 'milestone'}
+                    />
+                    <span className="text-sm font-medium text-gray-700">%</span>
+                  </div>
+                  {taskForm.type === 'milestone' && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Milestones don't track progress
+                    </p>
+                  )}
+                  {taskForm.type === 'project' && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Summary task progress is calculated from subtasks
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Successor Tasks (Multiple Selection)
+                  </label>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Select tasks that should start only after this task is completed. Hold Ctrl/Cmd to select multiple.
+                  </p>
+                  <select
+                    multiple
+                    value={taskForm.successor_ids.map(String)}
+                    onChange={(e) => {
+                      const selectedOptions = Array.from(e.target.selectedOptions).map(option => parseInt(option.value));
+                      setTaskForm({
+                        ...taskForm,
+                        successor_ids: selectedOptions
+                      });
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    size={6}
+                  >
+                    {getAllTasksWithWBS()
+                      .filter(task => editingTaskId ? task.id !== editingTaskId : true)
+                      .length === 0 ? (
+                      <option disabled>No tasks available. Create the task first, then edit it to add successors.</option>
+                    ) : (
+                      getAllTasksWithWBS()
+                        .filter(task => editingTaskId ? task.id !== editingTaskId : true)
+                        .map((task) => (
+                          <option key={task.id} value={task.id}>
+                            {task.wbs ? `${task.wbs} - ` : ''}{task.text}
+                          </option>
+                        ))
+                    )}
+                  </select>
+                  {taskForm.successor_ids.length > 0 && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {taskForm.successor_ids.length} successor task(s) selected
                     </p>
                   )}
                 </div>

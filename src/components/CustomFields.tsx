@@ -11,8 +11,7 @@ interface CustomField {
   is_required: boolean;
   default_value?: string;
   options?: string[];
-  entity_type: 'project' | 'resource';
-  track_history?: boolean;
+  entity_type: 'project' | 'resource' | 'task';
   created_at: string;
   updated_at: string;
 }
@@ -29,6 +28,7 @@ const CustomFields: React.FC = () => {
     description: '',
     is_required: false,
     default_value: '',
+    entity_type: 'project' as 'project' | 'resource' | 'task',
     entity_type: 'project' as 'project' | 'resource',
     track_history: false,
     options: []
@@ -256,12 +256,13 @@ const CustomFields: React.FC = () => {
               </label>
               <select
                 value={formData.entity_type}
-                onChange={(e) => setFormData({ ...formData, entity_type: e.target.value as 'project' | 'resource' })}
+                onChange={(e) => setFormData({ ...formData, entity_type: e.target.value as 'project' | 'resource' | 'task' })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               >
                 <option value="project">Project Fields</option>
                 <option value="resource">Resource Fields</option>
+                <option value="task">Task Fields</option>
               </select>
             </div>
           </div>
@@ -462,9 +463,11 @@ const CustomFields: React.FC = () => {
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                         field.entity_type === 'project'
                           ? 'bg-blue-100 text-blue-800'
-                          : 'bg-green-100 text-green-800'
+                          : field.entity_type === 'resource'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-orange-100 text-orange-800'
                       }`}>
-                        {field.entity_type === 'project' ? 'Project' : 'Resource'}
+                        {field.entity_type === 'project' ? 'Project' : field.entity_type === 'resource' ? 'Resource' : 'Task'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
