@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, MoreHorizontal, Grid3x3 as Grid3X3, List, Calendar, User, Settings2, X, Check } from 'lucide-react';
 import ProjectCard from '../components/ProjectCard';
 import { supabase } from '../lib/supabase';
+import { DEMO_USER_ID } from '../lib/useCurrentUser';
 
 interface Project {
   id: string;
@@ -45,12 +46,19 @@ const Projects: React.FC = () => {
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [projectFieldValues, setProjectFieldValues] = useState<Record<string, any>>({});
   const [resources, setResources] = useState<Record<string, string>>({});
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
 
   useEffect(() => {
     fetchResources();
     fetchCustomFields();
     fetchProjects();
   }, []);
+
+  useEffect(() => {
+    if (columns.length > 0 && !preferencesLoaded) {
+      loadUserPreferences();
+    }
+  }, [columns, preferencesLoaded]);
 
   const fetchResources = async () => {
     try {
@@ -107,6 +115,78 @@ const Projects: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching custom fields:', error);
+    }
+  };
+
+  const loadUserPreferences = async () => {
+    try {
+      // Load view mode preference
+      const { data: viewModeData } = await supabase
+        .from('user_preferences')
+        .select('preference_value')
+        .eq('user_id', DEMO_USER_ID)
+        .eq('preference_key', 'project_center_view_mode')
+        .maybeSingle();
+
+      if (viewModeData?.preference_value?.viewMode) {
+        setViewMode(viewModeData.preference_value.viewMode);
+      }
+
+      // Load column preferences
+      const { data: columnsData } = await supabase
+        .from('user_preferences')
+        .select('preference_value')
+        .eq('user_id', DEMO_USER_ID)
+        .eq('preference_key', 'project_center_columns')
+        .maybeSingle();
+
+      if (columnsData?.preference_value?.enabledColumns) {
+        const enabledKeys = columnsData.preference_value.enabledColumns;
+        setColumns(prev => prev.map(col => ({
+          ...col,
+          enabled: enabledKeys.includes(col.key)
+        })));
+      }
+
+      setPreferencesLoaded(true);
+    } catch (error) {
+      console.error('Error loading user preferences:', error);
+      setPreferencesLoaded(true);
+    }
+  };
+
+  const saveViewModePreference = async (mode: 'tile' | 'list') => {
+    try {
+      await supabase
+        .from('user_preferences')
+        .upsert({
+          user_id: DEMO_USER_ID,
+          preference_key: 'project_center_view_mode',
+          preference_value: { viewMode: mode },
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,preference_key'
+        });
+    } catch (error) {
+      console.error('Error saving view mode preference:', error);
+    }
+  };
+
+  const saveColumnsPreference = async (cols: ColumnConfig[]) => {
+    try {
+      const enabledColumns = cols.filter(c => c.enabled).map(c => c.key);
+      await supabase
+        .from('user_preferences')
+        .upsert({
+          user_id: DEMO_USER_ID,
+          preference_key: 'project_center_columns',
+          preference_value: { enabledColumns },
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,preference_key'
+        });
+    } catch (error) {
+      console.error('Error saving columns preference:', error);
     }
   };
 
@@ -169,9 +249,16 @@ const Projects: React.FC = () => {
   });
 
   const toggleColumn = (key: string) => {
-    setColumns(prev => prev.map(col =>
+    const updatedColumns = columns.map(col =>
       col.key === key ? { ...col, enabled: !col.enabled } : col
-    ));
+    );
+    setColumns(updatedColumns);
+    saveColumnsPreference(updatedColumns);
+  };
+
+  const handleViewModeChange = (mode: 'tile' | 'list') => {
+    setViewMode(mode);
+    saveViewModePreference(mode);
   };
 
   const visibleColumns = columns.filter(col => col.enabled);
@@ -208,7 +295,7 @@ const Projects: React.FC = () => {
           {/* View Toggle */}
           <div className="flex items-center bg-gray-100 rounded-lg p-1">
             <button
-              onClick={() => setViewMode('tile')}
+              onClick={() => handleViewModeChange('tile')}
               className={`flex items-center space-x-2 px-3 py-2 rounded-md transition-colors ${
                 viewMode === 'tile'
                   ? 'bg-white text-gray-900 shadow-sm'
@@ -219,7 +306,7 @@ const Projects: React.FC = () => {
               <span className="text-sm font-medium">Tiles</span>
             </button>
             <button
-              onClick={() => setViewMode('list')}
+              onClick={() => handleViewModeChange('list')}
               className={`flex items-center space-x-2 px-3 py-2 rounded-md transition-colors ${
                 viewMode === 'list'
                   ? 'bg-white text-gray-900 shadow-sm'
