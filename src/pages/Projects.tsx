@@ -44,11 +44,34 @@ const Projects: React.FC = () => {
   const [columns, setColumns] = useState<ColumnConfig[]>([]);
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [projectFieldValues, setProjectFieldValues] = useState<Record<string, any>>({});
+  const [resources, setResources] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    fetchResources();
     fetchCustomFields();
     fetchProjects();
   }, []);
+
+  const fetchResources = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('resources')
+        .select('id, display_name');
+
+      if (error) {
+        console.error('Error fetching resources:', error);
+      } else {
+        // Create a lookup map of resource ID to display name
+        const resourceMap: Record<string, string> = {};
+        (data || []).forEach(resource => {
+          resourceMap[resource.id] = resource.display_name;
+        });
+        setResources(resourceMap);
+      }
+    } catch (error) {
+      console.error('Error fetching resources:', error);
+    }
+  };
 
   const fetchCustomFields = async () => {
     try {
@@ -408,6 +431,8 @@ const Projects: React.FC = () => {
                                     `$${parseFloat(fieldValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                                   ) : col.fieldType === 'checkbox' ? (
                                     fieldValue === 'true' || fieldValue === true ? 'Yes' : 'No'
+                                  ) : col.fieldType === 'people_picker' ? (
+                                    resources[fieldValue] || fieldValue
                                   ) : (
                                     fieldValue
                                   )
