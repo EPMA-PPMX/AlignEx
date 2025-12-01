@@ -29,6 +29,8 @@ const CustomFields: React.FC = () => {
     is_required: false,
     default_value: '',
     entity_type: 'project' as 'project' | 'resource' | 'task',
+    entity_type: 'project' as 'project' | 'resource',
+    track_history: false,
     options: []
   });
 
@@ -41,7 +43,8 @@ const CustomFields: React.FC = () => {
     { value: 'textarea', label: 'Multiline Text' },
     { value: 'dropdown', label: 'Dropdown' },
     { value: 'radio', label: 'Radio Button' },
-    { value: 'checkbox', label: 'Checkbox' }
+    { value: 'checkbox', label: 'Checkbox' },
+    { value: 'people_picker', label: 'People Picker' }
   ];
 
   useEffect(() => {
@@ -132,6 +135,7 @@ const CustomFields: React.FC = () => {
       is_required: field.is_required,
       default_value: field.default_value || '',
       entity_type: field.entity_type,
+      track_history: field.track_history || false,
       options: fieldOptions
     });
   };
@@ -172,6 +176,7 @@ const CustomFields: React.FC = () => {
       is_required: false,
       default_value: '',
       entity_type: 'project',
+      track_history: false,
       options: []
     });
     setEditingField(null);
@@ -342,17 +347,34 @@ const CustomFields: React.FC = () => {
             )}
           </div>
 
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="is_required"
-              checked={formData.is_required}
-              onChange={(e) => setFormData({ ...formData, is_required: e.target.checked })}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="is_required" className="ml-2 block text-sm text-gray-700">
-              Required field
-            </label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="is_required"
+                checked={formData.is_required}
+                onChange={(e) => setFormData({ ...formData, is_required: e.target.checked })}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label htmlFor="is_required" className="ml-2 block text-sm text-gray-700">
+                Required field
+              </label>
+            </div>
+
+            {formData.entity_type === 'project' && (
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="track_history"
+                  checked={formData.track_history}
+                  onChange={(e) => setFormData({ ...formData, track_history: e.target.checked })}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="track_history" className="ml-2 block text-sm text-gray-700">
+                  Track historical values
+                </label>
+              </div>
+            )}
           </div>
 
           <div className="flex space-x-4">

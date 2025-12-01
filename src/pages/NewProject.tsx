@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, ArrowLeft, Loader } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { formatCurrencyInput } from '../lib/utils';
 
 interface ProjectTemplate {
   id: string;
@@ -169,9 +170,10 @@ const NewProject: React.FC = () => {
   };
 
   const handleImpactChange = (priorityId: string, value: string) => {
+    const formatted = formatCurrencyInput(value);
     setPriorityImpacts(prev => ({
       ...prev,
-      [priorityId]: value
+      [priorityId]: formatted
     }));
   };
 
@@ -300,13 +302,13 @@ const NewProject: React.FC = () => {
                           {selectedPriorities.includes(priority.id) && (
                             <div className="mt-3">
                               <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Planned Impact <span className="text-red-500">*</span>
+                                Planned Impact ($) <span className="text-red-500">*</span>
                               </label>
                               <input
                                 type="text"
                                 value={priorityImpacts[priority.id] || ''}
                                 onChange={(e) => handleImpactChange(priority.id, e.target.value)}
-                                placeholder="e.g., 5% cost reduction, 2 days faster response"
+                                placeholder="e.g., $50,000"
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 disabled={loading}
                               />

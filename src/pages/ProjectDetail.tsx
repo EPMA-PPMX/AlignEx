@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp, Search, Group, Flag, ZoomIn, ZoomOut, Maximize2, Minimize2 } from 'lucide-react';
+import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp, History } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { trackFieldHistory, shouldTrackFieldHistory } from '../lib/fieldHistoryTracker';
 import { MonthlyBudgetGrid } from '../components/MonthlyBudgetGrid';
 import { BudgetSummaryTiles } from '../components/BudgetSummaryTiles';
 import Gantt from "../components/Gantt/Gantt";
@@ -9,6 +11,7 @@ import ProjectStatusDropdown from '../components/ProjectStatusDropdown';
 import ProjectHealthStatus from '../components/ProjectHealthStatus';
 import BenefitTracking from '../components/BenefitTracking';
 import ProjectTeams from '../components/ProjectTeams';
+import PeoplePicker from '../components/PeoplePicker';
 
 interface Project {
   id: string;
@@ -186,6 +189,11 @@ const ProjectDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyFieldId, setHistoryFieldId] = useState<string | null>(null);
+  const [historyFieldName, setHistoryFieldName] = useState<string>('');
+  const [fieldHistory, setFieldHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   // Form states for modals
   const [showRiskModal, setShowRiskModal] = useState(false);
@@ -352,7 +360,41 @@ const ProjectDetail: React.FC = () => {
       if (error && error.code !== 'PGRST116') {
         console.error('Error fetching overview configuration:', error);
       } else if (data) {
-        setOverviewConfig(data);
+        // Fetch current custom field data to get track_history flag
+        const fieldIds = data.sections.flatMap((section: any) =>
+          section.fields.map((f: any) => f.customField.id)
+        );
+
+        if (fieldIds.length > 0) {
+          const { data: customFieldsData, error: fieldsError } = await supabase
+            .from('custom_fields')
+            .select('id, track_history')
+            .in('id', fieldIds);
+
+          if (!fieldsError && customFieldsData) {
+            // Update the sections with current track_history values
+            const fieldTrackingMap = new Map(
+              customFieldsData.map(cf => [cf.id, cf.track_history])
+            );
+
+            const updatedSections = data.sections.map((section: any) => ({
+              ...section,
+              fields: section.fields.map((field: any) => ({
+                ...field,
+                customField: {
+                  ...field.customField,
+                  track_history: fieldTrackingMap.get(field.customField.id) || false
+                }
+              }))
+            }));
+
+            setOverviewConfig({ ...data, sections: updatedSections });
+          } else {
+            setOverviewConfig(data);
+          }
+        } else {
+          setOverviewConfig(data);
+        }
       }
     } catch (error) {
       console.error('Error fetching overview configuration:', error);
@@ -769,12 +811,66 @@ const ProjectDetail: React.FC = () => {
         alert(`Error saving field values: ${error.message}\n\nDetails: ${error.details || 'No additional details'}\n\nHint: ${error.hint || 'Check database constraints and permissions'}`);
       } else {
         alert('Field values saved successfully!');
+
+        // Track history for fields that have history tracking enabled
+        if (overviewConfig && project) {
+          for (const [fieldId, value] of Object.entries(fieldValues)) {
+            const shouldTrack = await shouldTrackFieldHistory(fieldId);
+            if (shouldTrack) {
+              // Find the field in the overview config sections
+              let field = null;
+              for (const section of overviewConfig.sections) {
+                const foundField = section.fields.find(f => f.customField.id === fieldId);
+                if (foundField) {
+                  field = foundField.customField;
+                  break;
+                }
+              }
+
+              if (field) {
+                await trackFieldHistory({
+                  projectId: id,
+                  fieldId: fieldId,
+                  fieldValue: String(value),
+                  projectName: project.name,
+                  fieldName: field.field_label
+                });
+              }
+            }
+          }
+        }
       }
     } catch (error) {
       console.error('Error saving field values:', error);
       alert(`Unexpected error saving field values: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const loadFieldHistory = async (fieldId: string, fieldName: string) => {
+    if (!id) return;
+
+    try {
+      setLoadingHistory(true);
+      setHistoryFieldId(fieldId);
+      setHistoryFieldName(fieldName);
+      setShowHistoryModal(true);
+
+      const { data, error } = await supabase
+        .from('project_field_value_history')
+        .select('*')
+        .eq('project_id', id)
+        .eq('field_id', fieldId)
+        .order('changed_at', { ascending: false });
+
+      if (error) throw error;
+      setFieldHistory(data || []);
+    } catch (error) {
+      console.error('Error loading field history:', error);
+      alert('Failed to load field history');
+    } finally {
+      setLoadingHistory(false);
     }
   };
 
@@ -912,6 +1008,17 @@ const ProjectDetail: React.FC = () => {
             />
             <span className="text-sm text-gray-700">{customField.field_label}</span>
           </label>
+        );
+      case 'people_picker':
+        return (
+          <PeoplePicker
+            value={value}
+            onChange={(resourceId, displayName) => {
+              handleFieldValueChange(customField.id, resourceId, 'people_picker');
+            }}
+            placeholder={`Select ${customField.field_label.toLowerCase()}`}
+            disabled={false}
+          />
         );
       default:
         return (
@@ -2153,23 +2260,35 @@ const ProjectDetail: React.FC = () => {
       </div>
 
       {/* Tab Content */}
-      <div className="space-y-6">
+      <div className="space-y-6 overflow-visible">
         {activeTab === 'overview' && (
-          <div>
+          <div className="overflow-visible">
             {overviewConfig && overviewConfig.sections.length > 0 ? (
-              <div className="space-y-8">
+              <div className="space-y-8 overflow-visible">
                 {overviewConfig.sections.map((section) => (
-                  <div key={section.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <div key={section.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 overflow-visible">
                     <h3 className="text-lg font-semibold text-gray-900 mb-6">{section.name}</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 overflow-visible">
                       {section.fields.map((field) => (
-                        <div key={field.id}>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            {field.customField.field_name.split('_').map(word =>
-                              word.charAt(0).toUpperCase() + word.slice(1)
-                            ).join(' ')}
-                            {field.customField.is_required && <span className="text-red-500 ml-1">*</span>}
-                          </label>
+                        <div key={field.id} className="overflow-visible">
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-sm font-medium text-gray-700">
+                              {field.customField.field_name.split('_').map(word =>
+                                word.charAt(0).toUpperCase() + word.slice(1)
+                              ).join(' ')}
+                              {field.customField.is_required && <span className="text-red-500 ml-1">*</span>}
+                            </label>
+                            {field.customField.track_history && (
+                              <button
+                                onClick={() => loadFieldHistory(field.customField.id, field.customField.field_label || field.customField.field_name)}
+                                className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded"
+                                title="View history"
+                              >
+                                <History className="w-3 h-3" />
+                                History
+                              </button>
+                            )}
+                          </div>
                           {(field.customField.field_label || field.customField.field_description) && (
                             <p className="text-xs text-gray-500 mb-2">
                               {field.customField.field_label || field.customField.field_description}
@@ -3910,6 +4029,75 @@ const ProjectDetail: React.FC = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Field History Modal */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Field History</h3>
+                <p className="text-sm text-gray-600 mt-1">{historyFieldName}</p>
+              </div>
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-8rem)]">
+              {loadingHistory ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">Loading history...</p>
+                </div>
+              ) : fieldHistory.length === 0 ? (
+                <div className="text-center py-8 bg-gray-50 rounded-lg">
+                  <History className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-gray-600">No history found for this field</p>
+                  <p className="text-sm text-gray-500 mt-2">Changes will appear here after the field value is updated</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {fieldHistory.map((record, index) => (
+                    <div key={record.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-sm font-medium text-gray-900">Value:</span>
+                            <span className="text-sm text-gray-700">{record.field_value || '(empty)'}</span>
+                          </div>
+                          <div className="flex flex-wrap gap-4 text-xs text-gray-500">
+                            <span>
+                              <strong>Changed:</strong> {new Date(record.changed_at).toLocaleString()}
+                            </span>
+                            <span>
+                              <strong>By:</strong> {record.changed_by}
+                            </span>
+                          </div>
+                        </div>
+                        {index === 0 && (
+                          <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded">
+                            Current
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

@@ -1,0 +1,161 @@
+import { useState, useEffect } from 'react';
+import { Clock, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { DEMO_USER_ID } from '../../lib/useCurrentUser';
+import { Link } from 'react-router-dom';
+
+interface ChangeRequest {
+  id: string;
+  project_id: string;
+  title: string;
+  status: string;
+  priority: string;
+  requested_date: string;
+  project?: {
+    id: string;
+    name: string;
+  };
+}
+
+export default function PendingApprovalsWidget() {
+  const [requests, setRequests] = useState<ChangeRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchPendingApprovals();
+  }, []);
+
+  const fetchPendingApprovals = async () => {
+    try {
+      setLoading(true);
+
+      const { data, error } = await supabase
+        .from('change_requests')
+        .select(`
+          id,
+          project_id,
+          title,
+          status,
+          priority,
+          requested_date,
+          projects (
+            id,
+            name
+          )
+        `)
+        .in('status', ['pending', 'under_review'])
+        .order('requested_date', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+
+      setRequests(data || []);
+    } catch (error) {
+      console.error('Error fetching pending approvals:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return <Clock className="w-4 h-4 text-yellow-600" />;
+      case 'under_review':
+        return <AlertCircle className="w-4 h-4 text-blue-600" />;
+      case 'approved':
+        return <CheckCircle className="w-4 h-4 text-green-600" />;
+      case 'rejected':
+        return <XCircle className="w-4 h-4 text-red-600" />;
+      default:
+        return <Clock className="w-4 h-4 text-gray-600" />;
+    }
+  };
+
+  const getPriorityClass = (priority: string) => {
+    switch (priority?.toLowerCase()) {
+      case 'high':
+      case 'critical':
+        return 'text-red-700 bg-red-100';
+      case 'medium':
+        return 'text-yellow-700 bg-yellow-100';
+      case 'low':
+        return 'text-green-700 bg-green-100';
+      default:
+        return 'text-gray-700 bg-gray-100';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 h-full">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+            <Clock className="w-4 h-4" />
+            Pending Approvals
+          </h3>
+        </div>
+        <div className="animate-pulse space-y-2">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-20 bg-gray-200 rounded"></div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 h-full flex flex-col">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+          <Clock className="w-4 h-4 text-blue-600" />
+          Pending Approvals
+        </h3>
+        <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+          {requests.length} pending
+        </span>
+      </div>
+
+      {requests.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center text-center py-8">
+          <CheckCircle className="w-12 h-12 text-gray-400 mb-3" />
+          <p className="text-gray-600 mb-1">No pending approvals</p>
+          <p className="text-sm text-gray-500">All caught up!</p>
+        </div>
+      ) : (
+        <div className="space-y-2 flex-1 overflow-auto">
+          {requests.map((request) => (
+            <Link
+              key={request.id}
+              to={`/projects/${request.project_id}`}
+              className="block bg-gray-50 p-3 rounded-lg border border-gray-200 hover:border-blue-300 transition-all"
+            >
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="flex items-start gap-2 flex-1 min-w-0">
+                  {getStatusIcon(request.status)}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm text-gray-900 truncate">
+                      {request.title}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">
+                      {request.project?.name}
+                    </p>
+                  </div>
+                </div>
+                {request.priority && (
+                  <span className={`px-2 py-0.5 text-xs rounded-full font-medium whitespace-nowrap ${getPriorityClass(request.priority)}`}>
+                    {request.priority}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center justify-between text-xs text-gray-500">
+                <span className="capitalize">{request.status.replace('_', ' ')}</span>
+                <span>{new Date(request.requested_date).toLocaleDateString()}</span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

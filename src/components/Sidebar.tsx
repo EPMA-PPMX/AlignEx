@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FolderKanban, Settings, Target, TrendingUp, FileText, Award, Users, CheckSquare, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, Settings, Target, TrendingUp, FileText, Award, Users, CheckSquare, Clock, ChevronLeft, ChevronRight, BarChart3 } from 'lucide-react';
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
@@ -8,22 +8,22 @@ const Sidebar: React.FC = () => {
 
   const navItems = [
     {
-      name: 'Dashboard',
+      name: 'My Hub',
       path: '/',
       icon: LayoutDashboard,
     },
     {
-      name: 'Project Initiation',
+      name: 'Project Request',
       path: '/initiation',
       icon: FileText,
     },
     {
-      name: 'Projects',
+      name: 'Project Center',
       path: '/projects',
       icon: FolderKanban,
     },
     {
-      name: 'Organizational Priorities',
+      name: 'Strategic Priorities',
       path: '/priorities',
       icon: TrendingUp,
     },
@@ -33,19 +33,19 @@ const Sidebar: React.FC = () => {
       icon: Users,
     },
     {
-      name: 'Skills',
+      name: 'My Skills',
       path: '/skills',
       icon: Award,
-    },
-    {
-      name: 'Action Items',
-      path: '/action-items',
-      icon: CheckSquare,
     },
     {
       name: 'Timesheet',
       path: '/timesheet',
       icon: Clock,
+    },
+    {
+      name: 'Status Report',
+      path: '/status-report',
+      icon: BarChart3,
     },
     {
       name: 'Settings',
