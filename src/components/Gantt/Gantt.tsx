@@ -285,6 +285,8 @@ export default class Gantt extends Component<GanttProps> {
   };
 
   componentDidMount(): void {
+    if (!this.ganttContainer.current) return;
+
     gantt.config.date_format = "%Y-%m-%d %H:%i";
     gantt.config.readonly = false;
     gantt.config.details_on_dblclick = true;
@@ -359,8 +361,11 @@ export default class Gantt extends Component<GanttProps> {
       ]
     };
 
-    gantt.ext.zoom.init(zoomConfig);
-    gantt.ext.zoom.setLevel("day");
+    // Initialize zoom extension if it exists
+    if (gantt.ext && gantt.ext.zoom) {
+      gantt.ext.zoom.init(zoomConfig);
+      gantt.ext.zoom.setLevel("day");
+    }
 
     // Set grid width to 40% of container (task pane), leaving 60% for chart
     const updateGridWidth = () => {
@@ -1081,15 +1086,11 @@ export default class Gantt extends Component<GanttProps> {
       this.resizeObserver.disconnect();
     }
 
-    // Detach all event handlers
-    gantt.detachAllEvents();
-
-    // Clear all data
-    gantt.clearAll();
-
-    // Destroy the gantt instance to prevent memory leaks
-    if (this.ganttContainer.current) {
-      gantt.destructor();
+    // Clear all data before cleanup
+    try {
+      gantt.clearAll();
+    } catch (e) {
+      console.warn('Error clearing gantt:', e);
     }
   }
 
