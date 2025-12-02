@@ -1080,7 +1080,17 @@ export default class Gantt extends Component<GanttProps> {
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
     }
+
+    // Detach all event handlers
+    gantt.detachAllEvents();
+
+    // Clear all data
     gantt.clearAll();
+
+    // Destroy the gantt instance to prevent memory leaks
+    if (this.ganttContainer.current) {
+      gantt.destructor();
+    }
   }
 
   render(): React.ReactNode {
