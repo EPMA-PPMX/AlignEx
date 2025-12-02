@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, TrendingUp, DollarSign, Calendar } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import RequiresModule from './RequiresModule';
 
 interface Priority {
   id: string;
@@ -243,7 +244,8 @@ export default function BenefitTracking({ projectId }: BenefitTrackingProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <RequiresModule moduleKey="benefits">
+      <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
           <div className="flex items-center justify-between mb-2">
@@ -482,5 +484,6 @@ export default function BenefitTracking({ projectId }: BenefitTrackingProps) {
         )}
       </div>
     </div>
+    </RequiresModule>
   );
 }
