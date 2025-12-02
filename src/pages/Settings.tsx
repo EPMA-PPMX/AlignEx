@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Bell, Shield, Database, Palette, Globe, Settings2, Award, Users, Clock, DollarSign } from 'lucide-react';
+import { User, Bell, Shield, Database, Palette, Globe, Settings2, Award, Users, Clock, DollarSign, Key } from 'lucide-react';
 import CustomFields from '../components/CustomFields';
 import ProjectTemplates from '../components/ProjectTemplates';
 import OverviewPageDesigner from '../components/OverviewPageDesigner';
@@ -8,6 +8,7 @@ import SkillsManagement from '../components/settings/SkillsManagement';
 import RoleManagement from '../components/settings/RoleManagement';
 import TimesheetCategoriesManagement from '../components/settings/TimesheetCategoriesManagement';
 import BudgetCategoriesManagement from '../components/settings/BudgetCategoriesManagement';
+import LicenseManagement from '../components/settings/LicenseManagement';
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('profile');
@@ -16,6 +17,7 @@ const Settings: React.FC = () => {
     { id: 'profile', name: 'Profile', icon: User },
     { id: 'notifications', name: 'Notifications', icon: Bell },
     { id: 'security', name: 'Security', icon: Shield },
+    { id: 'license-management', name: 'License Management', icon: Key },
     { id: 'appearance', name: 'Appearance', icon: Palette },
     { id: 'integrations', name: 'Integrations', icon: Database },
     { id: 'general', name: 'General', icon: Globe },
@@ -171,6 +173,10 @@ const Settings: React.FC = () => {
                   </div>
                 </div>
               </div>
+            )}
+
+            {activeTab === 'license-management' && (
+              <LicenseManagement />
             )}
 
             {activeTab === 'appearance' && (
