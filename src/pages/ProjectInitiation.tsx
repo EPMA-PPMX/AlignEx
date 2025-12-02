@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye, Edit2, Trash2, Calendar, DollarSign } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { formatCurrency, formatDate as utilFormatDate } from '../lib/utils';
+import { formatCurrency, formatDate as utilFormatDate, formatCurrencyWithK } from '../lib/utils';
 import ProjectRequestForm from '../components/initiation/ProjectRequestForm';
 import RequestAnalytics from '../components/initiation/RequestAnalytics';
 
@@ -455,7 +455,7 @@ function RequestDetailsView({ request, onClose, onEdit, onDelete, onStatusChange
             <label className="text-sm font-medium text-slate-500">Initial Estimated Cost</label>
             <p className="text-slate-900 mt-1 flex items-center gap-2">
               <DollarSign className="w-4 h-4 text-slate-400" />
-              {request.initial_estimated_cost ? `$${request.initial_estimated_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Not specified'}
+              {request.initial_estimated_cost ? formatCurrencyWithK(request.initial_estimated_cost) : 'Not specified'}
             </p>
           </div>
 

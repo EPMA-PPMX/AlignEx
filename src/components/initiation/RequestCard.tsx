@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Edit2, Trash2, CheckCircle, XCircle, AlertCircle, Calendar, DollarSign, Clock } from 'lucide-react';
-import { formatDate as utilFormatDate } from '../../lib/utils';
+import { formatDate as utilFormatDate, formatCurrencyWithK } from '../../lib/utils';
 
 interface ProjectRequest {
   id: string;
@@ -100,7 +100,7 @@ export default function RequestCard({ request, onEdit, onDelete, onStatusChange 
               {request.initial_estimated_cost && (
                 <div className="flex items-center gap-1">
                   <DollarSign className="w-4 h-4" />
-                  <span>${request.initial_estimated_cost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                  <span>{formatCurrencyWithK(request.initial_estimated_cost)}</span>
                 </div>
               )}
             </div>

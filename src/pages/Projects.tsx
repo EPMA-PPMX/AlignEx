@@ -5,7 +5,7 @@ import { Plus, Search, Filter, MoreHorizontal, Grid3x3 as Grid3X3, List, Calenda
 import ProjectCard from '../components/ProjectCard';
 import { supabase } from '../lib/supabase';
 import { DEMO_USER_ID } from '../lib/useCurrentUser';
-import { formatDate } from '../lib/utils';
+import { formatDate, formatCurrencyWithK } from '../lib/utils';
 
 interface Project {
   id: string;
@@ -496,7 +496,7 @@ const Projects: React.FC = () => {
                                   col.fieldType === 'date' ? (
                                     formatDate(fieldValue)
                                   ) : col.fieldType === 'cost' ? (
-                                    `$${parseFloat(fieldValue).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+                                    formatCurrencyWithK(parseFloat(fieldValue))
                                   ) : col.fieldType === 'checkbox' ? (
                                     fieldValue === 'true' || fieldValue === true ? 'Yes' : 'No'
                                   ) : col.fieldType === 'people_picker' ? (

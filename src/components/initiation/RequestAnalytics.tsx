@@ -1,5 +1,6 @@
 import React from 'react';
 import { Clock, DollarSign, TrendingUp, CheckCircle, XCircle, AlertCircle, FileText } from 'lucide-react';
+import { formatCurrencyWithK } from '../../lib/utils';
 
 interface ProjectRequest {
   id: string;
@@ -188,7 +189,7 @@ export default function RequestAnalytics({ requests }: RequestAnalyticsProps) {
               <span className="text-xs text-blue-600 font-medium">Total Cost</span>
             </div>
             <p className="text-xl font-bold text-blue-900">
-              ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              {formatCurrencyWithK(totalCost)}
             </p>
           </div>
 
@@ -198,7 +199,7 @@ export default function RequestAnalytics({ requests }: RequestAnalyticsProps) {
               <span className="text-xs text-green-600 font-medium">Avg Cost</span>
             </div>
             <p className="text-xl font-bold text-green-900">
-              ${avgCost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              {formatCurrencyWithK(avgCost)}
             </p>
           </div>
         </div>

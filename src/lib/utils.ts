@@ -68,3 +68,10 @@ export function formatNumber(value: number | null | undefined): string {
   if (value === null || value === undefined) return '0';
   return value.toLocaleString('en-US');
 }
+
+export function formatCurrencyWithK(value: number | null | undefined): string {
+  if (value === null || value === undefined || value === 0) return '$0k';
+
+  const thousands = value / 1000;
+  return `$${thousands.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}k`;
+}
