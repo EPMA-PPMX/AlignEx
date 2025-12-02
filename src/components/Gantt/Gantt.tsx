@@ -21,6 +21,17 @@ interface Link {
   type: string;
 }
 
+interface CustomField {
+  id: string;
+  field_name: string;
+  field_type: string;
+  field_label: string;
+  field_description?: string;
+  is_required: boolean;
+  default_value?: string;
+  options?: string[];
+}
+
 interface GanttProps {
   projecttasks: {
     data: Task[];
@@ -31,6 +42,8 @@ interface GanttProps {
   onOpenTaskModal?: (parentId?: number) => void;
   onEditTask?: (taskId: number) => void;
   searchQuery?: string;
+  selectedTaskFields?: string[];
+  taskCustomFields?: CustomField[];
 }
 
 export default class Gantt extends Component<GanttProps> {
@@ -284,6 +297,157 @@ export default class Gantt extends Component<GanttProps> {
     console.log(`Total baselines rendered: ${baselineCount}`);
   };
 
+  private buildGanttColumns = () => {
+    const { selectedTaskFields = [], taskCustomFields = [] } = this.props;
+
+    // Define text and date editors
+    const textEditor = { type: "text", map_to: "text" };
+    const dateEditor = { type: "date", map_to: "start_date" };
+    const durationEditor = { type: "number", map_to: "duration", min: 0, max: 100 };
+
+    // Base columns
+    const baseColumns: any[] = [
+      {
+        name: "edit",
+        label: "",
+        width: 40,
+        align: "center",
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          return `<div class="gantt_edit_btn" data-task-id="${task.$original_id || task.id}" title="Edit task">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </div>`;
+        }
+      },
+      {
+        name: "wbs",
+        label: "WBS",
+        width: 60,
+        resize: true,
+        template: gantt.getWBSCode
+      },
+      { name: "text", label: "Task name", tree: true, width: 250, min_width: 150, max_width: 500, resize: true, editor: textEditor },
+      {
+        name: "owner_name",
+        label: "Owners",
+        align: "center",
+        width: 150,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+
+          if (task.resource_ids && Array.isArray(task.resource_ids) && task.resource_ids.length > 0) {
+            const owners = task.resource_names || [];
+            if (owners.length === 0) return "Unassigned";
+
+            const badges = owners.map((name: string, index: number) => {
+              const initial = name.charAt(0).toUpperCase();
+              const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+              const color = colors[index % colors.length];
+              return `<span class="owner-badge" style="background-color: ${color};" title="${name}">${initial}</span>`;
+            }).join('');
+
+            return `<div class="owner-badges-container">${badges}</div>`;
+          }
+
+          return task.owner_name || "Unassigned";
+        }
+      },
+      { name: "start_date", label: "Start time", align: "center", width: 120, resize: true, editor: dateEditor },
+      {
+        name: "end_date",
+        label: "End time",
+        align: "center",
+        width: 120,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          return gantt.templates.date_grid(task.end_date, task);
+        }
+      },
+      { name: "duration", label: "Duration", align: "center", width: 70, resize: true, editor: durationEditor },
+      {
+        name: "progress",
+        label: "Progress",
+        align: "center",
+        width: 80,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+
+          const progress = Math.round((task.progress || 0) * 100);
+          const radius = 12;
+          const circumference = 2 * Math.PI * radius;
+          const strokeDashoffset = circumference - (progress / 100) * circumference;
+
+          return `
+            <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">
+              <svg width="30" height="30" style="transform: rotate(-90deg);">
+                <circle
+                  cx="15"
+                  cy="15"
+                  r="${radius}"
+                  stroke="#e5e7eb"
+                  stroke-width="3"
+                  fill="none"
+                />
+                <circle
+                  cx="15"
+                  cy="15"
+                  r="${radius}"
+                  stroke="#3b82f6"
+                  stroke-width="3"
+                  fill="none"
+                  stroke-dasharray="${circumference}"
+                  stroke-dashoffset="${strokeDashoffset}"
+                  stroke-linecap="round"
+                />
+                <text
+                  x="15"
+                  y="15"
+                  text-anchor="middle"
+                  dominant-baseline="middle"
+                  font-size="8"
+                  fill="#374151"
+                  transform="rotate(90 15 15)"
+                >
+                  ${progress}%
+                </text>
+              </svg>
+            </div>
+          `;
+        }
+      }
+    ];
+
+    // Add custom field columns
+    selectedTaskFields.forEach(fieldId => {
+      const field = taskCustomFields.find(f => f.id === fieldId);
+      if (field) {
+        baseColumns.push({
+          name: `custom_${field.field_name}`,
+          label: field.field_label,
+          align: "center",
+          width: 150,
+          resize: true,
+          template: (task: any) => {
+            if (task.$group_header) return "";
+            const value = task[`custom_${field.field_name}`];
+            return value !== undefined && value !== null ? String(value) : "";
+          }
+        });
+      }
+    });
+
+    // Add the "add" button column at the end
+    baseColumns.push({ name: "add", label: "", width: 44 });
+
+    gantt.config.columns = baseColumns;
+  };
+
   componentDidMount(): void {
     if (!this.ganttContainer.current) return;
 
@@ -464,125 +628,8 @@ export default class Gantt extends Component<GanttProps> {
     gantt.config.row_height = 42;
     gantt.config.task_height = 26;
 
-    // Custom add button column with resizable columns and inline editors
-    gantt.config.columns = [
-      {
-        name: "edit",
-        label: "",
-        width: 40,
-        align: "center",
-        template: (task: any) => {
-          if (task.$group_header) return "";
-          return `<div class="gantt_edit_btn" data-task-id="${task.$original_id || task.id}" title="Edit task">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-            </svg>
-          </div>`;
-        }
-      },
-      {
-        name: "wbs",
-        label: "WBS",
-        width: 60,
-        resize: true,
-        template: gantt.getWBSCode
-      },
-      { name: "text", label: "Task name", tree: true, width: 250, min_width: 150, max_width: 500, resize: true, editor: textEditor },
-      {
-        name: "owner_name",
-        label: "Owners",
-        align: "center",
-        width: 150,
-        resize: true,
-        template: (task: any) => {
-          if (task.$group_header) return "";
-
-          // Check if task has resource_ids array (multiple resources)
-          if (task.resource_ids && Array.isArray(task.resource_ids) && task.resource_ids.length > 0) {
-            const owners = task.resource_names || [];
-            if (owners.length === 0) return "Unassigned";
-
-            // Create owner badges
-            const badges = owners.map((name: string, index: number) => {
-              const initial = name.charAt(0).toUpperCase();
-              const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-              const color = colors[index % colors.length];
-              return `<span class="owner-badge" style="background-color: ${color};" title="${name}">${initial}</span>`;
-            }).join('');
-
-            return `<div class="owner-badges-container">${badges}</div>`;
-          }
-
-          // Fallback to single owner_name for backward compatibility
-          return task.owner_name || "Unassigned";
-        }
-      },
-      { name: "start_date", label: "Start time", align: "center", width: 120, resize: true, editor: dateEditor },
-      {
-        name: "end_date",
-        label: "End time",
-        align: "center",
-        width: 120,
-        resize: true,
-        template: (task: any) => {
-          if (task.$group_header) return "";
-          return gantt.templates.date_grid(task.end_date, task);
-        }
-      },
-      { name: "duration", label: "Duration", align: "center", width: 70, resize: true, editor: durationEditor },
-      {
-        name: "progress",
-        label: "Progress",
-        align: "center",
-        width: 80,
-        resize: true,
-        template: (task: any) => {
-          if (task.$group_header) return "";
-
-          const progress = Math.round((task.progress || 0) * 100);
-          const radius = 12;
-          const circumference = 2 * Math.PI * radius;
-          const strokeDashoffset = circumference - (progress / 100) * circumference;
-
-          return `
-            <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">
-              <svg width="32" height="32" viewBox="0 0 32 32" style="transform: rotate(-90deg);">
-                <circle
-                  cx="16"
-                  cy="16"
-                  r="${radius}"
-                  fill="none"
-                  stroke="#e5e7eb"
-                  stroke-width="2.5"
-                />
-                <circle
-                  cx="16"
-                  cy="16"
-                  r="${radius}"
-                  fill="none"
-                  stroke="#10b981"
-                  stroke-width="2.5"
-                  stroke-dasharray="${circumference}"
-                  stroke-dashoffset="${strokeDashoffset}"
-                  stroke-linecap="round"
-                />
-                <text
-                  x="16"
-                  y="16"
-                  text-anchor="middle"
-                  dominant-baseline="central"
-                  style="transform: rotate(90deg); transform-origin: center; font-size: 8px; font-weight: 600; fill: #374151;"
-                >
-                  ${progress}%
-                </text>
-              </svg>
-            </div>
-          `;
-        }
-      },
-      { name: "add", label: "", width: 44 }
-    ];
+    // Build columns dynamically based on selected custom fields
+    this.buildGanttColumns();
 
     // Custom styling for group headers
     gantt.templates.task_class = (start: any, end: any, task: any) => {
@@ -939,7 +986,50 @@ export default class Gantt extends Component<GanttProps> {
   }
 
   componentDidUpdate(prevProps: GanttProps): void {
-    const { projecttasks, searchQuery } = this.props;
+    const { projecttasks, searchQuery, selectedTaskFields = [], taskCustomFields = [] } = this.props;
+    const prevSelectedFields = prevProps.selectedTaskFields || [];
+
+    // Check if selected task fields changed
+    const fieldsChanged =
+      selectedTaskFields.length !== prevSelectedFields.length ||
+      selectedTaskFields.some((fieldId, index) => fieldId !== prevSelectedFields[index]);
+
+    if (fieldsChanged) {
+      // Rebuild columns
+      this.buildGanttColumns();
+
+      // Initialize empty values for newly added fields in all tasks
+      const newFieldIds = selectedTaskFields.filter(id => !prevSelectedFields.includes(id));
+      if (newFieldIds.length > 0 && projecttasks.data.length > 0) {
+        const tasksNeedUpdate = projecttasks.data.filter(task => !task.$group_header);
+
+        tasksNeedUpdate.forEach((task: any) => {
+          newFieldIds.forEach(fieldId => {
+            const field = taskCustomFields.find(f => f.id === fieldId);
+            if (field) {
+              const fieldKey = `custom_${field.field_name}`;
+              // Only initialize if the field doesn't already have a value
+              if (task[fieldKey] === undefined || task[fieldKey] === null) {
+                task[fieldKey] = field.default_value || '';
+              }
+            }
+          });
+
+          // Update the task in gantt
+          if (gantt.isTaskExists(task.id)) {
+            gantt.updateTask(task.id);
+          }
+        });
+
+        // Trigger a save to persist the changes
+        if (this.props.onTaskUpdate) {
+          this.props.onTaskUpdate();
+        }
+      }
+
+      // Force gantt to re-render
+      gantt.render();
+    }
 
     if (JSON.stringify(prevProps.projecttasks) !== JSON.stringify(projecttasks)) {
       this.allTasks = projecttasks.data || [];

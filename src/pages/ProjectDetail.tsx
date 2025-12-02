@@ -185,6 +185,9 @@ const ProjectDetail: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [isGroupedByOwner, setIsGroupedByOwner] = useState(false);
   const [isGanttFullscreen, setIsGanttFullscreen] = useState(false);
+  const [taskCustomFields, setTaskCustomFields] = useState<CustomField[]>([]);
+  const [selectedTaskFields, setSelectedTaskFields] = useState<string[]>([]);
+  const [showTaskFieldsDropdown, setShowTaskFieldsDropdown] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -306,6 +309,7 @@ const ProjectDetail: React.FC = () => {
       fetchMonthlyForecasts();
       fetchProjectTasks();
       fetchProjectTeamMembers();
+      fetchTaskCustomFields();
     }
   }, [id]);
 
@@ -679,6 +683,24 @@ const ProjectDetail: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching team members:', error);
+    }
+  };
+
+  const fetchTaskCustomFields = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('custom_fields')
+        .select('*')
+        .eq('entity_type', 'task')
+        .order('field_label');
+
+      if (error) {
+        console.error('Error fetching task custom fields:', error);
+      } else {
+        setTaskCustomFields(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching task custom fields:', error);
     }
   };
 
@@ -2383,6 +2405,75 @@ const ProjectDetail: React.FC = () => {
                   <Group className="w-4 h-4" />
                   {isGroupedByOwner ? 'Show All Tasks' : 'Group by Owner'}
                 </button>
+
+                {/* Task Fields Selector */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowTaskFieldsDropdown(!showTaskFieldsDropdown)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Task Fields
+                    {selectedTaskFields.length > 0 && (
+                      <span className="ml-1 px-2 py-0.5 bg-blue-500 rounded-full text-xs">
+                        {selectedTaskFields.length}
+                      </span>
+                    )}
+                  </button>
+
+                  {showTaskFieldsDropdown && (
+                    <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+                      <div className="p-3 border-b border-gray-200">
+                        <h4 className="font-medium text-gray-900">Select Task Fields</h4>
+                        <p className="text-xs text-gray-500 mt-1">Choose fields to display in task pane</p>
+                      </div>
+                      <div className="max-h-80 overflow-y-auto p-2">
+                        {taskCustomFields.length === 0 ? (
+                          <div className="text-center py-8 text-gray-500">
+                            <p className="text-sm">No task fields available</p>
+                            <p className="text-xs mt-1">Create task fields in Settings</p>
+                          </div>
+                        ) : (
+                          taskCustomFields.map((field) => (
+                            <label
+                              key={field.id}
+                              className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedTaskFields.includes(field.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedTaskFields([...selectedTaskFields, field.id]);
+                                  } else {
+                                    setSelectedTaskFields(selectedTaskFields.filter(id => id !== field.id));
+                                  }
+                                }}
+                                className="mt-1 w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                              />
+                              <div className="flex-1">
+                                <div className="text-sm font-medium text-gray-900">{field.field_label}</div>
+                                {field.field_description && (
+                                  <div className="text-xs text-gray-500 mt-0.5">{field.field_description}</div>
+                                )}
+                                <div className="text-xs text-gray-400 mt-0.5">Type: {field.field_type}</div>
+                              </div>
+                            </label>
+                          ))
+                        )}
+                      </div>
+                      <div className="p-3 border-t border-gray-200 flex justify-end gap-2">
+                        <button
+                          onClick={() => setShowTaskFieldsDropdown(false)}
+                          className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <button
                   onClick={async () => {
                     if (ganttRef.current && id) {
@@ -2462,6 +2553,8 @@ const ProjectDetail: React.FC = () => {
                 projecttasks={projectTasks}
                 onTaskUpdate={saveProjectTasks}
                 searchQuery={taskSearchQuery}
+                selectedTaskFields={selectedTaskFields}
+                taskCustomFields={taskCustomFields}
                 onOpenTaskModal={(parentId) => {
                   console.log('=== onOpenTaskModal called ===');
                   console.log('parentId received:', parentId);
