@@ -188,7 +188,7 @@ export default function RequestAnalytics({ requests }: RequestAnalyticsProps) {
               <span className="text-xs text-blue-600 font-medium">Total Cost</span>
             </div>
             <p className="text-xl font-bold text-blue-900">
-              ${(totalCost / 1000).toFixed(0)}k
+              ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </p>
           </div>
 
@@ -198,7 +198,7 @@ export default function RequestAnalytics({ requests }: RequestAnalyticsProps) {
               <span className="text-xs text-green-600 font-medium">Avg Cost</span>
             </div>
             <p className="text-xl font-bold text-green-900">
-              ${(avgCost / 1000).toFixed(0)}k
+              ${avgCost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </p>
           </div>
         </div>
@@ -237,7 +237,7 @@ export default function RequestAnalytics({ requests }: RequestAnalyticsProps) {
               <span className="text-xs text-purple-600 font-medium">Total Duration</span>
             </div>
             <p className="text-xl font-bold text-purple-900">
-              {totalDuration} <span className="text-sm">mo</span>
+              {totalDuration.toLocaleString('en-US')} <span className="text-sm">mo</span>
             </p>
           </div>
 

@@ -52,3 +52,19 @@ export function extractNumericValue(formattedValue: string): number {
   const numericValue = parseFloat(formattedValue.replace(/[^0-9.-]/g, ''));
   return isNaN(numericValue) ? 0 : numericValue;
 }
+
+export function formatDate(dateString: string | null | undefined): string {
+  if (!dateString) return 'Not specified';
+
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+export function formatNumber(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '0';
+  return value.toLocaleString('en-US');
+}

@@ -5,6 +5,7 @@ import { Plus, Search, Filter, MoreHorizontal, Grid3x3 as Grid3X3, List, Calenda
 import ProjectCard from '../components/ProjectCard';
 import { supabase } from '../lib/supabase';
 import { DEMO_USER_ID } from '../lib/useCurrentUser';
+import { formatDate } from '../lib/utils';
 
 interface Project {
   id: string;
@@ -391,17 +392,9 @@ const Projects: React.FC = () => {
                   </div>
 
                   <div className="text-sm text-gray-500">
-                    <p>Created: {new Date(project.created_at).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric'
-                    })}</p>
+                    <p>Created: {formatDate(project.created_at)}</p>
                     {project.updated_at !== project.created_at && (
-                      <p>Updated: {new Date(project.updated_at).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric'
-                      })}</p>
+                      <p>Updated: {formatDate(project.updated_at)}</p>
                     )}
                   </div>
                 </div>
@@ -477,11 +470,7 @@ const Projects: React.FC = () => {
                               <td key={col.key} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 <div className="flex items-center">
                                   <Calendar className="w-4 h-4 mr-1" />
-                                  {new Date(project.created_at).toLocaleDateString('en-US', {
-                                    month: 'short',
-                                    day: 'numeric',
-                                    year: 'numeric'
-                                  })}
+                                  {formatDate(project.created_at)}
                                 </div>
                               </td>
                             );
@@ -491,11 +480,7 @@ const Projects: React.FC = () => {
                                 {project.updated_at !== project.created_at ? (
                                   <div className="flex items-center">
                                     <Calendar className="w-4 h-4 mr-1" />
-                                    {new Date(project.updated_at).toLocaleDateString('en-US', {
-                                      month: 'short',
-                                      day: 'numeric',
-                                      year: 'numeric'
-                                    })}
+                                    {formatDate(project.updated_at)}
                                   </div>
                                 ) : (
                                   '-'
@@ -509,13 +494,9 @@ const Projects: React.FC = () => {
                               <td key={col.key} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 {fieldValue ? (
                                   col.fieldType === 'date' ? (
-                                    new Date(fieldValue).toLocaleDateString('en-US', {
-                                      month: 'short',
-                                      day: 'numeric',
-                                      year: 'numeric'
-                                    })
+                                    formatDate(fieldValue)
                                   ) : col.fieldType === 'cost' ? (
-                                    `$${parseFloat(fieldValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                    `$${parseFloat(fieldValue).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
                                   ) : col.fieldType === 'checkbox' ? (
                                     fieldValue === 'true' || fieldValue === true ? 'Yes' : 'No'
                                   ) : col.fieldType === 'people_picker' ? (

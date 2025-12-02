@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Edit2, Trash2, CheckCircle, XCircle, AlertCircle, Calendar, DollarSign, Clock } from 'lucide-react';
+import { formatDate as utilFormatDate } from '../../lib/utils';
 
 interface ProjectRequest {
   id: string;
@@ -52,14 +53,7 @@ export default function RequestCard({ request, onEdit, onDelete, onStatusChange 
     }
   };
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Not specified';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
+  const formatDate = utilFormatDate;
 
   const handleReviewSubmit = () => {
     if (reviewAction) {

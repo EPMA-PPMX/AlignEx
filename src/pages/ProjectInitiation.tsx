@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye, Edit2, Trash2, Calendar, DollarSign } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { formatCurrency } from '../lib/utils';
+import { formatCurrency, formatDate as utilFormatDate } from '../lib/utils';
 import ProjectRequestForm from '../components/initiation/ProjectRequestForm';
 import RequestAnalytics from '../components/initiation/RequestAnalytics';
 
@@ -215,14 +215,7 @@ export default function ProjectInitiation() {
     }
   };
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Not specified';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
+  const formatDate = utilFormatDate;
 
   if (loading) {
     return <div className="text-center py-12 text-slate-600">Loading project requests...</div>;
@@ -384,14 +377,7 @@ function RequestDetailsView({ request, onClose, onEdit, onDelete, onStatusChange
     }
   };
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Not specified';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
+  const formatDate = utilFormatDate;
 
   const handleReviewSubmit = () => {
     if (reviewAction) {
