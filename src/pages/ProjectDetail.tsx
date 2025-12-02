@@ -22,6 +22,7 @@ interface Project {
   created_at: string;
   updated_at: string;
   template_id?: string;
+  selected_task_fields?: string[];
 }
 
 interface CustomField {
@@ -324,6 +325,31 @@ const ProjectDetail: React.FC = () => {
     fetchMonthlyForecasts();
   }, [selectedYear, id]);
 
+  // Save selected task fields whenever they change
+  useEffect(() => {
+    const saveSelectedTaskFields = async () => {
+      if (!id || !project) return;
+
+      try {
+        const { error } = await supabase
+          .from('projects')
+          .update({ selected_task_fields: selectedTaskFields })
+          .eq('id', id);
+
+        if (error) {
+          console.error('Error saving selected task fields:', error);
+        }
+      } catch (error) {
+        console.error('Error saving selected task fields:', error);
+      }
+    };
+
+    // Only save if project has been loaded (to avoid saving empty array on initial load)
+    if (project) {
+      saveSelectedTaskFields();
+    }
+  }, [selectedTaskFields, id, project]);
+
   const fetchProject = async () => {
     try {
       const { data, error } = await supabase
@@ -341,6 +367,10 @@ const ProjectDetail: React.FC = () => {
             name: data.name || '',
             description: data.description || ''
           });
+          // Load selected task fields if they exist
+          if (data.selected_task_fields && Array.isArray(data.selected_task_fields)) {
+            setSelectedTaskFields(data.selected_task_fields);
+          }
         }
       }
     } catch (error) {
