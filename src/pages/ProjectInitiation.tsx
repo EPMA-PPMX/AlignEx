@@ -34,16 +34,6 @@ export default function ProjectInitiation() {
   const [viewingRequest, setViewingRequest] = useState<ProjectRequest | null>(null);
   const [editingRequest, setEditingRequest] = useState<ProjectRequest | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<string>('all');
-
-  const statuses = [
-    { value: 'all', label: 'All Requests', icon: FileText, color: 'slate' },
-    { value: 'Draft', label: 'Draft', icon: FileText, color: 'slate' },
-    { value: 'Pending Approval', label: 'Pending Approval', icon: Clock, color: 'amber' },
-    { value: 'Approved', label: 'Approved', icon: CheckCircle, color: 'green' },
-    { value: 'Rejected', label: 'Rejected', icon: XCircle, color: 'red' },
-    { value: 'More Information Needed', label: 'More Info Needed', icon: AlertCircle, color: 'blue' },
-  ];
 
   useEffect(() => {
     fetchRequests();
@@ -205,15 +195,8 @@ export default function ProjectInitiation() {
       request.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       request.project_type.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesStatus = selectedStatus === 'all' || request.status === selectedStatus;
-
-    return matchesSearch && matchesStatus;
+    return matchesSearch;
   });
-
-  const getStatusCount = (status: string) => {
-    if (status === 'all') return requests.length;
-    return requests.filter((req) => req.status === status).length;
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -295,39 +278,6 @@ export default function ProjectInitiation() {
             />
           </div>
         </div>
-      </div>
-
-      <div className="grid grid-cols-6 gap-3">
-        {statuses.map((status) => {
-          const Icon = status.icon;
-          const isActive = selectedStatus === status.value;
-          const count = getStatusCount(status.value);
-
-          return (
-            <button
-              key={status.value}
-              onClick={() => setSelectedStatus(status.value)}
-              className={`
-                p-3 rounded-lg border-2 transition-all text-left
-                ${
-                  isActive
-                    ? `border-${status.color}-500 bg-${status.color}-50`
-                    : 'border-slate-200 bg-white hover:border-slate-300'
-                }
-              `}
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <Icon className={`w-4 h-4 ${isActive ? `text-${status.color}-600` : 'text-slate-400'}`} />
-                <span className={`text-xs font-medium ${isActive ? `text-${status.color}-900` : 'text-slate-600'}`}>
-                  {status.label}
-                </span>
-              </div>
-              <p className={`text-2xl font-bold ${isActive ? `text-${status.color}-700` : 'text-slate-700'}`}>
-                {count}
-              </p>
-            </button>
-          );
-        })}
       </div>
 
       {filteredRequests.length === 0 ? (
