@@ -8,8 +8,8 @@ interface ProjectRequest {
   project_type: string;
   problem_statement: string;
   estimated_start_date: string | null;
-  estimated_duration: string | null;
-  initial_estimated_cost: string | null;
+  estimated_duration: number | null;
+  initial_estimated_cost: number | null;
   expected_benefits: string;
   consequences_of_inaction: string;
   comments: string | null;
@@ -100,13 +100,13 @@ export default function RequestCard({ request, onEdit, onDelete, onStatusChange 
               {request.estimated_duration && (
                 <div className="flex items-center gap-1">
                   <Clock className="w-4 h-4" />
-                  <span>{request.estimated_duration}</span>
+                  <span>{request.estimated_duration} months</span>
                 </div>
               )}
               {request.initial_estimated_cost && (
                 <div className="flex items-center gap-1">
                   <DollarSign className="w-4 h-4" />
-                  <span>{request.initial_estimated_cost}</span>
+                  <span>${request.initial_estimated_cost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
                 </div>
               )}
             </div>

@@ -3,6 +3,7 @@ import { Plus, Search, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye, 
 import { supabase } from '../lib/supabase';
 import { formatCurrency } from '../lib/utils';
 import ProjectRequestForm from '../components/initiation/ProjectRequestForm';
+import RequestAnalytics from '../components/initiation/RequestAnalytics';
 
 interface ProjectRequest {
   id: string;
@@ -11,8 +12,8 @@ interface ProjectRequest {
   project_type: string;
   problem_statement: string;
   estimated_start_date: string | null;
-  estimated_duration: string | null;
-  initial_estimated_cost: string | null;
+  estimated_duration: number | null;
+  initial_estimated_cost: number | null;
   expected_benefits: string;
   consequences_of_inaction: string;
   comments: string | null;
@@ -278,6 +279,9 @@ export default function ProjectInitiation() {
         </button>
       </div>
 
+      {/* Analytics Dashboard */}
+      <RequestAnalytics requests={requests} />
+
       <div className="bg-white border border-slate-200 rounded-lg p-4">
         <div className="flex gap-4 items-center">
           <div className="flex-1 relative">
@@ -506,7 +510,7 @@ function RequestDetailsView({ request, onClose, onEdit, onDelete, onStatusChange
               <label className="text-sm font-medium text-slate-500">Estimated Duration</label>
               <p className="text-slate-900 mt-1 flex items-center gap-2">
                 <Clock className="w-4 h-4 text-slate-400" />
-                {request.estimated_duration || 'Not specified'}
+                {request.estimated_duration ? `${request.estimated_duration} months` : 'Not specified'}
               </p>
             </div>
           </div>
@@ -515,7 +519,7 @@ function RequestDetailsView({ request, onClose, onEdit, onDelete, onStatusChange
             <label className="text-sm font-medium text-slate-500">Initial Estimated Cost</label>
             <p className="text-slate-900 mt-1 flex items-center gap-2">
               <DollarSign className="w-4 h-4 text-slate-400" />
-              {request.initial_estimated_cost ? formatCurrency(request.initial_estimated_cost) : 'Not specified'}
+              {request.initial_estimated_cost ? `$${request.initial_estimated_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Not specified'}
             </p>
           </div>
 
