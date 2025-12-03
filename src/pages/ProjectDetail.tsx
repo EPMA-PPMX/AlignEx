@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp, Search, Group, Flag, ZoomIn, ZoomOut, Maximize2, Minimize2, History } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -325,6 +325,9 @@ const ProjectDetail: React.FC = () => {
     fetchMonthlyForecasts();
   }, [selectedYear, id]);
 
+  // Track previous selected task fields to detect additions
+  const prevSelectedTaskFieldsRef = useRef<string[]>([]);
+
   // Save selected task fields whenever they change
   useEffect(() => {
     const saveSelectedTaskFields = async () => {
@@ -348,6 +351,75 @@ const ProjectDetail: React.FC = () => {
     if (project) {
       saveSelectedTaskFields();
     }
+  }, [selectedTaskFields, id, project]);
+
+  // Initialize new custom fields in all tasks when fields are added
+  useEffect(() => {
+    const initializeNewFieldsInTasks = async () => {
+      if (!id || !project || projectTasks.data.length === 0 || taskCustomFields.length === 0) return;
+
+      // Find newly added fields
+      const previousFields = prevSelectedTaskFieldsRef.current;
+      const newFieldIds = selectedTaskFields.filter(fieldId => !previousFields.includes(fieldId));
+
+      if (newFieldIds.length === 0) {
+        prevSelectedTaskFieldsRef.current = selectedTaskFields;
+        return;
+      }
+
+      console.log('Initializing new fields in tasks:', newFieldIds);
+
+      // Create a copy of tasks and add new fields with null values
+      const updatedTasks = projectTasks.data.map((task: any) => {
+        const updatedTask = { ...task };
+
+        newFieldIds.forEach(fieldId => {
+          const field = taskCustomFields.find(f => f.id === fieldId);
+          if (field) {
+            const fieldKey = `custom_${field.field_name}`;
+            // Initialize with null if not already set
+            if (updatedTask[fieldKey] === undefined) {
+              updatedTask[fieldKey] = null;
+            }
+          }
+        });
+
+        return updatedTask;
+      });
+
+      // Save to database
+      try {
+        const taskData = {
+          data: updatedTasks,
+          links: projectTasks.links || [],
+          baseline: projectTasks.baseline || []
+        };
+
+        const { error } = await supabase
+          .from('project_tasks')
+          .upsert({
+            project_id: id,
+            task_data: taskData
+          }, {
+            onConflict: 'project_id'
+          });
+
+        if (error) {
+          console.error('Error saving initialized fields:', error);
+        } else {
+          console.log('Successfully initialized new fields in database');
+          // Refetch tasks to get the updated data
+          await fetchProjectTasks();
+        }
+      } catch (error) {
+        console.error('Error saving initialized fields:', error);
+      }
+
+      // Update the ref for next comparison
+      prevSelectedTaskFieldsRef.current = selectedTaskFields;
+    };
+
+    initializeNewFieldsInTasks();
   }, [selectedTaskFields, id, project]);
 
   const fetchProject = async () => {
@@ -655,6 +727,14 @@ const ProjectDetail: React.FC = () => {
               console.warn(`Task ${task.id} missing start_date, using today`);
             }
 
+            // Preserve all custom fields (those starting with 'custom_')
+            const customFields: any = {};
+            Object.keys(task).forEach(key => {
+              if (key.startsWith('custom_')) {
+                customFields[key] = task[key];
+              }
+            });
+
             return {
               id: task.id,
               text: task.text || 'Untitled Task',
@@ -666,7 +746,8 @@ const ProjectDetail: React.FC = () => {
               owner_id: task.owner_id,
               owner_name: task.owner_name,
               resource_ids: task.resource_ids || [],
-              resource_names: task.resource_names || []
+              resource_names: task.resource_names || [],
+              ...customFields  // Spread all custom fields
             };
           });
         }
