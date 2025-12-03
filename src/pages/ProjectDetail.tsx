@@ -2593,6 +2593,16 @@ const ProjectDetail: React.FC = () => {
 
                       // Save baseline to database
                       try {
+                        // Get the updated tasks from gantt (including baseline custom fields)
+                        const ganttInstance = ganttRef.current.getGanttInstance();
+                        const updatedTasks: any[] = [];
+
+                        ganttInstance.eachTask((task: any) => {
+                          if (!task.$group_header) {
+                            updatedTasks.push({ ...task });
+                          }
+                        });
+
                         // First, fetch the current task_data
                         const { data: currentData, error: fetchError } = await supabase
                           .from('project_tasks')
@@ -2602,9 +2612,10 @@ const ProjectDetail: React.FC = () => {
 
                         if (fetchError) throw fetchError;
 
-                        // Merge baseline into existing task_data
+                        // Merge baseline into existing task_data and update tasks with baseline fields
                         const updatedTaskData = {
                           ...currentData.task_data,
+                          data: updatedTasks,
                           baseline: baselineData
                         };
 
@@ -2619,6 +2630,7 @@ const ProjectDetail: React.FC = () => {
                         // Update local state to include baseline
                         setProjectTasks({
                           ...projectTasks,
+                          data: updatedTasks,
                           baseline: baselineData
                         });
 

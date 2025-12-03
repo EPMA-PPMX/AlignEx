@@ -60,6 +60,10 @@ export default class Gantt extends Component<GanttProps> {
     return this.isGrouped;
   };
 
+  public getGanttInstance = () => {
+    return gantt;
+  };
+
   public setBaseline = (): any[] => {
     const baselineData: any[] = [];
 
@@ -76,6 +80,12 @@ export default class Gantt extends Component<GanttProps> {
 
       task.planned_start = startDate;
       task.planned_end = endDate;
+
+      // Also update the custom baseline date fields
+      // Format dates as YYYY-MM-DD for date fields
+      const dateFormat = gantt.date.date_to_str("%Y-%m-%d");
+      task['custom_Baseline Start Date'] = dateFormat(startDate);
+      task['custom_Baseline End Date'] = dateFormat(endDate);
 
       // Store baseline data for database
       baselineData.push({
