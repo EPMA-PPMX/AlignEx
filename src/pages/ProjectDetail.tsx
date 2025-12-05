@@ -2593,15 +2593,11 @@ const ProjectDetail: React.FC = () => {
 
                       // Save baseline to database
                       try {
-                        // Get the updated tasks from gantt (including baseline custom fields)
+                        // Get the updated tasks from gantt using serialize (includes baseline custom fields)
                         const ganttInstance = ganttRef.current.getGanttInstance();
-                        const updatedTasks: any[] = [];
+                        const serializedData = ganttInstance.serialize();
 
-                        ganttInstance.eachTask((task: any) => {
-                          if (!task.$group_header) {
-                            updatedTasks.push({ ...task });
-                          }
-                        });
+                        console.log('Serialized data with baseline fields:', serializedData);
 
                         // First, fetch the current task_data
                         const { data: currentData, error: fetchError } = await supabase
@@ -2615,9 +2611,12 @@ const ProjectDetail: React.FC = () => {
                         // Merge baseline into existing task_data and update tasks with baseline fields
                         const updatedTaskData = {
                           ...currentData.task_data,
-                          data: updatedTasks,
+                          data: serializedData.data,
+                          links: serializedData.links,
                           baseline: baselineData
                         };
+
+                        console.log('Saving updated task data:', updatedTaskData);
 
                         // Update the record
                         const { error: updateError } = await supabase
@@ -2630,7 +2629,8 @@ const ProjectDetail: React.FC = () => {
                         // Update local state to include baseline
                         setProjectTasks({
                           ...projectTasks,
-                          data: updatedTasks,
+                          data: serializedData.data,
+                          links: serializedData.links,
                           baseline: baselineData
                         });
 
