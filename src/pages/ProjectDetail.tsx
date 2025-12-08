@@ -2610,27 +2610,33 @@ const ProjectDetail: React.FC = () => {
                               setShowBaselineDropdown(false);
                               if (ganttRef.current && id) {
                                 // Set baseline on Gantt - this updates task data with baseline{N}_StartDate and baseline{N}_EndDate fields
-                                const baselineData = ganttRef.current.setBaseline(baselineNum);
-                                console.log(`Baseline ${baselineNum} set:`, baselineData);
+                                ganttRef.current.setBaseline(baselineNum);
 
                                 // Save baseline fields to database
                                 try {
-                                  // Get the updated tasks from gantt using serialize (now includes baseline{N}_StartDate and baseline{N}_EndDate fields)
                                   const ganttInstance = ganttRef.current.getGanttInstance();
-                                  const serializedData = ganttInstance.serialize();
 
-                                  console.log(`Serialized data with baseline${baselineNum}_StartDate and baseline${baselineNum}_EndDate fields:`, serializedData);
+                                  // Instead of using serialize which strips properties,
+                                  // manually collect all tasks with their full data including baseline fields
+                                  const updatedTasks: any[] = [];
+                                  ganttInstance.eachTask((task: any) => {
+                                    // Create a copy of the task with all its properties preserved
+                                    updatedTasks.push({ ...task });
+                                  });
 
-                                  // Verify that baseline fields exist in the serialized data
-                                  const tasksWithBaseline = serializedData.data.filter((task: any) =>
+                                  // Get links separately
+                                  const links = ganttInstance.getLinks().map((link: any) => ({ ...link }));
+
+                                  // Verify that baseline fields exist
+                                  const tasksWithBaseline = updatedTasks.filter((task: any) =>
                                     task[`baseline${baselineNum}_StartDate`] && task[`baseline${baselineNum}_EndDate`]
                                   );
                                   console.log(`${tasksWithBaseline.length} tasks have baseline ${baselineNum} fields set`);
 
                                   // Update the database with the new task data containing baseline fields
                                   const updatedTaskData = {
-                                    data: serializedData.data,
-                                    links: serializedData.links
+                                    data: updatedTasks,
+                                    links: links
                                   };
 
                                   console.log('Saving task data with baseline fields to database:', updatedTaskData);
@@ -2646,11 +2652,11 @@ const ProjectDetail: React.FC = () => {
                                   // Update local state
                                   setProjectTasks({
                                     ...projectTasks,
-                                    data: serializedData.data,
-                                    links: serializedData.links
+                                    data: updatedTasks,
+                                    links: links
                                   });
 
-                                  alert(`Baseline ${baselineNum} set successfully! Fields baseline${baselineNum}_StartDate and baseline${baselineNum}_EndDate created for all tasks.`);
+                                  alert(`Baseline ${baselineNum} set successfully! Fields baseline${baselineNum}_StartDate and baseline${baselineNum}_EndDate added to all tasks.`);
                                 } catch (error) {
                                   console.error('Error saving baseline:', error);
                                   alert('Failed to save baseline: ' + (error as Error).message);
