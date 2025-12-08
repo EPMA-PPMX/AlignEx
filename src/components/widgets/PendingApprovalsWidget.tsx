@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom';
 interface ChangeRequest {
   id: string;
   project_id: string;
-  title: string;
+  request_title: string;
   status: string;
   type: string;
   created_at: string;
@@ -34,7 +34,7 @@ export default function PendingApprovalsWidget() {
         .select(`
           id,
           project_id,
-          title,
+          request_title,
           status,
           type,
           created_at,
@@ -138,7 +138,7 @@ export default function PendingApprovalsWidget() {
                   {getStatusIcon(request.status)}
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm text-gray-900 truncate">
-                      {request.title}
+                      {request.request_title}
                     </p>
                     <p className="text-xs text-gray-500 truncate">
                       {request.projects?.name}
