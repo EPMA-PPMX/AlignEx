@@ -728,10 +728,10 @@ const ProjectDetail: React.FC = () => {
               console.warn(`Task ${task.id} missing start_date, using today`);
             }
 
-            // Preserve all custom fields (those starting with 'custom_')
+            // Preserve all custom fields (those starting with 'custom_') and baseline fields (those starting with 'baseline' or 'planned_')
             const customFields: any = {};
             Object.keys(task).forEach(key => {
-              if (key.startsWith('custom_')) {
+              if (key.startsWith('custom_') || key.startsWith('baseline') || key.startsWith('planned_')) {
                 customFields[key] = task[key];
               }
             });
