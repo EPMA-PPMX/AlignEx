@@ -840,6 +840,14 @@ const ProjectDetail: React.FC = () => {
           const taskId = task.$original_id || task.id;
           // Only add if not already in map (handles duplicates from grouping)
           if (!taskMap.has(taskId)) {
+            // Collect custom fields and baseline fields
+            const extraFields: any = {};
+            Object.keys(task).forEach(key => {
+              if (key.startsWith('custom_') || key.startsWith('baseline') || key.startsWith('planned_')) {
+                extraFields[key] = task[key];
+              }
+            });
+
             taskMap.set(taskId, {
               id: taskId,
               text: task.text,
@@ -851,7 +859,8 @@ const ProjectDetail: React.FC = () => {
               owner_id: task.owner_id,
               owner_name: task.owner_name,
               resource_ids: task.resource_ids || [],
-              resource_names: task.resource_names || []
+              resource_names: task.resource_names || [],
+              ...extraFields // Include custom fields and baseline fields
             });
           }
         });
