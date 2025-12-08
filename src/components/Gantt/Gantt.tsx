@@ -64,7 +64,7 @@ export default class Gantt extends Component<GanttProps> {
     return gantt;
   };
 
-  public setBaseline = (): any[] => {
+  public setBaseline = (baselineNum: number = 0): any[] => {
     const baselineData: any[] = [];
 
     gantt.eachTask((task: any) => {
@@ -78,18 +78,26 @@ export default class Gantt extends Component<GanttProps> {
         duration: task.duration
       });
 
-      task.planned_start = startDate;
-      task.planned_end = endDate;
+      // Store baseline with number suffix
+      task[`planned_start_${baselineNum}`] = startDate;
+      task[`planned_end_${baselineNum}`] = endDate;
 
-      // Also update the custom baseline date fields
+      // Also keep the default planned_start/planned_end for backward compatibility
+      if (baselineNum === 0) {
+        task.planned_start = startDate;
+        task.planned_end = endDate;
+      }
+
+      // Also update the custom baseline date fields with number
       // Format dates as YYYY-MM-DD for date fields
       const dateFormat = gantt.date.date_to_str("%Y-%m-%d");
-      task['custom_Baseline Start Date'] = dateFormat(startDate);
-      task['custom_Baseline End Date'] = dateFormat(endDate);
+      task[`custom_Baseline ${baselineNum} Start Date`] = dateFormat(startDate);
+      task[`custom_Baseline ${baselineNum} End Date`] = dateFormat(endDate);
 
       // Store baseline data for database
       baselineData.push({
         task_id: task.id,
+        baseline_number: baselineNum,
         planned_start: gantt.date.date_to_str("%Y-%m-%d %H:%i")(startDate),
         planned_end: gantt.date.date_to_str("%Y-%m-%d %H:%i")(endDate)
       });
@@ -98,7 +106,7 @@ export default class Gantt extends Component<GanttProps> {
       gantt.updateTask(task.id);
     });
 
-    console.log("Setting baseline data:", baselineData);
+    console.log(`Setting baseline ${baselineNum} data:`, baselineData);
     gantt.render();
 
     // Manually trigger baseline rendering

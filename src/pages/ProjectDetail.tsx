@@ -189,6 +189,7 @@ const ProjectDetail: React.FC = () => {
   const [taskCustomFields, setTaskCustomFields] = useState<CustomField[]>([]);
   const [selectedTaskFields, setSelectedTaskFields] = useState<string[]>([]);
   const [showTaskFieldsDropdown, setShowTaskFieldsDropdown] = useState(false);
+  const [showBaselineDropdown, setShowBaselineDropdown] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -2585,67 +2586,99 @@ const ProjectDetail: React.FC = () => {
                   )}
                 </div>
 
-                <button
-                  onClick={async () => {
-                    if (ganttRef.current && id) {
-                      const baselineData = ganttRef.current.setBaseline();
-                      console.log('Baseline set:', baselineData);
+                {/* Baseline Selector */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowBaselineDropdown(!showBaselineDropdown)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    <Flag className="w-4 h-4" />
+                    Set Baseline
+                  </button>
 
-                      // Save baseline to database
-                      try {
-                        // Get the updated tasks from gantt using serialize (includes baseline custom fields)
-                        const ganttInstance = ganttRef.current.getGanttInstance();
-                        const serializedData = ganttInstance.serialize();
+                  {showBaselineDropdown && (
+                    <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+                      <div className="p-3 border-b border-gray-200">
+                        <h4 className="font-medium text-gray-900">Select Baseline</h4>
+                        <p className="text-xs text-gray-500 mt-1">Choose which baseline to set</p>
+                      </div>
+                      <div className="max-h-80 overflow-y-auto p-2">
+                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((baselineNum) => (
+                          <button
+                            key={baselineNum}
+                            onClick={async () => {
+                              setShowBaselineDropdown(false);
+                              if (ganttRef.current && id) {
+                                const baselineData = ganttRef.current.setBaseline(baselineNum);
+                                console.log(`Baseline ${baselineNum} set:`, baselineData);
 
-                        console.log('Serialized data with baseline fields:', serializedData);
+                                // Save baseline to database
+                                try {
+                                  // Get the updated tasks from gantt using serialize (includes baseline custom fields)
+                                  const ganttInstance = ganttRef.current.getGanttInstance();
+                                  const serializedData = ganttInstance.serialize();
 
-                        // First, fetch the current task_data
-                        const { data: currentData, error: fetchError } = await supabase
-                          .from('project_tasks')
-                          .select('task_data')
-                          .eq('project_id', id)
-                          .single();
+                                  console.log('Serialized data with baseline fields:', serializedData);
 
-                        if (fetchError) throw fetchError;
+                                  // First, fetch the current task_data
+                                  const { data: currentData, error: fetchError } = await supabase
+                                    .from('project_tasks')
+                                    .select('task_data')
+                                    .eq('project_id', id)
+                                    .single();
 
-                        // Merge baseline into existing task_data and update tasks with baseline fields
-                        const updatedTaskData = {
-                          ...currentData.task_data,
-                          data: serializedData.data,
-                          links: serializedData.links,
-                          baseline: baselineData
-                        };
+                                  if (fetchError) throw fetchError;
 
-                        console.log('Saving updated task data:', updatedTaskData);
+                                  // Merge baseline into existing task_data and update tasks with baseline fields
+                                  const updatedTaskData = {
+                                    ...currentData.task_data,
+                                    data: serializedData.data,
+                                    links: serializedData.links,
+                                    [`baseline${baselineNum}`]: baselineData
+                                  };
 
-                        // Update the record
-                        const { error: updateError } = await supabase
-                          .from('project_tasks')
-                          .update({ task_data: updatedTaskData })
-                          .eq('project_id', id);
+                                  console.log('Saving updated task data:', updatedTaskData);
 
-                        if (updateError) throw updateError;
+                                  // Update the record
+                                  const { error: updateError } = await supabase
+                                    .from('project_tasks')
+                                    .update({ task_data: updatedTaskData })
+                                    .eq('project_id', id);
 
-                        // Update local state to include baseline
-                        setProjectTasks({
-                          ...projectTasks,
-                          data: serializedData.data,
-                          links: serializedData.links,
-                          baseline: baselineData
-                        });
+                                  if (updateError) throw updateError;
 
-                        alert('Baseline set successfully for all tasks!');
-                      } catch (error) {
-                        console.error('Error saving baseline:', error);
-                        alert('Failed to save baseline: ' + (error as Error).message);
-                      }
-                    }
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  <Flag className="w-4 h-4" />
-                  Set Baseline
-                </button>
+                                  // Update local state to include baseline
+                                  setProjectTasks({
+                                    ...projectTasks,
+                                    data: serializedData.data,
+                                    links: serializedData.links,
+                                    [`baseline${baselineNum}`]: baselineData
+                                  });
+
+                                  alert(`Baseline ${baselineNum} set successfully for all tasks!`);
+                                } catch (error) {
+                                  console.error('Error saving baseline:', error);
+                                  alert('Failed to save baseline: ' + (error as Error).message);
+                                }
+                              }
+                            }}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded text-sm text-gray-900 transition-colors"
+                          >
+                            Baseline {baselineNum}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="p-3 border-t border-gray-200 flex justify-end gap-2">
+                        <button
+                          onClick={() => setShowBaselineDropdown(false)}
+                          className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <button
                   onClick={() => {
                     setTaskForm({ ...taskForm, parent_id: undefined });
