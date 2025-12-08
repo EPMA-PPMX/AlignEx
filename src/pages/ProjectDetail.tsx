@@ -728,13 +728,28 @@ const ProjectDetail: React.FC = () => {
               console.warn(`Task ${task.id} missing start_date, using today`);
             }
 
-            // Preserve all custom fields (those starting with 'custom_') and baseline fields (those starting with 'baseline' or 'planned_')
+            // Preserve all custom fields and baseline fields
             const customFields: any = {};
             Object.keys(task).forEach(key => {
-              if (key.startsWith('custom_') || key.startsWith('baseline') || key.startsWith('planned_')) {
+              if (key.startsWith('custom_') || key.startsWith('baseline')) {
                 customFields[key] = task[key];
               }
             });
+
+            // Convert baseline string dates to Date objects for rendering
+            // Check for baseline0_StartDate and convert to planned_start/planned_end
+            if (customFields.baseline0_StartDate && customFields.baseline0_EndDate) {
+              try {
+                const startParts = customFields.baseline0_StartDate.split(' ');
+                const endParts = customFields.baseline0_EndDate.split(' ');
+                if (startParts.length >= 2 && endParts.length >= 2) {
+                  customFields.planned_start = new Date(customFields.baseline0_StartDate);
+                  customFields.planned_end = new Date(customFields.baseline0_EndDate);
+                }
+              } catch (e) {
+                console.warn(`Failed to parse baseline dates for task ${task.id}:`, e);
+              }
+            }
 
             return {
               id: task.id,
@@ -840,10 +855,10 @@ const ProjectDetail: React.FC = () => {
           const taskId = task.$original_id || task.id;
           // Only add if not already in map (handles duplicates from grouping)
           if (!taskMap.has(taskId)) {
-            // Collect custom fields and baseline fields
+            // Collect custom fields and baseline fields (string format only, not Date objects)
             const extraFields: any = {};
             Object.keys(task).forEach(key => {
-              if (key.startsWith('custom_') || key.startsWith('baseline') || key.startsWith('planned_')) {
+              if (key.startsWith('custom_') || key.startsWith('baseline')) {
                 extraFields[key] = task[key];
               }
             });
