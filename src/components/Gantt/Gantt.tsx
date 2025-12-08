@@ -286,7 +286,7 @@ export default class Gantt extends Component<GanttProps> {
           const taskBarVerticalOffset = (rowHeight - taskBarHeight) / 2;
           const taskBarTop = rowTop + taskBarVerticalOffset;
           const taskBarBottom = taskBarTop + taskBarHeight;
-          const baselineTop = taskBarBottom + 35;
+          const baselineTop = taskBarBottom + 25;
 
           console.log(`Task ${task.id} - calculated: rowTop=${rowTop}, taskBarTop=${taskBarTop}, taskBarBottom=${taskBarBottom}, baselineTop=${baselineTop}`);
 
