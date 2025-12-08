@@ -2609,35 +2609,31 @@ const ProjectDetail: React.FC = () => {
                             onClick={async () => {
                               setShowBaselineDropdown(false);
                               if (ganttRef.current && id) {
+                                // Set baseline on Gantt - this updates task data with baseline{N}_StartDate and baseline{N}_EndDate fields
                                 const baselineData = ganttRef.current.setBaseline(baselineNum);
                                 console.log(`Baseline ${baselineNum} set:`, baselineData);
 
-                                // Save baseline to database
+                                // Save baseline fields to database
                                 try {
-                                  // Get the updated tasks from gantt using serialize (includes baseline custom fields)
+                                  // Get the updated tasks from gantt using serialize (now includes baseline{N}_StartDate and baseline{N}_EndDate fields)
                                   const ganttInstance = ganttRef.current.getGanttInstance();
                                   const serializedData = ganttInstance.serialize();
 
-                                  console.log('Serialized data with baseline fields:', serializedData);
+                                  console.log(`Serialized data with baseline${baselineNum}_StartDate and baseline${baselineNum}_EndDate fields:`, serializedData);
 
-                                  // First, fetch the current task_data
-                                  const { data: currentData, error: fetchError } = await supabase
-                                    .from('project_tasks')
-                                    .select('task_data')
-                                    .eq('project_id', id)
-                                    .single();
+                                  // Verify that baseline fields exist in the serialized data
+                                  const tasksWithBaseline = serializedData.data.filter((task: any) =>
+                                    task[`baseline${baselineNum}_StartDate`] && task[`baseline${baselineNum}_EndDate`]
+                                  );
+                                  console.log(`${tasksWithBaseline.length} tasks have baseline ${baselineNum} fields set`);
 
-                                  if (fetchError) throw fetchError;
-
-                                  // Merge baseline into existing task_data and update tasks with baseline fields
+                                  // Update the database with the new task data containing baseline fields
                                   const updatedTaskData = {
-                                    ...currentData.task_data,
                                     data: serializedData.data,
-                                    links: serializedData.links,
-                                    [`baseline${baselineNum}`]: baselineData
+                                    links: serializedData.links
                                   };
 
-                                  console.log('Saving updated task data:', updatedTaskData);
+                                  console.log('Saving task data with baseline fields to database:', updatedTaskData);
 
                                   // Update the record
                                   const { error: updateError } = await supabase
@@ -2647,15 +2643,14 @@ const ProjectDetail: React.FC = () => {
 
                                   if (updateError) throw updateError;
 
-                                  // Update local state to include baseline
+                                  // Update local state
                                   setProjectTasks({
                                     ...projectTasks,
                                     data: serializedData.data,
-                                    links: serializedData.links,
-                                    [`baseline${baselineNum}`]: baselineData
+                                    links: serializedData.links
                                   });
 
-                                  alert(`Baseline ${baselineNum} set successfully for all tasks!`);
+                                  alert(`Baseline ${baselineNum} set successfully! Fields baseline${baselineNum}_StartDate and baseline${baselineNum}_EndDate created for all tasks.`);
                                 } catch (error) {
                                   console.error('Error saving baseline:', error);
                                   alert('Failed to save baseline: ' + (error as Error).message);

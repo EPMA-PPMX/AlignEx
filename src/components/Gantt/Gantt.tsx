@@ -71,42 +71,46 @@ export default class Gantt extends Component<GanttProps> {
       // Skip group headers
       if (task.$group_header) return;
 
-      // Set planned_start and planned_end on the task itself
+      // Get current start and end dates
       const startDate = gantt.date.parseDate(task.start_date, "xml_date");
       const endDate = gantt.calculateEndDate({
         start_date: startDate,
         duration: task.duration
       });
 
-      // Store baseline with number suffix
+      // Format dates as YYYY-MM-DD HH:mm for storage
+      const dateTimeFormat = gantt.date.date_to_str("%Y-%m-%d %H:%i");
+      const startDateStr = dateTimeFormat(startDate);
+      const endDateStr = dateTimeFormat(endDate);
+
+      // Store baseline fields directly in task data with the naming convention: baseline{N}_StartDate and baseline{N}_EndDate
+      task[`baseline${baselineNum}_StartDate`] = startDateStr;
+      task[`baseline${baselineNum}_EndDate`] = endDateStr;
+
+      // Also store as Date objects for rendering baseline bars
       task[`planned_start_${baselineNum}`] = startDate;
       task[`planned_end_${baselineNum}`] = endDate;
 
-      // Also keep the default planned_start/planned_end for backward compatibility
+      // Keep the default planned_start/planned_end for backward compatibility with baseline 0
       if (baselineNum === 0) {
         task.planned_start = startDate;
         task.planned_end = endDate;
       }
 
-      // Also update the custom baseline date fields with number
-      // Format dates as YYYY-MM-DD for date fields
-      const dateFormat = gantt.date.date_to_str("%Y-%m-%d");
-      task[`custom_Baseline ${baselineNum} Start Date`] = dateFormat(startDate);
-      task[`custom_Baseline ${baselineNum} End Date`] = dateFormat(endDate);
-
-      // Store baseline data for database
+      // Store baseline data for return (for logging purposes)
       baselineData.push({
         task_id: task.id,
         baseline_number: baselineNum,
-        planned_start: gantt.date.date_to_str("%Y-%m-%d %H:%i")(startDate),
-        planned_end: gantt.date.date_to_str("%Y-%m-%d %H:%i")(endDate)
+        [`baseline${baselineNum}_StartDate`]: startDateStr,
+        [`baseline${baselineNum}_EndDate`]: endDateStr
       });
 
       // Update the task in gantt
       gantt.updateTask(task.id);
     });
 
-    console.log(`Setting baseline ${baselineNum} data:`, baselineData);
+    console.log(`Setting baseline ${baselineNum} with fields: baseline${baselineNum}_StartDate, baseline${baselineNum}_EndDate`);
+    console.log('Baseline data:', baselineData);
     gantt.render();
 
     // Manually trigger baseline rendering
