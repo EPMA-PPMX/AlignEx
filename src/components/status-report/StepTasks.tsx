@@ -201,7 +201,15 @@ export default function StepTasks({ reportData, updateReportData }: Props) {
           }
           if (editForm.duration !== undefined) updatedTask.duration = editForm.duration;
           if (editForm.progress !== undefined) updatedTask.progress = editForm.progress;
-          if (editForm.owner_name !== undefined) updatedTask.owner_name = editForm.owner_name;
+
+          // Update owner_name and clear resource_ids/resource_names to ensure consistency
+          if (editForm.owner_name !== undefined) {
+            updatedTask.owner_name = editForm.owner_name;
+            // Clear resource fields when updating owners to avoid conflicts in display
+            if ('resource_ids' in updatedTask) delete updatedTask.resource_ids;
+            if ('resource_names' in updatedTask) delete updatedTask.resource_names;
+          }
+
           if (editForm.resource_names !== undefined) {
             updatedTask.resource_names = editForm.resource_names;
           }
