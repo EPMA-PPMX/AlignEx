@@ -751,14 +751,19 @@ const ProjectDetail: React.FC = () => {
               }
             }
 
-            // Calculate end_date from start_date and duration if not present
-            let endDate = task.end_date;
-            if (!endDate && startDate) {
-              const duration = task.duration || 1;
+            // Always calculate end_date from start_date and duration
+            // Don't rely on stored end_date as it may be stale after duration changes
+            const duration = task.duration || 1;
+            let endDate;
+            if (startDate) {
               const start = new Date(startDate);
               const end = new Date(start);
               end.setDate(start.getDate() + duration);
-              endDate = end.toISOString().slice(0, 16).replace('T', ' ');
+              // Format as "YYYY-MM-DD HH:MM" to match gantt.config.date_format
+              const year = end.getFullYear();
+              const month = String(end.getMonth() + 1).padStart(2, '0');
+              const day = String(end.getDate()).padStart(2, '0');
+              endDate = `${year}-${month}-${day} 00:00`;
             }
 
             return {
@@ -766,7 +771,7 @@ const ProjectDetail: React.FC = () => {
               text: task.text || 'Untitled Task',
               start_date: startDate,
               end_date: endDate,
-              duration: task.duration || 1,
+              duration: duration,
               progress: task.progress || 0,
               type: task.type || 'task',
               parent: task.parent !== undefined && task.parent !== null ? task.parent : 0,
