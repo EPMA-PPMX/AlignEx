@@ -1841,11 +1841,21 @@ const ProjectDetail: React.FC = () => {
         updatedTaskData = {
           data: projectTasks.data.map((task: any) => {
             if (task.id === editingTaskId) {
+              const startDateStr = `${adjustedStartDate} 00:00`;
+              const duration = taskForm.type === 'milestone' ? 0 : taskForm.duration;
+
+              // Calculate end_date based on start_date and duration
+              const startDate = new Date(startDateStr);
+              const endDate = new Date(startDate);
+              endDate.setDate(startDate.getDate() + duration);
+              const endDateStr = endDate.toISOString().slice(0, 16).replace('T', ' ');
+
               const updatedTask: any = {
                 ...task,
                 text: taskForm.description,
-                start_date: `${adjustedStartDate} 00:00`,
-                duration: taskForm.type === 'milestone' ? 0 : taskForm.duration,
+                start_date: startDateStr,
+                end_date: endDateStr,
+                duration: duration,
                 type: taskForm.type,
                 progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
               };
@@ -1880,11 +1890,21 @@ const ProjectDetail: React.FC = () => {
           ? Math.max(...projectTasks.data.map((t: any) => t.id)) + 1
           : 1;
 
+        const startDateStr = `${adjustedStartDate} 00:00`;
+        const duration = taskForm.type === 'milestone' ? 0 : taskForm.duration;
+
+        // Calculate end_date based on start_date and duration
+        const startDate = new Date(startDateStr);
+        const endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + duration);
+        const endDateStr = endDate.toISOString().slice(0, 16).replace('T', ' ');
+
         const newTask: any = {
           id: newTaskId,
           text: taskForm.description,
-          start_date: `${adjustedStartDate} 00:00`,
-          duration: taskForm.type === 'milestone' ? 0 : taskForm.duration,
+          start_date: startDateStr,
+          end_date: endDateStr,
+          duration: duration,
           type: taskForm.type,
           progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
         };
@@ -2006,66 +2026,28 @@ const ProjectDetail: React.FC = () => {
       if (ganttRef.current) {
         const ganttInstance = ganttRef.current.getGanttInstance();
         if (ganttInstance) {
-          if (editingTaskId) {
-            // For updates, directly update the task in the Gantt chart
-            const updatedTask = updatedTaskData.data.find((t: any) => t.id === editingTaskId);
-            if (updatedTask && ganttInstance.isTaskExists(editingTaskId)) {
-              // Get the current task from Gantt
-              const ganttTask = ganttInstance.getTask(editingTaskId);
+          // Always clear and re-parse to ensure data consistency
+          ganttInstance.clearAll();
+          ganttInstance.parse(updatedTaskData);
 
-              // Update the task properties
-              ganttTask.text = updatedTask.text;
-              ganttTask.start_date = ganttInstance.date.parseDate(updatedTask.start_date, "xml_date");
-              ganttTask.duration = updatedTask.duration;
-              ganttTask.type = updatedTask.type;
-              ganttTask.progress = updatedTask.progress;
-              ganttTask.resource_ids = updatedTask.resource_ids;
-              ganttTask.resource_names = updatedTask.resource_names;
-              ganttTask.owner_id = updatedTask.owner_id;
-              ganttTask.owner_name = updatedTask.owner_name;
-
-              // Recalculate end date
-              ganttTask.end_date = ganttInstance.calculateEndDate({
-                start_date: ganttTask.start_date,
-                duration: ganttTask.duration,
-                task: ganttTask
-              });
-
-              // Update the task in Gantt
-              ganttInstance.updateTask(editingTaskId);
-
-              // Update links if they changed
-              const currentLinks = ganttInstance.getLinks();
-              const existingLinks = currentLinks.filter((link: any) => link.source !== editingTaskId);
-              updatedTaskData.links.forEach((link: any) => {
-                if (!currentLinks.find((l: any) => l.id === link.id)) {
-                  ganttInstance.addLink(link);
-                }
-              });
+          // Sort tasks to ensure proper parent-child hierarchy display
+          ganttInstance.sort((a: any, b: any) => {
+            if (a.parent !== b.parent) {
+              if (a.parent === 0) return -1;
+              if (b.parent === 0) return 1;
+              return a.parent - b.parent;
             }
-          } else {
-            // For new tasks, clear and re-parse all data
-            ganttInstance.clearAll();
-            ganttInstance.parse(updatedTaskData);
+            return a.id - b.id;
+          });
 
-            // Sort tasks to ensure proper parent-child hierarchy display
-            ganttInstance.sort((a: any, b: any) => {
-              if (a.parent !== b.parent) {
-                if (a.parent === 0) return -1;
-                if (b.parent === 0) return 1;
-                return a.parent - b.parent;
-              }
-              return a.id - b.id;
-            });
+          // Open all parent tasks to show subtasks
+          ganttInstance.eachTask((task: any) => {
+            if (ganttInstance.hasChild(task.id)) {
+              ganttInstance.open(task.id);
+            }
+          });
 
-            // Open all parent tasks to show subtasks
-            ganttInstance.eachTask((task: any) => {
-              if (ganttInstance.hasChild(task.id)) {
-                ganttInstance.open(task.id);
-              }
-            });
-          }
-
+          // Force a complete refresh of the chart
           ganttInstance.render();
         }
       }
