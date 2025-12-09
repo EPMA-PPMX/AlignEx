@@ -2803,11 +2803,29 @@ const ProjectDetail: React.FC = () => {
                       }
                     }
 
+                    // Determine resource_ids from task data
+                    let resourceIds = task.resource_ids || [];
+
+                    // If resource_ids is empty but owner_name exists, map owner_name to resource_ids
+                    if (resourceIds.length === 0 && task.owner_name) {
+                      const ownerNames = Array.isArray(task.owner_name) ? task.owner_name : [task.owner_name];
+                      resourceIds = ownerNames
+                        .map(name => {
+                          const member = projectTeamMembers.find((m: any) =>
+                            m.resources?.display_name === name
+                          );
+                          return member?.resource_id;
+                        })
+                        .filter(Boolean); // Remove undefined values
+                      console.log("Mapped owner_name to resource_ids:", ownerNames, "->", resourceIds);
+                    }
+
                     console.log("Setting task form with:", {
                       description: task.text,
                       start_date: startDate,
                       duration: task.duration,
                       owner_id: task.owner_id || '',
+                      resource_ids: resourceIds,
                       parent_id: task.parent || undefined,
                       parent_wbs: parentWbs,
                       successor_ids: successorIds
@@ -2817,7 +2835,7 @@ const ProjectDetail: React.FC = () => {
                       start_date: startDate,
                       duration: task.duration,
                       owner_id: task.owner_id || '',
-                      resource_ids: task.resource_ids || [],
+                      resource_ids: resourceIds,
                       parent_id: task.parent || undefined,
                       parent_wbs: parentWbs,
                       successor_ids: successorIds,
