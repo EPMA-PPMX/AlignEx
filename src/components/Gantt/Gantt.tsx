@@ -174,6 +174,19 @@ export default class Gantt extends Component<GanttProps> {
             // Add this task to the resource's task list
             resourceTasksMap[resourceId].push({ ...task });
           });
+        } else if (task.owner_name && Array.isArray(task.owner_name) && task.owner_name.length > 0) {
+          // Handle tasks with multiple owners (owner_name array)
+          task.owner_name.forEach((ownerName: string) => {
+            const ownerId = ownerName; // Use owner name as ID
+
+            if (!resourceMap[ownerId]) {
+              resourceMap[ownerId] = ownerName;
+              resourceTasksMap[ownerId] = [];
+            }
+
+            // Add this task to the resource's task list
+            resourceTasksMap[ownerId].push({ ...task });
+          });
         } else {
           // Fallback for tasks with single owner (backward compatibility)
           const ownerId = task.owner_id || 'unassigned';
@@ -361,6 +374,7 @@ export default class Gantt extends Component<GanttProps> {
         template: (task: any) => {
           if (task.$group_header) return "";
 
+          // Handle resource_ids array (multi-resource assignments)
           if (task.resource_ids && Array.isArray(task.resource_ids) && task.resource_ids.length > 0) {
             const owners = task.resource_names || [];
             if (owners.length === 0) return "Unassigned";
@@ -375,6 +389,20 @@ export default class Gantt extends Component<GanttProps> {
             return `<div class="owner-badges-container">${badges}</div>`;
           }
 
+          // Handle owner_name as array (multi-owner tasks)
+          if (task.owner_name && Array.isArray(task.owner_name) && task.owner_name.length > 0) {
+            const owners = task.owner_name;
+            const badges = owners.map((name: string, index: number) => {
+              const initial = name.charAt(0).toUpperCase();
+              const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+              const color = colors[index % colors.length];
+              return `<span class="owner-badge" style="background-color: ${color};" title="${name}">${initial}</span>`;
+            }).join('');
+
+            return `<div class="owner-badges-container">${badges}</div>`;
+          }
+
+          // Handle owner_name as string (legacy single-owner tasks)
           return task.owner_name || "Unassigned";
         }
       },
