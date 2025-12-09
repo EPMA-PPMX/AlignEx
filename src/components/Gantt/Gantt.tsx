@@ -418,7 +418,18 @@ export default class Gantt extends Component<GanttProps> {
           return gantt.templates.date_grid(task.end_date, task);
         }
       },
-      { name: "duration", label: "Duration", align: "center", width: 70, resize: true, editor: durationEditor },
+      {
+        name: "duration",
+        label: "Duration",
+        align: "center",
+        width: 70,
+        resize: true,
+        editor: durationEditor,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          return task.duration || 0;
+        }
+      },
       {
         name: "progress",
         label: "Progress",

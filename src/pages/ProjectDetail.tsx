@@ -751,10 +751,21 @@ const ProjectDetail: React.FC = () => {
               }
             }
 
+            // Calculate end_date from start_date and duration if not present
+            let endDate = task.end_date;
+            if (!endDate && startDate) {
+              const duration = task.duration || 1;
+              const start = new Date(startDate);
+              const end = new Date(start);
+              end.setDate(start.getDate() + duration);
+              endDate = end.toISOString().slice(0, 16).replace('T', ' ');
+            }
+
             return {
               id: task.id,
               text: task.text || 'Untitled Task',
               start_date: startDate,
+              end_date: endDate,
               duration: task.duration || 1,
               progress: task.progress || 0,
               type: task.type || 'task',
@@ -1860,6 +1871,13 @@ const ProjectDetail: React.FC = () => {
                 progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
               };
 
+              console.log('Updated task values:', {
+                id: editingTaskId,
+                start_date: startDateStr,
+                end_date: endDateStr,
+                duration: duration
+              });
+
               // Update resources if selected
               if (taskForm.resource_ids.length > 0) {
                 updatedTask.resource_ids = taskForm.resource_ids;
@@ -2026,6 +2044,14 @@ const ProjectDetail: React.FC = () => {
       if (ganttRef.current) {
         const ganttInstance = ganttRef.current.getGanttInstance();
         if (ganttInstance) {
+          console.log('Refreshing Gantt with data:', updatedTaskData.data.map((t: any) => ({
+            id: t.id,
+            text: t.text,
+            start_date: t.start_date,
+            end_date: t.end_date,
+            duration: t.duration
+          })));
+
           // Always clear and re-parse to ensure data consistency
           ganttInstance.clearAll();
           ganttInstance.parse(updatedTaskData);
@@ -2047,8 +2073,13 @@ const ProjectDetail: React.FC = () => {
             }
           });
 
-          // Force a complete refresh of the chart
+          // Force a complete refresh of the chart and grid
           ganttInstance.render();
+
+          // Use setTimeout to ensure the grid updates after render
+          setTimeout(() => {
+            ganttInstance.refreshData();
+          }, 0);
         }
       }
 
