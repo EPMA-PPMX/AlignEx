@@ -879,11 +879,21 @@ const ProjectDetail: React.FC = () => {
               }
             });
 
+            // Ensure duration is a valid number
+            let duration = task.duration;
+            if (typeof duration !== 'number' || isNaN(duration)) {
+              duration = parseFloat(duration) || 1;
+            }
+            // Ensure it's a positive integer
+            duration = Math.max(1, Math.round(duration));
+
+            console.log(`Task ${taskId}: duration=${task.duration} (type: ${typeof task.duration}), cleaned duration=${duration}`);
+
             taskMap.set(taskId, {
               id: taskId,
               text: task.text,
               start_date: task.start_date,
-              duration: task.duration,
+              duration: duration,
               progress: task.progress || 0,
               type: task.type || 'task',
               parent: task.$original_parent !== undefined ? task.$original_parent : (task.parent || 0),

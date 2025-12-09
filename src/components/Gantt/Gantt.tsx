@@ -623,7 +623,12 @@ export default class Gantt extends Component<GanttProps> {
       type: "number",
       map_to: "duration",
       min: 1,
-      max: 365
+      max: 365,
+      formatter: function(value: any) {
+        // Ensure the value is a number
+        const num = parseFloat(value);
+        return isNaN(num) ? 1 : Math.max(1, Math.round(num));
+      }
     };
 
     // Configure layout with horizontal scroll for grid
@@ -880,6 +885,23 @@ export default class Gantt extends Component<GanttProps> {
         this.pendingParentId = undefined;
         return false;
       }
+    });
+
+    // Validate and normalize duration before task is updated
+    gantt.attachEvent("onBeforeTaskUpdate", (id: any, task: any) => {
+      // Ensure duration is a valid positive number
+      if (task.duration !== undefined && task.duration !== null) {
+        let duration = task.duration;
+        if (typeof duration !== 'number' || isNaN(duration)) {
+          duration = parseFloat(duration);
+        }
+        if (isNaN(duration) || duration < 1) {
+          duration = 1;
+        }
+        task.duration = Math.max(1, Math.round(duration));
+        console.log(`Normalized task ${id} duration to: ${task.duration}`);
+      }
+      return true;
     });
 
     // Attach event listeners for task changes
