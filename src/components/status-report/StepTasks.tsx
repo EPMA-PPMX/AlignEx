@@ -20,6 +20,12 @@ interface Task {
   parent: string | number;
 }
 
+interface TeamMember {
+  id: string;
+  display_name: string;
+  role: string;
+}
+
 export default function StepTasks({ reportData, updateReportData }: Props) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
@@ -28,10 +34,12 @@ export default function StepTasks({ reportData, updateReportData }: Props) {
   const [editForm, setEditForm] = useState<Partial<Task>>({});
   const [saving, setSaving] = useState(false);
   const [allTaskData, setAllTaskData] = useState<any>(null);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
 
   useEffect(() => {
     if (reportData.projectId) {
       loadTasks();
+      loadTeamMembers();
     }
   }, [reportData.projectId]);
 
@@ -61,6 +69,39 @@ export default function StepTasks({ reportData, updateReportData }: Props) {
       setTasks([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadTeamMembers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('project_team_members')
+        .select(`
+          id,
+          role,
+          resource_id,
+          resources!inner(
+            id,
+            display_name
+          )
+        `)
+        .eq('project_id', reportData.projectId);
+
+      if (error) throw error;
+
+      if (data) {
+        const members: TeamMember[] = data.map((member: any) => ({
+          id: member.resources.id,
+          display_name: member.resources.display_name,
+          role: member.role,
+        }));
+        setTeamMembers(members);
+      } else {
+        setTeamMembers([]);
+      }
+    } catch (error) {
+      console.error('Error loading team members:', error);
+      setTeamMembers([]);
     }
   };
 
@@ -324,13 +365,23 @@ export default function StepTasks({ reportData, updateReportData }: Props) {
 
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">Owner</label>
-                              <input
-                                type="text"
+                              <select
                                 value={editForm.owner_name || ''}
                                 onChange={(e) => setEditForm({ ...editForm, owner_name: e.target.value })}
-                                placeholder="Task owner name"
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                              />
+                              >
+                                <option value="">Select team member...</option>
+                                {teamMembers.map((member) => (
+                                  <option key={member.id} value={member.display_name}>
+                                    {member.display_name} - {member.role}
+                                  </option>
+                                ))}
+                              </select>
+                              {teamMembers.length === 0 && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  No team members found. Add team members to this project first.
+                                </p>
+                              )}
                             </div>
 
                             <div className="flex justify-end gap-2">
