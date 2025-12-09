@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { CheckSquare, Calendar, User, TrendingUp, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { CheckSquare, Calendar, User, TrendingUp, AlertCircle, CheckCircle, Clock, Edit2, Save, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { PeoplePicker } from '../PeoplePicker';
 
 interface Props {
   reportData: any;
@@ -23,6 +24,10 @@ export default function StepTasks({ reportData, updateReportData }: Props) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedTasks, setSelectedTasks] = useState<Set<string | number>>(new Set());
+  const [editingTaskId, setEditingTaskId] = useState<string | number | null>(null);
+  const [editForm, setEditForm] = useState<Partial<Task>>({});
+  const [saving, setSaving] = useState(false);
+  const [allTaskData, setAllTaskData] = useState<any>(null);
 
   useEffect(() => {
     if (reportData.projectId) {
@@ -42,14 +47,17 @@ export default function StepTasks({ reportData, updateReportData }: Props) {
       if (error) throw error;
 
       if (data && data.task_data && data.task_data.data) {
+        setAllTaskData(data.task_data);
         const allTasks: Task[] = data.task_data.data;
         const filteredTasks = filterTasksByWeek(allTasks);
         setTasks(filteredTasks);
       } else {
+        setAllTaskData(null);
         setTasks([]);
       }
     } catch (error) {
       console.error('Error loading tasks:', error);
+      setAllTaskData(null);
       setTasks([]);
     } finally {
       setLoading(false);
@@ -113,6 +121,74 @@ export default function StepTasks({ reportData, updateReportData }: Props) {
     updateReportData('tasks', Array.from(newSelection));
   };
 
+  const startEditingTask = (task: Task) => {
+    setEditingTaskId(task.id);
+    setEditForm({
+      text: task.text,
+      start_date: task.start_date,
+      duration: task.duration,
+      progress: task.progress,
+      owner_name: task.owner_name,
+      resource_names: task.resource_names || [],
+    });
+  };
+
+  const cancelEditing = () => {
+    setEditingTaskId(null);
+    setEditForm({});
+  };
+
+  const saveTaskEdit = async () => {
+    if (!allTaskData || !editingTaskId) return;
+
+    try {
+      setSaving(true);
+
+      const updatedTasks = allTaskData.data.map((task: Task) => {
+        if (task.id === editingTaskId) {
+          const updatedTask = { ...task };
+
+          if (editForm.text !== undefined) updatedTask.text = editForm.text;
+          if (editForm.start_date !== undefined) {
+            updatedTask.start_date = editForm.start_date;
+          }
+          if (editForm.duration !== undefined) updatedTask.duration = editForm.duration;
+          if (editForm.progress !== undefined) updatedTask.progress = editForm.progress;
+          if (editForm.owner_name !== undefined) updatedTask.owner_name = editForm.owner_name;
+          if (editForm.resource_names !== undefined) {
+            updatedTask.resource_names = editForm.resource_names;
+          }
+
+          return updatedTask;
+        }
+        return task;
+      });
+
+      const updatedTaskData = {
+        ...allTaskData,
+        data: updatedTasks,
+      };
+
+      const { error } = await supabase
+        .from('project_tasks')
+        .update({ task_data: updatedTaskData })
+        .eq('project_id', reportData.projectId);
+
+      if (error) throw error;
+
+      setAllTaskData(updatedTaskData);
+      const filteredTasks = filterTasksByWeek(updatedTasks);
+      setTasks(filteredTasks);
+      setEditingTaskId(null);
+      setEditForm({});
+    } catch (error) {
+      console.error('Error saving task:', error);
+      alert('Failed to save task changes');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (!reportData.projectId) {
     return (
       <div className="space-y-6">
@@ -171,95 +247,205 @@ export default function StepTasks({ reportData, updateReportData }: Props) {
               const status = getTaskStatus(task.progress);
               const StatusIcon = status.icon;
               const endDate = task.start_date ? calculateEndDate(task.start_date, task.duration || 0) : 'N/A';
+              const isEditing = editingTaskId === task.id;
 
               return (
                 <div
                   key={task.id}
-                  className="bg-white border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-sm transition-all"
+                  className={`bg-white border rounded-lg p-4 transition-all ${
+                    isEditing ? 'border-blue-400 shadow-md' : 'border-gray-200 hover:border-blue-300 hover:shadow-sm'
+                  }`}
                 >
                   <div className="flex items-start gap-4">
                     <input
                       type="checkbox"
                       checked={selectedTasks.has(task.id)}
                       onChange={() => toggleTaskSelection(task.id)}
-                      className="mt-1 h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                      disabled={isEditing}
+                      className="mt-1 h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 disabled:opacity-50"
                     />
 
                     <div className="flex-1 space-y-3">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900">{task.text}</h3>
-                          {task.owner_name && (
-                            <div className="flex items-center gap-2 mt-1 text-sm text-gray-600">
-                              <User className="w-4 h-4" />
-                              <span>{task.owner_name}</span>
+                      {isEditing ? (
+                        <>
+                          <div className="space-y-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Task Name</label>
+                              <input
+                                type="text"
+                                value={editForm.text || ''}
+                                onChange={(e) => setEditForm({ ...editForm, text: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                                <input
+                                  type="date"
+                                  value={editForm.start_date ? editForm.start_date.split(' ')[0] : ''}
+                                  onChange={(e) =>
+                                    setEditForm({ ...editForm, start_date: e.target.value + ' 00:00' })
+                                  }
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Duration (days)</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={editForm.duration || 0}
+                                  onChange={(e) =>
+                                    setEditForm({ ...editForm, duration: parseInt(e.target.value) || 0 })
+                                  }
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Progress ({Math.round((editForm.progress || 0) * 100)}%)
+                                </label>
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max="100"
+                                  value={(editForm.progress || 0) * 100}
+                                  onChange={(e) =>
+                                    setEditForm({ ...editForm, progress: parseInt(e.target.value) / 100 })
+                                  }
+                                  className="w-full mt-2"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Owner</label>
+                              <input
+                                type="text"
+                                value={editForm.owner_name || ''}
+                                onChange={(e) => setEditForm({ ...editForm, owner_name: e.target.value })}
+                                placeholder="Task owner name"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              />
+                            </div>
+
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={cancelEditing}
+                                disabled={saving}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                              >
+                                <X className="w-4 h-4 inline mr-1" />
+                                Cancel
+                              </button>
+                              <button
+                                onClick={saveTaskEdit}
+                                disabled={saving}
+                                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                              >
+                                {saving ? (
+                                  <>
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                    Saving...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Save className="w-4 h-4" />
+                                    Save Changes
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-gray-900">{task.text}</h3>
+                              {task.owner_name && (
+                                <div className="flex items-center gap-2 mt-1 text-sm text-gray-600">
+                                  <User className="w-4 h-4" />
+                                  <span>{task.owner_name}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => startEditingTask(task)}
+                                className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Edit task"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <span className={`px-2 py-1 text-xs font-medium rounded ${getTaskTypeColor(task.type)}`}>
+                                {task.type || 'task'}
+                              </span>
+                              <span
+                                className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded ${status.color}`}
+                              >
+                                <StatusIcon className="w-3 h-3" />
+                                {status.label}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                              <p className="text-gray-500 text-xs mb-1">Start Date</p>
+                              <div className="flex items-center gap-1 text-gray-900">
+                                <Calendar className="w-3 h-3" />
+                                <span>{task.start_date ? new Date(task.start_date).toLocaleDateString() : 'N/A'}</span>
+                              </div>
+                            </div>
+
+                            <div>
+                              <p className="text-gray-500 text-xs mb-1">End Date</p>
+                              <div className="flex items-center gap-1 text-gray-900">
+                                <Calendar className="w-3 h-3" />
+                                <span>{endDate}</span>
+                              </div>
+                            </div>
+
+                            <div>
+                              <p className="text-gray-500 text-xs mb-1">Duration</p>
+                              <p className="text-gray-900">{task.duration || 0} days</p>
+                            </div>
+
+                            <div>
+                              <p className="text-gray-500 text-xs mb-1">Progress</p>
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                  <div
+                                    className="bg-blue-600 h-2 rounded-full transition-all"
+                                    style={{ width: `${(task.progress || 0) * 100}%` }}
+                                  ></div>
+                                </div>
+                                <span className="text-gray-900 font-medium text-xs">
+                                  {Math.round((task.progress || 0) * 100)}%
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {task.resource_names && task.resource_names.length > 0 && (
+                            <div>
+                              <p className="text-gray-500 text-xs mb-1">Assigned Resources</p>
+                              <div className="flex flex-wrap gap-1">
+                                {task.resource_names.map((resource, idx) => (
+                                  <span key={idx} className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded">
+                                    {resource}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
                           )}
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <span className={`px-2 py-1 text-xs font-medium rounded ${getTaskTypeColor(task.type)}`}>
-                            {task.type || 'task'}
-                          </span>
-                          <span className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded ${status.color}`}>
-                            <StatusIcon className="w-3 h-3" />
-                            {status.label}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <p className="text-gray-500 text-xs mb-1">Start Date</p>
-                          <div className="flex items-center gap-1 text-gray-900">
-                            <Calendar className="w-3 h-3" />
-                            <span>{task.start_date ? new Date(task.start_date).toLocaleDateString() : 'N/A'}</span>
-                          </div>
-                        </div>
-
-                        <div>
-                          <p className="text-gray-500 text-xs mb-1">End Date</p>
-                          <div className="flex items-center gap-1 text-gray-900">
-                            <Calendar className="w-3 h-3" />
-                            <span>{endDate}</span>
-                          </div>
-                        </div>
-
-                        <div>
-                          <p className="text-gray-500 text-xs mb-1">Duration</p>
-                          <p className="text-gray-900">{task.duration || 0} days</p>
-                        </div>
-
-                        <div>
-                          <p className="text-gray-500 text-xs mb-1">Progress</p>
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 bg-gray-200 rounded-full h-2">
-                              <div
-                                className="bg-blue-600 h-2 rounded-full transition-all"
-                                style={{ width: `${(task.progress || 0) * 100}%` }}
-                              ></div>
-                            </div>
-                            <span className="text-gray-900 font-medium text-xs">
-                              {Math.round((task.progress || 0) * 100)}%
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {task.resource_names && task.resource_names.length > 0 && (
-                        <div>
-                          <p className="text-gray-500 text-xs mb-1">Assigned Resources</p>
-                          <div className="flex flex-wrap gap-1">
-                            {task.resource_names.map((resource, idx) => (
-                              <span
-                                key={idx}
-                                className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded"
-                              >
-                                {resource}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
+                        </>
                       )}
                     </div>
                   </div>
