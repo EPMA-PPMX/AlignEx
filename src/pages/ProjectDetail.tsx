@@ -2002,6 +2002,34 @@ const ProjectDetail: React.FC = () => {
       // Reset grouping state when tasks are updated
       setIsGroupedByOwner(false);
 
+      // Force Gantt chart to refresh with new data
+      if (ganttRef.current) {
+        const ganttInstance = ganttRef.current.getGanttInstance();
+        if (ganttInstance) {
+          ganttInstance.clearAll();
+          ganttInstance.parse(updatedTaskData);
+
+          // Sort tasks to ensure proper parent-child hierarchy display
+          ganttInstance.sort((a: any, b: any) => {
+            if (a.parent !== b.parent) {
+              if (a.parent === 0) return -1;
+              if (b.parent === 0) return 1;
+              return a.parent - b.parent;
+            }
+            return a.id - b.id;
+          });
+
+          // Open all parent tasks to show subtasks
+          ganttInstance.eachTask((task: any) => {
+            if (ganttInstance.hasChild(task.id)) {
+              ganttInstance.open(task.id);
+            }
+          });
+
+          ganttInstance.render();
+        }
+      }
+
       alert(editingTaskId ? 'Task updated successfully!' : 'Task created successfully!');
       setShowTaskModal(false);
       setEditingTaskId(null);
