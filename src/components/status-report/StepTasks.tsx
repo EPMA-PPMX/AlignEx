@@ -15,7 +15,7 @@ interface Task {
   start_date: string;
   duration: number;
   progress: number;
-  owner_name?: string;
+  owner_name?: string | string[];
   resource_names?: string[];
   parent: string | number;
 }
@@ -164,12 +164,18 @@ export default function StepTasks({ reportData, updateReportData }: Props) {
 
   const startEditingTask = (task: Task) => {
     setEditingTaskId(task.id);
+    const ownerNames = Array.isArray(task.owner_name)
+      ? task.owner_name
+      : task.owner_name
+        ? [task.owner_name]
+        : [];
+
     setEditForm({
       text: task.text,
       start_date: task.start_date,
       duration: task.duration,
       progress: task.progress,
-      owner_name: task.owner_name,
+      owner_name: ownerNames,
       resource_names: task.resource_names || [],
     });
   };
@@ -364,21 +370,37 @@ export default function StepTasks({ reportData, updateReportData }: Props) {
                             </div>
 
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Owner</label>
-                              <select
-                                value={editForm.owner_name || ''}
-                                onChange={(e) => setEditForm({ ...editForm, owner_name: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                              >
-                                <option value="">Select team member...</option>
-                                {teamMembers.map((member) => (
-                                  <option key={member.id} value={member.display_name}>
-                                    {member.display_name} - {member.role}
-                                  </option>
-                                ))}
-                              </select>
-                              {teamMembers.length === 0 && (
-                                <p className="text-xs text-gray-500 mt-1">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Owners</label>
+                              {teamMembers.length > 0 ? (
+                                <div className="border border-gray-300 rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto bg-white">
+                                  {teamMembers.map((member) => {
+                                    const owners = Array.isArray(editForm.owner_name) ? editForm.owner_name : [];
+                                    const isSelected = owners.includes(member.display_name);
+
+                                    return (
+                                      <label
+                                        key={member.id}
+                                        className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={isSelected}
+                                          onChange={(e) => {
+                                            const currentOwners = Array.isArray(editForm.owner_name) ? editForm.owner_name : [];
+                                            const newOwners = e.target.checked
+                                              ? [...currentOwners, member.display_name]
+                                              : currentOwners.filter((name) => name !== member.display_name);
+                                            setEditForm({ ...editForm, owner_name: newOwners });
+                                          }}
+                                          className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                        />
+                                        <span className="text-sm text-gray-900">{member.display_name}</span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <p className="text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3">
                                   No team members found. Add team members to this project first.
                                 </p>
                               )}
@@ -421,7 +443,11 @@ export default function StepTasks({ reportData, updateReportData }: Props) {
                               {task.owner_name && (
                                 <div className="flex items-center gap-2 mt-1 text-sm text-gray-600">
                                   <User className="w-4 h-4" />
-                                  <span>{task.owner_name}</span>
+                                  <span>
+                                    {Array.isArray(task.owner_name)
+                                      ? task.owner_name.join(', ')
+                                      : task.owner_name}
+                                  </span>
                                 </div>
                               )}
                             </div>
