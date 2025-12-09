@@ -519,7 +519,7 @@ export default class Gantt extends Component<GanttProps> {
     // Enable plugins
     gantt.plugins({
       keyboard_navigation: true
-       license: "39548339"
+      
     });
     gantt.config.keyboard_navigation_cells = true;
 
