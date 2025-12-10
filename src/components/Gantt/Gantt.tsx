@@ -514,9 +514,6 @@ export default class Gantt extends Component<GanttProps> {
   componentDidMount(): void {
     if (!this.ganttContainer.current) return;
 
-    // Set enterprise license key
-    gantt.license = "39548339";
-
     gantt.config.date_format = "%Y-%m-%d %H:%i";
     gantt.config.readonly = false;
     gantt.config.details_on_dblclick = true;
