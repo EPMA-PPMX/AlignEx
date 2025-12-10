@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Trash2, ChevronLeft, ChevronRight, Edit2, Save, X, CheckCircle, Send, RotateCcw } from 'lucide-react';
+import { Plus, Trash2, ChevronLeft, ChevronRight, CheckCircle, Send, RotateCcw } from 'lucide-react';
 
 interface TimesheetEntry {
   id: string;
@@ -70,8 +70,6 @@ const Timesheet: React.FC = () => {
     return new Date(today.setDate(diff));
   });
   const [showAddModal, setShowAddModal] = useState(false);
-  const [editingCell, setEditingCell] = useState<{ rowId: string; date: string } | null>(null);
-  const [editingNotes, setEditingNotes] = useState('');
   const [newRowForm, setNewRowForm] = useState({
     type: 'project' as 'project' | 'initiation' | 'category',
     selectedId: ''
@@ -461,14 +459,17 @@ const Timesheet: React.FC = () => {
     }
   };
 
-  const handleCellUpdate = async (row: TimesheetRow, date: Date, billable: number, nonBillable: number, notes: string) => {
+  const handleCellUpdate = async (row: TimesheetRow, date: Date, isBillable: boolean, hours: number) => {
     if (weekSubmission && weekSubmission.status === 'submitted') {
-      alert('This timesheet has been submitted and is locked. Please recall it first to make changes.');
       return;
     }
 
     const dateKey = formatDateKey(date);
     const existingEntry = row.entries[dateKey];
+
+    const billable = isBillable ? hours : (existingEntry?.billable || 0);
+    const nonBillable = !isBillable ? hours : (existingEntry?.nonBillable || 0);
+    const notes = existingEntry?.notes || '';
 
     const totalHours = billable + nonBillable;
 
@@ -481,7 +482,6 @@ const Timesheet: React.FC = () => {
 
       if (error) {
         console.error('Error deleting entry:', error);
-        alert('Error deleting entry');
       } else {
         await fetchData();
       }
@@ -529,7 +529,6 @@ const Timesheet: React.FC = () => {
 
       if (error) {
         console.error('Error saving entry:', error);
-        alert('Error saving entry');
       } else {
         await fetchData();
       }
@@ -690,120 +689,158 @@ const Timesheet: React.FC = () => {
           <table className="min-w-full border-collapse">
             <thead>
               <tr className="border-b-2 border-gray-300">
-                <th className="text-left py-3 px-4 font-semibold">Project/Activity</th>
+                <th className="text-left py-3 px-4 font-semibold w-48">Project/Activity</th>
+                <th className="text-left py-3 px-2 font-semibold w-20"></th>
                 {weekDates.map((date, idx) => (
-                  <th key={idx} className="text-center py-3 px-2 font-semibold min-w-[120px]">
+                  <th key={idx} className="text-center py-3 px-2 font-semibold min-w-[80px]">
                     <div>{date.toLocaleDateString('en-US', { weekday: 'short' })}</div>
                     <div className="text-sm font-normal text-gray-600">{formatDate(date)}</div>
                   </th>
                 ))}
-                <th className="text-center py-3 px-4 font-semibold">Total</th>
-                <th className="text-center py-3 px-4 font-semibold">Actions</th>
+                <th className="text-center py-3 px-4 font-semibold w-20">Total</th>
+                <th className="text-center py-3 px-4 font-semibold w-20">Actions</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="text-center py-8 text-gray-500">
+                  <td colSpan={10} className="text-center py-8 text-gray-500">
                     No time entries. Click "Add Time Entry" to get started.
                   </td>
                 </tr>
               ) : (
                 <>
-                  {rows.map((row) => {
-                    const rowTotal = weekDates.reduce((sum, date) => {
+                  {rows.map((row, rowIdx) => {
+                    const billableTotal = weekDates.reduce((sum, date) => {
                       const dateKey = formatDateKey(date);
                       const entry = row.entries[dateKey];
-                      return sum + (entry ? entry.billable + entry.nonBillable : 0);
+                      return sum + (entry?.billable || 0);
                     }, 0);
 
-                    return (
-                      <tr key={row.id} className="border-b hover:bg-gray-50">
-                        <td className="py-3 px-4 font-medium">{row.name}</td>
-                        {weekDates.map((date, idx) => {
-                          const dateKey = formatDateKey(date);
-                          const entry = row.entries[dateKey] || { billable: 0, nonBillable: 0, notes: '' };
-                          const isEditing = editingCell?.rowId === row.id && editingCell?.date === dateKey;
+                    const nonBillableTotal = weekDates.reduce((sum, date) => {
+                      const dateKey = formatDateKey(date);
+                      const entry = row.entries[dateKey];
+                      return sum + (entry?.nonBillable || 0);
+                    }, 0);
 
-                          return (
-                            <td key={idx} className="py-2 px-2 text-center">
-                              {isEditing ? (
-                                <TimesheetCell
-                                  billable={entry.billable}
-                                  nonBillable={entry.nonBillable}
-                                  notes={editingNotes}
-                                  onSave={(billable, nonBillable, notes) => {
-                                    handleCellUpdate(row, date, billable, nonBillable, notes);
-                                    setEditingCell(null);
+                    const rowTotal = billableTotal + nonBillableTotal;
+
+                    return (
+                      <React.Fragment key={row.id}>
+                        <tr className={`${rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-b border-gray-200`}>
+                          <td className="py-2 px-4 font-medium" rowSpan={2}>{row.name}</td>
+                          <td className="py-2 px-2 text-xs text-green-700 font-medium">Billable</td>
+                          {weekDates.map((date, idx) => {
+                            const dateKey = formatDateKey(date);
+                            const entry = row.entries[dateKey];
+                            const value = entry?.billable || 0;
+                            const isLocked = weekSubmission && weekSubmission.status === 'submitted';
+
+                            return (
+                              <td key={idx} className="py-2 px-2">
+                                <input
+                                  type="number"
+                                  step="0.25"
+                                  min="0"
+                                  value={value || ''}
+                                  disabled={isLocked}
+                                  onChange={(e) => {
+                                    const newValue = parseFloat(e.target.value) || 0;
+                                    handleCellUpdate(row, date, true, newValue);
                                   }}
-                                  onCancel={() => setEditingCell(null)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Tab') {
+                                      // Tab key navigation handled by browser
+                                    } else if (e.key === 'ArrowDown') {
+                                      e.preventDefault();
+                                      const nextInput = e.currentTarget.parentElement?.parentElement?.nextElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
+                                      nextInput?.focus();
+                                    } else if (e.key === 'ArrowUp') {
+                                      e.preventDefault();
+                                      const prevRow = e.currentTarget.parentElement?.parentElement?.previousElementSibling?.previousElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
+                                      prevRow?.focus();
+                                    }
+                                  }}
+                                  className="w-full px-2 py-1 text-center border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                  placeholder="0"
                                 />
-                              ) : (
-                                <div
-                                  onClick={() => {
-                                    setEditingCell({ rowId: row.id, date: dateKey });
-                                    setEditingNotes(entry.notes);
+                              </td>
+                            );
+                          })}
+                          <td className="py-2 px-4 text-center text-sm font-semibold text-green-700" rowSpan={2}>{rowTotal.toFixed(2)}</td>
+                          <td className="py-2 px-4 text-center" rowSpan={2}>
+                            {row.persistentItemId ? (
+                              <button
+                                onClick={() => handleMarkAsCompleted(row)}
+                                className="text-green-600 hover:text-green-800 flex items-center gap-1 mx-auto"
+                                title="Mark as Completed"
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleDeleteRow(row)}
+                                className="text-red-600 hover:text-red-800"
+                                title="Remove from this week"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                        <tr className={`${rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-b border-gray-300`}>
+                          <td className="py-2 px-2 text-xs text-gray-600 font-medium">Non-Bill</td>
+                          {weekDates.map((date, idx) => {
+                            const dateKey = formatDateKey(date);
+                            const entry = row.entries[dateKey];
+                            const value = entry?.nonBillable || 0;
+                            const isLocked = weekSubmission && weekSubmission.status === 'submitted';
+
+                            return (
+                              <td key={idx} className="py-2 px-2">
+                                <input
+                                  type="number"
+                                  step="0.25"
+                                  min="0"
+                                  value={value || ''}
+                                  disabled={isLocked}
+                                  onChange={(e) => {
+                                    const newValue = parseFloat(e.target.value) || 0;
+                                    handleCellUpdate(row, date, false, newValue);
                                   }}
-                                  className="cursor-pointer hover:bg-gray-100 rounded p-2 min-h-[60px]"
-                                >
-                                  {entry.billable > 0 || entry.nonBillable > 0 ? (
-                                    <div className="text-sm">
-                                      {entry.billable > 0 && (
-                                        <div className="text-green-700 font-medium">B: {entry.billable}</div>
-                                      )}
-                                      {entry.nonBillable > 0 && (
-                                        <div className="text-gray-700">NB: {entry.nonBillable}</div>
-                                      )}
-                                      {entry.notes && (
-                                        <div className="text-xs text-gray-500 mt-1 truncate" title={entry.notes}>
-                                          {entry.notes}
-                                        </div>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <div className="text-gray-400 text-sm">-</div>
-                                  )}
-                                </div>
-                              )}
-                            </td>
-                          );
-                        })}
-                        <td className="py-3 px-4 text-center font-semibold">{rowTotal.toFixed(2)}</td>
-                        <td className="py-3 px-4 text-center">
-                          {row.persistentItemId ? (
-                            <button
-                              onClick={() => handleMarkAsCompleted(row)}
-                              className="text-green-600 hover:text-green-800 flex items-center gap-1 mx-auto"
-                              title="Mark as Completed"
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                              <span className="text-xs">Done</span>
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleDeleteRow(row)}
-                              className="text-red-600 hover:text-red-800"
-                              title="Remove from this week"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </td>
-                      </tr>
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Tab') {
+                                      // Tab key navigation handled by browser
+                                    } else if (e.key === 'ArrowDown') {
+                                      e.preventDefault();
+                                      const nextInput = e.currentTarget.parentElement?.parentElement?.nextElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
+                                      nextInput?.focus();
+                                    } else if (e.key === 'ArrowUp') {
+                                      e.preventDefault();
+                                      const prevInput = e.currentTarget.parentElement?.parentElement?.previousElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
+                                      prevInput?.focus();
+                                    }
+                                  }}
+                                  className="w-full px-2 py-1 text-center border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                  placeholder="0"
+                                />
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      </React.Fragment>
                     );
                   })}
-                  <tr className="border-t-2 border-gray-300 font-semibold bg-gray-50">
-                    <td className="py-3 px-4">Daily Totals</td>
+                  <tr className="border-t-2 border-gray-300">
+                    <td className="py-3 px-4 font-semibold" colSpan={2}>Daily Totals</td>
                     {totalsByDay.map((day, idx) => (
                       <td key={idx} className="py-3 px-2 text-center">
-                        <div className="text-sm">
-                          {day.billable > 0 && <div className="text-green-700">B: {day.billable.toFixed(2)}</div>}
-                          {day.nonBillable > 0 && <div className="text-gray-700">NB: {day.nonBillable.toFixed(2)}</div>}
-                          {day.total === 0 && <div className="text-gray-400">-</div>}
+                        <div className="text-sm font-semibold text-blue-600">
+                          {day.total > 0 ? day.total.toFixed(2) : '-'}
                         </div>
                       </td>
                     ))}
-                    <td className="py-3 px-4 text-center text-blue-600">{grandTotal.toFixed(2)}</td>
+                    <td className="py-3 px-4 text-center text-lg font-bold text-blue-600">{grandTotal.toFixed(2)}</td>
                     <td></td>
                   </tr>
                 </>
@@ -919,79 +956,6 @@ const Timesheet: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
-  );
-};
-
-interface TimesheetCellProps {
-  billable: number;
-  nonBillable: number;
-  notes: string;
-  onSave: (billable: number, nonBillable: number, notes: string) => void;
-  onCancel: () => void;
-}
-
-const TimesheetCell: React.FC<TimesheetCellProps> = ({ billable, nonBillable, notes, onSave, onCancel }) => {
-  const [localBillable, setLocalBillable] = useState(billable.toString());
-  const [localNonBillable, setLocalNonBillable] = useState(nonBillable.toString());
-  const [localNotes, setLocalNotes] = useState(notes);
-
-  const handleSave = () => {
-    const b = parseFloat(localBillable) || 0;
-    const nb = parseFloat(localNonBillable) || 0;
-    onSave(b, nb, localNotes);
-  };
-
-  return (
-    <div className="bg-white border-2 border-blue-500 rounded p-2 shadow-lg min-w-[200px]">
-      <div className="space-y-2">
-        <div>
-          <label className="text-xs text-gray-600">Billable</label>
-          <input
-            type="number"
-            step="0.25"
-            min="0"
-            value={localBillable}
-            onChange={(e) => setLocalBillable(e.target.value)}
-            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-            autoFocus
-          />
-        </div>
-        <div>
-          <label className="text-xs text-gray-600">Non-Billable</label>
-          <input
-            type="number"
-            step="0.25"
-            min="0"
-            value={localNonBillable}
-            onChange={(e) => setLocalNonBillable(e.target.value)}
-            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-          />
-        </div>
-        <div>
-          <label className="text-xs text-gray-600">Notes</label>
-          <textarea
-            value={localNotes}
-            onChange={(e) => setLocalNotes(e.target.value)}
-            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-            rows={2}
-          />
-        </div>
-        <div className="flex gap-1">
-          <button
-            onClick={handleSave}
-            className="flex-1 bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700"
-          >
-            <Save className="w-3 h-3 mx-auto" />
-          </button>
-          <button
-            onClick={onCancel}
-            className="flex-1 bg-gray-300 text-gray-700 px-2 py-1 rounded text-xs hover:bg-gray-400"
-          >
-            <X className="w-3 h-3 mx-auto" />
-          </button>
-        </div>
-      </div>
     </div>
   );
 };
