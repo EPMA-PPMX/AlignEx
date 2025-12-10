@@ -1174,8 +1174,150 @@ export default class Gantt extends Component<GanttProps> {
   }
 
   componentDidUpdate(prevProps: GanttProps): void {
-    const { projecttasks, searchQuery, selectedTaskFields = [], taskCustomFields = [] } = this.props;
+    const { projecttasks, searchQuery, selectedTaskFields = [], taskCustomFields = [], showResourcePanel } = this.props;
     const prevSelectedFields = prevProps.selectedTaskFields || [];
+
+    // Check if showResourcePanel changed
+    if (prevProps.showResourcePanel !== showResourcePanel) {
+      console.log("showResourcePanel changed from", prevProps.showResourcePanel, "to", showResourcePanel);
+
+      // Reconfigure resource management
+      if (showResourcePanel) {
+        gantt.config.resource_store = "resource";
+        gantt.config.resource_property = "owner_id";
+        gantt.config.process_resource_assignments = true;
+        gantt.config.resource_assignment_store = "resourceAssignments";
+
+        // Configure layout with resource panel
+        gantt.config.layout = {
+          css: "gantt_container",
+          rows: [
+            {
+              cols: [
+                {
+                  width: 400,
+                  min_width: 300,
+                  rows: [
+                    {
+                      view: "grid",
+                      scrollX: "gridScroll",
+                      scrollable: true,
+                      scrollY: "scrollVer"
+                    },
+                    {
+                      view: "scrollbar",
+                      id: "gridScroll",
+                      group: "horizontal"
+                    }
+                  ]
+                },
+                { resizer: true, width: 1 },
+                {
+                  rows: [
+                    {
+                      view: "timeline",
+                      scrollX: "scrollHor",
+                      scrollY: "scrollVer"
+                    },
+                    {
+                      view: "scrollbar",
+                      id: "scrollHor",
+                      group: "horizontal"
+                    }
+                  ]
+                },
+                { view: "scrollbar", id: "scrollVer" }
+              ],
+              gravity: 2
+            },
+            { resizer: true, width: 1 },
+            {
+              config: { height: 200 },
+              cols: [
+                {
+                  view: "resourceGrid",
+                  group: "grids",
+                  width: 435,
+                  scrollY: "resourceVScroll"
+                },
+                { resizer: true, width: 1 },
+                {
+                  view: "resourceTimeline",
+                  scrollX: "scrollHor",
+                  scrollY: "resourceVScroll"
+                },
+                { view: "scrollbar", id: "resourceVScroll", group: "vertical" }
+              ],
+              gravity: 1
+            }
+          ]
+        };
+      } else {
+        // Configure layout without resource panel
+        gantt.config.layout = {
+          css: "gantt_container",
+          cols: [
+            {
+              width: 400,
+              min_width: 300,
+              rows: [
+                {
+                  view: "grid",
+                  scrollX: "gridScroll",
+                  scrollable: true,
+                  scrollY: "scrollVer"
+                },
+                {
+                  view: "scrollbar",
+                  id: "gridScroll",
+                  group: "horizontal"
+                }
+              ]
+            },
+            { resizer: true, width: 1 },
+            {
+              rows: [
+                {
+                  view: "timeline",
+                  scrollX: "scrollHor",
+                  scrollY: "scrollVer"
+                },
+                {
+                  view: "scrollbar",
+                  id: "scrollHor",
+                  group: "horizontal"
+                }
+              ]
+            },
+            { view: "scrollbar", id: "scrollVer" }
+          ]
+        };
+      }
+
+      // Reinitialize gantt with new layout
+      if (this.ganttContainer.current) {
+        gantt.init(this.ganttContainer.current);
+
+        // Reload data with resources if panel is shown
+        if (showResourcePanel && projecttasks.resources) {
+          console.log("Reloading with resources:", projecttasks.resources);
+          console.log("Reloading with assignments:", projecttasks.resourceAssignments);
+
+          gantt.parse({
+            data: projecttasks.data,
+            links: projecttasks.links || [],
+            resources: projecttasks.resources || [],
+            assignments: projecttasks.resourceAssignments || []
+          });
+        } else {
+          gantt.parse(projecttasks);
+        }
+
+        gantt.render();
+      }
+
+      return; // Exit early to avoid double render
+    }
 
     // Check if selected task fields changed
     const fieldsChanged =
