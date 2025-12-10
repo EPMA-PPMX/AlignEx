@@ -1,6 +1,6 @@
 import React, { Component, createRef } from "react";
 import { gantt } from "dhtmlx-gantt";
-import "../../lib/dhtmlx-gantt-enterprise/dhtmlxgantt.css";
+import "dhtmlx-gantt/codebase/dhtmlxgantt.css";
 import "./Gantt.css";
 
 // Define TypeScript interfaces for props and tasks
