@@ -657,7 +657,10 @@ export default class Gantt extends Component<GanttProps> {
       gantt.config.resource_assignment_store = "resourceAssignments";
 
       // Configure resource grid columns
-      gantt.config.resource_table_columns = [
+      if (!gantt.resource_table) {
+        gantt.resource_table = {};
+      }
+      gantt.resource_table.columns = [
         {
           name: "text",
           label: "Resource Name",
@@ -1249,7 +1252,10 @@ export default class Gantt extends Component<GanttProps> {
         gantt.config.resource_assignment_store = "resourceAssignments";
 
         // Configure resource grid columns
-        gantt.config.resource_table_columns = [
+        if (!gantt.resource_table) {
+          gantt.resource_table = {};
+        }
+        gantt.resource_table.columns = [
           {
             name: "text",
             label: "Resource Name",
