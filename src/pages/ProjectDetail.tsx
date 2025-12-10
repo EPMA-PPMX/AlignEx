@@ -814,25 +814,52 @@ const ProjectDetail: React.FC = () => {
   };
 
   const fetchResourcesForGantt = async () => {
+    if (!id) return [];
+
     try {
+      // Fetch only resources that are members of this project
       const { data, error } = await supabase
-        .from('resources')
-        .select('id, display_name, cost_rate, rate_type, status')
-        .eq('status', 'active')
-        .order('display_name');
+        .from('project_team_members')
+        .select(`
+          resource_id,
+          resources (
+            id,
+            display_name,
+            cost_rate,
+            rate_type,
+            status
+          )
+        `)
+        .eq('project_id', id);
 
       if (error) {
-        console.error('Error fetching resources:', error);
+        console.error('Error fetching project team resources:', error);
         return [];
       }
 
-      // Transform to Gantt resource format
-      return (data || []).map(resource => ({
-        id: resource.id,
-        text: resource.display_name,
-        unit: resource.rate_type === 'hourly' ? 'hours/day' :
-              resource.rate_type === 'daily' ? 'days' : 'months'
-      }));
+      // Filter out null resources and transform to Gantt resource format
+      const resources = (data || [])
+        .filter(item => item.resources)
+        .map(item => {
+          const resource = item.resources as any;
+          return {
+            id: resource.id,
+            text: resource.display_name,
+            unit: resource.rate_type === 'hourly' ? 'hours/day' :
+                  resource.rate_type === 'daily' ? 'days' : 'months'
+          };
+        });
+
+      // Remove duplicates (in case a resource is added to team multiple times)
+      const uniqueResources = resources.reduce((acc: any[], current) => {
+        const exists = acc.find(r => r.id === current.id);
+        if (!exists) {
+          acc.push(current);
+        }
+        return acc;
+      }, []);
+
+      return uniqueResources;
     } catch (error) {
       console.error('Error fetching resources for Gantt:', error);
       return [];
@@ -906,6 +933,16 @@ const ProjectDetail: React.FC = () => {
         console.error('Error fetching project team members:', error);
       } else {
         setProjectTeamMembers(data || []);
+
+        // Refresh Gantt resources when team members change
+        const resourcesData = await fetchResourcesForGantt();
+        const assignmentsData = await fetchResourceAssignments();
+
+        setProjectTasks(prev => ({
+          ...prev,
+          resources: resourcesData,
+          resourceAssignments: assignmentsData
+        }));
       }
     } catch (error) {
       console.error('Error fetching team members:', error);
