@@ -15,6 +15,7 @@
   padding: 10px;
   border-bottom: 1px solid #e5e7eb;
   background: #f9fafb;
+  flex-shrink: 0;
 }
 
 .gantt-controls button {
@@ -34,6 +35,79 @@
 
 .gantt-controls button:active {
   background: #e5e7eb;
+}
+
+.gantt-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  height: calc(100% - 50px);
+}
+
+.task-list {
+  width: 510px;
+  flex-shrink: 0;
+  border-right: 2px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  background: white;
+}
+
+.task-list-header {
+  display: flex;
+  background: #f9fafb;
+  border-bottom: 2px solid #e5e7eb;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.task-list-header-cell {
+  padding: 12px 8px;
+  font-weight: 600;
+  font-size: 14px;
+  color: #374151;
+  border-right: 1px solid #e5e7eb;
+}
+
+.task-list-header-cell:last-child {
+  border-right: none;
+}
+
+.task-list-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.task-list-row {
+  display: flex;
+  border-bottom: 1px solid #e5e7eb;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.task-list-row:hover {
+  background: #f9fafb;
+}
+
+.task-list-cell {
+  padding: 12px 8px;
+  font-size: 14px;
+  color: #374151;
+  border-right: 1px solid #e5e7eb;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-list-cell:last-child {
+  border-right: none;
+}
+
+.gantt-chart-container {
+  flex: 1;
+  overflow: auto;
+  background: white;
 }
 
 .gantt {

@@ -234,51 +234,60 @@ export default class Gantt extends Component<GanttProps> {
     }
   };
 
+  private renderTaskList = () => {
+    const tasks = this.props.projecttasks?.data || [];
+    const searchQuery = this.props.searchQuery?.toLowerCase() || '';
+
+    const filteredTasks = tasks.filter(task => {
+      if (!searchQuery) return true;
+      return task.text.toLowerCase().includes(searchQuery);
+    });
+
+    return (
+      <div className="task-list">
+        <div className="task-list-header">
+          <div className="task-list-header-cell" style={{ width: '250px' }}>Task Name</div>
+          <div className="task-list-header-cell" style={{ width: '100px' }}>Start Date</div>
+          <div className="task-list-header-cell" style={{ width: '80px' }}>Duration</div>
+          <div className="task-list-header-cell" style={{ width: '80px' }}>Progress</div>
+        </div>
+        <div className="task-list-body">
+          {filteredTasks.map(task => {
+            const startDate = new Date(task.start_date).toLocaleDateString();
+            return (
+              <div
+                key={task.id}
+                className="task-list-row"
+                onClick={() => {
+                  if (this.props.onEditTask) {
+                    this.props.onEditTask(task.id);
+                  }
+                }}
+              >
+                <div className="task-list-cell" style={{ width: '250px' }}>{task.text}</div>
+                <div className="task-list-cell" style={{ width: '100px' }}>{startDate}</div>
+                <div className="task-list-cell" style={{ width: '80px' }}>{task.duration}d</div>
+                <div className="task-list-cell" style={{ width: '80px' }}>{task.progress || 0}%</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   render() {
     return (
       <div className="gantt-wrapper">
-        <div className="gantt-controls" style={{ padding: '10px', borderBottom: '1px solid #e5e7eb' }}>
-          <button
-            onClick={() => this.changeViewMode('Day')}
-            style={{
-              padding: '6px 12px',
-              marginRight: '8px',
-              border: '1px solid #d1d5db',
-              borderRadius: '4px',
-              background: 'white',
-              cursor: 'pointer'
-            }}
-          >
-            Day
-          </button>
-          <button
-            onClick={() => this.changeViewMode('Week')}
-            style={{
-              padding: '6px 12px',
-              marginRight: '8px',
-              border: '1px solid #d1d5db',
-              borderRadius: '4px',
-              background: 'white',
-              cursor: 'pointer'
-            }}
-          >
-            Week
-          </button>
-          <button
-            onClick={() => this.changeViewMode('Month')}
-            style={{
-              padding: '6px 12px',
-              marginRight: '8px',
-              border: '1px solid #d1d5db',
-              borderRadius: '4px',
-              background: 'white',
-              cursor: 'pointer'
-            }}
-          >
-            Month
-          </button>
+        <div className="gantt-controls">
+          <button onClick={() => this.changeViewMode('Day')}>Day</button>
+          <button onClick={() => this.changeViewMode('Week')}>Week</button>
+          <button onClick={() => this.changeViewMode('Month')}>Month</button>
         </div>
-        <div ref={this.ganttContainer} style={{ overflow: 'auto', height: 'calc(100% - 50px)' }} />
+        <div className="gantt-content">
+          {this.renderTaskList()}
+          <div ref={this.ganttContainer} className="gantt-chart-container" />
+        </div>
       </div>
     );
   }
