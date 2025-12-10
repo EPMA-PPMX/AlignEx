@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Upload, X, AlertCircle, CheckCircle, FileSpreadsheet } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import * as ExcelJS from 'exceljs';
 
 interface CustomField {
   id: string;
@@ -8,6 +9,7 @@ interface CustomField {
   field_type: string;
   field_label: string;
   is_required: boolean;
+  options?: string[];
 }
 
 interface ImportModalProps {
@@ -44,113 +46,146 @@ export default function ResourceImportModal({ onClose, onImportComplete }: Impor
     }
   };
 
-  const generateTemplate = () => {
+  const generateTemplate = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Resources');
+
     const standardHeaders = [
-      'Resource Type',
-      'First Name',
-      'Last Name',
-      'Email',
-      'Resource Name',
-      'Roles',
-      'Cost Rate',
-      'Rate Type',
-      'Department',
-      'Location',
-      'Status',
-      'Notes'
+      { header: 'Resource Type', key: 'resource_type', width: 15 },
+      { header: 'First Name', key: 'first_name', width: 15 },
+      { header: 'Last Name', key: 'last_name', width: 15 },
+      { header: 'Email', key: 'email', width: 25 },
+      { header: 'Resource Name', key: 'resource_name', width: 20 },
+      { header: 'Roles', key: 'roles', width: 25 },
+      { header: 'Cost Rate', key: 'cost_rate', width: 12 },
+      { header: 'Rate Type', key: 'rate_type', width: 12 },
+      { header: 'Department', key: 'department', width: 15 },
+      { header: 'Location', key: 'location', width: 15 },
+      { header: 'Status', key: 'status', width: 12 },
+      { header: 'Notes', key: 'notes', width: 30 }
     ];
 
-    const customFieldHeaders = customFields.map(field =>
-      `CF: ${field.field_label}${field.is_required ? ' *' : ''}`
-    );
+    const customFieldColumns = customFields.map(field => ({
+      header: `CF: ${field.field_label}${field.is_required ? ' *' : ''}`,
+      key: `cf_${field.id}`,
+      width: 20
+    }));
 
-    const headers = [...standardHeaders, ...customFieldHeaders];
+    worksheet.columns = [...standardHeaders, ...customFieldColumns];
 
-    const sampleRow = [
-      'person',
-      'John',
-      'Doe',
-      'john.doe@example.com',
-      '',
-      'Developer, Team Lead',
-      '75.00',
-      'hourly',
-      'Engineering',
-      'New York',
-      'active',
-      'Senior developer with 5 years experience',
-      ...customFields.map(() => '')
-    ];
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF4472C4' }
+    };
+    headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
 
-    const csv = [
-      headers.map(h => `"${h}"`).join(','),
-      sampleRow.map(v => `"${v}"`).join(',')
-    ].join('\n');
+    const sampleRow = worksheet.addRow({
+      resource_type: 'person',
+      first_name: 'John',
+      last_name: 'Doe',
+      email: 'john.doe@example.com',
+      resource_name: '',
+      roles: 'Developer, Team Lead',
+      cost_rate: 75.00,
+      rate_type: 'hourly',
+      department: 'Engineering',
+      location: 'New York',
+      status: 'active',
+      notes: 'Senior developer with 5 years experience'
+    });
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const startDataRow = 2;
+    const endDataRow = 1000;
+
+    worksheet.getColumn('resource_type').eachCell({ includeEmpty: true }, (cell, rowNumber) => {
+      if (rowNumber > 1) {
+        cell.dataValidation = {
+          type: 'list',
+          allowBlank: false,
+          formulae: ['"person,generic"'],
+          showErrorMessage: true,
+          errorTitle: 'Invalid Resource Type',
+          error: 'Please select either "person" or "generic"'
+        };
+      }
+    });
+
+    worksheet.getColumn('rate_type').eachCell({ includeEmpty: true }, (cell, rowNumber) => {
+      if (rowNumber > 1) {
+        cell.dataValidation = {
+          type: 'list',
+          allowBlank: true,
+          formulae: ['"hourly,daily,monthly"'],
+          showErrorMessage: true,
+          errorTitle: 'Invalid Rate Type',
+          error: 'Please select "hourly", "daily", or "monthly"'
+        };
+      }
+    });
+
+    worksheet.getColumn('status').eachCell({ includeEmpty: true }, (cell, rowNumber) => {
+      if (rowNumber > 1) {
+        cell.dataValidation = {
+          type: 'list',
+          allowBlank: false,
+          formulae: ['"active,inactive"'],
+          showErrorMessage: true,
+          errorTitle: 'Invalid Status',
+          error: 'Please select either "active" or "inactive"'
+        };
+      }
+    });
+
+    customFields.forEach((field, index) => {
+      if (field.field_type === 'dropdown' || field.field_type === 'radio') {
+        if (field.options && field.options.length > 0) {
+          const columnIndex = standardHeaders.length + index + 1;
+          const column = worksheet.getColumn(columnIndex);
+
+          const optionsList = field.options.join(',');
+
+          column.eachCell({ includeEmpty: true }, (cell, rowNumber) => {
+            if (rowNumber > 1) {
+              cell.dataValidation = {
+                type: 'list',
+                allowBlank: !field.is_required,
+                formulae: [`"${optionsList}"`],
+                showErrorMessage: true,
+                errorTitle: `Invalid ${field.field_label}`,
+                error: `Please select one of: ${field.options!.join(', ')}`
+              };
+            }
+          });
+        }
+      }
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `resource_import_template_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `resource_import_template_${new Date().toISOString().split('T')[0]}.xlsx`;
     link.click();
     window.URL.revokeObjectURL(url);
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file && file.type === 'text/csv') {
+    if (file && (
+      file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      file.name.endsWith('.xlsx')
+    )) {
       setSelectedFile(file);
       setImportStatus(null);
     } else {
-      alert('Please select a valid CSV file');
+      alert('Please select a valid Excel file (.xlsx)');
     }
-  };
-
-  const parseCSV = (text: string): string[][] => {
-    const rows: string[][] = [];
-    let currentRow: string[] = [];
-    let currentCell = '';
-    let insideQuotes = false;
-
-    for (let i = 0; i < text.length; i++) {
-      const char = text[i];
-      const nextChar = text[i + 1];
-
-      if (char === '"') {
-        if (insideQuotes && nextChar === '"') {
-          currentCell += '"';
-          i++;
-        } else {
-          insideQuotes = !insideQuotes;
-        }
-      } else if (char === ',' && !insideQuotes) {
-        currentRow.push(currentCell.trim());
-        currentCell = '';
-      } else if ((char === '\n' || char === '\r') && !insideQuotes) {
-        if (char === '\r' && nextChar === '\n') {
-          i++;
-        }
-        if (currentCell || currentRow.length > 0) {
-          currentRow.push(currentCell.trim());
-          if (currentRow.some(cell => cell)) {
-            rows.push(currentRow);
-          }
-          currentRow = [];
-          currentCell = '';
-        }
-      } else {
-        currentCell += char;
-      }
-    }
-
-    if (currentCell || currentRow.length > 0) {
-      currentRow.push(currentCell.trim());
-      if (currentRow.some(cell => cell)) {
-        rows.push(currentRow);
-      }
-    }
-
-    return rows;
   };
 
   const handleImport = async () => {
@@ -161,26 +196,49 @@ export default function ResourceImportModal({ onClose, onImportComplete }: Impor
     let successCount = 0;
 
     try {
-      const text = await selectedFile.text();
-      const rows = parseCSV(text);
+      const arrayBuffer = await selectedFile.arrayBuffer();
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(arrayBuffer);
+
+      const worksheet = workbook.getWorksheet('Resources');
+      if (!worksheet) {
+        throw new Error('Could not find "Resources" worksheet in the Excel file');
+      }
+
+      const rows: any[][] = [];
+      worksheet.eachRow((row, rowNumber) => {
+        const values = row.values as any[];
+        rows.push(values.slice(1));
+      });
 
       if (rows.length < 2) {
-        throw new Error('CSV file must contain at least a header row and one data row');
+        throw new Error('Excel file must contain at least a header row and one data row');
       }
 
       const headers = rows[0];
       const dataRows = rows.slice(1);
 
       const getColumnIndex = (name: string) => {
-        const index = headers.findIndex(h =>
-          h.toLowerCase().replace(/['"]/g, '').trim() === name.toLowerCase()
-        );
+        const index = headers.findIndex((h: any) => {
+          if (!h) return false;
+          const headerStr = String(h).toLowerCase().replace(/['"]/g, '').trim();
+          return headerStr === name.toLowerCase();
+        });
         return index;
       };
 
+      const getCellValue = (row: any[], index: number): string => {
+        if (index < 0 || index >= row.length) return '';
+        const value = row[index];
+        if (value === null || value === undefined) return '';
+        return String(value).trim();
+      };
+
       const customFieldMap = new Map<string, string>();
-      headers.forEach((header, index) => {
-        const match = header.match(/CF:\s*(.+?)(\s*\*)?$/i);
+      headers.forEach((header: any, index: number) => {
+        if (!header) return;
+        const headerStr = String(header);
+        const match = headerStr.match(/CF:\s*(.+?)(\s*\*)?$/i);
         if (match) {
           const fieldLabel = match[1].trim();
           const field = customFields.find(f =>
@@ -197,36 +255,38 @@ export default function ResourceImportModal({ onClose, onImportComplete }: Impor
         const rowNum = i + 2;
 
         try {
-          if (!row || row.every(cell => !cell)) {
+          if (!row || row.every((cell: any) => !cell)) {
             continue;
           }
 
-          const resourceType = row[getColumnIndex('Resource Type')]?.toLowerCase();
+          const resourceType = getCellValue(row, getColumnIndex('Resource Type')).toLowerCase();
           if (!resourceType || !['person', 'generic'].includes(resourceType)) {
             errors.push(`Row ${rowNum}: Invalid resource type. Must be 'person' or 'generic'`);
             continue;
           }
 
+          const rolesValue = getCellValue(row, getColumnIndex('Roles'));
+          const costRateValue = getCellValue(row, getColumnIndex('Cost Rate'));
+          const rateTypeValue = getCellValue(row, getColumnIndex('Rate Type'));
+          const statusValue = getCellValue(row, getColumnIndex('Status'));
+
           const dataToInsert: any = {
             resource_type: resourceType,
-            roles: row[getColumnIndex('Roles')]
-              ?.split(',')
-              .map(r => r.trim())
-              .filter(Boolean) || [],
-            cost_rate: row[getColumnIndex('Cost Rate')]
-              ? parseFloat(row[getColumnIndex('Cost Rate')])
-              : null,
-            rate_type: row[getColumnIndex('Rate Type')] || 'hourly',
-            department: row[getColumnIndex('Department')] || null,
-            location: row[getColumnIndex('Location')] || null,
-            status: row[getColumnIndex('Status')]?.toLowerCase() || 'active',
-            notes: row[getColumnIndex('Notes')] || null,
+            roles: rolesValue
+              ? rolesValue.split(',').map(r => r.trim()).filter(Boolean)
+              : [],
+            cost_rate: costRateValue ? parseFloat(costRateValue) : null,
+            rate_type: rateTypeValue || 'hourly',
+            department: getCellValue(row, getColumnIndex('Department')) || null,
+            location: getCellValue(row, getColumnIndex('Location')) || null,
+            status: statusValue.toLowerCase() || 'active',
+            notes: getCellValue(row, getColumnIndex('Notes')) || null,
             ad_synced: false,
           };
 
           if (resourceType === 'person') {
-            const firstName = row[getColumnIndex('First Name')];
-            const lastName = row[getColumnIndex('Last Name')];
+            const firstName = getCellValue(row, getColumnIndex('First Name'));
+            const lastName = getCellValue(row, getColumnIndex('Last Name'));
 
             if (!firstName || !lastName) {
               errors.push(`Row ${rowNum}: First Name and Last Name are required for person resources`);
@@ -235,10 +295,10 @@ export default function ResourceImportModal({ onClose, onImportComplete }: Impor
 
             dataToInsert.first_name = firstName;
             dataToInsert.last_name = lastName;
-            dataToInsert.email = row[getColumnIndex('Email')] || null;
+            dataToInsert.email = getCellValue(row, getColumnIndex('Email')) || null;
             dataToInsert.resource_name = null;
           } else {
-            const resourceName = row[getColumnIndex('Resource Name')];
+            const resourceName = getCellValue(row, getColumnIndex('Resource Name'));
 
             if (!resourceName) {
               errors.push(`Row ${rowNum}: Resource Name is required for generic resources`);
@@ -266,7 +326,7 @@ export default function ResourceImportModal({ onClose, onImportComplete }: Impor
             const fieldValues: any[] = [];
 
             customFieldMap.forEach((fieldId, columnIndex) => {
-              const value = row[parseInt(columnIndex)];
+              const value = getCellValue(row, parseInt(columnIndex));
               if (value) {
                 fieldValues.push({
                   resource_id: insertedResource.id,
@@ -337,8 +397,9 @@ export default function ResourceImportModal({ onClose, onImportComplete }: Impor
               <div className="text-sm text-blue-900">
                 <p className="font-medium mb-1">Import Instructions:</p>
                 <ol className="list-decimal list-inside space-y-1 ml-2">
-                  <li>Download the CSV template below</li>
+                  <li>Download the Excel template below</li>
                   <li>Fill in your resource data (one resource per row)</li>
+                  <li>Use the dropdown menus for fields with predefined values</li>
                   <li>Save the file and upload it using the upload button</li>
                   <li>Review any errors and fix them if needed</li>
                 </ol>
@@ -353,10 +414,10 @@ export default function ResourceImportModal({ onClose, onImportComplete }: Impor
               className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
             >
               <Download className="w-4 h-4" />
-              Download CSV Template
+              Download Excel Template
             </button>
             <p className="text-xs text-gray-500 mt-2">
-              Template includes all standard fields{customFields.length > 0 && ' and custom fields'}
+              Template includes all standard fields{customFields.length > 0 && ' and custom fields'} with dropdown validations
             </p>
           </div>
 
@@ -368,7 +429,7 @@ export default function ResourceImportModal({ onClose, onImportComplete }: Impor
                 Select File
                 <input
                   type="file"
-                  accept=".csv"
+                  accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                   onChange={handleFileSelect}
                   className="hidden"
                 />
