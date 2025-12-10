@@ -656,11 +656,11 @@ export default class Gantt extends Component<GanttProps> {
       gantt.config.process_resource_assignments = true;
       gantt.config.resource_assignment_store = "resourceAssignments";
 
-      // Configure resource grid columns
-      if (!gantt.resource_table) {
-        gantt.resource_table = {};
-      }
-      gantt.resource_table.columns = [
+      // Configure resource grid columns in gantt.config
+      gantt.config.columns = gantt.config.columns || [];
+
+      // Store resource columns separately
+      const resourceColumns = [
         {
           name: "text",
           label: "Resource Name",
@@ -735,27 +735,9 @@ export default class Gantt extends Component<GanttProps> {
                 width: 435,
                 scrollY: "resourceVScroll",
                 bind: "resource",
-                columns: [
-                  {
-                    name: "text",
-                    label: "Resource Name",
-                    tree: true,
-                    width: 200,
-                    template: function(resource: any) {
-                      return resource.text || resource.name || "Unnamed Resource";
-                    }
-                  },
-                  {
-                    name: "workload",
-                    label: "Workload",
-                    align: "center",
-                    width: 100,
-                    template: function(resource: any) {
-                      const assignments = gantt.getDatastore("resourceAssignments").getItems().filter((a: any) => a.resource_id === resource.id);
-                      return assignments.length + " tasks";
-                    }
-                  }
-                ]
+                config: {
+                  columns: resourceColumns
+                }
               },
               { resizer: true, width: 1 },
               {
@@ -1251,11 +1233,11 @@ export default class Gantt extends Component<GanttProps> {
         gantt.config.process_resource_assignments = true;
         gantt.config.resource_assignment_store = "resourceAssignments";
 
-        // Configure resource grid columns
-        if (!gantt.resource_table) {
-          gantt.resource_table = {};
-        }
-        gantt.resource_table.columns = [
+        // Configure resource grid columns in gantt.config
+        gantt.config.columns = gantt.config.columns || [];
+
+        // Store resource columns separately
+        const resourceColumns = [
           {
             name: "text",
             label: "Resource Name",
@@ -1330,27 +1312,9 @@ export default class Gantt extends Component<GanttProps> {
                   width: 435,
                   scrollY: "resourceVScroll",
                   bind: "resource",
-                  columns: [
-                    {
-                      name: "text",
-                      label: "Resource Name",
-                      tree: true,
-                      width: 200,
-                      template: function(resource: any) {
-                        return resource.text || resource.name || "Unnamed Resource";
-                      }
-                    },
-                    {
-                      name: "workload",
-                      label: "Workload",
-                      align: "center",
-                      width: 100,
-                      template: function(resource: any) {
-                        const assignments = gantt.getDatastore("resourceAssignments").getItems().filter((a: any) => a.resource_id === resource.id);
-                        return assignments.length + " tasks";
-                      }
-                    }
-                  ]
+                  config: {
+                    columns: resourceColumns
+                  }
                 },
                 { resizer: true, width: 1 },
                 {
