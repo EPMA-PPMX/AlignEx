@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Trash2, ChevronLeft, ChevronRight, CheckCircle, Send, RotateCcw } from 'lucide-react';
+import { Plus, Trash2, ChevronLeft, ChevronRight, CheckCircle, Send, RotateCcw, Eye, EyeOff } from 'lucide-react';
 
 interface TimesheetEntry {
   id: string;
@@ -76,6 +76,7 @@ const Timesheet: React.FC = () => {
   });
   const [weekSubmission, setWeekSubmission] = useState<TimesheetSubmission | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showNonBillable, setShowNonBillable] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -593,13 +594,6 @@ const Timesheet: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">Timesheet</h1>
           <p className="text-gray-600 mt-1">Track time for projects and activities</p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-        >
-          <Plus className="w-5 h-5" />
-          Add Time Entry
-        </button>
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -663,26 +657,42 @@ const Timesheet: React.FC = () => {
           )}
         </div>
 
-        <div className="mb-4 flex justify-end gap-3">
-          {weekSubmission && weekSubmission.status === 'submitted' ? (
+        <div className="mb-4 flex justify-between items-center">
+          <button
+            onClick={() => setShowNonBillable(!showNonBillable)}
+            className="text-gray-600 hover:text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-100 flex items-center gap-2"
+          >
+            {showNonBillable ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            {showNonBillable ? 'Hide' : 'Show'} Non-Billable
+          </button>
+          <div className="flex gap-3">
             <button
-              onClick={handleRecallTimesheet}
-              disabled={isSubmitting}
-              className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => setShowAddModal(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
             >
-              <RotateCcw className="w-5 h-5" />
-              Recall Timesheet
+              <Plus className="w-5 h-5" />
+              Add Time Entry
             </button>
-          ) : (
-            <button
-              onClick={handleSubmitTimesheet}
-              disabled={isSubmitting || rows.length === 0}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Send className="w-5 h-5" />
-              Submit Timesheet
-            </button>
-          )}
+            {weekSubmission && weekSubmission.status === 'submitted' ? (
+              <button
+                onClick={handleRecallTimesheet}
+                disabled={isSubmitting}
+                className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RotateCcw className="w-5 h-5" />
+                Recall Timesheet
+              </button>
+            ) : (
+              <button
+                onClick={handleSubmitTimesheet}
+                disabled={isSubmitting || rows.length === 0}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Send className="w-5 h-5" />
+                Submit Timesheet
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -690,7 +700,7 @@ const Timesheet: React.FC = () => {
             <thead>
               <tr className="border-b-2 border-gray-300">
                 <th className="text-left py-3 px-4 font-semibold w-48">Project/Activity</th>
-                <th className="text-left py-3 px-2 font-semibold w-20"></th>
+                {showNonBillable && <th className="text-left py-3 px-2 font-semibold w-20"></th>}
                 {weekDates.map((date, idx) => (
                   <th key={idx} className="text-center py-3 px-2 font-semibold min-w-[80px]">
                     <div>{date.toLocaleDateString('en-US', { weekday: 'short' })}</div>
@@ -704,7 +714,7 @@ const Timesheet: React.FC = () => {
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-8 text-gray-500">
+                  <td colSpan={showNonBillable ? 10 : 9} className="text-center py-8 text-gray-500">
                     No time entries. Click "Add Time Entry" to get started.
                   </td>
                 </tr>
@@ -727,9 +737,9 @@ const Timesheet: React.FC = () => {
 
                     return (
                       <React.Fragment key={row.id}>
-                        <tr className={`${rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-b border-gray-200`}>
-                          <td className="py-2 px-4 font-medium" rowSpan={2}>{row.name}</td>
-                          <td className="py-2 px-2 text-xs text-green-700 font-medium">Billable</td>
+                        <tr className={`${rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-b ${showNonBillable ? 'border-gray-200' : 'border-gray-300'}`}>
+                          <td className="py-2 px-4 font-medium" rowSpan={showNonBillable ? 2 : 1}>{row.name}</td>
+                          {showNonBillable && <td className="py-2 px-2 text-xs text-green-700 font-medium">Billable</td>}
                           {weekDates.map((date, idx) => {
                             const dateKey = formatDateKey(date);
                             const entry = row.entries[dateKey];
@@ -753,12 +763,22 @@ const Timesheet: React.FC = () => {
                                       // Tab key navigation handled by browser
                                     } else if (e.key === 'ArrowDown') {
                                       e.preventDefault();
-                                      const nextInput = e.currentTarget.parentElement?.parentElement?.nextElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
-                                      nextInput?.focus();
+                                      if (showNonBillable) {
+                                        const nextInput = e.currentTarget.parentElement?.parentElement?.nextElementSibling?.children[idx + 1]?.querySelector('input') as HTMLInputElement;
+                                        nextInput?.focus();
+                                      } else {
+                                        const nextInput = e.currentTarget.parentElement?.parentElement?.nextElementSibling?.children[idx + 1]?.querySelector('input') as HTMLInputElement;
+                                        nextInput?.focus();
+                                      }
                                     } else if (e.key === 'ArrowUp') {
                                       e.preventDefault();
-                                      const prevRow = e.currentTarget.parentElement?.parentElement?.previousElementSibling?.previousElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
-                                      prevRow?.focus();
+                                      if (showNonBillable) {
+                                        const prevRow = e.currentTarget.parentElement?.parentElement?.previousElementSibling?.previousElementSibling?.children[idx + 1]?.querySelector('input') as HTMLInputElement;
+                                        prevRow?.focus();
+                                      } else {
+                                        const prevRow = e.currentTarget.parentElement?.parentElement?.previousElementSibling?.children[idx + 1]?.querySelector('input') as HTMLInputElement;
+                                        prevRow?.focus();
+                                      }
                                     }
                                   }}
                                   className="w-full px-2 py-1 text-center border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
@@ -767,8 +787,8 @@ const Timesheet: React.FC = () => {
                               </td>
                             );
                           })}
-                          <td className="py-2 px-4 text-center text-sm font-semibold text-green-700" rowSpan={2}>{rowTotal.toFixed(2)}</td>
-                          <td className="py-2 px-4 text-center" rowSpan={2}>
+                          <td className="py-2 px-4 text-center text-sm font-semibold" rowSpan={showNonBillable ? 2 : 1}>{rowTotal.toFixed(2)}</td>
+                          <td className="py-2 px-4 text-center" rowSpan={showNonBillable ? 2 : 1}>
                             {row.persistentItemId ? (
                               <button
                                 onClick={() => handleMarkAsCompleted(row)}
@@ -788,51 +808,53 @@ const Timesheet: React.FC = () => {
                             )}
                           </td>
                         </tr>
-                        <tr className={`${rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-b border-gray-300`}>
-                          <td className="py-2 px-2 text-xs text-gray-600 font-medium">Non-Bill</td>
-                          {weekDates.map((date, idx) => {
-                            const dateKey = formatDateKey(date);
-                            const entry = row.entries[dateKey];
-                            const value = entry?.nonBillable || 0;
-                            const isLocked = weekSubmission && weekSubmission.status === 'submitted';
+                        {showNonBillable && (
+                          <tr className={`${rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-b border-gray-300`}>
+                            <td className="py-2 px-2 text-xs text-gray-500 font-medium italic">Non-Bill</td>
+                            {weekDates.map((date, idx) => {
+                              const dateKey = formatDateKey(date);
+                              const entry = row.entries[dateKey];
+                              const value = entry?.nonBillable || 0;
+                              const isLocked = weekSubmission && weekSubmission.status === 'submitted';
 
-                            return (
-                              <td key={idx} className="py-2 px-2">
-                                <input
-                                  type="number"
-                                  step="0.25"
-                                  min="0"
-                                  value={value || ''}
-                                  disabled={isLocked}
-                                  onChange={(e) => {
-                                    const newValue = parseFloat(e.target.value) || 0;
-                                    handleCellUpdate(row, date, false, newValue);
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Tab') {
-                                      // Tab key navigation handled by browser
-                                    } else if (e.key === 'ArrowDown') {
-                                      e.preventDefault();
-                                      const nextInput = e.currentTarget.parentElement?.parentElement?.nextElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
-                                      nextInput?.focus();
-                                    } else if (e.key === 'ArrowUp') {
-                                      e.preventDefault();
-                                      const prevInput = e.currentTarget.parentElement?.parentElement?.previousElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
-                                      prevInput?.focus();
-                                    }
-                                  }}
-                                  className="w-full px-2 py-1 text-center border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                                  placeholder="0"
-                                />
-                              </td>
-                            );
-                          })}
-                        </tr>
+                              return (
+                                <td key={idx} className="py-2 px-2 bg-gray-50">
+                                  <input
+                                    type="number"
+                                    step="0.25"
+                                    min="0"
+                                    value={value || ''}
+                                    disabled={isLocked}
+                                    onChange={(e) => {
+                                      const newValue = parseFloat(e.target.value) || 0;
+                                      handleCellUpdate(row, date, false, newValue);
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Tab') {
+                                        // Tab key navigation handled by browser
+                                      } else if (e.key === 'ArrowDown') {
+                                        e.preventDefault();
+                                        const nextInput = e.currentTarget.parentElement?.parentElement?.nextElementSibling?.children[idx + 1]?.querySelector('input') as HTMLInputElement;
+                                        nextInput?.focus();
+                                      } else if (e.key === 'ArrowUp') {
+                                        e.preventDefault();
+                                        const prevInput = e.currentTarget.parentElement?.parentElement?.previousElementSibling?.children[idx + 1]?.querySelector('input') as HTMLInputElement;
+                                        prevInput?.focus();
+                                      }
+                                    }}
+                                    className="w-full px-2 py-1 text-center border border-gray-200 rounded focus:border-gray-400 focus:ring-1 focus:ring-gray-400 disabled:bg-gray-100 disabled:cursor-not-allowed bg-gray-50 text-gray-600"
+                                    placeholder="0"
+                                  />
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        )}
                       </React.Fragment>
                     );
                   })}
                   <tr className="border-t-2 border-gray-300">
-                    <td className="py-3 px-4 font-semibold" colSpan={2}>Daily Totals</td>
+                    <td className="py-3 px-4 font-semibold" colSpan={showNonBillable ? 2 : 1}>Daily Totals</td>
                     {totalsByDay.map((day, idx) => (
                       <td key={idx} className="py-3 px-2 text-center">
                         <div className="text-sm font-semibold text-blue-600">
