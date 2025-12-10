@@ -46,6 +46,16 @@ export default function ResourceImportModal({ onClose, onImportComplete }: Impor
     }
   };
 
+  const getColumnLetter = (columnNumber: number): string => {
+    let columnLetter = '';
+    while (columnNumber > 0) {
+      const remainder = (columnNumber - 1) % 26;
+      columnLetter = String.fromCharCode(65 + remainder) + columnLetter;
+      columnNumber = Math.floor((columnNumber - 1) / 26);
+    }
+    return columnLetter;
+  };
+
   const generateTemplate = async () => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Resources');
@@ -97,68 +107,66 @@ export default function ResourceImportModal({ onClose, onImportComplete }: Impor
       notes: 'Senior developer with 5 years experience'
     });
 
-    const startDataRow = 2;
-    const endDataRow = 1000;
+    const maxRows = 1000;
 
-    worksheet.getColumn('resource_type').eachCell({ includeEmpty: true }, (cell, rowNumber) => {
-      if (rowNumber > 1) {
-        cell.dataValidation = {
-          type: 'list',
-          allowBlank: false,
-          formulae: ['"person,generic"'],
-          showErrorMessage: true,
-          errorTitle: 'Invalid Resource Type',
-          error: 'Please select either "person" or "generic"'
-        };
-      }
-    });
+    for (let rowNum = 2; rowNum <= maxRows; rowNum++) {
+      worksheet.getCell(`A${rowNum}`).dataValidation = {
+        type: 'list',
+        allowBlank: false,
+        formulae: ['"person,generic"'],
+        showErrorMessage: true,
+        errorTitle: 'Invalid Resource Type',
+        error: 'Please select either "person" or "generic"',
+        showInputMessage: true,
+        promptTitle: 'Resource Type',
+        prompt: 'Select person or generic'
+      };
 
-    worksheet.getColumn('rate_type').eachCell({ includeEmpty: true }, (cell, rowNumber) => {
-      if (rowNumber > 1) {
-        cell.dataValidation = {
-          type: 'list',
-          allowBlank: true,
-          formulae: ['"hourly,daily,monthly"'],
-          showErrorMessage: true,
-          errorTitle: 'Invalid Rate Type',
-          error: 'Please select "hourly", "daily", or "monthly"'
-        };
-      }
-    });
+      worksheet.getCell(`H${rowNum}`).dataValidation = {
+        type: 'list',
+        allowBlank: true,
+        formulae: ['"hourly,daily,monthly"'],
+        showErrorMessage: true,
+        errorTitle: 'Invalid Rate Type',
+        error: 'Please select hourly, daily, or monthly',
+        showInputMessage: true,
+        promptTitle: 'Rate Type',
+        prompt: 'Select rate type'
+      };
 
-    worksheet.getColumn('status').eachCell({ includeEmpty: true }, (cell, rowNumber) => {
-      if (rowNumber > 1) {
-        cell.dataValidation = {
-          type: 'list',
-          allowBlank: false,
-          formulae: ['"active,inactive"'],
-          showErrorMessage: true,
-          errorTitle: 'Invalid Status',
-          error: 'Please select either "active" or "inactive"'
-        };
-      }
-    });
+      worksheet.getCell(`K${rowNum}`).dataValidation = {
+        type: 'list',
+        allowBlank: false,
+        formulae: ['"active,inactive"'],
+        showErrorMessage: true,
+        errorTitle: 'Invalid Status',
+        error: 'Please select either active or inactive',
+        showInputMessage: true,
+        promptTitle: 'Status',
+        prompt: 'Select status'
+      };
+    }
 
     customFields.forEach((field, index) => {
       if (field.field_type === 'dropdown' || field.field_type === 'radio') {
         if (field.options && field.options.length > 0) {
           const columnIndex = standardHeaders.length + index + 1;
-          const column = worksheet.getColumn(columnIndex);
-
+          const columnLetter = getColumnLetter(columnIndex);
           const optionsList = field.options.join(',');
 
-          column.eachCell({ includeEmpty: true }, (cell, rowNumber) => {
-            if (rowNumber > 1) {
-              cell.dataValidation = {
-                type: 'list',
-                allowBlank: !field.is_required,
-                formulae: [`"${optionsList}"`],
-                showErrorMessage: true,
-                errorTitle: `Invalid ${field.field_label}`,
-                error: `Please select one of: ${field.options!.join(', ')}`
-              };
-            }
-          });
+          for (let rowNum = 2; rowNum <= maxRows; rowNum++) {
+            worksheet.getCell(`${columnLetter}${rowNum}`).dataValidation = {
+              type: 'list',
+              allowBlank: !field.is_required,
+              formulae: [`"${optionsList}"`],
+              showErrorMessage: true,
+              errorTitle: `Invalid ${field.field_label}`,
+              error: `Please select one of: ${field.options!.join(', ')}`,
+              showInputMessage: true,
+              promptTitle: field.field_label,
+              prompt: `Select ${field.field_label}`
+            };
+          }
         }
       }
     });
