@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Trash2, ChevronLeft, ChevronRight, Edit2, Save, X, CheckCircle } from 'lucide-react';
+import { Plus, Trash2, ChevronLeft, ChevronRight, Edit2, Save, X, CheckCircle, Send, RotateCcw } from 'lucide-react';
 
 interface TimesheetEntry {
   id: string;
@@ -41,6 +41,22 @@ interface TimesheetRow {
   isCompleted?: boolean;
 }
 
+interface TimesheetSubmission {
+  id: string;
+  user_email: string;
+  week_start_date: string;
+  week_end_date: string;
+  status: string;
+  total_hours: number;
+  billable_hours: number;
+  non_billable_hours: number;
+  submitted_at: string;
+  recalled_at?: string;
+  reviewed_by?: string;
+  reviewed_at?: string;
+  reviewer_comments?: string;
+}
+
 const Timesheet: React.FC = () => {
   const [rows, setRows] = useState<TimesheetRow[]>([]);
   const [addedRows, setAddedRows] = useState<TimesheetRow[]>([]);
@@ -60,6 +76,8 @@ const Timesheet: React.FC = () => {
     type: 'project' as 'project' | 'initiation' | 'category',
     selectedId: ''
   });
+  const [weekSubmission, setWeekSubmission] = useState<TimesheetSubmission | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -71,7 +89,7 @@ const Timesheet: React.FC = () => {
 
     const USER_EMAIL = 'demo@alignex.com';
 
-    const [entriesRes, projectsRes, requestsRes, categoriesRes, persistentItemsRes] = await Promise.all([
+    const [entriesRes, projectsRes, requestsRes, categoriesRes, persistentItemsRes, submissionRes] = await Promise.all([
       supabase
         .from('timesheet_entries')
         .select('*')
@@ -94,7 +112,13 @@ const Timesheet: React.FC = () => {
         .from('user_timesheet_items')
         .select('*')
         .eq('user_email', USER_EMAIL)
-        .eq('is_completed', false)
+        .eq('is_completed', false),
+      supabase
+        .from('timesheet_submissions')
+        .select('*')
+        .eq('user_email', USER_EMAIL)
+        .eq('week_start_date', currentWeekStart.toISOString().split('T')[0])
+        .maybeSingle()
     ]);
 
     const entries = entriesRes.data || [];
@@ -102,10 +126,12 @@ const Timesheet: React.FC = () => {
     const requestsData = requestsRes.data || [];
     const categoriesData = categoriesRes.data || [];
     const persistentItems = persistentItemsRes.data || [];
+    const submission = submissionRes.data;
 
     setProjects(projectsData);
     setInitiationRequests(requestsData);
     setCategories(categoriesData);
+    setWeekSubmission(submission || null);
 
     const rowsMap = new Map<string, TimesheetRow>();
 
@@ -327,7 +353,120 @@ const Timesheet: React.FC = () => {
     }
   };
 
+  const handleSubmitTimesheet = async () => {
+    const USER_EMAIL = 'demo@alignex.com';
+    const weekEnd = new Date(currentWeekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+
+    if (rows.length === 0) {
+      alert('No time entries to submit');
+      return;
+    }
+
+    const weekDates = getWeekDates();
+    let totalHours = 0;
+    let billableHours = 0;
+    let nonBillableHours = 0;
+
+    rows.forEach(row => {
+      weekDates.forEach(date => {
+        const dateKey = formatDateKey(date);
+        const entry = row.entries[dateKey];
+        if (entry) {
+          totalHours += entry.billable + entry.nonBillable;
+          billableHours += entry.billable;
+          nonBillableHours += entry.nonBillable;
+        }
+      });
+    });
+
+    if (totalHours === 0) {
+      alert('No hours to submit. Please add some time entries first.');
+      return;
+    }
+
+    if (!confirm(`Submit timesheet for week of ${currentWeekStart.toLocaleDateString()}?\n\nTotal Hours: ${totalHours.toFixed(2)}\nBillable: ${billableHours.toFixed(2)}\nNon-Billable: ${nonBillableHours.toFixed(2)}`)) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const submissionData = {
+        user_email: USER_EMAIL,
+        week_start_date: currentWeekStart.toISOString().split('T')[0],
+        week_end_date: weekEnd.toISOString().split('T')[0],
+        status: 'submitted',
+        total_hours: totalHours,
+        billable_hours: billableHours,
+        non_billable_hours: nonBillableHours,
+        submitted_at: new Date().toISOString()
+      };
+
+      const { data: submission, error } = await supabase
+        .from('timesheet_submissions')
+        .upsert([submissionData], {
+          onConflict: 'user_email,week_start_date'
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error submitting timesheet:', error);
+        alert('Error submitting timesheet');
+        return;
+      }
+
+      alert('Timesheet submitted successfully!');
+      await fetchData();
+    } catch (error: any) {
+      console.error('Error:', error);
+      alert(`Error: ${error.message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRecallTimesheet = async () => {
+    if (!weekSubmission) return;
+
+    if (!confirm('Recall this timesheet? You will be able to edit and resubmit it.')) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const { error } = await supabase
+        .from('timesheet_submissions')
+        .update({
+          status: 'recalled',
+          recalled_at: new Date().toISOString()
+        })
+        .eq('id', weekSubmission.id);
+
+      if (error) {
+        console.error('Error recalling timesheet:', error);
+        alert('Error recalling timesheet');
+        return;
+      }
+
+      alert('Timesheet recalled successfully. You can now edit and resubmit.');
+      await fetchData();
+    } catch (error: any) {
+      console.error('Error:', error);
+      alert(`Error: ${error.message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleCellUpdate = async (row: TimesheetRow, date: Date, billable: number, nonBillable: number, notes: string) => {
+    if (weekSubmission && weekSubmission.status === 'submitted') {
+      alert('This timesheet has been submitted and is locked. Please recall it first to make changes.');
+      return;
+    }
+
     const dateKey = formatDateKey(date);
     const existingEntry = row.entries[dateKey];
 
@@ -441,13 +580,36 @@ const Timesheet: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">Timesheet</h1>
           <p className="text-gray-600 mt-1">Track time for projects and activities</p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-        >
-          <Plus className="w-5 h-5" />
-          Add Time Entry
-        </button>
+        <div className="flex gap-3">
+          {weekSubmission && weekSubmission.status === 'submitted' ? (
+            <button
+              onClick={handleRecallTimesheet}
+              disabled={isSubmitting}
+              className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RotateCcw className="w-5 h-5" />
+              Recall Timesheet
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              >
+                <Plus className="w-5 h-5" />
+                Add Time Entry
+              </button>
+              <button
+                onClick={handleSubmitTimesheet}
+                disabled={isSubmitting || rows.length === 0}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Send className="w-5 h-5" />
+                Submit Timesheet
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -469,9 +631,34 @@ const Timesheet: React.FC = () => {
           </button>
         </div>
 
-        <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-          <div className="text-sm text-gray-600">Total Hours This Week</div>
-          <div className="text-2xl font-bold text-blue-600">{grandTotal.toFixed(2)}</div>
+        <div className="mb-4 flex gap-4">
+          <div className="flex-1 p-4 bg-blue-50 rounded-lg">
+            <div className="text-sm text-gray-600">Total Hours This Week</div>
+            <div className="text-2xl font-bold text-blue-600">{grandTotal.toFixed(2)}</div>
+          </div>
+          {weekSubmission && (
+            <div className={`flex-1 p-4 rounded-lg ${
+              weekSubmission.status === 'submitted' ? 'bg-green-50' :
+              weekSubmission.status === 'approved' ? 'bg-green-100' :
+              weekSubmission.status === 'rejected' ? 'bg-red-50' :
+              'bg-gray-50'
+            }`}>
+              <div className="text-sm text-gray-600">Status</div>
+              <div className={`text-2xl font-bold ${
+                weekSubmission.status === 'submitted' ? 'text-green-700' :
+                weekSubmission.status === 'approved' ? 'text-green-800' :
+                weekSubmission.status === 'rejected' ? 'text-red-700' :
+                'text-gray-700'
+              }`}>
+                {weekSubmission.status.charAt(0).toUpperCase() + weekSubmission.status.slice(1)}
+              </div>
+              {weekSubmission.submitted_at && (
+                <div className="text-xs text-gray-500 mt-1">
+                  Submitted: {new Date(weekSubmission.submitted_at).toLocaleDateString()}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="overflow-x-auto">
