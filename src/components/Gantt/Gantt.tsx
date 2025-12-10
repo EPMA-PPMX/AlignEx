@@ -535,8 +535,8 @@ export default class Gantt extends Component<GanttProps> {
 
     // Enable plugins
     gantt.plugins({
-      keyboard_navigation: true
-      
+      keyboard_navigation: true,
+      auto_scheduling: true
     });
     gantt.config.keyboard_navigation_cells = true;
 
@@ -655,6 +655,29 @@ export default class Gantt extends Component<GanttProps> {
       gantt.config.resource_property = "owner_id";
       gantt.config.process_resource_assignments = true;
       gantt.config.resource_assignment_store = "resourceAssignments";
+
+      // Configure resource grid columns
+      gantt.config.resourceGrid_columns = [
+        {
+          name: "text",
+          label: "Resource Name",
+          tree: true,
+          width: 200,
+          template: function(resource: any) {
+            return resource.text || resource.name || "Unnamed Resource";
+          }
+        },
+        {
+          name: "workload",
+          label: "Workload",
+          align: "center",
+          width: 100,
+          template: function(resource: any) {
+            const assignments = gantt.getDatastore("resourceAssignments").getItems().filter((a: any) => a.resource_id === resource.id);
+            return assignments.length + " tasks";
+          }
+        }
+      ];
 
       // Configure layout with resource panel
       gantt.config.layout = {
@@ -1062,12 +1085,24 @@ export default class Gantt extends Component<GanttProps> {
         console.log("Loading resources:", projecttasks.resources);
         console.log("Loading resource assignments:", projecttasks.resourceAssignments);
 
+        // First parse the main task data
         gantt.parse({
           data: projecttasks.data,
-          links: projecttasks.links || [],
-          resources: projecttasks.resources || [],
-          assignments: projecttasks.resourceAssignments || []
+          links: projecttasks.links || []
         });
+
+        // Then load resources into the resource datastore
+        const resourceStore = gantt.getDatastore("resource");
+        resourceStore.clearAll();
+        resourceStore.parse(projecttasks.resources || []);
+
+        // Load resource assignments into the assignments datastore
+        const assignmentStore = gantt.getDatastore("resourceAssignments");
+        assignmentStore.clearAll();
+        assignmentStore.parse(projecttasks.resourceAssignments || []);
+
+        console.log("Resources loaded:", resourceStore.count());
+        console.log("Assignments loaded:", assignmentStore.count());
       } else {
         gantt.parse(projecttasks);
       }
@@ -1188,6 +1223,29 @@ export default class Gantt extends Component<GanttProps> {
         gantt.config.process_resource_assignments = true;
         gantt.config.resource_assignment_store = "resourceAssignments";
 
+        // Configure resource grid columns
+        gantt.config.resourceGrid_columns = [
+          {
+            name: "text",
+            label: "Resource Name",
+            tree: true,
+            width: 200,
+            template: function(resource: any) {
+              return resource.text || resource.name || "Unnamed Resource";
+            }
+          },
+          {
+            name: "workload",
+            label: "Workload",
+            align: "center",
+            width: 100,
+            template: function(resource: any) {
+              const assignments = gantt.getDatastore("resourceAssignments").getItems().filter((a: any) => a.resource_id === resource.id);
+              return assignments.length + " tasks";
+            }
+          }
+        ];
+
         // Configure layout with resource panel
         gantt.config.layout = {
           css: "gantt_container",
@@ -1303,12 +1361,24 @@ export default class Gantt extends Component<GanttProps> {
           console.log("Reloading with resources:", projecttasks.resources);
           console.log("Reloading with assignments:", projecttasks.resourceAssignments);
 
+          // First parse the main task data
           gantt.parse({
             data: projecttasks.data,
-            links: projecttasks.links || [],
-            resources: projecttasks.resources || [],
-            assignments: projecttasks.resourceAssignments || []
+            links: projecttasks.links || []
           });
+
+          // Then load resources into the resource datastore
+          const resourceStore = gantt.getDatastore("resource");
+          resourceStore.clearAll();
+          resourceStore.parse(projecttasks.resources || []);
+
+          // Load resource assignments into the assignments datastore
+          const assignmentStore = gantt.getDatastore("resourceAssignments");
+          assignmentStore.clearAll();
+          assignmentStore.parse(projecttasks.resourceAssignments || []);
+
+          console.log("Resources reloaded:", resourceStore.count());
+          console.log("Assignments reloaded:", assignmentStore.count());
         } else {
           gantt.parse(projecttasks);
         }
