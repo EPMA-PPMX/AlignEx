@@ -572,6 +572,20 @@ const Timesheet: React.FC = () => {
   });
 
   const grandTotal = totalsByDay.reduce((sum, day) => sum + day.total, 0);
+  const totalBillable = totalsByDay.reduce((sum, day) => sum + day.billable, 0);
+  const totalNonBillable = totalsByDay.reduce((sum, day) => sum + day.nonBillable, 0);
+
+  const nonProjectHours = rows.reduce((sum, row) => {
+    if (row.type === 'category') {
+      weekDates.forEach(date => {
+        const dateKey = formatDateKey(date);
+        if (row.entries[dateKey]) {
+          sum += row.entries[dateKey].billable + row.entries[dateKey].nonBillable;
+        }
+      });
+    }
+    return sum;
+  }, 0);
 
   return (
     <div className="space-y-6">
@@ -580,36 +594,13 @@ const Timesheet: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">Timesheet</h1>
           <p className="text-gray-600 mt-1">Track time for projects and activities</p>
         </div>
-        <div className="flex gap-3">
-          {weekSubmission && weekSubmission.status === 'submitted' ? (
-            <button
-              onClick={handleRecallTimesheet}
-              disabled={isSubmitting}
-              className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <RotateCcw className="w-5 h-5" />
-              Recall Timesheet
-            </button>
-          ) : (
-            <>
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-              >
-                <Plus className="w-5 h-5" />
-                Add Time Entry
-              </button>
-              <button
-                onClick={handleSubmitTimesheet}
-                disabled={isSubmitting || rows.length === 0}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Send className="w-5 h-5" />
-                Submit Timesheet
-              </button>
-            </>
-          )}
-        </div>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+        >
+          <Plus className="w-5 h-5" />
+          Add Time Entry
+        </button>
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -631,13 +622,25 @@ const Timesheet: React.FC = () => {
           </button>
         </div>
 
-        <div className="mb-4 flex gap-4">
-          <div className="flex-1 p-4 bg-blue-50 rounded-lg">
-            <div className="text-sm text-gray-600">Total Hours This Week</div>
+        <div className="mb-4 grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="p-4 bg-blue-50 rounded-lg">
+            <div className="text-sm text-gray-600">Total Hours</div>
             <div className="text-2xl font-bold text-blue-600">{grandTotal.toFixed(2)}</div>
           </div>
+          <div className="p-4 bg-green-50 rounded-lg">
+            <div className="text-sm text-gray-600">Billable</div>
+            <div className="text-2xl font-bold text-green-600">{totalBillable.toFixed(2)}</div>
+          </div>
+          <div className="p-4 bg-gray-50 rounded-lg">
+            <div className="text-sm text-gray-600">Non-Billable</div>
+            <div className="text-2xl font-bold text-gray-600">{totalNonBillable.toFixed(2)}</div>
+          </div>
+          <div className="p-4 bg-orange-50 rounded-lg">
+            <div className="text-sm text-gray-600">Non-Project</div>
+            <div className="text-2xl font-bold text-orange-600">{nonProjectHours.toFixed(2)}</div>
+          </div>
           {weekSubmission && (
-            <div className={`flex-1 p-4 rounded-lg ${
+            <div className={`p-4 rounded-lg ${
               weekSubmission.status === 'submitted' ? 'bg-green-50' :
               weekSubmission.status === 'approved' ? 'bg-green-100' :
               weekSubmission.status === 'rejected' ? 'bg-red-50' :
@@ -658,6 +661,28 @@ const Timesheet: React.FC = () => {
                 </div>
               )}
             </div>
+          )}
+        </div>
+
+        <div className="mb-4 flex justify-end gap-3">
+          {weekSubmission && weekSubmission.status === 'submitted' ? (
+            <button
+              onClick={handleRecallTimesheet}
+              disabled={isSubmitting}
+              className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RotateCcw className="w-5 h-5" />
+              Recall Timesheet
+            </button>
+          ) : (
+            <button
+              onClick={handleSubmitTimesheet}
+              disabled={isSubmitting || rows.length === 0}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Send className="w-5 h-5" />
+              Submit Timesheet
+            </button>
           )}
         </div>
 
