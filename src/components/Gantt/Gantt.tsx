@@ -679,6 +679,15 @@ export default class Gantt extends Component<GanttProps> {
             const assignments = gantt.getDatastore("resourceAssignments").getItems().filter((a: any) => a.resource_id === resource.id);
             return assignments.length + " tasks";
           }
+        },
+        {
+          name: "hours",
+          label: "Allocated Hours",
+          align: "center",
+          width: 135,
+          template: function(resource: any) {
+            return (resource.hours || 0) + " hrs";
+          }
         }
       ];
 
@@ -732,7 +741,7 @@ export default class Gantt extends Component<GanttProps> {
                 view: "resourceGrid",
                 id: "resourceGrid",
                 group: "grids",
-                width: 435,
+                width: 450,
                 scrollY: "resourceVScroll",
                 bind: "resource",
                 config: {
@@ -1256,6 +1265,15 @@ export default class Gantt extends Component<GanttProps> {
               const assignments = gantt.getDatastore("resourceAssignments").getItems().filter((a: any) => a.resource_id === resource.id);
               return assignments.length + " tasks";
             }
+          },
+          {
+            name: "hours",
+            label: "Allocated Hours",
+            align: "center",
+            width: 135,
+            template: function(resource: any) {
+              return (resource.hours || 0) + " hrs";
+            }
           }
         ];
 
@@ -1309,7 +1327,7 @@ export default class Gantt extends Component<GanttProps> {
                   view: "resourceGrid",
                   id: "resourceGrid",
                   group: "grids",
-                  width: 435,
+                  width: 450,
                   scrollY: "resourceVScroll",
                   bind: "resource",
                   config: {

@@ -859,6 +859,46 @@ const ProjectDetail: React.FC = () => {
         return acc;
       }, []);
 
+      // Fetch tasks to calculate allocated hours per resource
+      const { data: taskData, error: taskError } = await supabase
+        .from('project_tasks')
+        .select('task_data')
+        .eq('project_id', id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!taskError && taskData?.task_data) {
+        const tasks = taskData.task_data.data || [];
+
+        // Fetch resource assignments
+        const taskIds = tasks.map((t: any) => t.id);
+        if (taskIds.length > 0) {
+          const { data: assignments } = await supabase
+            .from('task_resource_assignments')
+            .select('task_id, resource_id')
+            .in('task_id', taskIds);
+
+          // Calculate total hours per resource
+          const resourceHours: { [key: string]: number } = {};
+
+          (assignments || []).forEach((assignment: any) => {
+            const task = tasks.find((t: any) => t.id === assignment.task_id);
+            if (task && task.duration) {
+              // Convert days to hours (assuming 8 hours per day)
+              const hours = task.duration * 8;
+              resourceHours[assignment.resource_id] =
+                (resourceHours[assignment.resource_id] || 0) + hours;
+            }
+          });
+
+          // Add hours to resource objects
+          uniqueResources.forEach((resource: any) => {
+            resource.hours = resourceHours[resource.id] || 0;
+          });
+        }
+      }
+
       return uniqueResources;
     } catch (error) {
       console.error('Error fetching resources for Gantt:', error);
