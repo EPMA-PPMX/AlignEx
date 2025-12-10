@@ -282,8 +282,11 @@ const ProjectDetail: React.FC = () => {
 
   const [projectTasks, setProjectTasks] = useState<any>({
     data: [],
-    links: []
+    links: [],
+    resources: [],
+    resourceAssignments: []
   });
+  const [showResourcePanel, setShowResourcePanel] = useState(false);
 
   const [taskSearchQuery, setTaskSearchQuery] = useState('');
   const ganttRef = useRef<any>(null);
@@ -784,22 +787,102 @@ const ProjectDetail: React.FC = () => {
           });
         }
         console.log('Setting project tasks with data:', taskData.data?.length, 'tasks');
+
+        // Fetch resources and resource assignments
+        const resourcesData = await fetchResourcesForGantt();
+        const assignmentsData = await fetchResourceAssignments();
+
         setProjectTasks({
           data: taskData.data || [],
           links: taskData.links || [],
-          baseline: taskData.baseline || []
+          baseline: taskData.baseline || [],
+          resources: resourcesData,
+          resourceAssignments: assignmentsData
         });
         // Reset grouping state when new data is loaded
         setIsGroupedByOwner(false);
       } else {
         console.log('No task data found for project, setting empty array');
-        setProjectTasks({ data: [], links: [] });
+        setProjectTasks({ data: [], links: [], resources: [], resourceAssignments: [] });
         setIsGroupedByOwner(false);
       }
     } catch (error) {
       console.error('Error fetching project tasks:', error);
-      setProjectTasks({ data: [], links: [] });
+      setProjectTasks({ data: [], links: [], resources: [], resourceAssignments: [] });
       setIsGroupedByOwner(false);
+    }
+  };
+
+  const fetchResourcesForGantt = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('resources')
+        .select('id, display_name, cost_rate, rate_type, status')
+        .eq('status', 'active')
+        .order('display_name');
+
+      if (error) {
+        console.error('Error fetching resources:', error);
+        return [];
+      }
+
+      // Transform to Gantt resource format
+      return (data || []).map(resource => ({
+        id: resource.id,
+        text: resource.display_name,
+        unit: resource.rate_type === 'hourly' ? 'hours/day' :
+              resource.rate_type === 'daily' ? 'days' : 'months'
+      }));
+    } catch (error) {
+      console.error('Error fetching resources for Gantt:', error);
+      return [];
+    }
+  };
+
+  const fetchResourceAssignments = async () => {
+    if (!id) return [];
+
+    try {
+      const { data: tasks, error: tasksError } = await supabase
+        .from('project_tasks')
+        .select('task_data')
+        .eq('project_id', id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (tasksError || !tasks || !tasks.task_data) {
+        return [];
+      }
+
+      // Extract task IDs from task_data
+      const taskIds = (tasks.task_data.data || []).map((t: any) => t.id);
+
+      if (taskIds.length === 0) {
+        return [];
+      }
+
+      // Fetch assignments for these tasks
+      const { data, error } = await supabase
+        .from('task_resource_assignments')
+        .select('id, task_id, resource_id')
+        .in('task_id', taskIds);
+
+      if (error) {
+        console.error('Error fetching resource assignments:', error);
+        return [];
+      }
+
+      // Transform to Gantt assignment format
+      return (data || []).map(assignment => ({
+        id: assignment.id,
+        task_id: assignment.task_id,
+        resource_id: assignment.resource_id,
+        value: 1
+      }));
+    } catch (error) {
+      console.error('Error fetching resource assignments:', error);
+      return [];
     }
   };
 
@@ -2637,6 +2720,13 @@ const ProjectDetail: React.FC = () => {
                   <Group className="w-4 h-4" />
                   {isGroupedByOwner ? 'Show All Tasks' : 'Group by Owner'}
                 </button>
+                <button
+                  onClick={() => setShowResourcePanel(!showResourcePanel)}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <Users className="w-4 h-4" />
+                  {showResourcePanel ? 'Hide Resources' : 'Show Resources'}
+                </button>
 
                 {/* Task Fields Selector */}
                 <div className="relative">
@@ -2832,6 +2922,7 @@ const ProjectDetail: React.FC = () => {
                 searchQuery={taskSearchQuery}
                 selectedTaskFields={selectedTaskFields}
                 taskCustomFields={taskCustomFields}
+                showResourcePanel={showResourcePanel}
                 onOpenTaskModal={(parentId) => {
                   console.log('=== onOpenTaskModal called ===');
                   console.log('parentId received:', parentId);

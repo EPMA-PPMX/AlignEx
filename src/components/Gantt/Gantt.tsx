@@ -32,11 +32,27 @@ interface CustomField {
   options?: string[];
 }
 
+interface Resource {
+  id: string;
+  text: string;
+  unit?: string;
+  parent?: string;
+}
+
+interface ResourceAssignment {
+  id: string;
+  task_id: number;
+  resource_id: string;
+  value?: number;
+}
+
 interface GanttProps {
   projecttasks: {
     data: Task[];
     links?: Link[];
     baseline?: any[];
+    resources?: Resource[];
+    resourceAssignments?: ResourceAssignment[];
   };
   onTaskUpdate?: () => void;
   onOpenTaskModal?: (parentId?: number) => void;
@@ -44,6 +60,7 @@ interface GanttProps {
   searchQuery?: string;
   selectedTaskFields?: string[];
   taskCustomFields?: CustomField[];
+  showResourcePanel?: boolean;
 }
 
 export default class Gantt extends Component<GanttProps> {
@@ -612,7 +629,7 @@ export default class Gantt extends Component<GanttProps> {
     gantt.setWorkTime({ day: 0, hours: false });
     gantt.setWorkTime({ day: 6, hours: false });
 
-    const { projecttasks, onTaskUpdate, onOpenTaskModal, onEditTask } = this.props;
+    const { projecttasks, onTaskUpdate, onOpenTaskModal, onEditTask, showResourcePanel } = this.props;
 
     // Define inline editors
     const textEditor = { type: "text", map_to: "text" };
@@ -632,45 +649,118 @@ export default class Gantt extends Component<GanttProps> {
       }
     };
 
-    // Configure layout with horizontal scroll for grid
-    gantt.config.layout = {
-      css: "gantt_container",
-      cols: [
-        {
-          width: 400,
-          min_width: 300,
-          rows: [
-            {
-              view: "grid",
-              scrollX: "gridScroll",
-              scrollable: true,
-              scrollY: "scrollVer"
-            },
-            {
-              view: "scrollbar",
-              id: "gridScroll",
-              group: "horizontal"
-            }
-          ]
-        },
-        { resizer: true, width: 1 },
-        {
-          rows: [
-            {
-              view: "timeline",
-              scrollX: "scrollHor",
-              scrollY: "scrollVer"
-            },
-            {
-              view: "scrollbar",
-              id: "scrollHor",
-              group: "horizontal"
-            }
-          ]
-        },
-        { view: "scrollbar", id: "scrollVer" }
-      ]
-    };
+    // Configure resource management
+    if (showResourcePanel) {
+      gantt.config.resource_store = "resource";
+      gantt.config.resource_property = "owner_id";
+      gantt.config.process_resource_assignments = true;
+      gantt.config.resource_assignment_store = "resourceAssignments";
+
+      // Configure layout with resource panel
+      gantt.config.layout = {
+        css: "gantt_container",
+        rows: [
+          {
+            cols: [
+              {
+                width: 400,
+                min_width: 300,
+                rows: [
+                  {
+                    view: "grid",
+                    scrollX: "gridScroll",
+                    scrollable: true,
+                    scrollY: "scrollVer"
+                  },
+                  {
+                    view: "scrollbar",
+                    id: "gridScroll",
+                    group: "horizontal"
+                  }
+                ]
+              },
+              { resizer: true, width: 1 },
+              {
+                rows: [
+                  {
+                    view: "timeline",
+                    scrollX: "scrollHor",
+                    scrollY: "scrollVer"
+                  },
+                  {
+                    view: "scrollbar",
+                    id: "scrollHor",
+                    group: "horizontal"
+                  }
+                ]
+              },
+              { view: "scrollbar", id: "scrollVer" }
+            ],
+            gravity: 2
+          },
+          { resizer: true, width: 1 },
+          {
+            config: { height: 200 },
+            cols: [
+              {
+                view: "resourceGrid",
+                group: "grids",
+                width: 435,
+                scrollY: "resourceVScroll"
+              },
+              { resizer: true, width: 1 },
+              {
+                view: "resourceTimeline",
+                scrollX: "scrollHor",
+                scrollY: "resourceVScroll"
+              },
+              { view: "scrollbar", id: "resourceVScroll", group: "vertical" }
+            ],
+            gravity: 1
+          }
+        ]
+      };
+    } else {
+      // Configure layout without resource panel
+      gantt.config.layout = {
+        css: "gantt_container",
+        cols: [
+          {
+            width: 400,
+            min_width: 300,
+            rows: [
+              {
+                view: "grid",
+                scrollX: "gridScroll",
+                scrollable: true,
+                scrollY: "scrollVer"
+              },
+              {
+                view: "scrollbar",
+                id: "gridScroll",
+                group: "horizontal"
+              }
+            ]
+          },
+          { resizer: true, width: 1 },
+          {
+            rows: [
+              {
+                view: "timeline",
+                scrollX: "scrollHor",
+                scrollY: "scrollVer"
+              },
+              {
+                view: "scrollbar",
+                id: "scrollHor",
+                group: "horizontal"
+              }
+            ]
+          },
+          { view: "scrollbar", id: "scrollVer" }
+        ]
+      };
+    }
 
     // Configure task types - MUST be done before parsing data
     // DHTMLX Gantt recognizes these specific type values
@@ -966,7 +1056,21 @@ export default class Gantt extends Component<GanttProps> {
       console.log("Links in projecttasks:", projecttasks.links);
       console.log("Task types config:", gantt.config.types);
       this.allTasks = projecttasks.data || [];
-      gantt.parse(projecttasks);
+
+      // Parse data with resources and assignments if available
+      if (showResourcePanel && projecttasks.resources) {
+        console.log("Loading resources:", projecttasks.resources);
+        console.log("Loading resource assignments:", projecttasks.resourceAssignments);
+
+        gantt.parse({
+          data: projecttasks.data,
+          links: projecttasks.links || [],
+          resources: projecttasks.resources || [],
+          assignments: projecttasks.resourceAssignments || []
+        });
+      } else {
+        gantt.parse(projecttasks);
+      }
 
       // Sort tasks to ensure proper parent-child hierarchy display
       gantt.sort((a: any, b: any) => {
