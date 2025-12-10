@@ -703,6 +703,7 @@ const Timesheet: React.FC = () => {
             <thead>
               <tr className="border-b-2 border-gray-300">
                 <th className="text-left py-3 px-4 font-semibold w-56">Project/Activity</th>
+                <th className="text-left py-3 px-2 font-semibold w-24">Type</th>
                 {weekDates.map((date, idx) => (
                   <th key={idx} className="text-center py-3 px-2 font-semibold min-w-[80px]">
                     <div>{date.toLocaleDateString('en-US', { weekday: 'short' })}</div>
@@ -716,7 +717,7 @@ const Timesheet: React.FC = () => {
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="text-center py-8 text-gray-500">
+                  <td colSpan={10} className="text-center py-8 text-gray-500">
                     No time entries. Click "Add Time Entry" to get started.
                   </td>
                 </tr>
@@ -753,6 +754,9 @@ const Timesheet: React.FC = () => {
                               <span className="font-medium">{row.name}</span>
                             </div>
                           </td>
+                          <td className="py-2 px-2">
+                            <span className="text-sm font-medium text-green-700">Billable</span>
+                          </td>
                           {weekDates.map((date, idx) => {
                             const dateKey = formatDateKey(date);
                             const entry = row.entries[dateKey];
@@ -777,19 +781,19 @@ const Timesheet: React.FC = () => {
                                     } else if (e.key === 'ArrowDown') {
                                       e.preventDefault();
                                       if (isExpanded) {
-                                        const nextInput = e.currentTarget.parentElement?.parentElement?.nextElementSibling?.children[idx]?.querySelector('input') as HTMLInputElement;
+                                        const nextInput = e.currentTarget.parentElement?.parentElement?.nextElementSibling?.children[idx + 1]?.querySelector('input') as HTMLInputElement;
                                         nextInput?.focus();
                                       } else {
-                                        const nextInput = e.currentTarget.parentElement?.parentElement?.nextElementSibling?.children[idx + 1]?.querySelector('input') as HTMLInputElement;
+                                        const nextInput = e.currentTarget.parentElement?.parentElement?.nextElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
                                         nextInput?.focus();
                                       }
                                     } else if (e.key === 'ArrowUp') {
                                       e.preventDefault();
                                       if (isExpanded) {
-                                        const prevRow = e.currentTarget.parentElement?.parentElement?.previousElementSibling?.previousElementSibling?.children[idx]?.querySelector('input') as HTMLInputElement;
+                                        const prevRow = e.currentTarget.parentElement?.parentElement?.previousElementSibling?.previousElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
                                         prevRow?.focus();
                                       } else {
-                                        const prevRow = e.currentTarget.parentElement?.parentElement?.previousElementSibling?.children[idx + 1]?.querySelector('input') as HTMLInputElement;
+                                        const prevRow = e.currentTarget.parentElement?.parentElement?.previousElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
                                         prevRow?.focus();
                                       }
                                     }
@@ -823,6 +827,9 @@ const Timesheet: React.FC = () => {
                         </tr>
                         {isExpanded && (
                           <tr className={`${rowIdx % 2 === 0 ? 'bg-gray-50' : 'bg-gray-100'} border-b border-gray-300`}>
+                            <td className="py-2 px-2">
+                              <span className="text-sm font-medium text-gray-600 italic">Non-Billable</span>
+                            </td>
                             {weekDates.map((date, idx) => {
                               const dateKey = formatDateKey(date);
                               const entry = row.entries[dateKey];
@@ -846,11 +853,11 @@ const Timesheet: React.FC = () => {
                                         // Tab key navigation handled by browser
                                       } else if (e.key === 'ArrowDown') {
                                         e.preventDefault();
-                                        const nextInput = e.currentTarget.parentElement?.parentElement?.nextElementSibling?.children[idx + 1]?.querySelector('input') as HTMLInputElement;
+                                        const nextInput = e.currentTarget.parentElement?.parentElement?.nextElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
                                         nextInput?.focus();
                                       } else if (e.key === 'ArrowUp') {
                                         e.preventDefault();
-                                        const prevInput = e.currentTarget.parentElement?.parentElement?.previousElementSibling?.children[idx]?.querySelector('input') as HTMLInputElement;
+                                        const prevInput = e.currentTarget.parentElement?.parentElement?.previousElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
                                         prevInput?.focus();
                                       }
                                     }}
@@ -866,7 +873,7 @@ const Timesheet: React.FC = () => {
                     );
                   })}
                   <tr className="border-t-2 border-gray-300">
-                    <td className="py-3 px-4 font-semibold">Daily Totals</td>
+                    <td className="py-3 px-4 font-semibold" colSpan={2}>Daily Totals</td>
                     {totalsByDay.map((day, idx) => (
                       <td key={idx} className="py-3 px-2 text-center">
                         <div className="text-sm font-semibold text-blue-600">
