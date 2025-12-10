@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
-import { User, Bell, Shield, Database, Palette, Globe, Settings2, Award, Users, Clock, DollarSign, Key } from 'lucide-react';
+import { User, Bell, Shield, Database, Palette, Globe, Settings2, Award, Clock, DollarSign, Key } from 'lucide-react';
 import CustomFields from '../components/CustomFields';
 import ProjectTemplates from '../components/ProjectTemplates';
 import OverviewPageDesigner from '../components/OverviewPageDesigner';
-import SkillCategoriesManagement from '../components/settings/SkillCategoriesManagement';
-import SkillsManagement from '../components/settings/SkillsManagement';
-import RoleManagement from '../components/settings/RoleManagement';
+import SkillsSettings from '../components/settings/SkillsSettings';
 import TimesheetCategoriesManagement from '../components/settings/TimesheetCategoriesManagement';
 import BudgetCategoriesManagement from '../components/settings/BudgetCategoriesManagement';
 import LicenseManagement from '../components/settings/LicenseManagement';
@@ -26,9 +24,7 @@ const Settings: React.FC = () => {
     { id: 'overview-designer', name: 'Overview Page Designer', icon: Settings2 },
     { id: 'budget-categories', name: 'Budget Categories', icon: DollarSign },
     { id: 'timesheet-categories', name: 'Timesheet Categories', icon: Clock },
-    { id: 'skill-categories', name: 'Skill Categories', icon: Award },
-    { id: 'skills-management', name: 'Skills Management', icon: Award },
-    { id: 'role-management', name: 'Role Management', icon: Users },
+    { id: 'skills-settings', name: 'Skills Settings', icon: Award },
   ];
 
   return (
@@ -221,16 +217,8 @@ const Settings: React.FC = () => {
               <OverviewPageDesigner />
             )}
 
-            {activeTab === 'skill-categories' && (
-              <SkillCategoriesManagement />
-            )}
-
-            {activeTab === 'skills-management' && (
-              <SkillsManagement />
-            )}
-
-            {activeTab === 'role-management' && (
-              <RoleManagement />
+            {activeTab === 'skills-settings' && (
+              <SkillsSettings />
             )}
 
             {activeTab === 'timesheet-categories' && (
