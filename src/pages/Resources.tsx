@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Users, Plus, Search, Filter, Download, Upload, Edit2, Trash2, UserPlus, Package } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import ResourceImportModal from '../components/ResourceImportModal';
 
 interface Resource {
   id: string;
@@ -30,6 +31,7 @@ export default function Resources() {
   const [filterType, setFilterType] = useState<'all' | 'person' | 'generic'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const [showModal, setShowModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
 
   useEffect(() => {
@@ -121,6 +123,13 @@ export default function Resources() {
           <p className="text-gray-500 mt-1">Manage people and generic resources</p>
         </div>
         <div className="flex gap-3">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <Upload className="w-4 h-4" />
+            Import
+          </button>
           <button
             onClick={handleExportCSV}
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
@@ -308,6 +317,15 @@ export default function Resources() {
           onSave={() => {
             setShowModal(false);
             setEditingResource(null);
+            fetchResources();
+          }}
+        />
+      )}
+
+      {showImportModal && (
+        <ResourceImportModal
+          onClose={() => setShowImportModal(false)}
+          onImportComplete={() => {
             fetchResources();
           }}
         />
