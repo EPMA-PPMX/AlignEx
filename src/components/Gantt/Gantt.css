@@ -1,208 +1,56 @@
-.gantt-container {
-  height: 100%;
+@import '../../../node_modules/frappe-gantt/dist/frappe-gantt.css';
+
+.gantt-wrapper {
   width: 100%;
-  position: relative;
-}
-
-.gantt_container {
   height: 100%;
-  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: white;
 }
 
-/* Grid resizer styling - the vertical line between grid and timeline */
-.gantt_grid_resize_wrap {
-  cursor: col-resize !important;
-  background-color: #d1d5db;
-  width: 3px !important;
-  position: absolute;
-  right: 0;
-  top: 0;
-  height: 100%;
-  z-index: 100;
-  transition: background-color 0.2s ease;
-}
-
-.gantt_grid_resize_wrap:hover {
-  background-color: #3b82f6 !important;
-}
-
-.gantt_grid_head_cell {
-  position: relative;
-}
-
-.gantt_grid_head_cell .gantt_resize_wrap {
-  cursor: col-resize;
-  position: absolute;
-  right: 0;
-  top: 0;
-  width: 10px;
-  height: 100%;
-  z-index: 10;
-}
-
-.gantt_grid_column_resize_wrap {
-  cursor: col-resize !important;
-}
-
-.group-header-row {
-  background-color: #f3f4f6 !important;
-  font-weight: 600 !important;
-  border-bottom: 2px solid #d1d5db !important;
-}
-
-.group-header-row .gantt_cell {
-  background-color: #f3f4f6 !important;
-  font-weight: 600 !important;
-  color: #374151 !important;
-}
-
-.group-header-task {
-  background-color: #e5e7eb !important;
-  border: 1px solid #9ca3af !important;
-}
-
-.gantt_task_line.group-header-task {
-  background-color: #e5e7eb !important;
-  opacity: 0.3 !important;
-}
-
-.owner-badges-container {
+.gantt-controls {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
-  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
 }
 
-.owner-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  color: white;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: default;
-  user-select: none;
-}
-
-/* Milestone text displayed to the right */
-.gantt_side_content.gantt_right {
-  color: #374151;
-  font-weight: 600;
-  padding-left: 10px;
-}
-
-/* Regular task bar styling - purple gradient theme */
-.gantt_task_line {
-  background: linear-gradient(135deg, #e9d5ff 0%, #7c3aed 100%) !important;
-  border: 1px solid #6b21a8 !important;
-}
-
-/* Task progress bar - darker purple gradient */
-.gantt_task_progress {
-  background: linear-gradient(135deg, #a855f7 0%, #581c87 100%) !important;
-}
-
-/* Project/Summary task styling - sky blue theme */
-.gantt_task_line.gantt_project {
-  background: #7dd3fc !important;
-  border: 2px solid #0284c7 !important;
-}
-
-.gantt_task_line.gantt_project_task {
-  background: #7dd3fc !important;
-  border: 2px solid #0284c7 !important;
-}
-
-.gantt_task_line.gantt_project .gantt_task_progress,
-.gantt_task_line.gantt_project_task .gantt_task_progress {
-  background: #0284c7 !important;
-}
-
-/* Milestone styling - diamond shape in yellow - MUST COME AFTER regular task styling */
-.gantt_task_line.gantt_milestone {
-  width: 16px !important;
-  height: 16px !important;
-  background: #fbbf24 !important;
-  border: 2px solid #f59e0b !important;
-  transform: rotate(45deg) !important;
-  margin-top: 8px !important;
-  border-radius: 2px !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-}
-
-.gantt_task_line.gantt_milestone .gantt_task_content {
-  display: none !important;
-}
-
-.gantt_task_line.gantt_milestone .gantt_task_progress {
-  display: none !important;
-}
-
-.gantt_task_line.gantt_milestone::before {
-  display: none !important;
-}
-
-.gantt_task_line.gantt_milestone::after {
-  display: none !important;
-}
-
-/* Edit button styling */
-.gantt_edit_btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer !important;
-  color: #6b7280;
-  padding: 4px;
+.gantt-controls button {
+  padding: 6px 12px;
+  border: 1px solid #d1d5db;
   border-radius: 4px;
-  transition: all 0.2s ease;
-  pointer-events: auto !important;
-  z-index: 10;
-  position: relative;
+  background: white;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
 }
 
-.gantt_edit_btn:hover {
-  background-color: #f3f4f6;
-  color: #3b82f6;
+.gantt-controls button:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
 }
 
-.gantt_edit_btn svg {
-  width: 16px;
-  height: 16px;
-  pointer-events: none;
+.gantt-controls button:active {
+  background: #e5e7eb;
 }
 
-.gantt_edit_btn svg path {
-  pointer-events: none;
+.gantt {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
 }
 
-/* Progress column styling */
-.gantt_cell[data-column-name="progress"] {
-  padding: 4px !important;
-  overflow: visible !important;
+.gantt .bar {
+  fill: #3b82f6;
 }
 
-.gantt_cell[data-column-name="progress"] svg {
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+.gantt .bar-progress {
+  fill: #1e40af;
 }
 
-/* Baseline styling */
-.gantt_task_line.baseline {
-  background: #cbd5e1 !important;
-  border: 1px solid #94a3b8 !important;
-  opacity: 0.6;
-  height: 8px !important;
-  margin-top: -6px;
-}
-
-.gantt_task_line.baseline .gantt_task_content {
-  display: none;
-}
-
-.gantt_task_line.baseline .gantt_task_progress {
-  display: none;
+.gantt .bar-label {
+  fill: #374151;
+  font-size: 12px;
 }
