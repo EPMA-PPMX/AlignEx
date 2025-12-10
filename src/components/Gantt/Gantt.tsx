@@ -1,6 +1,6 @@
 import React, { Component, createRef } from "react";
-import { gantt } from "dhtmlx-gantt";
-import "dhtmlx-gantt/codebase/dhtmlxgantt.css";
+import { gantt } from "../../lib/dhtmlx-gantt-enterprise/dhtmlxgantt.js";
+import "../../lib/dhtmlx-gantt-enterprise/dhtmlxgantt.css";
 import "./Gantt.css";
 
 // Define TypeScript interfaces for props and tasks
@@ -511,6 +511,9 @@ export default class Gantt extends Component<GanttProps> {
 
   componentDidMount(): void {
     if (!this.ganttContainer.current) return;
+
+    // Set enterprise license key
+    gantt.license = "39548339";
 
     gantt.config.date_format = "%Y-%m-%d %H:%i";
     gantt.config.readonly = false;
