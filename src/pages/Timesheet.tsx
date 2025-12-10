@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Trash2, ChevronLeft, ChevronRight, Edit2, Save, X } from 'lucide-react';
+import { Plus, Trash2, ChevronLeft, ChevronRight, Edit2, Save, X, CheckCircle } from 'lucide-react';
 
 interface TimesheetEntry {
   id: string;
@@ -37,6 +37,8 @@ interface TimesheetRow {
   type: 'project' | 'initiation' | 'category';
   typeId: string;
   entries: { [date: string]: { id: string; billable: number; nonBillable: number; notes: string } };
+  persistentItemId?: string;
+  isCompleted?: boolean;
 }
 
 const Timesheet: React.FC = () => {
@@ -67,7 +69,9 @@ const Timesheet: React.FC = () => {
     const weekEnd = new Date(currentWeekStart);
     weekEnd.setDate(weekEnd.getDate() + 6);
 
-    const [entriesRes, projectsRes, requestsRes, categoriesRes] = await Promise.all([
+    const USER_EMAIL = 'demo@alignex.com';
+
+    const [entriesRes, projectsRes, requestsRes, categoriesRes, persistentItemsRes] = await Promise.all([
       supabase
         .from('timesheet_entries')
         .select('*')
@@ -85,13 +89,19 @@ const Timesheet: React.FC = () => {
         .from('non_project_work_categories')
         .select('*')
         .eq('is_active', true)
-        .order('name')
+        .order('name'),
+      supabase
+        .from('user_timesheet_items')
+        .select('*')
+        .eq('user_email', USER_EMAIL)
+        .eq('is_completed', false)
     ]);
 
     const entries = entriesRes.data || [];
     const projectsData = projectsRes.data || [];
     const requestsData = requestsRes.data || [];
     const categoriesData = categoriesRes.data || [];
+    const persistentItems = persistentItemsRes.data || [];
 
     setProjects(projectsData);
     setInitiationRequests(requestsData);
@@ -99,6 +109,47 @@ const Timesheet: React.FC = () => {
 
     const rowsMap = new Map<string, TimesheetRow>();
 
+    // First, add all persistent items as rows
+    persistentItems.forEach((item: any) => {
+      let rowKey = '';
+      let rowName = '';
+      let rowType: 'project' | 'initiation' | 'category' = 'project';
+      let typeId = '';
+
+      if (item.project_id) {
+        rowKey = `project-${item.project_id}`;
+        const project = projectsData.find((p: Project) => p.id === item.project_id);
+        rowName = project?.name || 'Unknown Project';
+        rowType = 'project';
+        typeId = item.project_id;
+      } else if (item.initiation_request_id) {
+        rowKey = `initiation-${item.initiation_request_id}`;
+        const request = requestsData.find((r: InitiationRequest) => r.id === item.initiation_request_id);
+        rowName = request?.project_name || 'Unknown Request';
+        rowType = 'initiation';
+        typeId = item.initiation_request_id;
+      } else if (item.non_project_category_id) {
+        rowKey = `category-${item.non_project_category_id}`;
+        const category = categoriesData.find((c: NonProjectCategory) => c.id === item.non_project_category_id);
+        rowName = category?.name || 'Unknown Category';
+        rowType = 'category';
+        typeId = item.non_project_category_id;
+      }
+
+      if (!rowsMap.has(rowKey)) {
+        rowsMap.set(rowKey, {
+          id: rowKey,
+          name: rowName,
+          type: rowType,
+          typeId: typeId,
+          entries: {},
+          persistentItemId: item.id,
+          isCompleted: false
+        });
+      }
+    });
+
+    // Then, populate entries for the week
     entries.forEach((entry: TimesheetEntry) => {
       let rowKey = '';
       let rowName = '';
@@ -153,19 +204,9 @@ const Timesheet: React.FC = () => {
       }
     });
 
-    const entriesRows = Array.from(rowsMap.values());
-
-    const allRows = [...addedRows];
-    entriesRows.forEach(entryRow => {
-      const existingIndex = allRows.findIndex(r => r.id === entryRow.id);
-      if (existingIndex >= 0) {
-        allRows[existingIndex] = entryRow;
-      } else {
-        allRows.push(entryRow);
-      }
-    });
-
+    const allRows = Array.from(rowsMap.values());
     setRows(allRows);
+    setAddedRows([]);
   };
 
   const getWeekDates = () => {
@@ -198,6 +239,8 @@ const Timesheet: React.FC = () => {
       return;
     }
 
+    const USER_EMAIL = 'demo@alignex.com';
+
     let exists = false;
     if (newRowForm.type === 'project') {
       exists = rows.some(r => r.type === 'project' && r.typeId === newRowForm.selectedId);
@@ -212,43 +255,76 @@ const Timesheet: React.FC = () => {
       return;
     }
 
-    let newRow: TimesheetRow;
-    if (newRowForm.type === 'project') {
-      const project = projects.find(p => p.id === newRowForm.selectedId);
-      if (!project) return;
-      newRow = {
-        id: `project-${project.id}`,
-        name: project.name,
-        type: 'project',
-        typeId: project.id,
-        entries: {}
+    try {
+      // Save to user_timesheet_items table
+      const itemData: any = {
+        user_email: USER_EMAIL,
+        item_type: newRowForm.type,
+        is_completed: false,
+        project_id: null,
+        initiation_request_id: null,
+        non_project_category_id: null
       };
-    } else if (newRowForm.type === 'initiation') {
-      const request = initiationRequests.find(r => r.id === newRowForm.selectedId);
-      if (!request) return;
-      newRow = {
-        id: `initiation-${request.id}`,
-        name: request.project_name,
-        type: 'initiation',
-        typeId: request.id,
-        entries: {}
-      };
-    } else {
-      const category = categories.find(c => c.id === newRowForm.selectedId);
-      if (!category) return;
-      newRow = {
-        id: `category-${category.id}`,
-        name: category.name,
-        type: 'category',
-        typeId: category.id,
-        entries: {}
-      };
+
+      if (newRowForm.type === 'project') {
+        itemData.project_id = newRowForm.selectedId;
+      } else if (newRowForm.type === 'initiation') {
+        itemData.initiation_request_id = newRowForm.selectedId;
+      } else {
+        itemData.non_project_category_id = newRowForm.selectedId;
+      }
+
+      const { error } = await supabase
+        .from('user_timesheet_items')
+        .insert([itemData]);
+
+      if (error) {
+        console.error('Error adding timesheet item:', error);
+        alert('Error adding item to timesheet');
+        return;
+      }
+
+      // Reload data to show the new item
+      await fetchData();
+      setShowAddModal(false);
+      setNewRowForm({ type: 'project', selectedId: '' });
+    } catch (error: any) {
+      console.error('Error:', error);
+      alert(`Error: ${error.message}`);
+    }
+  };
+
+  const handleMarkAsCompleted = async (row: TimesheetRow) => {
+    if (!row.persistentItemId) {
+      alert('This item cannot be marked as completed');
+      return;
     }
 
-    setAddedRows([...addedRows, newRow]);
-    setRows([...rows, newRow]);
-    setShowAddModal(false);
-    setNewRowForm({ type: 'project', selectedId: '' });
+    if (!confirm(`Mark "${row.name}" as completed? It will be removed from your timesheet.`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('user_timesheet_items')
+        .update({
+          is_completed: true,
+          completed_date: new Date().toISOString().split('T')[0]
+        })
+        .eq('id', row.persistentItemId);
+
+      if (error) {
+        console.error('Error marking item as completed:', error);
+        alert('Error marking item as completed');
+        return;
+      }
+
+      // Reload data to remove the completed item
+      await fetchData();
+    } catch (error: any) {
+      console.error('Error:', error);
+      alert(`Error: ${error.message}`);
+    }
   };
 
   const handleCellUpdate = async (row: TimesheetRow, date: Date, billable: number, nonBillable: number, notes: string) => {
@@ -482,12 +558,24 @@ const Timesheet: React.FC = () => {
                         })}
                         <td className="py-3 px-4 text-center font-semibold">{rowTotal.toFixed(2)}</td>
                         <td className="py-3 px-4 text-center">
-                          <button
-                            onClick={() => handleDeleteRow(row)}
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {row.persistentItemId ? (
+                            <button
+                              onClick={() => handleMarkAsCompleted(row)}
+                              className="text-green-600 hover:text-green-800 flex items-center gap-1 mx-auto"
+                              title="Mark as Completed"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                              <span className="text-xs">Done</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleDeleteRow(row)}
+                              className="text-red-600 hover:text-red-800"
+                              title="Remove from this week"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );
