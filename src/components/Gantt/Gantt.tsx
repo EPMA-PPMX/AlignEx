@@ -657,7 +657,7 @@ export default class Gantt extends Component<GanttProps> {
       gantt.config.resource_assignment_store = "resourceAssignments";
 
       // Configure resource grid columns
-      gantt.config.resourceGrid_columns = [
+      gantt.config.resource_table_columns = [
         {
           name: "text",
           label: "Resource Name",
@@ -727,15 +727,40 @@ export default class Gantt extends Component<GanttProps> {
             cols: [
               {
                 view: "resourceGrid",
+                id: "resourceGrid",
                 group: "grids",
                 width: 435,
-                scrollY: "resourceVScroll"
+                scrollY: "resourceVScroll",
+                bind: "resource",
+                columns: [
+                  {
+                    name: "text",
+                    label: "Resource Name",
+                    tree: true,
+                    width: 200,
+                    template: function(resource: any) {
+                      return resource.text || resource.name || "Unnamed Resource";
+                    }
+                  },
+                  {
+                    name: "workload",
+                    label: "Workload",
+                    align: "center",
+                    width: 100,
+                    template: function(resource: any) {
+                      const assignments = gantt.getDatastore("resourceAssignments").getItems().filter((a: any) => a.resource_id === resource.id);
+                      return assignments.length + " tasks";
+                    }
+                  }
+                ]
               },
               { resizer: true, width: 1 },
               {
                 view: "resourceTimeline",
+                id: "resourceTimeline",
                 scrollX: "scrollHor",
-                scrollY: "resourceVScroll"
+                scrollY: "resourceVScroll",
+                bind: "resource"
               },
               { view: "scrollbar", id: "resourceVScroll", group: "vertical" }
             ],
@@ -1224,7 +1249,7 @@ export default class Gantt extends Component<GanttProps> {
         gantt.config.resource_assignment_store = "resourceAssignments";
 
         // Configure resource grid columns
-        gantt.config.resourceGrid_columns = [
+        gantt.config.resource_table_columns = [
           {
             name: "text",
             label: "Resource Name",
@@ -1294,15 +1319,40 @@ export default class Gantt extends Component<GanttProps> {
               cols: [
                 {
                   view: "resourceGrid",
+                  id: "resourceGrid",
                   group: "grids",
                   width: 435,
-                  scrollY: "resourceVScroll"
+                  scrollY: "resourceVScroll",
+                  bind: "resource",
+                  columns: [
+                    {
+                      name: "text",
+                      label: "Resource Name",
+                      tree: true,
+                      width: 200,
+                      template: function(resource: any) {
+                        return resource.text || resource.name || "Unnamed Resource";
+                      }
+                    },
+                    {
+                      name: "workload",
+                      label: "Workload",
+                      align: "center",
+                      width: 100,
+                      template: function(resource: any) {
+                        const assignments = gantt.getDatastore("resourceAssignments").getItems().filter((a: any) => a.resource_id === resource.id);
+                        return assignments.length + " tasks";
+                      }
+                    }
+                  ]
                 },
                 { resizer: true, width: 1 },
                 {
                   view: "resourceTimeline",
+                  id: "resourceTimeline",
                   scrollX: "scrollHor",
-                  scrollY: "resourceVScroll"
+                  scrollY: "resourceVScroll",
+                  bind: "resource"
                 },
                 { view: "scrollbar", id: "resourceVScroll", group: "vertical" }
               ],
@@ -1354,6 +1404,10 @@ export default class Gantt extends Component<GanttProps> {
 
       // Reinitialize gantt with new layout
       if (this.ganttContainer.current) {
+        // Clear all existing data and datastores
+        gantt.clearAll();
+
+        // Reinitialize with new layout
         gantt.init(this.ganttContainer.current);
 
         // Reload data with resources if panel is shown
