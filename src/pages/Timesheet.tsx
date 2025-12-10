@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Trash2, ChevronLeft, ChevronRight, CheckCircle, Send, RotateCcw, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, ChevronLeft, ChevronRight, CheckCircle, Send, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface TimesheetEntry {
   id: string;
@@ -76,7 +76,7 @@ const Timesheet: React.FC = () => {
   });
   const [weekSubmission, setWeekSubmission] = useState<TimesheetSubmission | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showNonBillable, setShowNonBillable] = useState(false);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchData();
@@ -256,6 +256,18 @@ const Timesheet: React.FC = () => {
 
   const formatDateKey = (date: Date) => {
     return date.toISOString().split('T')[0];
+  };
+
+  const toggleRowExpansion = (rowId: string) => {
+    setExpandedRows(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(rowId)) {
+        newSet.delete(rowId);
+      } else {
+        newSet.add(rowId);
+      }
+      return newSet;
+    });
   };
 
   const handleAddRow = async () => {
@@ -657,50 +669,40 @@ const Timesheet: React.FC = () => {
           )}
         </div>
 
-        <div className="mb-4 flex justify-between items-center">
+        <div className="mb-4 flex justify-end gap-3">
           <button
-            onClick={() => setShowNonBillable(!showNonBillable)}
-            className="text-gray-600 hover:text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-100 flex items-center gap-2"
+            onClick={() => setShowAddModal(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
           >
-            {showNonBillable ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-            {showNonBillable ? 'Hide' : 'Show'} Non-Billable
+            <Plus className="w-5 h-5" />
+            Add Time Entry
           </button>
-          <div className="flex gap-3">
+          {weekSubmission && weekSubmission.status === 'submitted' ? (
             <button
-              onClick={() => setShowAddModal(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              onClick={handleRecallTimesheet}
+              disabled={isSubmitting}
+              className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Plus className="w-5 h-5" />
-              Add Time Entry
+              <RotateCcw className="w-5 h-5" />
+              Recall Timesheet
             </button>
-            {weekSubmission && weekSubmission.status === 'submitted' ? (
-              <button
-                onClick={handleRecallTimesheet}
-                disabled={isSubmitting}
-                className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <RotateCcw className="w-5 h-5" />
-                Recall Timesheet
-              </button>
-            ) : (
-              <button
-                onClick={handleSubmitTimesheet}
-                disabled={isSubmitting || rows.length === 0}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Send className="w-5 h-5" />
-                Submit Timesheet
-              </button>
-            )}
-          </div>
+          ) : (
+            <button
+              onClick={handleSubmitTimesheet}
+              disabled={isSubmitting || rows.length === 0}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Send className="w-5 h-5" />
+              Submit Timesheet
+            </button>
+          )}
         </div>
 
         <div className="overflow-x-auto">
           <table className="min-w-full border-collapse">
             <thead>
               <tr className="border-b-2 border-gray-300">
-                <th className="text-left py-3 px-4 font-semibold w-48">Project/Activity</th>
-                {showNonBillable && <th className="text-left py-3 px-2 font-semibold w-20"></th>}
+                <th className="text-left py-3 px-4 font-semibold w-56">Project/Activity</th>
                 {weekDates.map((date, idx) => (
                   <th key={idx} className="text-center py-3 px-2 font-semibold min-w-[80px]">
                     <div>{date.toLocaleDateString('en-US', { weekday: 'short' })}</div>
@@ -714,7 +716,7 @@ const Timesheet: React.FC = () => {
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={showNonBillable ? 10 : 9} className="text-center py-8 text-gray-500">
+                  <td colSpan={9} className="text-center py-8 text-gray-500">
                     No time entries. Click "Add Time Entry" to get started.
                   </td>
                 </tr>
@@ -734,12 +736,23 @@ const Timesheet: React.FC = () => {
                     }, 0);
 
                     const rowTotal = billableTotal + nonBillableTotal;
+                    const isExpanded = expandedRows.has(row.id);
 
                     return (
                       <React.Fragment key={row.id}>
-                        <tr className={`${rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-b ${showNonBillable ? 'border-gray-200' : 'border-gray-300'}`}>
-                          <td className="py-2 px-4 font-medium" rowSpan={showNonBillable ? 2 : 1}>{row.name}</td>
-                          {showNonBillable && <td className="py-2 px-2 text-xs text-green-700 font-medium">Billable</td>}
+                        <tr className={`${rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-b ${isExpanded ? 'border-gray-200' : 'border-gray-300'}`}>
+                          <td className="py-2 px-4" rowSpan={isExpanded ? 2 : 1}>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => toggleRowExpansion(row.id)}
+                                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded p-1"
+                                title={isExpanded ? "Hide Non-Billable" : "Show Non-Billable"}
+                              >
+                                {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                              </button>
+                              <span className="font-medium">{row.name}</span>
+                            </div>
+                          </td>
                           {weekDates.map((date, idx) => {
                             const dateKey = formatDateKey(date);
                             const entry = row.entries[dateKey];
@@ -763,8 +776,8 @@ const Timesheet: React.FC = () => {
                                       // Tab key navigation handled by browser
                                     } else if (e.key === 'ArrowDown') {
                                       e.preventDefault();
-                                      if (showNonBillable) {
-                                        const nextInput = e.currentTarget.parentElement?.parentElement?.nextElementSibling?.children[idx + 1]?.querySelector('input') as HTMLInputElement;
+                                      if (isExpanded) {
+                                        const nextInput = e.currentTarget.parentElement?.parentElement?.nextElementSibling?.children[idx]?.querySelector('input') as HTMLInputElement;
                                         nextInput?.focus();
                                       } else {
                                         const nextInput = e.currentTarget.parentElement?.parentElement?.nextElementSibling?.children[idx + 1]?.querySelector('input') as HTMLInputElement;
@@ -772,8 +785,8 @@ const Timesheet: React.FC = () => {
                                       }
                                     } else if (e.key === 'ArrowUp') {
                                       e.preventDefault();
-                                      if (showNonBillable) {
-                                        const prevRow = e.currentTarget.parentElement?.parentElement?.previousElementSibling?.previousElementSibling?.children[idx + 1]?.querySelector('input') as HTMLInputElement;
+                                      if (isExpanded) {
+                                        const prevRow = e.currentTarget.parentElement?.parentElement?.previousElementSibling?.previousElementSibling?.children[idx]?.querySelector('input') as HTMLInputElement;
                                         prevRow?.focus();
                                       } else {
                                         const prevRow = e.currentTarget.parentElement?.parentElement?.previousElementSibling?.children[idx + 1]?.querySelector('input') as HTMLInputElement;
@@ -787,8 +800,8 @@ const Timesheet: React.FC = () => {
                               </td>
                             );
                           })}
-                          <td className="py-2 px-4 text-center text-sm font-semibold" rowSpan={showNonBillable ? 2 : 1}>{rowTotal.toFixed(2)}</td>
-                          <td className="py-2 px-4 text-center" rowSpan={showNonBillable ? 2 : 1}>
+                          <td className="py-2 px-4 text-center text-sm font-semibold" rowSpan={isExpanded ? 2 : 1}>{rowTotal.toFixed(2)}</td>
+                          <td className="py-2 px-4 text-center" rowSpan={isExpanded ? 2 : 1}>
                             {row.persistentItemId ? (
                               <button
                                 onClick={() => handleMarkAsCompleted(row)}
@@ -808,9 +821,8 @@ const Timesheet: React.FC = () => {
                             )}
                           </td>
                         </tr>
-                        {showNonBillable && (
-                          <tr className={`${rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-b border-gray-300`}>
-                            <td className="py-2 px-2 text-xs text-gray-500 font-medium italic">Non-Bill</td>
+                        {isExpanded && (
+                          <tr className={`${rowIdx % 2 === 0 ? 'bg-gray-50' : 'bg-gray-100'} border-b border-gray-300`}>
                             {weekDates.map((date, idx) => {
                               const dateKey = formatDateKey(date);
                               const entry = row.entries[dateKey];
@@ -818,7 +830,7 @@ const Timesheet: React.FC = () => {
                               const isLocked = weekSubmission && weekSubmission.status === 'submitted';
 
                               return (
-                                <td key={idx} className="py-2 px-2 bg-gray-50">
+                                <td key={idx} className="py-2 px-2">
                                   <input
                                     type="number"
                                     step="0.25"
@@ -838,11 +850,11 @@ const Timesheet: React.FC = () => {
                                         nextInput?.focus();
                                       } else if (e.key === 'ArrowUp') {
                                         e.preventDefault();
-                                        const prevInput = e.currentTarget.parentElement?.parentElement?.previousElementSibling?.children[idx + 1]?.querySelector('input') as HTMLInputElement;
+                                        const prevInput = e.currentTarget.parentElement?.parentElement?.previousElementSibling?.children[idx]?.querySelector('input') as HTMLInputElement;
                                         prevInput?.focus();
                                       }
                                     }}
-                                    className="w-full px-2 py-1 text-center border border-gray-200 rounded focus:border-gray-400 focus:ring-1 focus:ring-gray-400 disabled:bg-gray-100 disabled:cursor-not-allowed bg-gray-50 text-gray-600"
+                                    className="w-full px-2 py-1 text-center border border-gray-200 rounded focus:border-gray-400 focus:ring-1 focus:ring-gray-400 disabled:bg-gray-100 disabled:cursor-not-allowed bg-gray-100 text-gray-600"
                                     placeholder="0"
                                   />
                                 </td>
@@ -854,7 +866,7 @@ const Timesheet: React.FC = () => {
                     );
                   })}
                   <tr className="border-t-2 border-gray-300">
-                    <td className="py-3 px-4 font-semibold" colSpan={showNonBillable ? 2 : 1}>Daily Totals</td>
+                    <td className="py-3 px-4 font-semibold">Daily Totals</td>
                     {totalsByDay.map((day, idx) => (
                       <td key={idx} className="py-3 px-2 text-center">
                         <div className="text-sm font-semibold text-blue-600">
