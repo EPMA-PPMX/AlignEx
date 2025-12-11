@@ -52,8 +52,8 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
     project_type: request?.project_type || '',
     problem_statement: request?.problem_statement || '',
     estimated_start_date: request?.estimated_start_date || '',
-    estimated_duration: request?.estimated_duration || 0,
-    initial_estimated_cost: request?.initial_estimated_cost || 0,
+    estimated_duration: request?.estimated_duration ?? null,
+    initial_estimated_cost: request?.initial_estimated_cost ?? null,
     expected_benefits: request?.expected_benefits || '',
     consequences_of_inaction: request?.consequences_of_inaction || '',
     comments: request?.comments || '',
@@ -130,7 +130,7 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
     const { name, value } = e.target;
 
     if (name === 'estimated_duration' || name === 'initial_estimated_cost') {
-      const numValue = value === '' ? 0 : parseFloat(value);
+      const numValue = value === '' ? null : parseFloat(value);
       setFormData((prev) => ({ ...prev, [name]: numValue }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
@@ -250,9 +250,10 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
         'success'
       );
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving request:', error);
-      showNotification('Error saving request. Please try again.', 'error');
+      const errorMessage = error?.message || 'Error saving request. Please try again.';
+      showNotification(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
