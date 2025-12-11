@@ -286,6 +286,9 @@ const ProjectDetail: React.FC = () => {
     resources: [],
     resourceAssignments: []
   });
+
+  // Use a ref to always have access to the latest projectTasks value
+  const projectTasksRef = useRef(projectTasks);
   const [showResourcePanel, setShowResourcePanel] = useState(false);
 
   const [taskSearchQuery, setTaskSearchQuery] = useState('');
@@ -301,6 +304,11 @@ const ProjectDetail: React.FC = () => {
     { id: 'benefit-tracking', name: 'Benefit Tracking', icon: TrendingUp },
     { id: 'settings', name: 'Documents', icon: FileText },
   ];
+
+  // Update ref whenever projectTasks changes
+  useEffect(() => {
+    projectTasksRef.current = projectTasks;
+  }, [projectTasks]);
 
   useEffect(() => {
     if (id) {
@@ -3040,8 +3048,11 @@ const ProjectDetail: React.FC = () => {
                 }}
                 onEditTask={(taskId) => {
                   console.log("onEditTask callback called with taskId:", taskId);
-                  console.log("projectTasks.data:", projectTasks.data);
-                  const task = projectTasks.data.find((t: any) => t.id === taskId);
+                  // Use ref to get the latest projectTasks value
+                  const currentTasks = projectTasksRef.current;
+                  console.log("projectTasks.data:", currentTasks.data);
+                  console.log("Number of tasks:", currentTasks.data?.length || 0);
+                  const task = currentTasks.data.find((t: any) => t.id === taskId);
                   console.log("Found task:", task);
                   if (task) {
                     let startDate = task.start_date;
@@ -3054,14 +3065,14 @@ const ProjectDetail: React.FC = () => {
                     }
 
                     // Find successor tasks from links
-                    const successorIds = (projectTasks.links || [])
+                    const successorIds = (currentTasks.links || [])
                       .filter((link: any) => link.source === taskId)
                       .map((link: any) => link.target);
 
                     // Get parent WBS if task has a parent
                     let parentWbs = '';
                     if (task.parent && task.parent !== 0) {
-                      const parentTask = projectTasks.data.find((t: any) => t.id === task.parent);
+                      const parentTask = currentTasks.data.find((t: any) => t.id === task.parent);
                       if (parentTask) {
                         parentWbs = parentTask.wbs || parentTask.$wbs || `Task #${task.parent}`;
                       }
