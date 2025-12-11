@@ -2034,7 +2034,7 @@ const ProjectDetail: React.FC = () => {
     console.log('taskForm:', taskForm);
     console.log('editingTaskId:', editingTaskId);
 
-    if (!taskForm.description || !taskForm.start_date || !taskForm.duration) {
+    if (!taskForm.description || !taskForm.duration) {
       alert('Please fill in all required fields');
       return;
     }
@@ -4439,14 +4439,13 @@ const ProjectDetail: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Start Date <span className="text-red-500">*</span>
+                    Start Date
                   </label>
                   <input
                     type="date"
                     value={taskForm.start_date}
                     onChange={(e) => setTaskForm({ ...taskForm, start_date: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
                   />
                 </div>
 
