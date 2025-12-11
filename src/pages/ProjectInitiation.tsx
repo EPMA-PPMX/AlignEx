@@ -327,58 +327,47 @@ export default function ProjectInitiation() {
         </button>
       </div>
 
-      <div className="grid grid-cols-[280px_1fr] gap-4">
-        <div className="space-y-2">
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-4 text-white">
-            <div className="flex items-center justify-between mb-2">
-              <FileText className="w-5 h-5 opacity-80" />
-              <span className="text-2xl font-bold">{analytics.totalRequests}</span>
-            </div>
-            <div className="text-blue-100 text-sm font-medium">Total Requests</div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-white border border-slate-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <BarChart3 className="w-4 h-4 text-slate-700" />
+            <h2 className="text-sm font-semibold text-slate-900">Requests by Status</h2>
           </div>
-
-          <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-lg p-4 text-white">
-            <div className="flex items-center justify-between mb-2">
-              <Clock className="w-5 h-5 opacity-80" />
-              <span className="text-2xl font-bold">{analytics.pendingCount}</span>
-            </div>
-            <div className="text-amber-100 text-sm font-medium">Pending</div>
-          </div>
-
-          <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-4 text-white">
-            <div className="flex items-center justify-between mb-2">
-              <CheckCircle className="w-5 h-5 opacity-80" />
-              <span className="text-2xl font-bold">{analytics.approvedCount}</span>
-            </div>
-            <div className="text-green-100 text-sm font-medium">Approved</div>
-          </div>
-
-          <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-lg p-4 text-white">
-            <div className="flex items-center justify-between mb-2">
-              <XCircle className="w-5 h-5 opacity-80" />
-              <span className="text-2xl font-bold">{analytics.rejectedCount}</span>
-            </div>
-            <div className="text-red-100 text-sm font-medium">Rejected</div>
-          </div>
-
-          <div className="bg-gradient-to-br from-slate-500 to-slate-600 rounded-lg p-4 text-white">
-            <div className="flex items-center justify-between mb-2">
-              <FileText className="w-5 h-5 opacity-80" />
-              <span className="text-2xl font-bold">{analytics.draftCount}</span>
-            </div>
-            <div className="text-slate-100 text-sm font-medium">Draft</div>
-          </div>
-
-          <div className="bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-lg p-4 text-white">
-            <div className="flex items-center justify-between mb-2">
-              <AlertCircle className="w-5 h-5 opacity-80" />
-              <span className="text-2xl font-bold">{analytics.moreInfoCount}</span>
-            </div>
-            <div className="text-cyan-100 text-sm font-medium">More Info</div>
+          <div className="space-y-2.5">
+            {analytics.totalRequests > 0 ? (
+              [
+                { label: 'Draft', count: analytics.draftCount, color: 'from-slate-500 to-slate-600' },
+                { label: 'Pending', count: analytics.pendingCount, color: 'from-amber-500 to-amber-600' },
+                { label: 'Approved', count: analytics.approvedCount, color: 'from-green-500 to-green-600' },
+                { label: 'Rejected', count: analytics.rejectedCount, color: 'from-red-500 to-red-600' },
+                { label: 'More Info', count: analytics.moreInfoCount, color: 'from-cyan-500 to-cyan-600' },
+              ]
+                .filter(item => item.count > 0)
+                .sort((a, b) => b.count - a.count)
+                .map(({ label, count, color }) => {
+                  const percentage = (count / analytics.totalRequests) * 100;
+                  return (
+                    <div key={label} className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium text-slate-700">{label}</span>
+                        <span className="text-slate-600">{count} ({percentage.toFixed(0)}%)</span>
+                      </div>
+                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full bg-gradient-to-r ${color} rounded-full transition-all`}
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+            ) : (
+              <p className="text-slate-500 text-sm text-center py-2">No requests yet</p>
+            )}
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-lg p-4 max-w-md">
+        <div className="bg-white border border-slate-200 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-3">
             <BarChart3 className="w-4 h-4 text-slate-700" />
             <h2 className="text-sm font-semibold text-slate-900">Requests by Type</h2>
