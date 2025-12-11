@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye, Edit2, Trash2, Calendar, DollarSign } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useNotification } from '../lib/useNotification';
 import { formatCurrency } from '../lib/utils';
 import ProjectRequestForm from '../components/initiation/ProjectRequestForm';
 
@@ -27,6 +28,7 @@ interface ProjectRequest {
 }
 
 export default function ProjectInitiation() {
+  const { showNotification, showConfirm } = useNotification();
   const [requests, setRequests] = useState<ProjectRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -82,7 +84,14 @@ export default function ProjectInitiation() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this request?')) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Request',
+      message: 'Are you sure you want to delete this request? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel'
+    });
+
+    if (!confirmed) return;
 
     try {
       const { error } = await supabase
@@ -93,8 +102,10 @@ export default function ProjectInitiation() {
       if (error) throw error;
       setViewingRequest(null);
       fetchRequests();
+      showNotification('Request deleted successfully', 'success');
     } catch (error) {
       console.error('Error deleting request:', error);
+      showNotification('Error deleting request. Please try again.', 'error');
     }
   };
 
@@ -133,7 +144,7 @@ export default function ProjectInitiation() {
       }
     } catch (error) {
       console.error('Error updating status:', error);
-      alert('Error updating status. Please try again.');
+      showNotification('Error updating status. Please try again.', 'error');
     }
   };
 
@@ -190,11 +201,11 @@ export default function ProjectInitiation() {
           }
         }
 
-        alert(`Project "${request.project_name}" created successfully!`);
+        showNotification(`Project "${request.project_name}" created successfully!`, 'success');
       }
     } catch (error) {
       console.error('Error creating project from request:', error);
-      alert('Error creating project. Please try again or create it manually.');
+      showNotification('Error creating project. Please try again or create it manually.', 'error');
     }
   };
 
