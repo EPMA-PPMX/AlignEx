@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Trash2, ChevronLeft, ChevronRight, CheckCircle, Send, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, ChevronLeft, ChevronRight, CheckCircle, Send, RotateCcw, ChevronDown, ChevronUp, FileText, X } from 'lucide-react';
 
 interface TimesheetEntry {
   id: string;
@@ -77,6 +77,19 @@ const Timesheet: React.FC = () => {
   const [weekSubmission, setWeekSubmission] = useState<TimesheetSubmission | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [notesModal, setNotesModal] = useState<{
+    show: boolean;
+    row: TimesheetRow | null;
+    date: Date | null;
+    isBillable: boolean;
+    notes: string;
+  }>({
+    show: false,
+    row: null,
+    date: null,
+    isBillable: false,
+    notes: ''
+  });
 
   useEffect(() => {
     fetchData();
@@ -472,6 +485,52 @@ const Timesheet: React.FC = () => {
     }
   };
 
+  const handleOpenNotesModal = (row: TimesheetRow, date: Date, isBillable: boolean) => {
+    const dateKey = formatDateKey(date);
+    const existingEntry = row.entries[dateKey];
+    const notes = existingEntry?.notes || '';
+
+    setNotesModal({
+      show: true,
+      row,
+      date,
+      isBillable,
+      notes
+    });
+  };
+
+  const handleSaveNotes = async () => {
+    if (!notesModal.row || !notesModal.date) return;
+
+    const dateKey = formatDateKey(notesModal.date);
+    const existingEntry = notesModal.row.entries[dateKey];
+
+    if (!existingEntry || (existingEntry.billable === 0 && existingEntry.nonBillable === 0)) {
+      alert('Please enter hours before adding notes.');
+      return;
+    }
+
+    await supabase
+      .from('timesheet_entries')
+      .update({ notes: notesModal.notes })
+      .eq('entry_date', dateKey)
+      .eq(
+        notesModal.row.type === 'project' ? 'project_id' :
+        notesModal.row.type === 'initiation' ? 'initiation_request_id' :
+        'non_project_category_id',
+        notesModal.row.typeId
+      );
+
+    await fetchData();
+    setNotesModal({
+      show: false,
+      row: null,
+      date: null,
+      isBillable: false,
+      notes: ''
+    });
+  };
+
   const handleCellUpdate = async (row: TimesheetRow, date: Date, isBillable: boolean, hours: number) => {
     if (weekSubmission && weekSubmission.status === 'submitted') {
       return;
@@ -765,42 +824,54 @@ const Timesheet: React.FC = () => {
 
                             return (
                               <td key={idx} className="py-2 px-2">
-                                <input
-                                  type="number"
-                                  step="0.25"
-                                  min="0"
-                                  value={value || ''}
-                                  disabled={isLocked}
-                                  onChange={(e) => {
-                                    const newValue = parseFloat(e.target.value) || 0;
-                                    handleCellUpdate(row, date, true, newValue);
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Tab') {
-                                      // Tab key navigation handled by browser
-                                    } else if (e.key === 'ArrowDown') {
-                                      e.preventDefault();
-                                      if (isExpanded) {
-                                        const nextInput = e.currentTarget.parentElement?.parentElement?.nextElementSibling?.children[idx + 1]?.querySelector('input') as HTMLInputElement;
-                                        nextInput?.focus();
-                                      } else {
-                                        const nextInput = e.currentTarget.parentElement?.parentElement?.nextElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
-                                        nextInput?.focus();
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    step="0.25"
+                                    min="0"
+                                    value={value || ''}
+                                    disabled={isLocked}
+                                    onChange={(e) => {
+                                      const newValue = parseFloat(e.target.value) || 0;
+                                      handleCellUpdate(row, date, true, newValue);
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Tab') {
+                                        // Tab key navigation handled by browser
+                                      } else if (e.key === 'ArrowDown') {
+                                        e.preventDefault();
+                                        if (isExpanded) {
+                                          const nextInput = e.currentTarget.parentElement?.parentElement?.parentElement?.nextElementSibling?.children[idx + 1]?.querySelector('input') as HTMLInputElement;
+                                          nextInput?.focus();
+                                        } else {
+                                          const nextInput = e.currentTarget.parentElement?.parentElement?.parentElement?.nextElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
+                                          nextInput?.focus();
+                                        }
+                                      } else if (e.key === 'ArrowUp') {
+                                        e.preventDefault();
+                                        if (isExpanded) {
+                                          const prevRow = e.currentTarget.parentElement?.parentElement?.parentElement?.previousElementSibling?.previousElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
+                                          prevRow?.focus();
+                                        } else {
+                                          const prevRow = e.currentTarget.parentElement?.parentElement?.parentElement?.previousElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
+                                          prevRow?.focus();
+                                        }
                                       }
-                                    } else if (e.key === 'ArrowUp') {
-                                      e.preventDefault();
-                                      if (isExpanded) {
-                                        const prevRow = e.currentTarget.parentElement?.parentElement?.previousElementSibling?.previousElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
-                                        prevRow?.focus();
-                                      } else {
-                                        const prevRow = e.currentTarget.parentElement?.parentElement?.previousElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
-                                        prevRow?.focus();
-                                      }
-                                    }
-                                  }}
-                                  className="w-full px-2 py-1 text-center border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                                  placeholder="0"
-                                />
+                                    }}
+                                    className="w-full px-2 py-1 text-center border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                    placeholder="0"
+                                  />
+                                  <button
+                                    onClick={() => handleOpenNotesModal(row, date, true)}
+                                    disabled={isLocked}
+                                    className={`flex-shrink-0 p-1 rounded transition-colors ${
+                                      entry?.notes ? 'text-blue-600 hover:bg-blue-50' : 'text-gray-400 hover:bg-gray-100'
+                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                    title={entry?.notes ? 'Edit notes' : 'Add notes'}
+                                  >
+                                    <FileText className="w-4 h-4" />
+                                  </button>
+                                </div>
                               </td>
                             );
                           })}
@@ -838,32 +909,44 @@ const Timesheet: React.FC = () => {
 
                               return (
                                 <td key={idx} className="py-2 px-2">
-                                  <input
-                                    type="number"
-                                    step="0.25"
-                                    min="0"
-                                    value={value || ''}
-                                    disabled={isLocked}
-                                    onChange={(e) => {
-                                      const newValue = parseFloat(e.target.value) || 0;
-                                      handleCellUpdate(row, date, false, newValue);
-                                    }}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Tab') {
-                                        // Tab key navigation handled by browser
-                                      } else if (e.key === 'ArrowDown') {
-                                        e.preventDefault();
-                                        const nextInput = e.currentTarget.parentElement?.parentElement?.nextElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
-                                        nextInput?.focus();
-                                      } else if (e.key === 'ArrowUp') {
-                                        e.preventDefault();
-                                        const prevInput = e.currentTarget.parentElement?.parentElement?.previousElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
-                                        prevInput?.focus();
-                                      }
-                                    }}
-                                    className="w-full px-2 py-1 text-center border border-gray-200 rounded focus:border-gray-400 focus:ring-1 focus:ring-gray-400 disabled:bg-gray-100 disabled:cursor-not-allowed bg-gray-100 text-gray-600"
-                                    placeholder="0"
-                                  />
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="number"
+                                      step="0.25"
+                                      min="0"
+                                      value={value || ''}
+                                      disabled={isLocked}
+                                      onChange={(e) => {
+                                        const newValue = parseFloat(e.target.value) || 0;
+                                        handleCellUpdate(row, date, false, newValue);
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Tab') {
+                                          // Tab key navigation handled by browser
+                                        } else if (e.key === 'ArrowDown') {
+                                          e.preventDefault();
+                                          const nextInput = e.currentTarget.parentElement?.parentElement?.parentElement?.nextElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
+                                          nextInput?.focus();
+                                        } else if (e.key === 'ArrowUp') {
+                                          e.preventDefault();
+                                          const prevInput = e.currentTarget.parentElement?.parentElement?.parentElement?.previousElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
+                                          prevInput?.focus();
+                                        }
+                                      }}
+                                      className="w-full px-2 py-1 text-center border border-gray-200 rounded focus:border-gray-400 focus:ring-1 focus:ring-gray-400 disabled:bg-gray-100 disabled:cursor-not-allowed bg-gray-100 text-gray-600"
+                                      placeholder="0"
+                                    />
+                                    <button
+                                      onClick={() => handleOpenNotesModal(row, date, false)}
+                                      disabled={isLocked}
+                                      className={`flex-shrink-0 p-1 rounded transition-colors ${
+                                        entry?.notes ? 'text-blue-600 hover:bg-blue-50' : 'text-gray-400 hover:bg-gray-100'
+                                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                      title={entry?.notes ? 'Edit notes' : 'Add notes'}
+                                    >
+                                      <FileText className="w-4 h-4" />
+                                    </button>
+                                  </div>
                                 </td>
                               );
                             })}
@@ -992,6 +1075,63 @@ const Timesheet: React.FC = () => {
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 Add
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {notesModal.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <FileText className="w-6 h-6 text-blue-600" />
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">Time Entry Notes</h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {notesModal.row?.name} - {notesModal.date ? formatDate(notesModal.date) : ''}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setNotesModal({ show: false, row: null, date: null, isBillable: false, notes: '' })}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Notes
+                </label>
+                <textarea
+                  value={notesModal.notes}
+                  onChange={(e) => setNotesModal({ ...notesModal, notes: e.target.value })}
+                  rows={6}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  placeholder="Enter notes for this time entry..."
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  Add any relevant details about the work performed during this time period.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+              <button
+                onClick={() => setNotesModal({ show: false, row: null, date: null, isBillable: false, notes: '' })}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveNotes}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Save Notes
               </button>
             </div>
           </div>
