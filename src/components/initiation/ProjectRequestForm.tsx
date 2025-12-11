@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Save, Send, Loader } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { formatCurrencyInput } from '../../lib/utils';
+import { useNotification } from '../../lib/useNotification';
 
 interface ProjectRequest {
   id: string;
@@ -36,6 +37,7 @@ interface Props {
 }
 
 export default function ProjectRequestForm({ request, onClose }: Props) {
+  const { showNotification } = useNotification();
   const [loading, setLoading] = useState(false);
   const [priorities, setPriorities] = useState<OrganizationalPriority[]>([]);
   const [prioritiesLoading, setPrioritiesLoading] = useState(true);
@@ -159,29 +161,29 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
 
   const validateForm = () => {
     if (!formData.project_name.trim()) {
-      alert('Project name is required');
+      showNotification('Project name is required', 'error');
       return false;
     }
     if (!formData.project_type.trim()) {
-      alert('Project type is required');
+      showNotification('Project type is required', 'error');
       return false;
     }
     if (!formData.problem_statement.trim()) {
-      alert('Problem statement is required');
+      showNotification('Problem statement is required', 'error');
       return false;
     }
     if (!formData.expected_benefits.trim()) {
-      alert('Expected benefits is required');
+      showNotification('Expected benefits is required', 'error');
       return false;
     }
     if (!formData.consequences_of_inaction.trim()) {
-      alert('Consequences of inaction is required');
+      showNotification('Consequences of inaction is required', 'error');
       return false;
     }
 
     for (const priorityId of selectedPriorities) {
       if (!priorityContributions[priorityId]?.trim()) {
-        alert('Please provide expected contribution for all selected priorities');
+        showNotification('Please provide expected contribution for all selected priorities', 'error');
         return false;
       }
     }
@@ -241,15 +243,16 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
         if (priorityError) throw priorityError;
       }
 
-      alert(
+      showNotification(
         isDraft
           ? 'Request saved as draft successfully!'
-          : 'Request submitted for approval successfully!'
+          : 'Request submitted for approval successfully!',
+        'success'
       );
       onClose();
     } catch (error) {
       console.error('Error saving request:', error);
-      alert('Error saving request. Please try again.');
+      showNotification('Error saving request. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
