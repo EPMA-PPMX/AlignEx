@@ -1153,26 +1153,33 @@ export default class Gantt extends Component<GanttProps> {
       });
 
       // Use event delegation to capture add and edit button clicks
-      this.ganttContainer.current.addEventListener('click', (e: any) => {
+      const clickHandler = (e: any) => {
         const target = e.target as HTMLElement;
-        console.log("Click detected on:", target);
+        console.log("=== Gantt Click Event ===");
+        console.log("Click target:", target);
+        console.log("Target class:", target.className);
+        console.log("Target tag:", target.tagName);
 
         // Check if click is on edit button or its child elements
         const editButton = target.closest('.gantt_edit_btn');
         console.log("Edit button found:", editButton);
-        console.log("onEditTask available:", !!onEditTask);
+        console.log("onEditTask callback available:", !!onEditTask);
 
         if (editButton) {
           const taskId = editButton.getAttribute('data-task-id');
           console.log("Task ID from edit button:", taskId);
 
           if (taskId && onEditTask) {
-            console.log("Edit button clicked for task:", taskId);
+            console.log("=== CALLING onEditTask with task ID:", taskId, "===");
             onEditTask(parseInt(taskId));
             e.stopPropagation();
             e.preventDefault();
             return;
+          } else {
+            console.warn("Cannot edit task - taskId:", taskId, "onEditTask:", !!onEditTask);
           }
+        } else {
+          console.log("Not an edit button click");
         }
 
         // Check if click is on add button or its child elements
@@ -1220,7 +1227,17 @@ export default class Gantt extends Component<GanttProps> {
             e.preventDefault();
           }
         }
-      }, true); // Use capture phase to get the event before Gantt's handler
+      };
+
+      // Add listener with capture phase
+      this.ganttContainer.current.addEventListener('click', clickHandler, true);
+
+      // Also add listener in bubble phase as backup
+      this.ganttContainer.current.addEventListener('click', clickHandler, false);
+
+      console.log("=== Event listeners attached to gantt container ===");
+      console.log("Container:", this.ganttContainer.current);
+      console.log("onEditTask available at mount:", !!onEditTask);
     }
 
     // Expose gantt instance globally for access from parent

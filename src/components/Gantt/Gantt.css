@@ -152,22 +152,35 @@
 
 /* Edit button styling */
 .gantt_edit_btn {
-  display: inline-flex;
+  display: inline-flex !important;
   align-items: center;
   justify-content: center;
   cursor: pointer !important;
-  color: #6b7280;
-  padding: 4px;
-  border-radius: 4px;
+  color: #3b82f6 !important;
+  padding: 6px !important;
+  border-radius: 6px;
   transition: all 0.2s ease;
   pointer-events: auto !important;
-  z-index: 10;
+  z-index: 1000 !important;
   position: relative;
+  min-width: 32px;
+  min-height: 32px;
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
 }
 
 .gantt_edit_btn:hover {
-  background-color: #f3f4f6;
-  color: #3b82f6;
+  background-color: #dbeafe !important;
+  color: #1e40af !important;
+  transform: scale(1.15);
+  border-color: #3b82f6;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+}
+
+.gantt_edit_btn:active {
+  transform: scale(0.95) !important;
+  background-color: #3b82f6 !important;
+  color: white !important;
 }
 
 .gantt_edit_btn svg {
@@ -178,6 +191,14 @@
 
 .gantt_edit_btn svg path {
   pointer-events: none;
+}
+
+/* Ensure edit column is always visible and clickable */
+.gantt_cell[data-column-name="edit"] {
+  pointer-events: auto !important;
+  overflow: visible !important;
+  z-index: 100;
+  background-color: #fafafa;
 }
 
 /* Progress column styling */
