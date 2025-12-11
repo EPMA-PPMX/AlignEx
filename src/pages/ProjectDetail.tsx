@@ -1066,8 +1066,8 @@ const ProjectDetail: React.FC = () => {
             if (typeof duration !== 'number' || isNaN(duration)) {
               duration = parseFloat(duration) || 1;
             }
-            // Ensure it's a positive integer
-            duration = Math.max(1, Math.round(duration));
+            // Ensure it's a positive number (preserve exact value, no rounding)
+            duration = Math.max(1, duration);
 
             console.log(`Task ${taskId}: duration=${task.duration} (type: ${typeof task.duration}), cleaned duration=${duration}`);
 

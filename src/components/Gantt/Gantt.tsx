@@ -536,7 +536,7 @@ export default class Gantt extends Component<GanttProps> {
     // Enable plugins
     gantt.plugins({
       keyboard_navigation: true,
-      auto_scheduling: true,
+      auto_scheduling: false, // Disable auto-scheduling to prevent duration recalculation
       inline_editors: true
     });
     gantt.config.keyboard_navigation_cells = true;
@@ -622,13 +622,9 @@ export default class Gantt extends Component<GanttProps> {
     updateGridWidth();
     gantt.config.min_grid_column_width = 50;
 
-    // Configure to skip weekends
-    gantt.config.skip_off_time = true;
-    gantt.config.work_time = true;
-
-    // Set weekend days (0 = Sunday, 6 = Saturday)
-    gantt.setWorkTime({ day: 0, hours: false });
-    gantt.setWorkTime({ day: 6, hours: false });
+    // Disable work time to use calendar days for duration (not working days)
+    gantt.config.skip_off_time = false;
+    gantt.config.work_time = false;
 
     const { projecttasks, onTaskUpdate, onOpenTaskModal, onEditTask, showResourcePanel } = this.props;
 
@@ -1044,18 +1040,18 @@ export default class Gantt extends Component<GanttProps> {
         if (isNaN(duration) || duration < 1) {
           duration = 1;
         }
-        task.duration = Math.max(1, Math.round(duration));
-        console.log(`Normalized task ${id} duration to: ${task.duration}`);
+        // Store duration exactly as entered (no rounding)
+        task.duration = Math.max(1, duration);
+        console.log(`Task ${id} duration set to: ${task.duration}`);
 
-        // Recalculate end_date based on start_date and new duration
+        // Recalculate end_date based on start_date and duration using calendar days
         if (task.start_date && task.duration) {
           const startDate = gantt.date.parseDate(task.start_date, "xml_date");
           if (startDate) {
-            task.end_date = gantt.calculateEndDate({
-              start_date: startDate,
-              duration: task.duration,
-              task: task
-            });
+            // Use simple date arithmetic for calendar days
+            const endDate = new Date(startDate);
+            endDate.setDate(endDate.getDate() + task.duration);
+            task.end_date = endDate;
             console.log(`Recalculated end_date for task ${id}:`, task.end_date);
           }
         }
