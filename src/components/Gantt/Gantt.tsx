@@ -920,6 +920,18 @@ export default class Gantt extends Component<GanttProps> {
       console.log("onEditTask callback exists:", !!onEditTask);
 
       try {
+        // Check if the double-click was on a grid cell with an editor
+        // If so, allow inline editing to proceed
+        const target = e?.target || e?.srcElement;
+        if (target) {
+          // Check if we're clicking on a grid cell (not the timeline area)
+          const gridCell = target.closest('.gantt_cell');
+          if (gridCell) {
+            console.log("Double-click on grid cell, allowing inline editor");
+            return true; // Allow default behavior (inline editing)
+          }
+        }
+
         // Check if task exists
         if (!gantt.isTaskExists(id)) {
           console.log("Task does not exist");
@@ -1061,6 +1073,13 @@ export default class Gantt extends Component<GanttProps> {
 
       gantt.attachEvent("onAfterTaskUpdate", (id: any, task: any) => {
         console.log("Task updated:", id, task);
+        onTaskUpdate();
+        return true;
+      });
+
+      // Also listen for inline editor save
+      gantt.attachEvent("onAfterInlineEditorSave", (state: any) => {
+        console.log("Inline editor saved:", state);
         onTaskUpdate();
         return true;
       });
