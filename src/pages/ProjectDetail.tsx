@@ -265,7 +265,7 @@ const ProjectDetail: React.FC = () => {
     resource_ids: [] as string[],
     parent_id: undefined as number | undefined,
     parent_wbs: '' as string,
-    successor_ids: [] as number[],
+    predecessor_ids: [] as number[],
     type: 'task' as string,
     progress: 0
   });
@@ -2051,14 +2051,14 @@ const ProjectDetail: React.FC = () => {
         // Update existing task
         const existingLinks = projectTasks.links || [];
 
-        // Remove old links where this task is the source
-        const filteredLinks = existingLinks.filter((link: any) => link.source !== editingTaskId);
+        // Remove old links where this task is the target (incoming links from predecessors)
+        const filteredLinks = existingLinks.filter((link: any) => link.target !== editingTaskId);
 
-        // Create new links for successor tasks
-        const newLinks = taskForm.successor_ids.map((successorId, index) => ({
+        // Create new links for predecessor tasks (predecessors point to this task)
+        const newLinks = taskForm.predecessor_ids.map((predecessorId, index) => ({
           id: Date.now() + index,
-          source: editingTaskId,
-          target: successorId,
+          source: predecessorId,
+          target: editingTaskId,
           type: "0" // Finish-to-Start dependency
         }));
 
@@ -2168,11 +2168,11 @@ const ProjectDetail: React.FC = () => {
         // Add to existing tasks
         const existingLinks = projectTasks.links || [];
 
-        // Create links for successor tasks
-        const newLinks = taskForm.successor_ids.map((successorId, index) => ({
+        // Create links for predecessor tasks (predecessors point to this task)
+        const newLinks = taskForm.predecessor_ids.map((predecessorId, index) => ({
           id: Date.now() + index,
-          source: newTask.id,
-          target: successorId,
+          source: predecessorId,
+          target: newTask.id,
           type: "0" // Finish-to-Start dependency
         }));
 
@@ -2306,7 +2306,7 @@ const ProjectDetail: React.FC = () => {
         owner_id: '',
         resource_ids: [],
         parent_id: undefined,
-        successor_ids: [],
+        predecessor_ids: [],
         type: 'task',
         progress: 0
       });
@@ -3068,7 +3068,7 @@ const ProjectDetail: React.FC = () => {
                     resource_ids: [],
                     parent_id: parentId,
                     parent_wbs: parentWbs,
-                    successor_ids: [],
+                    predecessor_ids: [],
                     type: 'task',
                     progress: 0
                   });
@@ -3094,10 +3094,10 @@ const ProjectDetail: React.FC = () => {
                       startDate = startDate.split(' ')[0];
                     }
 
-                    // Find successor tasks from links
-                    const successorIds = (currentTasks.links || [])
-                      .filter((link: any) => link.source === taskId)
-                      .map((link: any) => link.target);
+                    // Find predecessor tasks from links (tasks that point to this task)
+                    const predecessorIds = (currentTasks.links || [])
+                      .filter((link: any) => link.target === taskId)
+                      .map((link: any) => link.source);
 
                     // Get parent WBS if task has a parent
                     let parentWbs = '';
@@ -3133,7 +3133,7 @@ const ProjectDetail: React.FC = () => {
                       resource_ids: resourceIds,
                       parent_id: task.parent || undefined,
                       parent_wbs: parentWbs,
-                      successor_ids: successorIds
+                      predecessor_ids: predecessorIds
                     });
                     setTaskForm({
                       description: task.text,
@@ -3143,7 +3143,7 @@ const ProjectDetail: React.FC = () => {
                       resource_ids: resourceIds,
                       parent_id: task.parent || undefined,
                       parent_wbs: parentWbs,
-                      successor_ids: successorIds,
+                      predecessor_ids: predecessorIds,
                       type: task.type || 'task',
                       progress: Math.round((task.progress || 0) * 100)
                     });
@@ -4372,7 +4372,7 @@ const ProjectDetail: React.FC = () => {
                       resource_ids: [],
                       parent_id: undefined,
                       parent_wbs: '',
-                      successor_ids: [],
+                      predecessor_ids: [],
                       type: 'task',
                       progress: 0
                     });
@@ -4569,19 +4569,19 @@ const ProjectDetail: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Successor Tasks (Multiple Selection)
+                    Predecessor Tasks (Multiple Selection)
                   </label>
                   <p className="text-xs text-gray-500 mb-2">
-                    Select tasks that should start only after this task is completed. Hold Ctrl/Cmd to select multiple.
+                    Select tasks that must be completed before this task can start. Hold Ctrl/Cmd to select multiple.
                   </p>
                   <select
                     multiple
-                    value={taskForm.successor_ids.map(String)}
+                    value={taskForm.predecessor_ids.map(String)}
                     onChange={(e) => {
                       const selectedOptions = Array.from(e.target.selectedOptions).map(option => parseInt(option.value));
                       setTaskForm({
                         ...taskForm,
-                        successor_ids: selectedOptions
+                        predecessor_ids: selectedOptions
                       });
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -4590,7 +4590,7 @@ const ProjectDetail: React.FC = () => {
                     {getAllTasksWithWBS()
                       .filter(task => editingTaskId ? task.id !== editingTaskId : true)
                       .length === 0 ? (
-                      <option disabled>No tasks available. Create the task first, then edit it to add successors.</option>
+                      <option disabled>No tasks available. Create the task first, then edit it to add predecessors.</option>
                     ) : (
                       getAllTasksWithWBS()
                         .filter(task => editingTaskId ? task.id !== editingTaskId : true)
@@ -4601,9 +4601,9 @@ const ProjectDetail: React.FC = () => {
                         ))
                     )}
                   </select>
-                  {taskForm.successor_ids.length > 0 && (
+                  {taskForm.predecessor_ids.length > 0 && (
                     <p className="text-xs text-gray-500 mt-1">
-                      {taskForm.successor_ids.length} successor task(s) selected
+                      {taskForm.predecessor_ids.length} predecessor task(s) selected
                     </p>
                   )}
                 </div>
