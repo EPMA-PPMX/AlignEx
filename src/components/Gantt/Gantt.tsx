@@ -536,10 +536,15 @@ export default class Gantt extends Component<GanttProps> {
     // Enable plugins
     gantt.plugins({
       keyboard_navigation: true,
-      auto_scheduling: false, // Disable auto-scheduling to prevent duration recalculation
+      auto_scheduling: true, // Enable auto-scheduling for automatic task rescheduling based on dependencies
       inline_editors: true
     });
     gantt.config.keyboard_navigation_cells = true;
+
+    // Configure auto-scheduling behavior
+    gantt.config.auto_scheduling = true;
+    gantt.config.auto_scheduling_strict = true; // Enforce strict scheduling rules
+    gantt.config.auto_scheduling_compatibility = true; // Maintain compatibility with manual edits
 
     // Enable grid resizing - allows dragging the splitter between grid and timeline
     gantt.config.grid_resize = true;
@@ -1030,6 +1035,7 @@ export default class Gantt extends Component<GanttProps> {
     });
 
     // Validate and normalize duration before task is updated
+    // This works in conjunction with auto-scheduling to ensure end dates are correctly calculated
     gantt.attachEvent("onBeforeTaskUpdate", (id: any, task: any) => {
       // Ensure duration is a valid positive number
       if (task.duration !== undefined && task.duration !== null) {
@@ -1045,6 +1051,7 @@ export default class Gantt extends Component<GanttProps> {
         console.log(`Task ${id} duration set to: ${task.duration}`);
 
         // Recalculate end_date based on start_date and duration using calendar days
+        // When auto-scheduling changes start_date, this ensures end_date is recalculated
         if (task.start_date && task.duration) {
           const startDate = gantt.date.parseDate(task.start_date, "xml_date");
           if (startDate) {
@@ -1101,6 +1108,28 @@ export default class Gantt extends Component<GanttProps> {
       gantt.attachEvent("onAfterLinkDelete", (id: any) => {
         console.log("Link deleted:", id);
         onTaskUpdate();
+        return true;
+      });
+
+      // Auto-scheduling event handlers
+      gantt.attachEvent("onBeforeTaskAutoSchedule", (task: any, start: Date, link: any, predecessor: any) => {
+        console.log("Auto-scheduling task:", task.text, "based on predecessor:", predecessor?.text);
+        return true;
+      });
+
+      gantt.attachEvent("onAfterTaskAutoSchedule", (task: any, start: Date, link: any, predecessor: any) => {
+        console.log("Task auto-scheduled:", task.text, "new start date:", start);
+        console.log("Triggered by link:", link, "from predecessor:", predecessor?.text);
+        // Trigger update to save the auto-scheduled changes
+        onTaskUpdate();
+        return true;
+      });
+
+      gantt.attachEvent("onAfterAutoSchedule", (taskId: any, updatedTasks: any[]) => {
+        console.log("Auto-scheduling complete. Tasks updated:", updatedTasks?.length || 0);
+        if (updatedTasks && updatedTasks.length > 0) {
+          console.log("Updated task IDs:", updatedTasks);
+        }
         return true;
       });
     }
