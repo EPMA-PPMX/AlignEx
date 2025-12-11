@@ -59,7 +59,7 @@ interface TimesheetSubmission {
 }
 
 const Timesheet: React.FC = () => {
-  const { showNotification } = useNotification();
+  const { showNotification, showConfirm } = useNotification();
   const [rows, setRows] = useState<TimesheetRow[]>([]);
   const [addedRows, setAddedRows] = useState<TimesheetRow[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -357,9 +357,10 @@ const Timesheet: React.FC = () => {
       return;
     }
 
-    if (!confirm(`Mark "${row.name}" as completed? It will be removed from your timesheet.`)) {
-      return;
-    }
+    const confirmed = await showConfirm({
+      message: `Mark "${row.name}" as completed? It will be removed from your timesheet.`
+    });
+    if (!confirmed) return;
 
     try {
       const { error } = await supabase
@@ -416,9 +417,12 @@ const Timesheet: React.FC = () => {
       return;
     }
 
-    if (!confirm(`Submit timesheet for week of ${currentWeekStart.toLocaleDateString()}?\n\nTotal Hours: ${totalHours.toFixed(2)}\nBillable: ${billableHours.toFixed(2)}\nNon-Billable: ${nonBillableHours.toFixed(2)}`)) {
-      return;
-    }
+    const confirmed = await showConfirm({
+      title: 'Submit Timesheet',
+      message: `Submit timesheet for week of ${currentWeekStart.toLocaleDateString()}?\n\nTotal Hours: ${totalHours.toFixed(2)}\nBillable: ${billableHours.toFixed(2)}\nNon-Billable: ${nonBillableHours.toFixed(2)}`,
+      confirmText: 'Submit'
+    });
+    if (!confirmed) return;
 
     setIsSubmitting(true);
 
@@ -461,9 +465,12 @@ const Timesheet: React.FC = () => {
   const handleRecallTimesheet = async () => {
     if (!weekSubmission) return;
 
-    if (!confirm('Recall this timesheet? You will be able to edit and resubmit it.')) {
-      return;
-    }
+    const confirmed = await showConfirm({
+      title: 'Recall Timesheet',
+      message: 'Recall this timesheet? You will be able to edit and resubmit it.',
+      confirmText: 'Recall'
+    });
+    if (!confirmed) return;
 
     setIsSubmitting(true);
 
@@ -615,9 +622,12 @@ const Timesheet: React.FC = () => {
   };
 
   const handleDeleteRow = async (row: TimesheetRow) => {
-    if (!confirm(`Delete "${row.name}" from your timesheet? This will permanently remove this item and all associated time entries.`)) {
-      return;
-    }
+    const confirmed = await showConfirm({
+      title: 'Delete Item',
+      message: `Delete "${row.name}" from your timesheet? This will permanently remove this item and all associated time entries.`,
+      confirmText: 'Delete'
+    });
+    if (!confirmed) return;
 
     try {
       // Delete all time entries for this item
