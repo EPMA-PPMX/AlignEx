@@ -39,7 +39,7 @@ interface ProjectTimesheets {
 }
 
 const TimesheetApproval: React.FC = () => {
-  const { showConfirm } = useNotification();
+  const { showConfirm, showNotification } = useNotification();
   const [projectTimesheets, setProjectTimesheets] = useState<ProjectTimesheets[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
@@ -196,17 +196,17 @@ const TimesheetApproval: React.FC = () => {
 
       if (error) {
         console.error('Error approving timesheet:', error);
-        alert('Error approving timesheet');
+        showNotification('Error approving timesheet', 'error');
         return;
       }
 
-      alert('Timesheet approved successfully!');
+      showNotification('Timesheet approved successfully!', 'success');
       setReviewComment('');
       setSelectedSubmission(null);
       await fetchTimesheets();
     } catch (error) {
       console.error('Error:', error);
-      alert('Error approving timesheet');
+      showNotification('Error approving timesheet', 'error');
     } finally {
       setProcessingAction(null);
     }
@@ -214,7 +214,7 @@ const TimesheetApproval: React.FC = () => {
 
   const handleReject = async (submissionId: string) => {
     if (!reviewComment.trim()) {
-      alert('Please provide a reason for rejection');
+      showNotification('Please provide a reason for rejection', 'info');
       return;
     }
 
@@ -242,17 +242,17 @@ const TimesheetApproval: React.FC = () => {
 
       if (error) {
         console.error('Error rejecting timesheet:', error);
-        alert('Error rejecting timesheet');
+        showNotification('Error rejecting timesheet', 'error');
         return;
       }
 
-      alert('Timesheet rejected successfully!');
+      showNotification('Timesheet rejected successfully!', 'success');
       setReviewComment('');
       setSelectedSubmission(null);
       await fetchTimesheets();
     } catch (error) {
       console.error('Error:', error);
-      alert('Error rejecting timesheet');
+      showNotification('Error rejecting timesheet', 'error');
     } finally {
       setProcessingAction(null);
     }

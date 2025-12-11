@@ -6,6 +6,7 @@ import ProjectCard from '../components/ProjectCard';
 import { supabase } from '../lib/supabase';
 import { DEMO_USER_ID } from '../lib/useCurrentUser';
 import { formatDate, formatCurrencyWithK } from '../lib/utils';
+import { useNotification } from '../lib/useNotification';
 
 interface Project {
   id: string;
@@ -37,6 +38,7 @@ interface ColumnConfig {
 
 const Projects: React.FC = () => {
   const navigate = useNavigate();
+  const { showNotification } = useNotification();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [viewMode, setViewMode] = useState<'tile' | 'list'>('tile');
@@ -201,7 +203,7 @@ const Projects: React.FC = () => {
 
       if (error) {
         console.error('Error fetching projects:', error);
-        alert('Error fetching projects: ' + error.message);
+        showNotification('Error fetching projects: ' + error.message, 'error');
       } else {
         setProjects(data || []);
         // Fetch custom field values for all projects
@@ -211,7 +213,7 @@ const Projects: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching projects:', error);
-      alert('Error fetching projects. Please try again.');
+      showNotification('Error fetching projects. Please try again.', 'error');
     } finally {
       setLoading(false);
     }

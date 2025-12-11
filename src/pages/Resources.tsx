@@ -26,7 +26,7 @@ interface Resource {
 }
 
 export default function Resources() {
-  const { showConfirm } = useNotification();
+  const { showConfirm, showNotification } = useNotification();
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -85,7 +85,7 @@ export default function Resources() {
       fetchResources();
     } catch (error) {
       console.error('Error deleting resource:', error);
-      alert('Failed to delete resource');
+      showNotification('Failed to delete resource', 'error');
     }
   };
 
@@ -359,6 +359,7 @@ interface CustomField {
 }
 
 function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
+  const { showNotification } = useNotification();
   const [formData, setFormData] = useState({
     resource_type: resource?.resource_type || 'person',
     first_name: resource?.first_name || '',
@@ -489,7 +490,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
       onSave();
     } catch (error) {
       console.error('Error saving resource:', error);
-      alert('Failed to save resource');
+      showNotification('Failed to save resource', 'error');
     } finally {
       setSaving(false);
     }

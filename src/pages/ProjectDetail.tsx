@@ -149,7 +149,7 @@ interface MonthlyBudgetForecast {
 const ProjectDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { showConfirm } = useNotification();
+  const { showConfirm, showNotification } = useNotification();
   const [activeTab, setActiveTab] = useState('overview');
 
   // Utility function to adjust date to skip weekends
@@ -795,7 +795,7 @@ const ProjectDetail: React.FC = () => {
       }));
 
       if (records.length === 0) {
-        alert('No field values to save');
+        showNotification('No field values to save', 'info');
         return;
       }
 
@@ -809,9 +809,9 @@ const ProjectDetail: React.FC = () => {
 
       if (error) {
         console.error('Error saving field values:', error);
-        alert(`Error saving field values: ${error.message}\n\nDetails: ${error.details || 'No additional details'}\n\nHint: ${error.hint || 'Check database constraints and permissions'}`);
+        showNotification(`Error saving field values: ${error.message}`, 'error');
       } else {
-        alert('Field values saved successfully!');
+        showNotification('Field values saved successfully!', 'success');
 
         // Track history for fields that have history tracking enabled
         if (overviewConfig && project) {
@@ -843,7 +843,7 @@ const ProjectDetail: React.FC = () => {
       }
     } catch (error) {
       console.error('Error saving field values:', error);
-      alert(`Unexpected error saving field values: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      showNotification(`Unexpected error saving field values: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
     } finally {
       setSaving(false);
     }
@@ -869,7 +869,7 @@ const ProjectDetail: React.FC = () => {
       setFieldHistory(data || []);
     } catch (error) {
       console.error('Error loading field history:', error);
-      alert('Failed to load field history');
+      showNotification('Failed to load field history', 'error');
     } finally {
       setLoadingHistory(false);
     }
@@ -1054,7 +1054,7 @@ const ProjectDetail: React.FC = () => {
 
   const handleProjectUpdate = async () => {
     if (!id || !projectForm.name.trim()) {
-      alert('Project name is required');
+      showNotification('Project name is required', 'error');
       return;
     }
 
@@ -1069,7 +1069,7 @@ const ProjectDetail: React.FC = () => {
         .eq('id', id);
 
       if (error) {
-        alert(`Error: ${error.message}`);
+        showNotification(`Error: ${error.message}`, 'error');
       } else {
         setProject(prev => prev ? {
           ...prev,
@@ -1077,11 +1077,11 @@ const ProjectDetail: React.FC = () => {
           description: projectForm.description.trim()
         } : null);
         setEditingProject(false);
-        alert('Project updated successfully!');
+        showNotification('Project updated successfully!', 'success');
       }
     } catch (error) {
       console.error('Error updating project:', error);
-      alert('Error updating project. Please try again.');
+      showNotification('Error updating project. Please try again.', 'error');
     } finally {
       setSaving(false);
     }
@@ -1105,12 +1105,12 @@ const ProjectDetail: React.FC = () => {
           .eq('id', editingRisk.id);
 
         if (error) {
-          alert(`Error: ${error.message}`);
+          showNotification(`Error: ${error.message}`, 'error');
         } else {
           await fetchRisks();
           setShowRiskModal(false);
           resetRiskForm();
-          alert('Risk updated successfully!');
+          showNotification('Risk updated successfully!', 'success');
         }
       } else {
         const { error } = await supabase
@@ -1118,17 +1118,17 @@ const ProjectDetail: React.FC = () => {
           .insert([payload]);
 
         if (error) {
-          alert(`Error: ${error.message}`);
+          showNotification(`Error: ${error.message}`, 'error');
         } else {
           await fetchRisks();
           setShowRiskModal(false);
           resetRiskForm();
-          alert('Risk created successfully!');
+          showNotification('Risk created successfully!', 'success');
         }
       }
     } catch (error) {
       console.error('Error saving risk:', error);
-      alert('Error saving risk');
+      showNotification('Error saving risk', 'error');
     }
   };
 
@@ -1164,14 +1164,14 @@ const ProjectDetail: React.FC = () => {
         .eq('id', riskId);
 
       if (error) {
-        alert(`Error: ${error.message}`);
+        showNotification(`Error: ${error.message}`, 'error');
       } else {
         await fetchRisks();
-        alert('Risk deleted successfully!');
+        showNotification('Risk deleted successfully!', 'success');
       }
     } catch (error) {
       console.error('Error deleting risk:', error);
-      alert('Error deleting risk');
+      showNotification('Error deleting risk', 'error');
     }
   };
 
@@ -1209,12 +1209,12 @@ const ProjectDetail: React.FC = () => {
           .eq('id', editingIssue.id);
 
         if (error) {
-          alert(`Error: ${error.message}`);
+          showNotification(`Error: ${error.message}`, 'error');
         } else {
           await fetchIssues();
           setShowIssueModal(false);
           resetIssueForm();
-          alert('Issue updated successfully!');
+          showNotification('Issue updated successfully!', 'success');
         }
       } else {
         const { error } = await supabase
@@ -1222,17 +1222,17 @@ const ProjectDetail: React.FC = () => {
           .insert([payload]);
 
         if (error) {
-          alert(`Error: ${error.message}`);
+          showNotification(`Error: ${error.message}`, 'error');
         } else {
           await fetchIssues();
           setShowIssueModal(false);
           resetIssueForm();
-          alert('Issue created successfully!');
+          showNotification('Issue created successfully!', 'success');
         }
       }
     } catch (error) {
       console.error('Error saving issue:', error);
-      alert('Error saving issue');
+      showNotification('Error saving issue', 'error');
     }
   };
 
@@ -1266,14 +1266,14 @@ const ProjectDetail: React.FC = () => {
         .eq('id', issueId);
 
       if (error) {
-        alert(`Error: ${error.message}`);
+        showNotification(`Error: ${error.message}`, 'error');
       } else {
         await fetchIssues();
-        alert('Issue deleted successfully!');
+        showNotification('Issue deleted successfully!', 'success');
       }
     } catch (error) {
       console.error('Error deleting issue:', error);
-      alert('Error deleting issue');
+      showNotification('Error deleting issue', 'error');
     }
   };
 
@@ -1318,12 +1318,12 @@ const ProjectDetail: React.FC = () => {
           .eq('id', editingChangeRequest.id);
 
         if (error) {
-          alert(`Error: ${error.message}`);
+          showNotification(`Error: ${error.message}`, 'error');
         } else {
           await fetchChangeRequests();
           setShowChangeRequestModal(false);
           resetChangeRequestForm();
-          alert('Change request updated successfully!');
+          showNotification('Change request updated successfully!', 'success');
         }
       } else {
         const { error } = await supabase
@@ -1331,17 +1331,17 @@ const ProjectDetail: React.FC = () => {
           .insert([payload]);
 
         if (error) {
-          alert(`Error: ${error.message}`);
+          showNotification(`Error: ${error.message}`, 'error');
         } else {
           await fetchChangeRequests();
           setShowChangeRequestModal(false);
           resetChangeRequestForm();
-          alert('Change request created successfully!');
+          showNotification('Change request created successfully!', 'success');
         }
       }
     } catch (error) {
       console.error('Error saving change request:', error);
-      alert('Error saving change request');
+      showNotification('Error saving change request', 'error');
     }
   };
 
@@ -1370,7 +1370,7 @@ const ProjectDetail: React.FC = () => {
       document.body.removeChild(a);
     } catch (error) {
       console.error('Error downloading file:', error);
-      alert('Failed to download file. Please try again.');
+      showNotification('Failed to download file. Please try again.', 'error');
     }
   };
 
@@ -1419,14 +1419,14 @@ const ProjectDetail: React.FC = () => {
         .eq('id', changeRequestId);
 
       if (error) {
-        alert(`Error: ${error.message}`);
+        showNotification(`Error: ${error.message}`, 'error');
       } else {
         await fetchChangeRequests();
-        alert('Change request deleted successfully!');
+        showNotification('Change request deleted successfully!', 'success');
       }
     } catch (error) {
       console.error('Error deleting change request:', error);
-      alert('Error deleting change request');
+      showNotification('Error deleting change request', 'error');
     }
   };
 
@@ -1475,11 +1475,11 @@ const ProjectDetail: React.FC = () => {
 
       const results = await Promise.all(uploadPromises);
       setUploadedFiles(prev => [...prev, ...results]);
-      alert(`${files.length} file(s) uploaded successfully!`);
+      showNotification(`${files.length} file(s) uploaded successfully!`, 'success');
       e.target.value = '';
     } catch (error: any) {
       console.error('Error uploading files:', error);
-      alert(error.message || 'Error uploading files');
+      showNotification(error.message || 'Error uploading files', 'error');
     } finally {
       setUploading(false);
     }
@@ -1505,7 +1505,7 @@ const ProjectDetail: React.FC = () => {
       window.document.body.removeChild(a);
     } catch (error) {
       console.error('Error downloading file:', error);
-      alert('Error downloading file');
+      showNotification('Error downloading file', 'error');
     }
   };
 
@@ -1527,10 +1527,10 @@ const ProjectDetail: React.FC = () => {
       }
 
       setUploadedFiles(prev => prev.filter(f => f.path !== filePath));
-      alert('File deleted successfully');
+      showNotification('File deleted successfully', 'success');
     } catch (error: any) {
       console.error('Error deleting file:', error);
-      alert(`Error deleting file: ${error.message}`);
+      showNotification(`Error deleting file: ${error.message}`, 'error');
     }
   };
 
@@ -1569,11 +1569,11 @@ const ProjectDetail: React.FC = () => {
       }
 
       await fetchDocuments();
-      alert('Document uploaded successfully!');
+      showNotification('Document uploaded successfully!', 'success');
       event.target.value = '';
     } catch (error: any) {
       console.error('Error uploading document:', error);
-      alert(`Error uploading document: ${error.message}`);
+      showNotification(`Error uploading document: ${error.message}`, 'error');
     }
   };
 
@@ -1597,7 +1597,7 @@ const ProjectDetail: React.FC = () => {
       window.document.body.removeChild(a);
     } catch (error: any) {
       console.error('Error downloading document:', error);
-      alert(`Error downloading document: ${error.message}`);
+      showNotification(`Error downloading document: ${error.message}`, 'error');
     }
   };
 
@@ -1612,7 +1612,7 @@ const ProjectDetail: React.FC = () => {
     try {
       const doc = documents.find(d => d.id === documentId);
       if (!doc) {
-        alert('Document not found');
+        showNotification('Document not found', 'error');
         return;
       }
 
@@ -1634,10 +1634,10 @@ const ProjectDetail: React.FC = () => {
       }
 
       setDocuments(prevDocs => prevDocs.filter(d => d.id !== documentId));
-      alert('Document deleted successfully!');
+      showNotification('Document deleted successfully!', 'success');
     } catch (error: any) {
       console.error('Error deleting document:', error);
-      alert(`Error deleting document: ${error.message}`);
+      showNotification(`Error deleting document: ${error.message}`, 'error');
     }
   };
 
@@ -1678,7 +1678,7 @@ const ProjectDetail: React.FC = () => {
     console.log('editingTaskId:', editingTaskId);
 
     if (!taskForm.description || !taskForm.start_date || !taskForm.duration) {
-      alert('Please fill in all required fields');
+      showNotification('Please fill in all required fields', 'error');
       return;
     }
 
@@ -1869,7 +1869,7 @@ const ProjectDetail: React.FC = () => {
       // Reset grouping state when tasks are updated
       setIsGroupedByOwner(false);
 
-      alert(editingTaskId ? 'Task updated successfully!' : 'Task created successfully!');
+      showNotification(editingTaskId ? 'Task updated successfully!' : 'Task created successfully!', 'success');
       setShowTaskModal(false);
       setEditingTaskId(null);
       setTaskForm({
@@ -1885,7 +1885,7 @@ const ProjectDetail: React.FC = () => {
       });
     } catch (error: any) {
       console.error('Error creating task:', error);
-      alert(`Error creating task: ${error.message}`);
+      showNotification(`Error creating task: ${error.message}`, 'error');
     }
   };
 
@@ -2011,10 +2011,10 @@ const ProjectDetail: React.FC = () => {
       setBudgetForm({
         categories: []
       });
-      alert(editingBudget ? 'Budget updated successfully!' : 'Budget added successfully!');
+      showNotification(editingBudget ? 'Budget updated successfully!' : 'Budget added successfully!', 'success');
     } catch (error: any) {
       console.error('Error saving budget:', error);
-      alert(`Error saving budget: ${error.message}`);
+      showNotification(`Error saving budget: ${error.message}`, 'error');
     }
   };
 
@@ -2038,10 +2038,10 @@ const ProjectDetail: React.FC = () => {
 
       await fetchBudgets();
       await fetchMonthlyForecasts();
-      alert('Budget item deleted successfully!');
+      showNotification('Budget item deleted successfully!', 'success');
     } catch (error: any) {
       console.error('Error deleting budget:', error);
-      alert(`Error deleting budget item: ${error.message}`);
+      showNotification(`Error deleting budget item: ${error.message}`, 'error');
     }
   };
 
@@ -2069,7 +2069,7 @@ const ProjectDetail: React.FC = () => {
       );
     } catch (error: any) {
       console.error('Error updating monthly value:', error);
-      alert(`Error updating value: ${error.message}`);
+      showNotification(`Error updating value: ${error.message}`, 'error');
     }
   };
 
@@ -2450,10 +2450,10 @@ const ProjectDetail: React.FC = () => {
                           baseline: baselineData
                         });
 
-                        alert('Baseline set successfully for all tasks!');
+                        showNotification('Baseline set successfully for all tasks!', 'success');
                       } catch (error) {
                         console.error('Error saving baseline:', error);
-                        alert('Failed to save baseline: ' + (error as Error).message);
+                        showNotification('Failed to save baseline: ' + (error as Error).message, 'error');
                       }
                     }
                   }}
