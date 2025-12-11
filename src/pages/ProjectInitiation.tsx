@@ -230,6 +230,8 @@ export default function ProjectInitiation() {
     const pendingCount = requests.filter(r => r.status === 'Pending Approval').length;
     const approvedCount = requests.filter(r => r.status === 'Approved').length;
     const rejectedCount = requests.filter(r => r.status === 'Rejected').length;
+    const draftCount = requests.filter(r => r.status === 'Draft').length;
+    const moreInfoCount = requests.filter(r => r.status === 'More Information Needed').length;
 
     const approvalRate = totalRequests > 0
       ? Math.round((approvedCount / (approvedCount + rejectedCount)) * 100) || 0
@@ -251,6 +253,8 @@ export default function ProjectInitiation() {
       pendingCount,
       approvedCount,
       rejectedCount,
+      draftCount,
+      moreInfoCount,
       approvalRate,
       typeDistribution,
       recentRequests
@@ -323,81 +327,86 @@ export default function ProjectInitiation() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-6 text-white">
-          <div className="flex items-center justify-between mb-3">
-            <FileText className="w-8 h-8 opacity-80" />
-            <span className="text-2xl font-bold">{analytics.totalRequests}</span>
+      <div className="grid grid-cols-7 gap-2">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-3 text-white">
+          <div className="flex items-center justify-between mb-1">
+            <FileText className="w-4 h-4 opacity-80" />
+            <span className="text-lg font-bold">{analytics.totalRequests}</span>
           </div>
-          <div className="text-blue-100 text-sm font-medium">Total Requests</div>
-          <div className="mt-2 text-xs text-blue-200">
-            {analytics.recentRequests} in last 30 days
-          </div>
+          <div className="text-blue-100 text-xs font-medium">Total Requests</div>
         </div>
 
-        <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-lg p-6 text-white">
-          <div className="flex items-center justify-between mb-3">
-            <Clock className="w-8 h-8 opacity-80" />
-            <span className="text-2xl font-bold">{analytics.pendingCount}</span>
+        <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-lg p-3 text-white">
+          <div className="flex items-center justify-between mb-1">
+            <Clock className="w-4 h-4 opacity-80" />
+            <span className="text-lg font-bold">{analytics.pendingCount}</span>
           </div>
-          <div className="text-amber-100 text-sm font-medium">Pending Approval</div>
-          <div className="mt-2 text-xs text-amber-200">
-            Awaiting review
-          </div>
+          <div className="text-amber-100 text-xs font-medium">Pending</div>
         </div>
 
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-6 text-white">
-          <div className="flex items-center justify-between mb-3">
-            <CheckCircle className="w-8 h-8 opacity-80" />
-            <span className="text-2xl font-bold">{analytics.approvedCount}</span>
+        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-3 text-white">
+          <div className="flex items-center justify-between mb-1">
+            <CheckCircle className="w-4 h-4 opacity-80" />
+            <span className="text-lg font-bold">{analytics.approvedCount}</span>
           </div>
-          <div className="text-green-100 text-sm font-medium">Approved</div>
-          <div className="mt-2 text-xs text-green-200">
-            Successfully approved
-          </div>
+          <div className="text-green-100 text-xs font-medium">Approved</div>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg p-6 text-white">
-          <div className="flex items-center justify-between mb-3">
-            <TrendingUp className="w-8 h-8 opacity-80" />
-            <span className="text-2xl font-bold">{analytics.approvalRate}%</span>
+        <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-lg p-3 text-white">
+          <div className="flex items-center justify-between mb-1">
+            <XCircle className="w-4 h-4 opacity-80" />
+            <span className="text-lg font-bold">{analytics.rejectedCount}</span>
           </div>
-          <div className="text-purple-100 text-sm font-medium">Approval Rate</div>
-          <div className="mt-2 text-xs text-purple-200">
-            {analytics.approvedCount} of {analytics.approvedCount + analytics.rejectedCount} reviewed
-          </div>
+          <div className="text-red-100 text-xs font-medium">Rejected</div>
         </div>
-      </div>
 
-      <div className="bg-white border border-slate-200 rounded-lg p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <BarChart3 className="w-5 h-5 text-slate-700" />
-          <h2 className="text-lg font-semibold text-slate-900">Requests by Type</h2>
+        <div className="bg-gradient-to-br from-slate-500 to-slate-600 rounded-lg p-3 text-white">
+          <div className="flex items-center justify-between mb-1">
+            <FileText className="w-4 h-4 opacity-80" />
+            <span className="text-lg font-bold">{analytics.draftCount}</span>
+          </div>
+          <div className="text-slate-100 text-xs font-medium">Draft</div>
         </div>
-        <div className="space-y-3">
-          {Object.entries(analytics.typeDistribution).length > 0 ? (
-            Object.entries(analytics.typeDistribution)
-              .sort(([, a], [, b]) => b - a)
-              .map(([type, count]) => {
-                const percentage = (count / analytics.totalRequests) * 100;
-                return (
-                  <div key={type} className="space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span className="font-medium text-slate-700">{type}</span>
-                      <span className="text-slate-600">{count} ({percentage.toFixed(0)}%)</span>
+
+        <div className="bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-lg p-3 text-white">
+          <div className="flex items-center justify-between mb-1">
+            <AlertCircle className="w-4 h-4 opacity-80" />
+            <span className="text-lg font-bold">{analytics.moreInfoCount}</span>
+          </div>
+          <div className="text-cyan-100 text-xs font-medium">More Info</div>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-lg p-3">
+          <div className="flex items-center gap-1 mb-2">
+            <BarChart3 className="w-3 h-3 text-slate-700" />
+            <h2 className="text-xs font-semibold text-slate-900">By Type</h2>
+          </div>
+          <div className="space-y-1.5">
+            {Object.entries(analytics.typeDistribution).length > 0 ? (
+              Object.entries(analytics.typeDistribution)
+                .sort(([, a], [, b]) => b - a)
+                .slice(0, 2)
+                .map(([type, count]) => {
+                  const percentage = (count / analytics.totalRequests) * 100;
+                  return (
+                    <div key={type} className="space-y-0.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="font-medium text-slate-700 truncate flex-1 mr-1">{type}</span>
+                        <span className="text-slate-600">{count}</span>
+                      </div>
+                      <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all"
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all"
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })
-          ) : (
-            <p className="text-slate-500 text-sm text-center py-4">No requests yet</p>
-          )}
+                  );
+                })
+            ) : (
+              <p className="text-slate-500 text-xs text-center py-1">No data</p>
+            )}
+          </div>
         </div>
       </div>
 
@@ -416,38 +425,6 @@ export default function ProjectInitiation() {
         </div>
       </div>
 
-      <div className="grid grid-cols-6 gap-3">
-        {statuses.map((status) => {
-          const Icon = status.icon;
-          const isActive = selectedStatus === status.value;
-          const count = getStatusCount(status.value);
-
-          return (
-            <button
-              key={status.value}
-              onClick={() => setSelectedStatus(status.value)}
-              className={`
-                p-3 rounded-lg border-2 transition-all text-left
-                ${
-                  isActive
-                    ? `border-${status.color}-500 bg-${status.color}-50`
-                    : 'border-slate-200 bg-white hover:border-slate-300'
-                }
-              `}
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <Icon className={`w-4 h-4 ${isActive ? `text-${status.color}-600` : 'text-slate-400'}`} />
-                <span className={`text-xs font-medium ${isActive ? `text-${status.color}-900` : 'text-slate-600'}`}>
-                  {status.label}
-                </span>
-              </div>
-              <p className={`text-2xl font-bold ${isActive ? `text-${status.color}-700` : 'text-slate-700'}`}>
-                {count}
-              </p>
-            </button>
-          );
-        })}
-      </div>
 
       {filteredRequests.length === 0 ? (
         <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
