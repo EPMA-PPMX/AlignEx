@@ -29,7 +29,7 @@ interface ProjectRequest {
 }
 
 export default function ProjectInitiation() {
-  const { showConfirm } = useNotification();
+  const { showConfirm, showNotification } = useNotification();
   const [requests, setRequests] = useState<ProjectRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -131,7 +131,7 @@ export default function ProjectInitiation() {
       }
     } catch (error) {
       console.error('Error updating status:', error);
-      alert('Error updating status. Please try again.');
+      showNotification('Error updating status. Please try again.', 'error');
     }
   };
 
@@ -188,11 +188,11 @@ export default function ProjectInitiation() {
           }
         }
 
-        alert(`Project "${request.project_name}" created successfully!`);
+        showNotification(`Project "${request.project_name}" created successfully!`, 'success');
       }
     } catch (error) {
       console.error('Error creating project from request:', error);
-      alert('Error creating project. Please try again or create it manually.');
+      showNotification('Error creating project. Please try again or create it manually.', 'error');
     }
   };
 
