@@ -765,6 +765,9 @@ const ProjectDetail: React.FC = () => {
             // Always calculate end_date from start_date and duration
             // Don't rely on stored end_date as it may be stale after duration changes
             const duration = task.duration || 1;
+            console.log(`Task ${task.id} (${task.text}): Raw duration from DB = ${task.duration}, Using duration = ${duration}`);
+            console.log(`Task ${task.id}: Raw end_date from DB = ${task.end_date}`);
+
             let endDate;
             if (startDate) {
               const start = new Date(startDate);
@@ -775,9 +778,10 @@ const ProjectDetail: React.FC = () => {
               const month = String(end.getMonth() + 1).padStart(2, '0');
               const day = String(end.getDate()).padStart(2, '0');
               endDate = `${year}-${month}-${day} 00:00`;
+              console.log(`Task ${task.id}: Calculated end_date = ${endDate}`);
             }
 
-            return {
+            const taskObject = {
               id: task.id,
               text: task.text || 'Untitled Task',
               start_date: startDate,
@@ -792,6 +796,16 @@ const ProjectDetail: React.FC = () => {
               resource_names: task.resource_names || [],
               ...customFields  // Spread all custom fields
             };
+
+            console.log(`Task ${task.id} final object being returned:`, {
+              id: taskObject.id,
+              text: taskObject.text,
+              start_date: taskObject.start_date,
+              end_date: taskObject.end_date,
+              duration: taskObject.duration
+            });
+
+            return taskObject;
           });
         }
         console.log('Setting project tasks with data:', taskData.data?.length, 'tasks');
@@ -1121,6 +1135,8 @@ const ProjectDetail: React.FC = () => {
           console.error('Error updating tasks:', error);
         } else {
           console.log("Tasks updated successfully");
+          // Refresh data from database to ensure UI shows latest values
+          await fetchProjectTasks();
         }
       } else {
         // Insert new record only if none exists
@@ -1136,6 +1152,8 @@ const ProjectDetail: React.FC = () => {
           console.error('Error inserting tasks:', error);
         } else {
           console.log("Tasks inserted successfully");
+          // Refresh data from database to ensure UI shows latest values
+          await fetchProjectTasks();
         }
       }
     } catch (error) {
