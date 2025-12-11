@@ -327,74 +327,75 @@ export default function ProjectInitiation() {
         </button>
       </div>
 
-      <div className="grid grid-cols-7 gap-2">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-3 text-white">
-          <div className="flex items-center justify-between mb-1">
-            <FileText className="w-4 h-4 opacity-80" />
-            <span className="text-lg font-bold">{analytics.totalRequests}</span>
+      <div className="space-y-4">
+        <div className="grid grid-cols-6 gap-3">
+          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-4 text-white">
+            <div className="flex items-center justify-between mb-2">
+              <FileText className="w-5 h-5 opacity-80" />
+              <span className="text-2xl font-bold">{analytics.totalRequests}</span>
+            </div>
+            <div className="text-blue-100 text-sm font-medium">Total Requests</div>
           </div>
-          <div className="text-blue-100 text-xs font-medium">Total Requests</div>
+
+          <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-lg p-4 text-white">
+            <div className="flex items-center justify-between mb-2">
+              <Clock className="w-5 h-5 opacity-80" />
+              <span className="text-2xl font-bold">{analytics.pendingCount}</span>
+            </div>
+            <div className="text-amber-100 text-sm font-medium">Pending</div>
+          </div>
+
+          <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-4 text-white">
+            <div className="flex items-center justify-between mb-2">
+              <CheckCircle className="w-5 h-5 opacity-80" />
+              <span className="text-2xl font-bold">{analytics.approvedCount}</span>
+            </div>
+            <div className="text-green-100 text-sm font-medium">Approved</div>
+          </div>
+
+          <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-lg p-4 text-white">
+            <div className="flex items-center justify-between mb-2">
+              <XCircle className="w-5 h-5 opacity-80" />
+              <span className="text-2xl font-bold">{analytics.rejectedCount}</span>
+            </div>
+            <div className="text-red-100 text-sm font-medium">Rejected</div>
+          </div>
+
+          <div className="bg-gradient-to-br from-slate-500 to-slate-600 rounded-lg p-4 text-white">
+            <div className="flex items-center justify-between mb-2">
+              <FileText className="w-5 h-5 opacity-80" />
+              <span className="text-2xl font-bold">{analytics.draftCount}</span>
+            </div>
+            <div className="text-slate-100 text-sm font-medium">Draft</div>
+          </div>
+
+          <div className="bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-lg p-4 text-white">
+            <div className="flex items-center justify-between mb-2">
+              <AlertCircle className="w-5 h-5 opacity-80" />
+              <span className="text-2xl font-bold">{analytics.moreInfoCount}</span>
+            </div>
+            <div className="text-cyan-100 text-sm font-medium">More Info</div>
+          </div>
         </div>
 
-        <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-lg p-3 text-white">
-          <div className="flex items-center justify-between mb-1">
-            <Clock className="w-4 h-4 opacity-80" />
-            <span className="text-lg font-bold">{analytics.pendingCount}</span>
+        <div className="bg-white border border-slate-200 rounded-lg p-4 max-w-md">
+          <div className="flex items-center gap-2 mb-3">
+            <BarChart3 className="w-4 h-4 text-slate-700" />
+            <h2 className="text-sm font-semibold text-slate-900">Requests by Type</h2>
           </div>
-          <div className="text-amber-100 text-xs font-medium">Pending</div>
-        </div>
-
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-3 text-white">
-          <div className="flex items-center justify-between mb-1">
-            <CheckCircle className="w-4 h-4 opacity-80" />
-            <span className="text-lg font-bold">{analytics.approvedCount}</span>
-          </div>
-          <div className="text-green-100 text-xs font-medium">Approved</div>
-        </div>
-
-        <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-lg p-3 text-white">
-          <div className="flex items-center justify-between mb-1">
-            <XCircle className="w-4 h-4 opacity-80" />
-            <span className="text-lg font-bold">{analytics.rejectedCount}</span>
-          </div>
-          <div className="text-red-100 text-xs font-medium">Rejected</div>
-        </div>
-
-        <div className="bg-gradient-to-br from-slate-500 to-slate-600 rounded-lg p-3 text-white">
-          <div className="flex items-center justify-between mb-1">
-            <FileText className="w-4 h-4 opacity-80" />
-            <span className="text-lg font-bold">{analytics.draftCount}</span>
-          </div>
-          <div className="text-slate-100 text-xs font-medium">Draft</div>
-        </div>
-
-        <div className="bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-lg p-3 text-white">
-          <div className="flex items-center justify-between mb-1">
-            <AlertCircle className="w-4 h-4 opacity-80" />
-            <span className="text-lg font-bold">{analytics.moreInfoCount}</span>
-          </div>
-          <div className="text-cyan-100 text-xs font-medium">More Info</div>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-lg p-3">
-          <div className="flex items-center gap-1 mb-2">
-            <BarChart3 className="w-3 h-3 text-slate-700" />
-            <h2 className="text-xs font-semibold text-slate-900">By Type</h2>
-          </div>
-          <div className="space-y-1.5">
+          <div className="space-y-2.5">
             {Object.entries(analytics.typeDistribution).length > 0 ? (
               Object.entries(analytics.typeDistribution)
                 .sort(([, a], [, b]) => b - a)
-                .slice(0, 2)
                 .map(([type, count]) => {
                   const percentage = (count / analytics.totalRequests) * 100;
                   return (
-                    <div key={type} className="space-y-0.5">
-                      <div className="flex justify-between text-xs">
-                        <span className="font-medium text-slate-700 truncate flex-1 mr-1">{type}</span>
-                        <span className="text-slate-600">{count}</span>
+                    <div key={type} className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium text-slate-700">{type}</span>
+                        <span className="text-slate-600">{count} ({percentage.toFixed(0)}%)</span>
                       </div>
-                      <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all"
                           style={{ width: `${percentage}%` }}
@@ -404,7 +405,7 @@ export default function ProjectInitiation() {
                   );
                 })
             ) : (
-              <p className="text-slate-500 text-xs text-center py-1">No data</p>
+              <p className="text-slate-500 text-sm text-center py-2">No requests yet</p>
             )}
           </div>
         </div>
