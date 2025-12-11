@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Trash2, ChevronLeft, ChevronRight, CheckCircle, Send, RotateCcw, ChevronDown, ChevronUp, FileText, X } from 'lucide-react';
+import { Plus, Trash2, ChevronLeft, ChevronRight, CheckCircle, Send, RotateCcw, ChevronDown, ChevronUp, FileText, X, MoreVertical } from 'lucide-react';
 
 interface TimesheetEntry {
   id: string;
@@ -74,9 +74,11 @@ const Timesheet: React.FC = () => {
     type: 'project' as 'project' | 'initiation' | 'category',
     selectedId: ''
   });
+  const [addModalError, setAddModalError] = useState<string | null>(null);
   const [weekSubmission, setWeekSubmission] = useState<TimesheetSubmission | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [notesModal, setNotesModal] = useState<{
     show: boolean;
     row: TimesheetRow | null;
@@ -284,8 +286,10 @@ const Timesheet: React.FC = () => {
   };
 
   const handleAddRow = async () => {
+    setAddModalError(null);
+
     if (!newRowForm.selectedId) {
-      alert('Please select an item');
+      setAddModalError('Please select an item');
       return;
     }
 
@@ -301,7 +305,7 @@ const Timesheet: React.FC = () => {
     }
 
     if (exists) {
-      alert('This item is already in your timesheet');
+      setAddModalError('This item is already in your timesheet. Please select a different item.');
       return;
     }
 
@@ -338,9 +342,10 @@ const Timesheet: React.FC = () => {
       await fetchData();
       setShowAddModal(false);
       setNewRowForm({ type: 'project', selectedId: '' });
+      setAddModalError(null);
     } catch (error: any) {
       console.error('Error:', error);
-      alert(`Error: ${error.message}`);
+      setAddModalError(`Error: ${error.message}`);
     }
   };
 
@@ -608,23 +613,44 @@ const Timesheet: React.FC = () => {
   };
 
   const handleDeleteRow = async (row: TimesheetRow) => {
-    if (!confirm(`Remove ${row.name} from timesheet? This will delete all time entries for this item.`)) {
+    if (!confirm(`Delete "${row.name}" from your timesheet? This will permanently remove this item and all associated time entries.`)) {
       return;
     }
 
-    const { error } = await supabase
-      .from('timesheet_entries')
-      .delete()
-      .eq(
-        row.type === 'project' ? 'project_id' : row.type === 'initiation' ? 'initiation_request_id' : 'non_project_category_id',
-        row.typeId
-      );
+    try {
+      // Delete all time entries for this item
+      const { error: entriesError } = await supabase
+        .from('timesheet_entries')
+        .delete()
+        .eq(
+          row.type === 'project' ? 'project_id' : row.type === 'initiation' ? 'initiation_request_id' : 'non_project_category_id',
+          row.typeId
+        );
 
-    if (error) {
-      console.error('Error deleting entries:', error);
-      alert('Error deleting entries');
-    } else {
+      if (entriesError) {
+        console.error('Error deleting entries:', entriesError);
+        alert('Error deleting entries');
+        return;
+      }
+
+      // If this is a persistent item, also delete from user_timesheet_items
+      if (row.persistentItemId) {
+        const { error: itemError } = await supabase
+          .from('user_timesheet_items')
+          .delete()
+          .eq('id', row.persistentItemId);
+
+        if (itemError) {
+          console.error('Error deleting persistent item:', itemError);
+          alert('Error deleting item');
+          return;
+        }
+      }
+
       await fetchData();
+    } catch (error: any) {
+      console.error('Error:', error);
+      alert(`Error: ${error.message}`);
     }
   };
 
@@ -878,25 +904,59 @@ const Timesheet: React.FC = () => {
                           })}
                           <td className="py-2 px-4 text-center text-sm font-semibold" rowSpan={isExpanded ? 2 : 1}>{rowTotal.toFixed(2)}</td>
                           <td className="py-2 px-4 text-center" rowSpan={isExpanded ? 2 : 1}>
-                            {row.persistentItemId ? (
-                              <button
-                                onClick={() => handleMarkAsCompleted(row)}
-                                disabled={weekSubmission && weekSubmission.status === 'submitted'}
-                                className="text-green-600 hover:text-green-800 flex items-center gap-1 mx-auto disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-green-600"
-                                title="Mark as Completed"
-                              >
-                                <CheckCircle className="w-4 h-4" />
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => handleDeleteRow(row)}
-                                disabled={weekSubmission && weekSubmission.status === 'submitted'}
-                                className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-red-600"
-                                title="Remove from this week"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
+                            <div className="flex items-center justify-center gap-2">
+                              {row.persistentItemId ? (
+                                <>
+                                  <button
+                                    onClick={() => handleMarkAsCompleted(row)}
+                                    disabled={weekSubmission && weekSubmission.status === 'submitted'}
+                                    className="text-green-600 hover:text-green-800 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-green-600"
+                                    title="Mark as Completed"
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                  </button>
+                                  <div className="relative">
+                                    <button
+                                      onClick={() => setOpenDropdown(openDropdown === row.id ? null : row.id)}
+                                      disabled={weekSubmission && weekSubmission.status === 'submitted'}
+                                      className="text-gray-600 hover:text-gray-800 p-1 hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                                      title="More actions"
+                                    >
+                                      <MoreVertical className="w-4 h-4" />
+                                    </button>
+                                    {openDropdown === row.id && (
+                                      <>
+                                        <div
+                                          className="fixed inset-0 z-10"
+                                          onClick={() => setOpenDropdown(null)}
+                                        />
+                                        <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                                          <button
+                                            onClick={() => {
+                                              setOpenDropdown(null);
+                                              handleDeleteRow(row);
+                                            }}
+                                            className="w-full flex items-center gap-2 px-4 py-2 text-left text-red-600 hover:bg-red-50"
+                                          >
+                                            <Trash2 className="w-4 h-4" />
+                                            <span className="text-sm">Delete</span>
+                                          </button>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                </>
+                              ) : (
+                                <button
+                                  onClick={() => handleDeleteRow(row)}
+                                  disabled={weekSubmission && weekSubmission.status === 'submitted'}
+                                  className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-red-600"
+                                  title="Remove from this week"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                         {isExpanded && (
@@ -982,6 +1042,12 @@ const Timesheet: React.FC = () => {
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">Add Time Entry</h2>
 
+            {addModalError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-800">{addModalError}</p>
+              </div>
+            )}
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -989,7 +1055,10 @@ const Timesheet: React.FC = () => {
                 </label>
                 <select
                   value={newRowForm.type}
-                  onChange={(e) => setNewRowForm({ type: e.target.value as any, selectedId: '' })}
+                  onChange={(e) => {
+                    setNewRowForm({ type: e.target.value as any, selectedId: '' });
+                    setAddModalError(null);
+                  }}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                 >
                   <option value="project">Active Project</option>
@@ -1005,7 +1074,10 @@ const Timesheet: React.FC = () => {
                   </label>
                   <select
                     value={newRowForm.selectedId}
-                    onChange={(e) => setNewRowForm({ ...newRowForm, selectedId: e.target.value })}
+                    onChange={(e) => {
+                      setNewRowForm({ ...newRowForm, selectedId: e.target.value });
+                      setAddModalError(null);
+                    }}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   >
                     <option value="">Select a project</option>
@@ -1025,7 +1097,10 @@ const Timesheet: React.FC = () => {
                   </label>
                   <select
                     value={newRowForm.selectedId}
-                    onChange={(e) => setNewRowForm({ ...newRowForm, selectedId: e.target.value })}
+                    onChange={(e) => {
+                      setNewRowForm({ ...newRowForm, selectedId: e.target.value });
+                      setAddModalError(null);
+                    }}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   >
                     <option value="">Select an initiation request</option>
@@ -1045,7 +1120,10 @@ const Timesheet: React.FC = () => {
                   </label>
                   <select
                     value={newRowForm.selectedId}
-                    onChange={(e) => setNewRowForm({ ...newRowForm, selectedId: e.target.value })}
+                    onChange={(e) => {
+                      setNewRowForm({ ...newRowForm, selectedId: e.target.value });
+                      setAddModalError(null);
+                    }}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   >
                     <option value="">Select a category</option>
@@ -1068,6 +1146,7 @@ const Timesheet: React.FC = () => {
                 onClick={() => {
                   setShowAddModal(false);
                   setNewRowForm({ type: 'project', selectedId: '' });
+                  setAddModalError(null);
                 }}
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
               >
