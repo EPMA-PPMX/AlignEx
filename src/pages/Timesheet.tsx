@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { useNotification } from '../lib/useNotification';
 import { Plus, Trash2, ChevronLeft, ChevronRight, CheckCircle, Send, RotateCcw, ChevronDown, ChevronUp, FileText, X, MoreVertical } from 'lucide-react';
 
 interface TimesheetEntry {
@@ -58,6 +59,7 @@ interface TimesheetSubmission {
 }
 
 const Timesheet: React.FC = () => {
+  const { showNotification } = useNotification();
   const [rows, setRows] = useState<TimesheetRow[]>([]);
   const [addedRows, setAddedRows] = useState<TimesheetRow[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -334,7 +336,7 @@ const Timesheet: React.FC = () => {
 
       if (error) {
         console.error('Error adding timesheet item:', error);
-        alert('Error adding item to timesheet');
+        showNotification('Error adding item to timesheet', 'error');
         return;
       }
 
@@ -351,7 +353,7 @@ const Timesheet: React.FC = () => {
 
   const handleMarkAsCompleted = async (row: TimesheetRow) => {
     if (!row.persistentItemId) {
-      alert('This item cannot be marked as completed');
+      showNotification('This item cannot be marked as completed', 'info');
       return;
     }
 
@@ -370,7 +372,7 @@ const Timesheet: React.FC = () => {
 
       if (error) {
         console.error('Error marking item as completed:', error);
-        alert('Error marking item as completed');
+        showNotification('Error marking item as completed', 'error');
         return;
       }
 
@@ -378,7 +380,7 @@ const Timesheet: React.FC = () => {
       await fetchData();
     } catch (error: any) {
       console.error('Error:', error);
-      alert(`Error: ${error.message}`);
+      showNotification(`Error: ${error.message}`, 'error');
     }
   };
 
@@ -388,7 +390,7 @@ const Timesheet: React.FC = () => {
     weekEnd.setDate(weekEnd.getDate() + 6);
 
     if (rows.length === 0) {
-      alert('No time entries to submit');
+      showNotification('No time entries to submit', 'info');
       return;
     }
 
@@ -410,7 +412,7 @@ const Timesheet: React.FC = () => {
     });
 
     if (totalHours === 0) {
-      alert('No hours to submit. Please add some time entries first.');
+      showNotification('No hours to submit. Please add some time entries first.', 'info');
       return;
     }
 
@@ -442,15 +444,15 @@ const Timesheet: React.FC = () => {
 
       if (error) {
         console.error('Error submitting timesheet:', error);
-        alert('Error submitting timesheet');
+        showNotification('Error submitting timesheet', 'error');
         return;
       }
 
-      alert('Timesheet submitted successfully!');
+      showNotification('Timesheet submitted successfully!', 'success');
       await fetchData();
     } catch (error: any) {
       console.error('Error:', error);
-      alert(`Error: ${error.message}`);
+      showNotification(`Error: ${error.message}`, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -476,15 +478,15 @@ const Timesheet: React.FC = () => {
 
       if (error) {
         console.error('Error recalling timesheet:', error);
-        alert('Error recalling timesheet');
+        showNotification('Error recalling timesheet', 'error');
         return;
       }
 
-      alert('Timesheet recalled successfully. You can now edit and resubmit.');
+      showNotification('Timesheet recalled successfully. You can now edit and resubmit.', 'success');
       await fetchData();
     } catch (error: any) {
       console.error('Error:', error);
-      alert(`Error: ${error.message}`);
+      showNotification(`Error: ${error.message}`, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -511,7 +513,7 @@ const Timesheet: React.FC = () => {
     const existingEntry = notesModal.row.entries[dateKey];
 
     if (!existingEntry || (existingEntry.billable === 0 && existingEntry.nonBillable === 0)) {
-      alert('Please enter hours before adding notes.');
+      showNotification('Please enter hours before adding notes.', 'info');
       return;
     }
 
@@ -629,7 +631,7 @@ const Timesheet: React.FC = () => {
 
       if (entriesError) {
         console.error('Error deleting entries:', entriesError);
-        alert('Error deleting entries');
+        showNotification('Error deleting entries', 'error');
         return;
       }
 
@@ -642,7 +644,7 @@ const Timesheet: React.FC = () => {
 
         if (itemError) {
           console.error('Error deleting persistent item:', itemError);
-          alert('Error deleting item');
+          showNotification('Error deleting item', 'error');
           return;
         }
       }
@@ -650,7 +652,7 @@ const Timesheet: React.FC = () => {
       await fetchData();
     } catch (error: any) {
       console.error('Error:', error);
-      alert(`Error: ${error.message}`);
+      showNotification(`Error: ${error.message}`, 'error');
     }
   };
 
