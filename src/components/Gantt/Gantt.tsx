@@ -544,14 +544,10 @@ export default class Gantt extends Component<GanttProps> {
     gantt.config.keyboard_navigation_cells = true;
 
     // Configure auto-scheduling behavior
-    gantt.config.auto_scheduling = {
-      enabled: true,
-      schedule_on_parse: true, // Auto-schedule when data is loaded
-      use_progress: false, // Include all tasks in auto-scheduling
-      project_constraint: false // Don't inherit constraints from parent projects
-    };
+    gantt.config.auto_scheduling = true; // Enable auto-scheduling
     gantt.config.auto_scheduling_strict = true; // Enforce strict scheduling rules to reschedule to earliest possible date
     gantt.config.auto_scheduling_compatibility = true; // Maintain compatibility with manual edits
+    gantt.config.auto_scheduling_use_progress = false; // Include all tasks in auto-scheduling
 
     // Enable grid resizing - allows dragging the splitter between grid and timeline
     gantt.config.grid_resize = true;
