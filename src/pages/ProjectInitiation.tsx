@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye, Edit2, Trash2, Calendar, DollarSign } from 'lucide-react';
+import { Plus, Search, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye, Edit2, Trash2, Calendar, DollarSign, TrendingUp, BarChart3 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNotification } from '../lib/useNotification';
 import { formatCurrency } from '../lib/utils';
@@ -225,6 +225,40 @@ export default function ProjectInitiation() {
     return requests.filter((req) => req.status === status).length;
   };
 
+  const getAnalytics = () => {
+    const totalRequests = requests.length;
+    const pendingCount = requests.filter(r => r.status === 'Pending Approval').length;
+    const approvedCount = requests.filter(r => r.status === 'Approved').length;
+    const rejectedCount = requests.filter(r => r.status === 'Rejected').length;
+
+    const approvalRate = totalRequests > 0
+      ? Math.round((approvedCount / (approvedCount + rejectedCount)) * 100) || 0
+      : 0;
+
+    const typeDistribution = requests.reduce((acc, req) => {
+      acc[req.project_type] = (acc[req.project_type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const last30Days = new Date();
+    last30Days.setDate(last30Days.getDate() - 30);
+    const recentRequests = requests.filter(
+      r => new Date(r.created_at) >= last30Days
+    ).length;
+
+    return {
+      totalRequests,
+      pendingCount,
+      approvedCount,
+      rejectedCount,
+      approvalRate,
+      typeDistribution,
+      recentRequests
+    };
+  };
+
+  const analytics = getAnalytics();
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Draft':
@@ -287,6 +321,84 @@ export default function ProjectInitiation() {
           <Plus className="w-5 h-5" />
           New Request
         </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-6 text-white">
+          <div className="flex items-center justify-between mb-3">
+            <FileText className="w-8 h-8 opacity-80" />
+            <span className="text-2xl font-bold">{analytics.totalRequests}</span>
+          </div>
+          <div className="text-blue-100 text-sm font-medium">Total Requests</div>
+          <div className="mt-2 text-xs text-blue-200">
+            {analytics.recentRequests} in last 30 days
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-lg p-6 text-white">
+          <div className="flex items-center justify-between mb-3">
+            <Clock className="w-8 h-8 opacity-80" />
+            <span className="text-2xl font-bold">{analytics.pendingCount}</span>
+          </div>
+          <div className="text-amber-100 text-sm font-medium">Pending Approval</div>
+          <div className="mt-2 text-xs text-amber-200">
+            Awaiting review
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-6 text-white">
+          <div className="flex items-center justify-between mb-3">
+            <CheckCircle className="w-8 h-8 opacity-80" />
+            <span className="text-2xl font-bold">{analytics.approvedCount}</span>
+          </div>
+          <div className="text-green-100 text-sm font-medium">Approved</div>
+          <div className="mt-2 text-xs text-green-200">
+            Successfully approved
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg p-6 text-white">
+          <div className="flex items-center justify-between mb-3">
+            <TrendingUp className="w-8 h-8 opacity-80" />
+            <span className="text-2xl font-bold">{analytics.approvalRate}%</span>
+          </div>
+          <div className="text-purple-100 text-sm font-medium">Approval Rate</div>
+          <div className="mt-2 text-xs text-purple-200">
+            {analytics.approvedCount} of {analytics.approvedCount + analytics.rejectedCount} reviewed
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white border border-slate-200 rounded-lg p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <BarChart3 className="w-5 h-5 text-slate-700" />
+          <h2 className="text-lg font-semibold text-slate-900">Requests by Type</h2>
+        </div>
+        <div className="space-y-3">
+          {Object.entries(analytics.typeDistribution).length > 0 ? (
+            Object.entries(analytics.typeDistribution)
+              .sort(([, a], [, b]) => b - a)
+              .map(([type, count]) => {
+                const percentage = (count / analytics.totalRequests) * 100;
+                return (
+                  <div key={type} className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium text-slate-700">{type}</span>
+                      <span className="text-slate-600">{count} ({percentage.toFixed(0)}%)</span>
+                    </div>
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all"
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })
+          ) : (
+            <p className="text-slate-500 text-sm text-center py-4">No requests yet</p>
+          )}
+        </div>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-lg p-4">
