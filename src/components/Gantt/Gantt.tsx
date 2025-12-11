@@ -542,8 +542,13 @@ export default class Gantt extends Component<GanttProps> {
     gantt.config.keyboard_navigation_cells = true;
 
     // Configure auto-scheduling behavior
-    gantt.config.auto_scheduling = true;
-    gantt.config.auto_scheduling_strict = true; // Enforce strict scheduling rules
+    gantt.config.auto_scheduling = {
+      enabled: true,
+      schedule_on_parse: true, // Auto-schedule when data is loaded
+      use_progress: false, // Include all tasks in auto-scheduling
+      project_constraint: false // Don't inherit constraints from parent projects
+    };
+    gantt.config.auto_scheduling_strict = true; // Enforce strict scheduling rules to reschedule to earliest possible date
     gantt.config.auto_scheduling_compatibility = true; // Maintain compatibility with manual edits
 
     // Enable grid resizing - allows dragging the splitter between grid and timeline
@@ -1076,6 +1081,14 @@ export default class Gantt extends Component<GanttProps> {
 
       gantt.attachEvent("onAfterTaskUpdate", (id: any, task: any) => {
         console.log("Task updated:", id, task);
+        // Check if task has successors (tasks that depend on this one)
+        const links = gantt.getLinks();
+        const hasSuccessors = links.some((link: any) => link.source === id);
+        if (hasSuccessors) {
+          console.log("Task has successors, triggering auto-schedule");
+          // Trigger auto-scheduling to update all successor tasks
+          gantt.autoSchedule(id);
+        }
         onTaskUpdate();
         return true;
       });
@@ -1095,18 +1108,27 @@ export default class Gantt extends Component<GanttProps> {
 
       gantt.attachEvent("onAfterLinkAdd", (id: any, link: any) => {
         console.log("Link added:", id, link);
+        console.log("Triggering auto-schedule from target task:", link.target);
+        // Trigger auto-scheduling from the target task when a new link is added
+        gantt.autoSchedule(link.target);
         onTaskUpdate();
         return true;
       });
 
       gantt.attachEvent("onAfterLinkUpdate", (id: any, link: any) => {
         console.log("Link updated:", id, link);
+        console.log("Triggering auto-schedule from target task:", link.target);
+        // Trigger auto-scheduling when link is updated
+        gantt.autoSchedule(link.target);
         onTaskUpdate();
         return true;
       });
 
-      gantt.attachEvent("onAfterLinkDelete", (id: any) => {
+      gantt.attachEvent("onAfterLinkDelete", (id: any, link: any) => {
         console.log("Link deleted:", id);
+        console.log("Triggering auto-schedule after link deletion");
+        // Recalculate entire project after link deletion
+        gantt.autoSchedule();
         onTaskUpdate();
         return true;
       });
