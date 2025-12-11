@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Save, ArrowLeft, Loader } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatCurrencyInput } from '../lib/utils';
+import { useNotification } from '../lib/useNotification';
 
 interface ProjectTemplate {
   id: string;
@@ -18,6 +19,7 @@ interface OrganizationalPriority {
 
 const NewProject: React.FC = () => {
   const navigate = useNavigate();
+  const { showNotification } = useNotification();
   const [loading, setLoading] = useState(false);
   const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
@@ -81,13 +83,13 @@ const NewProject: React.FC = () => {
     e.preventDefault();
 
     if (!formData.name.trim() || !formData.template_id) {
-      alert('Project name and project type are required');
+      showNotification('Project name and project type are required', 'error');
       return;
     }
 
     for (const priorityId of selectedPriorities) {
       if (!priorityImpacts[priorityId]?.trim()) {
-        alert('Please provide planned impact for all selected priorities');
+        showNotification('Please provide planned impact for all selected priorities', 'error');
         return;
       }
     }
@@ -106,7 +108,7 @@ const NewProject: React.FC = () => {
         .select();
 
       if (projectError) {
-        alert(`Error: ${projectError.message}`);
+        showNotification(`Error: ${projectError.message}`, 'error');
         return;
       }
 
@@ -129,11 +131,11 @@ const NewProject: React.FC = () => {
         }
       }
 
-      alert('Project created successfully!');
+      showNotification('Project created successfully!', 'success');
       navigate('/projects');
     } catch (error) {
       console.error('Error creating project:', error);
-      alert('Error creating project. Please try again.');
+      showNotification('Error creating project. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
