@@ -731,7 +731,8 @@ const Timesheet: React.FC = () => {
         <div className="mb-4 flex justify-end gap-3">
           <button
             onClick={() => setShowAddModal(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            disabled={weekSubmission && weekSubmission.status === 'submitted'}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="w-5 h-5" />
             Add Time Entry
@@ -880,7 +881,8 @@ const Timesheet: React.FC = () => {
                             {row.persistentItemId ? (
                               <button
                                 onClick={() => handleMarkAsCompleted(row)}
-                                className="text-green-600 hover:text-green-800 flex items-center gap-1 mx-auto"
+                                disabled={weekSubmission && weekSubmission.status === 'submitted'}
+                                className="text-green-600 hover:text-green-800 flex items-center gap-1 mx-auto disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-green-600"
                                 title="Mark as Completed"
                               >
                                 <CheckCircle className="w-4 h-4" />
@@ -888,7 +890,8 @@ const Timesheet: React.FC = () => {
                             ) : (
                               <button
                                 onClick={() => handleDeleteRow(row)}
-                                className="text-red-600 hover:text-red-800"
+                                disabled={weekSubmission && weekSubmission.status === 'submitted'}
+                                className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-red-600"
                                 title="Remove from this week"
                               >
                                 <Trash2 className="w-4 h-4" />
