@@ -536,7 +536,8 @@ export default class Gantt extends Component<GanttProps> {
     // Enable plugins
     gantt.plugins({
       keyboard_navigation: true,
-      auto_scheduling: true
+      auto_scheduling: true,
+      inline_editors: true
     });
     gantt.config.keyboard_navigation_cells = true;
 
@@ -1033,6 +1034,19 @@ export default class Gantt extends Component<GanttProps> {
         }
         task.duration = Math.max(1, Math.round(duration));
         console.log(`Normalized task ${id} duration to: ${task.duration}`);
+
+        // Recalculate end_date based on start_date and new duration
+        if (task.start_date && task.duration) {
+          const startDate = gantt.date.parseDate(task.start_date, "xml_date");
+          if (startDate) {
+            task.end_date = gantt.calculateEndDate({
+              start_date: startDate,
+              duration: task.duration,
+              task: task
+            });
+            console.log(`Recalculated end_date for task ${id}:`, task.end_date);
+          }
+        }
       }
       return true;
     });

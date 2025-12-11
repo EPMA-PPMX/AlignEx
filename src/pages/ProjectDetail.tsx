@@ -1057,11 +1057,23 @@ const ProjectDetail: React.FC = () => {
 
             console.log(`Task ${taskId}: duration=${task.duration} (type: ${typeof task.duration}), cleaned duration=${duration}`);
 
+            // Format end_date if it exists
+            let endDate = task.end_date;
+            if (endDate) {
+              // Convert Date object to string if needed
+              if (endDate instanceof Date) {
+                endDate = endDate.toISOString().split('T')[0] + ' 00:00';
+              } else if (typeof endDate === 'string' && !endDate.includes(' ')) {
+                endDate = endDate + ' 00:00';
+              }
+            }
+
             taskMap.set(taskId, {
               id: taskId,
               text: task.text,
               start_date: task.start_date,
               duration: duration,
+              end_date: endDate,
               progress: task.progress || 0,
               type: task.type || 'task',
               parent: task.$original_parent !== undefined ? task.$original_parent : (task.parent || 0),
