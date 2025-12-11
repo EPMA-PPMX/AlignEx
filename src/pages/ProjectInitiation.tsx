@@ -327,8 +327,8 @@ export default function ProjectInitiation() {
         </button>
       </div>
 
-      <div className="space-y-4">
-        <div className="grid grid-cols-6 gap-3">
+      <div className="grid grid-cols-[280px_1fr] gap-4">
+        <div className="space-y-2">
           <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-4 text-white">
             <div className="flex items-center justify-between mb-2">
               <FileText className="w-5 h-5 opacity-80" />
