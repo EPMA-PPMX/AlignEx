@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Users, Plus, Search, Filter, Download, Upload, Edit2, Trash2, UserPlus, Package } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useNotification } from '../lib/useNotification';
 import ResourceImportModal from '../components/ResourceImportModal';
 
 interface Resource {
@@ -25,6 +26,7 @@ interface Resource {
 }
 
 export default function Resources() {
+  const { showConfirm } = useNotification();
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -66,7 +68,12 @@ export default function Resources() {
   });
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this resource?')) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Resource',
+      message: 'Are you sure you want to delete this resource?',
+      confirmText: 'Delete'
+    });
+    if (!confirmed) return;
 
     try {
       const { error } = await supabase

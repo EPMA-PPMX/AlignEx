@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Search, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye, Edit2, Trash2, Calendar, DollarSign } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatCurrency, formatDate as utilFormatDate, formatCurrencyWithK } from '../lib/utils';
+import { useNotification } from '../lib/useNotification';
 import ProjectRequestForm from '../components/initiation/ProjectRequestForm';
 import RequestAnalytics from '../components/initiation/RequestAnalytics';
 
@@ -28,6 +29,7 @@ interface ProjectRequest {
 }
 
 export default function ProjectInitiation() {
+  const { showConfirm } = useNotification();
   const [requests, setRequests] = useState<ProjectRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -73,7 +75,12 @@ export default function ProjectInitiation() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this request?')) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Request',
+      message: 'Are you sure you want to delete this request?',
+      confirmText: 'Delete'
+    });
+    if (!confirmed) return;
 
     try {
       const { error } = await supabase

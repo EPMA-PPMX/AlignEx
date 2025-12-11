@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp, Search, Group, Flag, ZoomIn, ZoomOut, Maximize2, Minimize2, History } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useNotification } from '../lib/useNotification';
 import { trackFieldHistory, shouldTrackFieldHistory } from '../lib/fieldHistoryTracker';
 import { MonthlyBudgetGrid } from '../components/MonthlyBudgetGrid';
 import { BudgetSummaryTiles } from '../components/BudgetSummaryTiles';
@@ -148,6 +149,7 @@ interface MonthlyBudgetForecast {
 const ProjectDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { showConfirm } = useNotification();
   const [activeTab, setActiveTab] = useState('overview');
 
   // Utility function to adjust date to skip weekends
@@ -1148,7 +1150,12 @@ const ProjectDetail: React.FC = () => {
   };
 
   const handleDeleteRisk = async (riskId: string) => {
-    if (!window.confirm('Are you sure you want to delete this risk?')) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Risk',
+      message: 'Are you sure you want to delete this risk?',
+      confirmText: 'Delete'
+    });
+    if (!confirmed) return;
 
     try {
       const { error } = await supabase
@@ -1245,7 +1252,12 @@ const ProjectDetail: React.FC = () => {
   };
 
   const handleDeleteIssue = async (issueId: string) => {
-    if (!window.confirm('Are you sure you want to delete this issue?')) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Issue',
+      message: 'Are you sure you want to delete this issue?',
+      confirmText: 'Delete'
+    });
+    if (!confirmed) return;
 
     try {
       const { error } = await supabase
@@ -1393,7 +1405,12 @@ const ProjectDetail: React.FC = () => {
   };
 
   const handleDeleteChangeRequest = async (changeRequestId: string) => {
-    if (!window.confirm('Are you sure you want to delete this change request?')) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Change Request',
+      message: 'Are you sure you want to delete this change request?',
+      confirmText: 'Delete'
+    });
+    if (!confirmed) return;
 
     try {
       const { error } = await supabase
@@ -1493,9 +1510,12 @@ const ProjectDetail: React.FC = () => {
   };
 
   const handleRemoveFile = async (filePath: string) => {
-    if (!window.confirm('Are you sure you want to delete this file?')) {
-      return;
-    }
+    const confirmed = await showConfirm({
+      title: 'Delete File',
+      message: 'Are you sure you want to delete this file?',
+      confirmText: 'Delete'
+    });
+    if (!confirmed) return;
 
     try {
       const { error } = await supabase.storage
@@ -1582,7 +1602,12 @@ const ProjectDetail: React.FC = () => {
   };
 
   const handleDeleteDocument = async (documentId: string) => {
-    if (!window.confirm('Are you sure you want to delete this document?')) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Document',
+      message: 'Are you sure you want to delete this document?',
+      confirmText: 'Delete'
+    });
+    if (!confirmed) return;
 
     try {
       const doc = documents.find(d => d.id === documentId);
@@ -1994,7 +2019,12 @@ const ProjectDetail: React.FC = () => {
   };
 
   const handleDeleteBudget = async (budgetId: string) => {
-    if (!window.confirm('Are you sure you want to delete this budget item? This will also delete all associated monthly forecasts.')) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Budget Item',
+      message: 'Are you sure you want to delete this budget item? This will also delete all associated monthly forecasts.',
+      confirmText: 'Delete'
+    });
+    if (!confirmed) return;
 
     try {
       const { error } = await supabase

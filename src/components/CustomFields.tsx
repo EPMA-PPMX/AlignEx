@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, CreditCard as Edit2, Trash2, Save, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useNotification } from '../lib/useNotification';
 
 interface CustomField {
   id: string;
@@ -17,6 +18,7 @@ interface CustomField {
 }
 
 const CustomFields: React.FC = () => {
+  const { showConfirm } = useNotification();
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -141,9 +143,12 @@ const CustomFields: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this custom field?')) {
-      return;
-    }
+    const confirmed = await showConfirm({
+      title: 'Delete Custom Field',
+      message: 'Are you sure you want to delete this custom field?',
+      confirmText: 'Delete'
+    });
+    if (!confirmed) return;
 
     try {
       setLoading(true);

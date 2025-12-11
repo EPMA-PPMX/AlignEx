@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Shield, Users, Zap, Plus, Edit2, Check, X, Key, Calendar, TrendingUp } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { permissionService } from '../../lib/permissionService';
+import { useNotification } from '../../lib/useNotification';
 
 interface UserLicense {
   id: string;
@@ -26,6 +27,7 @@ interface OrganizationModule {
 const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000001';
 
 export default function LicenseManagement() {
+  const { showConfirm } = useNotification();
   const [userLicenses, setUserLicenses] = useState<UserLicense[]>([]);
   const [modules, setModules] = useState<OrganizationModule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -197,9 +199,12 @@ export default function LicenseManagement() {
   };
 
   const handleDeactivateModule = async (moduleKey: string) => {
-    if (!confirm(`Are you sure you want to deactivate the ${moduleKey} module? Users will lose access to this feature.`)) {
-      return;
-    }
+    const confirmed = await showConfirm({
+      title: 'Deactivate Module',
+      message: `Are you sure you want to deactivate the ${moduleKey} module? Users will lose access to this feature.`,
+      confirmText: 'Deactivate'
+    });
+    if (!confirmed) return;
 
     try {
       const { error } = await supabase

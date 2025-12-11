@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, TrendingUp, DollarSign, Calendar } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import RequiresModule from './RequiresModule';
+import { useNotification } from '../lib/useNotification';
 
 interface Priority {
   id: string;
@@ -33,6 +34,7 @@ interface BenefitTrackingProps {
 }
 
 export default function BenefitTracking({ projectId }: BenefitTrackingProps) {
+  const { showConfirm } = useNotification();
   const [priorityImpacts, setPriorityImpacts] = useState<PriorityImpact[]>([]);
   const [monthlyBenefits, setMonthlyBenefits] = useState<MonthlyBenefit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -151,7 +153,12 @@ export default function BenefitTracking({ projectId }: BenefitTrackingProps) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this benefit tracking entry?')) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Benefit Tracking Entry',
+      message: 'Are you sure you want to delete this benefit tracking entry?',
+      confirmText: 'Delete'
+    });
+    if (!confirmed) return;
 
     try {
       const { error } = await supabase

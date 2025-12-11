@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useNotification } from '../lib/useNotification';
 import { CheckCircle, XCircle, Eye, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface TimesheetSubmission {
@@ -38,6 +39,7 @@ interface ProjectTimesheets {
 }
 
 const TimesheetApproval: React.FC = () => {
+  const { showConfirm } = useNotification();
   const [projectTimesheets, setProjectTimesheets] = useState<ProjectTimesheets[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
@@ -170,7 +172,12 @@ const TimesheetApproval: React.FC = () => {
   };
 
   const handleApprove = async (submissionId: string) => {
-    if (!confirm('Approve this timesheet?')) return;
+    const confirmed = await showConfirm({
+      title: 'Approve Timesheet',
+      message: 'Approve this timesheet?',
+      confirmText: 'Approve'
+    });
+    if (!confirmed) return;
 
     setProcessingAction(submissionId);
 
@@ -211,7 +218,12 @@ const TimesheetApproval: React.FC = () => {
       return;
     }
 
-    if (!confirm('Reject this timesheet? The user will be able to recall and resubmit.')) return;
+    const confirmed = await showConfirm({
+      title: 'Reject Timesheet',
+      message: 'Reject this timesheet? The user will be able to recall and resubmit.',
+      confirmText: 'Reject'
+    });
+    if (!confirmed) return;
 
     setProcessingAction(submissionId);
 
