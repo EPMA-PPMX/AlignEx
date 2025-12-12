@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Save, Send, Loader } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { formatCurrencyInput } from '../../lib/utils';
+import { formatCurrencyInput, extractNumericValue, formatCurrency } from '../../lib/utils';
 import { useNotification } from '../../lib/useNotification';
 
 interface ProjectRequest {
@@ -45,6 +45,9 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
   const [projectTypesLoading, setProjectTypesLoading] = useState(true);
   const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
   const [priorityContributions, setPriorityContributions] = useState<{ [key: string]: string }>({});
+  const [formattedCost, setFormattedCost] = useState<string>(
+    request?.initial_estimated_cost ? formatCurrencyInput(request.initial_estimated_cost.toString()) : ''
+  );
 
   const [formData, setFormData] = useState({
     project_name: request?.project_name || '',
@@ -129,8 +132,13 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
 
-    if (name === 'estimated_duration' || name === 'initial_estimated_cost') {
+    if (name === 'estimated_duration') {
       const numValue = value === '' ? null : parseFloat(value);
+      setFormData((prev) => ({ ...prev, [name]: numValue }));
+    } else if (name === 'initial_estimated_cost') {
+      const formatted = formatCurrencyInput(value);
+      setFormattedCost(formatted);
+      const numValue = formatted ? extractNumericValue(formatted) : null;
       setFormData((prev) => ({ ...prev, [name]: numValue }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
@@ -374,17 +382,15 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                Initial Estimated Cost ($)
+                Initial Estimated Cost
               </label>
               <input
-                type="number"
+                type="text"
                 name="initial_estimated_cost"
-                value={formData.initial_estimated_cost || ''}
+                value={formattedCost}
                 onChange={handleInputChange}
-                min="0"
-                step="0.01"
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="e.g., 50000"
+                placeholder="e.g., $50,000"
               />
             </div>
           </div>
@@ -467,7 +473,7 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
                           {priority.title}
                         </label>
                         <p className="text-sm text-slate-600 mt-1">
-                          Target: {priority.target_value}
+                          Target: {formatCurrency(priority.target_value)}
                         </p>
                         {selectedPriorities.includes(priority.id) && (
                           <div className="mt-3">
