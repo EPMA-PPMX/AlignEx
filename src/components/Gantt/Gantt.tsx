@@ -646,6 +646,16 @@ export default class Gantt extends Component<GanttProps> {
     gantt.config.work_time = true;
     gantt.config.correct_work_time = true;
 
+    // Configure which days are work days (Monday-Friday)
+    // Sunday = 0, Saturday = 6
+    gantt.setWorkTime({ day: 0, hours: false }); // Sunday off
+    gantt.setWorkTime({ day: 6, hours: false }); // Saturday off
+    gantt.setWorkTime({ day: 1, hours: [0, 24] }); // Monday work
+    gantt.setWorkTime({ day: 2, hours: [0, 24] }); // Tuesday work
+    gantt.setWorkTime({ day: 3, hours: [0, 24] }); // Wednesday work
+    gantt.setWorkTime({ day: 4, hours: [0, 24] }); // Thursday work
+    gantt.setWorkTime({ day: 5, hours: [0, 24] }); // Friday work
+
     // Explicitly configure duration settings to prevent calculation issues
     gantt.config.duration_unit = "day";
     gantt.config.duration_step = 1;
