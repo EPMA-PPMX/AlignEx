@@ -2310,7 +2310,7 @@ const ProjectDetail: React.FC = () => {
       setEditingTaskId(null);
       setTaskForm({
         description: '',
-        start_date: '',
+        start_date: project?.created_at ? new Date(project.created_at).toISOString().split('T')[0] : '',
         duration: 1,
         owner_id: '',
         resource_ids: [],
@@ -3047,6 +3047,7 @@ const ProjectDetail: React.FC = () => {
                 selectedTaskFields={selectedTaskFields}
                 taskCustomFields={taskCustomFields}
                 showResourcePanel={showResourcePanel}
+                projectCreatedAt={project?.created_at}
                 onOpenTaskModal={(parentId) => {
                   console.log('=== onOpenTaskModal called ===');
                   console.log('parentId received:', parentId);
@@ -3071,7 +3072,7 @@ const ProjectDetail: React.FC = () => {
 
                   setTaskForm({
                     description: '',
-                    start_date: '',
+                    start_date: project?.created_at ? new Date(project.created_at).toISOString().split('T')[0] : '',
                     duration: 1,
                     owner_id: '',
                     resource_ids: [],
@@ -4375,7 +4376,7 @@ const ProjectDetail: React.FC = () => {
                     setEditingTaskId(null);
                     setTaskForm({
                       description: '',
-                      start_date: '',
+                      start_date: project?.created_at ? new Date(project.created_at).toISOString().split('T')[0] : '',
                       duration: 1,
                       owner_id: '',
                       resource_ids: [],

@@ -61,6 +61,7 @@ interface GanttProps {
   selectedTaskFields?: string[];
   taskCustomFields?: CustomField[];
   showResourcePanel?: boolean;
+  projectCreatedAt?: string;
 }
 
 export default class Gantt extends Component<GanttProps> {
@@ -931,6 +932,13 @@ export default class Gantt extends Component<GanttProps> {
         console.log("Task object:", task);
         console.log("task.parent:", task.parent);
         console.log("task.$rendered_parent:", task.$rendered_parent);
+
+        // Set default start date to project creation date if no start date provided
+        const { projectCreatedAt } = this.props;
+        if (!task.start_date && projectCreatedAt) {
+          task.start_date = new Date(projectCreatedAt);
+          console.log("Set default start_date to project creation date:", task.start_date);
+        }
 
         // Capture the parent - check various parent properties
         const parentId = task.$rendered_parent || task.parent;
