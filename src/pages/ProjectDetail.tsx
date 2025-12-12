@@ -2074,17 +2074,13 @@ const ProjectDetail: React.FC = () => {
               const startDateStr = `${adjustedStartDate} 00:00`;
               const duration = taskForm.type === 'milestone' ? 0 : taskForm.duration;
 
-              // Calculate end_date based on start_date and duration
-              const startDate = new Date(startDateStr);
-              const endDate = new Date(startDate);
-              endDate.setDate(startDate.getDate() + duration);
-              const endDateStr = endDate.toISOString().slice(0, 16).replace('T', ' ');
+              // Don't calculate end_date here - let DHTMLX Gantt calculate it based on work_time config
+              // DHTMLX will automatically calculate end_date from start_date + duration, respecting weekends
 
               const updatedTask: any = {
                 ...task,
                 text: taskForm.description,
                 start_date: startDateStr,
-                end_date: endDateStr,
                 duration: duration,
                 type: taskForm.type,
                 progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
@@ -2093,8 +2089,8 @@ const ProjectDetail: React.FC = () => {
               console.log('Updated task values:', {
                 id: editingTaskId,
                 start_date: startDateStr,
-                end_date: endDateStr,
-                duration: duration
+                duration: duration,
+                note: 'end_date will be calculated by DHTMLX Gantt'
               });
 
               // Update resources if selected
@@ -2130,17 +2126,13 @@ const ProjectDetail: React.FC = () => {
         const startDateStr = `${adjustedStartDate} 00:00`;
         const duration = taskForm.type === 'milestone' ? 0 : taskForm.duration;
 
-        // Calculate end_date based on start_date and duration
-        const startDate = new Date(startDateStr);
-        const endDate = new Date(startDate);
-        endDate.setDate(startDate.getDate() + duration);
-        const endDateStr = endDate.toISOString().slice(0, 16).replace('T', ' ');
+        // Don't calculate end_date here - let DHTMLX Gantt calculate it based on work_time config
+        // DHTMLX will automatically calculate end_date from start_date + duration, respecting weekends
 
         const newTask: any = {
           id: newTaskId,
           text: taskForm.description,
           start_date: startDateStr,
-          end_date: endDateStr,
           duration: duration,
           type: taskForm.type,
           progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
