@@ -2075,10 +2075,16 @@ const ProjectDetail: React.FC = () => {
                 progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
               };
 
-              // Set start_date only if provided
+              // Set start_date: use provided date or default to project creation date or keep existing
               if (adjustedStartDate) {
                 const startDateStr = `${adjustedStartDate} 00:00`;
                 updatedTask.start_date = startDateStr;
+              } else if (!task.start_date && project?.created_at) {
+                // If task has no start date and no new date provided, default to project creation date
+                const projectDate = new Date(project.created_at).toISOString().split('T')[0];
+                const startDateStr = `${projectDate} 00:00`;
+                updatedTask.start_date = startDateStr;
+                console.log('No start date provided, using project creation date:', startDateStr);
               }
 
               // Remove end_date so DHTMLX Gantt calculates it from duration
@@ -2134,10 +2140,16 @@ const ProjectDetail: React.FC = () => {
           progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
         };
 
-        // Set start_date only if provided
+        // Set start_date: use provided date or default to project creation date
         if (adjustedStartDate) {
           const startDateStr = `${adjustedStartDate} 00:00`;
           newTask.start_date = startDateStr;
+        } else if (project?.created_at) {
+          // Default to project creation date if no start date provided
+          const projectDate = new Date(project.created_at).toISOString().split('T')[0];
+          const startDateStr = `${projectDate} 00:00`;
+          newTask.start_date = startDateStr;
+          console.log('No start date provided, using project creation date:', startDateStr);
         }
 
         // Set parent - MUST be 0 for root tasks, not undefined
