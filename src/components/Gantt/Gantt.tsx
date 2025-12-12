@@ -449,11 +449,15 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         resize: true,
         template: (task: any) => {
           if (task.$group_header) return "";
-          // Manually calculate end date to ensure it's correct
-          const startDate = new Date(task.start_date);
-          const endDate = new Date(startDate);
-          endDate.setDate(startDate.getDate() + (task.duration || 0));
-          return gantt.templates.date_grid(endDate, task);
+          // Use DHTMLX's calculateEndDate which respects work_time configuration
+          if (task.start_date && task.duration) {
+            const startDate = typeof task.start_date === 'string'
+              ? gantt.date.parseDate(task.start_date, "xml_date")
+              : task.start_date;
+            const endDate = gantt.calculateEndDate(startDate, task.duration);
+            return gantt.templates.date_grid(endDate, task);
+          }
+          return "";
         }
       },
       {
