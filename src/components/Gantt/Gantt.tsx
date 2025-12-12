@@ -64,9 +64,7 @@ interface GanttProps {
   projectCreatedAt?: string;
 }
 
-interface GanttState {
-  skipWeekends: boolean;
-}
+interface GanttState {}
 
 export default class Gantt extends Component<GanttProps, GanttState> {
   private ganttContainer = createRef<HTMLDivElement>();
@@ -77,14 +75,11 @@ export default class Gantt extends Component<GanttProps, GanttState> {
   private originalLinks: any[] = [];
   private groupHeaderIdStart: number = 999900;
   private resizeObserver: ResizeObserver | null = null;
+  private readonly skipWeekends: boolean = true; // Always skip weekends by default
 
   constructor(props: GanttProps) {
     super(props);
-    // Load skipWeekends preference from localStorage, default to false
-    const savedPreference = localStorage.getItem('gantt_skip_weekends');
-    this.state = {
-      skipWeekends: savedPreference === 'true'
-    };
+    this.state = {};
   }
 
   public isGroupedByOwner = (): boolean => {
@@ -560,21 +555,19 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     gantt.config.readonly = false;
     gantt.config.details_on_dblclick = true;
 
-    // Configure work time based on skipWeekends state
+    // Configure work time - always skip weekends by default
     gantt.config.duration_unit = "day";
     gantt.config.skip_off_time = false; // Always show weekends in chart (never hide them)
 
-    // Apply work time configuration based on state
-    this.updateWorkTimeConfig(this.state.skipWeekends);
+    // Apply work time configuration to skip weekends
+    this.updateWorkTimeConfig(this.skipWeekends);
 
     console.log("=== DHTMLX Gantt Configuration ===");
     console.log("work_time enabled:", gantt.config.work_time);
     console.log("duration_unit:", gantt.config.duration_unit);
     console.log("skip_off_time:", gantt.config.skip_off_time);
-    console.log("skipWeekends:", this.state.skipWeekends);
-    console.log(this.state.skipWeekends
-      ? "Duration excludes weekends (working days only)"
-      : "Duration includes weekends (calendar days)");
+    console.log("skipWeekends:", this.skipWeekends);
+    console.log("Duration excludes weekends (working days only)");
 
     // Enable plugins
     gantt.plugins({
@@ -1890,28 +1883,6 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     }
   }
 
-  private handleSkipWeekendsToggle = () => {
-    const newValue = !this.state.skipWeekends;
-    this.setState({ skipWeekends: newValue });
-    localStorage.setItem('gantt_skip_weekends', String(newValue));
-
-    // Update gantt configuration
-    this.updateWorkTimeConfig(newValue);
-
-    // Recalculate all task end dates based on new setting
-    gantt.eachTask((task: any) => {
-      if (!task.$group_header && task.start_date && task.duration) {
-        const startDate = typeof task.start_date === 'string'
-          ? gantt.date.parseDate(task.start_date, "xml_date")
-          : task.start_date;
-        task.end_date = gantt.calculateEndDate(startDate, task.duration);
-        gantt.updateTask(task.id);
-      }
-    });
-
-    gantt.render();
-  };
-
   private updateWorkTimeConfig(skipWeekends: boolean) {
     if (skipWeekends) {
       // Enable work time to exclude weekends from duration
@@ -1941,46 +1912,11 @@ export default class Gantt extends Component<GanttProps, GanttState> {
 
   render(): React.ReactNode {
     return (
-      <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
-        <div style={{
-          padding: "8px 12px",
-          backgroundColor: "#f9fafb",
-          borderBottom: "1px solid #e5e7eb",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px"
-        }}>
-          <input
-            type="checkbox"
-            id="skip-weekends-toggle"
-            checked={this.state.skipWeekends}
-            onChange={this.handleSkipWeekendsToggle}
-            style={{ cursor: "pointer" }}
-          />
-          <label
-            htmlFor="skip-weekends-toggle"
-            style={{
-              cursor: "pointer",
-              fontSize: "14px",
-              color: "#374151",
-              userSelect: "none",
-              fontWeight: 500
-            }}
-          >
-            Skip Weekends in Duration Calculation
-          </label>
-          <span style={{ fontSize: "12px", color: "#6b7280", marginLeft: "8px" }}>
-            {this.state.skipWeekends
-              ? "(7 days = 7 working days, Mon-Fri)"
-              : "(7 days = 7 calendar days, including weekends)"}
-          </span>
-        </div>
-        <div
-          ref={this.ganttContainer}
-          className="gantt-container"
-          style={{ width: "100%", flex: 1 }}
-        ></div>
-      </div>
+      <div
+        ref={this.ganttContainer}
+        className="gantt-container"
+        style={{ width: "100%", height: "100%" }}
+      ></div>
     );
   }
 }
