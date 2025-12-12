@@ -1074,6 +1074,25 @@ export default class Gantt extends Component<GanttProps> {
         return true;
       });
 
+      // Recalculate end_date when duration changes
+      gantt.attachEvent("onBeforeTaskUpdate", (id: any, newTask: any) => {
+        const oldTask = gantt.getTask(id);
+
+        // If duration was changed, recalculate end_date
+        if (oldTask.duration !== newTask.duration) {
+          console.log("Duration changed from", oldTask.duration, "to", newTask.duration);
+          const newEndDate = gantt.calculateEndDate({
+            start_date: newTask.start_date,
+            duration: newTask.duration,
+            task: newTask
+          });
+          newTask.end_date = newEndDate;
+          console.log("New end_date:", newEndDate);
+        }
+
+        return true;
+      });
+
       gantt.attachEvent("onAfterTaskUpdate", (id: any, task: any) => {
         console.log("=== onAfterTaskUpdate ===");
         console.log("Task ID:", id);
