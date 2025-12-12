@@ -668,19 +668,14 @@ export default class Gantt extends Component<GanttProps> {
     };
 
     // Helper function to add working days to a date, skipping weekends
-    // The start date is considered day 1, so we add (daysToAdd - 1) working days
+    // DHTMLX uses EXCLUSIVE end dates (end_date is the start of the next day)
+    // So duration=3 means: start_date + 3 working days = end_date
     const addWorkingDays = (startDate: Date, daysToAdd: number): Date => {
       const result = new Date(startDate);
-
-      // If duration is 1, the task starts and ends on the same day
-      if (daysToAdd <= 1) {
-        return result;
-      }
-
-      // We need to add (daysToAdd - 1) working days since start date counts as day 1
-      let remainingDays = daysToAdd - 1;
+      let remainingDays = daysToAdd;
 
       while (remainingDays > 0) {
+        // Move to next day
         result.setDate(result.getDate() + 1);
         // Only count non-weekend days
         if (!isWeekend(result)) {
@@ -688,22 +683,25 @@ export default class Gantt extends Component<GanttProps> {
         }
       }
 
+      console.log(`[addWorkingDays] start: ${startDate.toDateString()}, duration: ${daysToAdd}, end: ${result.toDateString()}`);
       return result;
     };
 
-    // Helper function to count working days between two dates (inclusive)
+    // Helper function to count working days between two dates
+    // DHTMLX uses EXCLUSIVE end dates, so we count from start (inclusive) to end (exclusive)
     const countWorkingDays = (startDate: Date, endDate: Date): number => {
       let count = 0;
       const current = new Date(startDate);
 
-      // Count inclusively from start to end
-      while (current <= endDate) {
+      // Count from start (inclusive) to end (exclusive)
+      while (current < endDate) {
         if (!isWeekend(current)) {
           count++;
         }
         current.setDate(current.getDate() + 1);
       }
 
+      console.log(`[countWorkingDays] start: ${startDate.toDateString()}, end: ${endDate.toDateString()}, count: ${count}`);
       return count;
     };
 
