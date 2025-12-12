@@ -634,6 +634,12 @@ export default class Gantt extends Component<GanttProps> {
     gantt.config.skip_off_time = false;
     gantt.config.work_time = false;
 
+    // Explicitly configure duration settings to prevent calculation issues
+    gantt.config.duration_unit = "day";
+    gantt.config.duration_step = 1;
+    gantt.config.correct_work_time = false;
+    gantt.config.round_dnd_dates = false;
+
     const { projecttasks, onTaskUpdate, onOpenTaskModal, onEditTask, showResourcePanel } = this.props;
 
     // Define inline editors
@@ -1068,7 +1074,13 @@ export default class Gantt extends Component<GanttProps> {
       });
 
       gantt.attachEvent("onAfterTaskUpdate", (id: any, task: any) => {
-        console.log("Task updated:", id, task);
+        console.log("=== onAfterTaskUpdate ===");
+        console.log("Task ID:", id);
+        console.log("Task:", task.text);
+        console.log("start_date:", task.start_date);
+        console.log("end_date:", task.end_date);
+        console.log("duration:", task.duration);
+
         // Check if task has successors (tasks that depend on this one)
         const links = gantt.getLinks();
         const hasSuccessors = links.some((link: any) => link.source === id);
@@ -1123,16 +1135,36 @@ export default class Gantt extends Component<GanttProps> {
 
       // Auto-scheduling event handlers
       gantt.attachEvent("onBeforeTaskAutoSchedule", (task: any, start: Date, link: any, predecessor: any) => {
-        console.log("Auto-scheduling task:", task.text, "based on predecessor:", predecessor?.text);
-        console.log("Original duration:", task.duration);
+        console.log("=== onBeforeTaskAutoSchedule ===");
+        console.log("Task:", task.text);
+        console.log("Task ID:", task.id);
+        console.log("Current start_date:", task.start_date);
+        console.log("Current end_date:", task.end_date);
+        console.log("Current duration:", task.duration);
+        console.log("New start date:", start);
+        console.log("Predecessor:", predecessor?.text);
+
         // Store the original duration to preserve it after auto-scheduling
         task.$original_duration = task.duration;
+        task.$original_start_date = task.start_date;
+        task.$original_end_date = task.end_date;
         return true;
       });
 
       gantt.attachEvent("onAfterTaskAutoSchedule", (task: any, start: Date, link: any, predecessor: any) => {
-        console.log("Task auto-scheduled:", task.text, "new start date:", start);
-        console.log("Triggered by link:", link, "from predecessor:", predecessor?.text);
+        console.log("=== onAfterTaskAutoSchedule ===");
+        console.log("Task:", task.text);
+        console.log("Task ID:", task.id);
+        console.log("Original start_date:", task.$original_start_date);
+        console.log("Original end_date:", task.$original_end_date);
+        console.log("Original duration:", task.$original_duration);
+        console.log("After auto-schedule start_date:", task.start_date);
+        console.log("After auto-schedule end_date:", task.end_date);
+        console.log("After auto-schedule duration:", task.duration);
+
+        // Calculate what the duration should be from the dates
+        const calculatedDuration = gantt.calculateDuration(task.start_date, task.end_date);
+        console.log("DHTMLX calculated duration from dates:", calculatedDuration);
 
         // Restore the original duration and recalculate end_date to preserve duration
         if (task.$original_duration) {
@@ -1141,7 +1173,7 @@ export default class Gantt extends Component<GanttProps> {
 
           // Recalculate end_date based on new start_date and original duration
           const endDate = gantt.calculateEndDate({
-            start_date: start,
+            start_date: task.start_date,
             duration: originalDuration,
             task: task
           });
@@ -1149,8 +1181,17 @@ export default class Gantt extends Component<GanttProps> {
           task.duration = originalDuration;
           task.end_date = endDate;
 
-          console.log("Duration preserved:", task.duration, "New end_date:", endDate);
+          console.log("After restoration:");
+          console.log("  duration:", task.duration);
+          console.log("  end_date:", task.end_date);
+
+          // Verify the duration is correct
+          const verifyDuration = gantt.calculateDuration(task.start_date, task.end_date);
+          console.log("  Verification - calculated duration:", verifyDuration);
+
           delete task.$original_duration;
+          delete task.$original_start_date;
+          delete task.$original_end_date;
         }
 
         // Trigger update to save the auto-scheduled changes
