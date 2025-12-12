@@ -81,6 +81,13 @@ export default class Gantt extends Component<GanttProps> {
     return gantt;
   };
 
+  // Helper function to calculate end date correctly (inclusive)
+  private calculateEndDateFromDuration = (startDate: Date, duration: number): Date => {
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + duration);
+    return endDate;
+  };
+
   public setBaseline = (baselineNum: number = 0): any[] => {
     const baselineData: any[] = [];
 
@@ -90,10 +97,7 @@ export default class Gantt extends Component<GanttProps> {
 
       // Get current start and end dates
       const startDate = gantt.date.parseDate(task.start_date, "xml_date");
-      const endDate = gantt.calculateEndDate({
-        start_date: startDate,
-        duration: task.duration
-      });
+      const endDate = this.calculateEndDateFromDuration(startDate, task.duration);
 
       // Format dates as YYYY-MM-DD HH:mm for storage
       const dateTimeFormat = gantt.date.date_to_str("%Y-%m-%d %H:%i");
@@ -641,6 +645,26 @@ export default class Gantt extends Component<GanttProps> {
     gantt.config.correct_work_time = false;
     gantt.config.round_dnd_dates = false;
 
+    // Override DHTMLX's calculateEndDate to use correct inclusive calculation
+    const originalCalculateEndDate = gantt.calculateEndDate.bind(gantt);
+    gantt.calculateEndDate = (config: any) => {
+      const startDate = new Date(config.start_date);
+      const duration = config.duration || 0;
+      const endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + duration);
+      return endDate;
+    };
+
+    // Override DHTMLX's calculateDuration to match our end date calculation
+    const originalCalculateDuration = gantt.calculateDuration.bind(gantt);
+    gantt.calculateDuration = (start: Date, end: Date) => {
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      const diffTime = endDate.getTime() - startDate.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return Math.max(0, diffDays);
+    };
+
     const { projecttasks, onTaskUpdate, onOpenTaskModal, onEditTask, showResourcePanel } = this.props;
 
     // Define inline editors
@@ -1119,6 +1143,17 @@ export default class Gantt extends Component<GanttProps> {
       // Also listen for inline editor save
       gantt.attachEvent("onAfterInlineEditorSave", (state: any) => {
         console.log("Inline editor saved:", state);
+
+        // If duration was edited, recalculate end_date
+        if (state.columnName === "duration" && state.id) {
+          const task = gantt.getTask(state.id);
+          const startDate = new Date(task.start_date);
+          const endDate = this.calculateEndDateFromDuration(startDate, task.duration);
+          task.end_date = endDate;
+          console.log("Recalculated end_date after duration edit:", endDate);
+          gantt.updateTask(state.id);
+        }
+
         onTaskUpdate();
         return true;
       });
@@ -1195,11 +1230,8 @@ export default class Gantt extends Component<GanttProps> {
           console.log("Restoring original duration:", originalDuration);
 
           // Recalculate end_date based on new start_date and original duration
-          const endDate = gantt.calculateEndDate({
-            start_date: task.start_date,
-            duration: originalDuration,
-            task: task
-          });
+          const startDate = new Date(task.start_date);
+          const endDate = this.calculateEndDateFromDuration(startDate, originalDuration);
 
           task.duration = originalDuration;
           task.end_date = endDate;
