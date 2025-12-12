@@ -1081,13 +1081,16 @@ export default class Gantt extends Component<GanttProps> {
         // If duration was changed, recalculate end_date
         if (oldTask.duration !== newTask.duration) {
           console.log("Duration changed from", oldTask.duration, "to", newTask.duration);
-          const newEndDate = gantt.calculateEndDate({
-            start_date: newTask.start_date,
-            duration: newTask.duration,
-            task: newTask
-          });
-          newTask.end_date = newEndDate;
-          console.log("New end_date:", newEndDate);
+
+          // Calculate end date by adding duration days to start date
+          const startDate = new Date(newTask.start_date);
+          const endDate = new Date(startDate);
+          endDate.setDate(startDate.getDate() + newTask.duration);
+
+          newTask.end_date = endDate;
+          console.log("Start date:", startDate);
+          console.log("Duration:", newTask.duration);
+          console.log("New end_date:", endDate);
         }
 
         return true;
