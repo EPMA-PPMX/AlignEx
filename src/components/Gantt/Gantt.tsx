@@ -656,9 +656,17 @@ export default class Gantt extends Component<GanttProps> {
     };
 
     // Helper function to add working days to a date, skipping weekends
+    // The start date is considered day 1, so we add (daysToAdd - 1) working days
     const addWorkingDays = (startDate: Date, daysToAdd: number): Date => {
       const result = new Date(startDate);
-      let remainingDays = daysToAdd;
+
+      // If duration is 1, the task starts and ends on the same day
+      if (daysToAdd <= 1) {
+        return result;
+      }
+
+      // We need to add (daysToAdd - 1) working days since start date counts as day 1
+      let remainingDays = daysToAdd - 1;
 
       while (remainingDays > 0) {
         result.setDate(result.getDate() + 1);
@@ -671,12 +679,13 @@ export default class Gantt extends Component<GanttProps> {
       return result;
     };
 
-    // Helper function to count working days between two dates
+    // Helper function to count working days between two dates (inclusive)
     const countWorkingDays = (startDate: Date, endDate: Date): number => {
       let count = 0;
       const current = new Date(startDate);
 
-      while (current < endDate) {
+      // Count inclusively from start to end
+      while (current <= endDate) {
         if (!isWeekend(current)) {
           count++;
         }
