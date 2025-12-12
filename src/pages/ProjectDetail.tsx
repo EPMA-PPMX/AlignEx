@@ -2086,6 +2086,9 @@ const ProjectDetail: React.FC = () => {
                 progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
               };
 
+              // Remove end_date so DHTMLX Gantt calculates it from duration
+              delete updatedTask.end_date;
+
               console.log('Updated task values:', {
                 id: editingTaskId,
                 start_date: startDateStr,
