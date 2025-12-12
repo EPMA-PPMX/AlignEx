@@ -709,39 +709,66 @@ export default class Gantt extends Component<GanttProps> {
 
     // Override DHTMLX's calculateEndDate to skip weekends
     // This ensures that when a task has duration N, it spans N working days
-    gantt.calculateEndDate = (config: any) => {
-      const startDate = new Date(config.start_date);
-      const duration = config.duration || 0;
+    // API supports both signatures: (config) or (start_date, duration, unit)
+    gantt.calculateEndDate = function(start: any, duration?: any, unit?: any) {
+      let startDate: Date;
+      let durationValue: number;
+
+      // Handle both API signatures
+      if (typeof start === 'object' && start.start_date !== undefined) {
+        // Called with config object
+        startDate = new Date(start.start_date);
+        durationValue = start.duration || 0;
+      } else {
+        // Called with individual parameters
+        startDate = new Date(start);
+        durationValue = duration || 0;
+      }
 
       // Add working days to start date
-      const endDate = addWorkingDays(startDate, duration);
+      const endDate = addWorkingDays(startDate, durationValue);
 
-      console.log(`[calculateEndDate] start: ${startDate.toISOString()}, duration: ${duration} working days, end: ${endDate.toISOString()}`);
+      console.log(`[calculateEndDate] start: ${startDate.toISOString()}, duration: ${durationValue} working days, end: ${endDate.toISOString()}`);
       return endDate;
     };
 
     // Override DHTMLX's calculateDuration to count only working days
     // This ensures that the visual representation matches the duration value
-    gantt.calculateDuration = (config: any) => {
-      // If no end_date is provided, return the stored duration or use config.duration
-      if (!config.end_date) {
-        return config.duration || 1;
-      }
+    // API supports both signatures: (config) or (start_date, end_date, unit)
+    gantt.calculateDuration = function(start: any, end?: any, unit?: any) {
+      let startDate: Date;
+      let endDate: Date;
+      let storedDuration: number | undefined;
 
-      const startDate = new Date(config.start_date);
-      const endDate = new Date(config.end_date);
+      // Handle both API signatures
+      if (typeof start === 'object' && start.start_date !== undefined) {
+        // Called with config object
+        if (!start.end_date) {
+          return start.duration || 1;
+        }
+        startDate = new Date(start.start_date);
+        endDate = new Date(start.end_date);
+        storedDuration = start.duration;
+      } else {
+        // Called with individual parameters
+        if (!end) {
+          return 1;
+        }
+        startDate = new Date(start);
+        endDate = new Date(end);
+      }
 
       // Validate dates
       if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        console.warn('[calculateDuration] Invalid dates, using stored duration:', config.duration);
-        return config.duration || 1;
+        console.warn('[calculateDuration] Invalid dates, using stored duration:', storedDuration);
+        return storedDuration || 1;
       }
 
       // Count working days between start and end
       const workingDays = countWorkingDays(startDate, endDate);
 
       console.log(`[calculateDuration] start: ${startDate.toISOString()}, end: ${endDate.toISOString()}, duration: ${workingDays} working days`);
-      return Math.max(0, workingDays); // Ensure non-negative duration
+      return Math.max(1, workingDays); // Ensure at least 1 day duration
     };
 
     const { projecttasks, onTaskUpdate, onOpenTaskModal, onEditTask, showResourcePanel } = this.props;
