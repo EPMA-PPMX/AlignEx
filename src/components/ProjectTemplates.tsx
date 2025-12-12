@@ -7,6 +7,7 @@ interface ProjectTemplate {
   id: string;
   template_name: string;
   template_description?: string;
+  start_date?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -18,7 +19,8 @@ const ProjectTemplates: React.FC = () => {
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     template_name: '',
-    template_description: ''
+    template_description: '',
+    start_date: ''
   });
 
   useEffect(() => {
@@ -60,7 +62,8 @@ const ProjectTemplates: React.FC = () => {
 
       const payload = {
         template_name: formData.template_name.trim(),
-        template_description: formData.template_description.trim() || null
+        template_description: formData.template_description.trim() || null,
+        start_date: formData.start_date || null
       };
 
       if (editingTemplate) {
@@ -101,7 +104,8 @@ const ProjectTemplates: React.FC = () => {
     setEditingTemplate(template.id);
     setFormData({
       template_name: template.template_name,
-      template_description: template.template_description || ''
+      template_description: template.template_description || '',
+      start_date: template.start_date || ''
     });
   };
 
@@ -137,7 +141,8 @@ const ProjectTemplates: React.FC = () => {
   const resetForm = () => {
     setFormData({
       template_name: '',
-      template_description: ''
+      template_description: '',
+      start_date: ''
     });
     setEditingTemplate(null);
   };
@@ -174,8 +179,21 @@ const ProjectTemplates: React.FC = () => {
                 disabled={loading}
               />
             </div>
-            
+
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Default Start Date
+              </label>
+              <input
+                type="date"
+                value={formData.start_date}
+                onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={loading}
+              />
+            </div>
+
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Project Type Description
               </label>
@@ -242,6 +260,9 @@ const ProjectTemplates: React.FC = () => {
                     Description
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Default Start Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Created
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -259,6 +280,15 @@ const ProjectTemplates: React.FC = () => {
                       <div className="truncate">
                         {template.template_description || '-'}
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {template.start_date
+                        ? new Date(template.start_date).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                          })
+                        : '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatDate(template.created_at)}
