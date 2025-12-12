@@ -435,12 +435,30 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           return task.owner_name || "Unassigned";
         }
       },
-      { name: "start_date", label: "Start time", align: "center", width: 120, resize: true, editor: dateEditor },
+      {
+        name: "start_date",
+        label: "Start time",
+        align: "center",
+        width: 150,
+        resize: true,
+        editor: dateEditor,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          if (task.start_date) {
+            const startDate = typeof task.start_date === 'string'
+              ? gantt.date.parseDate(task.start_date, "xml_date")
+              : task.start_date;
+            // Format with date and time
+            return gantt.date.date_to_str("%Y-%m-%d %H:%i")(startDate);
+          }
+          return "";
+        }
+      },
       {
         name: "end_date",
         label: "End time",
         align: "center",
-        width: 120,
+        width: 150,
         resize: true,
         template: (task: any) => {
           if (task.$group_header) return "";
@@ -450,7 +468,8 @@ export default class Gantt extends Component<GanttProps, GanttState> {
               ? gantt.date.parseDate(task.start_date, "xml_date")
               : task.start_date;
             const endDate = gantt.calculateEndDate(startDate, task.duration);
-            return gantt.templates.date_grid(endDate, task);
+            // Format with date and time
+            return gantt.date.date_to_str("%Y-%m-%d %H:%i")(endDate);
           }
           return "";
         }
