@@ -2242,7 +2242,7 @@ const ProjectDetail: React.FC = () => {
                   <button
                     onClick={startEditingProject}
                     className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
-                    title="Edit project name and description"
+                    title="Edit project details"
                   >
                     <Edit2 className="w-5 h-5" />
                   </button>
@@ -2250,39 +2250,47 @@ const ProjectDetail: React.FC = () => {
                 {project.description && (
                   <p className="text-gray-600 mt-2">{project.description}</p>
                 )}
-                <div className="flex items-center space-x-4 mt-4">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm font-medium text-gray-600">State:</span>
-                    <ProjectStatusDropdown
-                      currentState={project.state}
-                      projectId={project.id}
-                      onStateUpdate={(newState) => {
-                        setProject(prev => prev ? { ...prev, state: newState } : null);
-                      }}
-                    />
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                  <div>
+                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Start Date</span>
+                    <p className="text-sm text-gray-900 mt-1">
+                      {project.start_date
+                        ? new Date(project.start_date).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                          })
+                        : 'Not set'}
+                    </p>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm font-medium text-gray-600">Status:</span>
-                    <ProjectHealthStatus
-                      currentStatus={project.health_status}
-                      projectId={project.id}
-                      onStatusUpdate={(newStatus) => {
-                        setProject(prev => prev ? { ...prev, health_status: newStatus } : null);
-                      }}
-                    />
+                  <div>
+                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">State</span>
+                    <div className="mt-1">
+                      <ProjectStatusDropdown
+                        currentState={project.state}
+                        projectId={project.id}
+                        onStateUpdate={(newState) => {
+                          setProject(prev => prev ? { ...prev, state: newState } : null);
+                        }}
+                      />
+                    </div>
                   </div>
-                  {project.start_date && (
-                    <span className="text-sm text-gray-500">
-                      Start Date: {new Date(project.start_date).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric'
-                      })}
-                    </span>
-                  )}
-                  <span className="text-sm text-gray-500">
-                    Created {formatDate(project.created_at)}
-                  </span>
+                  <div>
+                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Status</span>
+                    <div className="mt-1">
+                      <ProjectHealthStatus
+                        currentStatus={project.health_status}
+                        projectId={project.id}
+                        onStatusUpdate={(newStatus) => {
+                          setProject(prev => prev ? { ...prev, health_status: newStatus } : null);
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Created</span>
+                    <p className="text-sm text-gray-900 mt-1">{formatDate(project.created_at)}</p>
+                  </div>
                 </div>
               </div>
             )}
