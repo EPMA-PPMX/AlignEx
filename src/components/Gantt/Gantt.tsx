@@ -723,13 +723,12 @@ export default class Gantt extends Component<GanttProps> {
 
       // Add working days to start date
       const endDate = addWorkingDays(startDate, durationValue);
-
-      console.log(`[calculateEndDate] start: ${startDate.toISOString()}, duration: ${durationValue} working days, end: ${endDate.toISOString()}`);
       return endDate;
     };
 
-    // Override DHTMLX's calculateDuration to count only working days
-    // This ensures that the visual representation matches the duration value
+    // Override DHTMLX's calculateDuration
+    // IMPORTANT: Duration is the source of truth - we return the stored duration if available
+    // Only calculate from dates if duration is not provided
     // API supports both signatures: (config) or (start_date, end_date, unit)
     gantt.calculateDuration = function(start: any, end?: any, unit?: any) {
       let startDate: Date;
@@ -739,14 +738,21 @@ export default class Gantt extends Component<GanttProps> {
       // Handle both API signatures
       if (typeof start === 'object' && start.start_date !== undefined) {
         // Called with config object
+        storedDuration = start.duration;
+
+        // If duration is provided, return it as-is (duration is source of truth)
+        if (storedDuration !== undefined && storedDuration !== null && !isNaN(storedDuration)) {
+          return Math.max(1, storedDuration);
+        }
+
+        // Only calculate from dates if no duration is provided
         if (!start.end_date) {
-          return start.duration || 1;
+          return 1;
         }
         startDate = new Date(start.start_date);
         endDate = new Date(start.end_date);
-        storedDuration = start.duration;
       } else {
-        // Called with individual parameters
+        // Called with individual parameters - calculate from dates
         if (!end) {
           return 1;
         }
@@ -756,15 +762,12 @@ export default class Gantt extends Component<GanttProps> {
 
       // Validate dates
       if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        console.warn('[calculateDuration] Invalid dates, using stored duration:', storedDuration);
         return storedDuration || 1;
       }
 
       // Count working days between start and end
       const workingDays = countWorkingDays(startDate, endDate);
-
-      console.log(`[calculateDuration] start: ${startDate.toISOString()}, end: ${endDate.toISOString()}, duration: ${workingDays} working days`);
-      return Math.max(1, workingDays); // Ensure at least 1 day duration
+      return Math.max(1, workingDays);
     };
 
     const { projecttasks, onTaskUpdate, onOpenTaskModal, onEditTask, showResourcePanel } = this.props;
@@ -1184,7 +1187,6 @@ export default class Gantt extends Component<GanttProps> {
         // Use addWorkingDays to calculate end date (DHTMLX end dates are exclusive)
         const endDate = addWorkingDays(startDate, task.duration);
         task.end_date = endDate;
-        console.log(`[onTaskLoading] Task ${task.id}: duration=${task.duration}, start=${startDate.toISOString()}, end=${endDate.toISOString()}`);
       }
       return true;
     });
@@ -1202,7 +1204,6 @@ export default class Gantt extends Component<GanttProps> {
         }
         // Store duration exactly as entered (no rounding)
         task.duration = Math.max(1, duration);
-        console.log(`Task ${id} duration set to: ${task.duration}`);
       }
 
       // Always recalculate end_date based on start_date and duration (using working days)
@@ -1211,7 +1212,6 @@ export default class Gantt extends Component<GanttProps> {
         // Use addWorkingDays to calculate end date (DHTMLX end dates are exclusive)
         const endDate = addWorkingDays(startDate, task.duration);
         task.end_date = endDate;
-        console.log(`[onBeforeTaskUpdate] Task ${id}: recalculated end_date=${endDate.toISOString()}`);
       }
 
       return true;
