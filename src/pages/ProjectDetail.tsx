@@ -769,39 +769,18 @@ const ProjectDetail: React.FC = () => {
               }
             }
 
-            // Use stored end_date and duration as-is - DHTMLX Gantt will handle calculations
+            // Use stored duration - let Gantt calculate end_date from start_date + duration
+            // This ensures working days logic is applied correctly
             const duration = task.duration || 1;
             console.log(`Task ${task.id} (${task.text}): Raw duration from DB = ${task.duration}, Using duration = ${duration}`);
-            console.log(`Task ${task.id}: Raw end_date from DB = ${task.end_date}`);
-
-            // Use the stored end_date, preserving time component if present
-            let endDate = task.end_date;
-            if (endDate) {
-              // Convert to string if it's not already
-              endDate = String(endDate);
-
-              // If date contains 'T' or 'Z', convert to gantt format
-              if (endDate.includes('T') || endDate.includes('Z')) {
-                const dateObj = new Date(endDate);
-                const year = dateObj.getFullYear();
-                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-                const day = String(dateObj.getDate()).padStart(2, '0');
-                const hours = String(dateObj.getHours()).padStart(2, '0');
-                const minutes = String(dateObj.getMinutes()).padStart(2, '0');
-                endDate = `${year}-${month}-${day} ${hours}:${minutes}`;
-              }
-              // Ensure it has time component
-              if (!endDate.includes(':')) {
-                endDate = `${endDate} 00:00`;
-              }
-            }
-            console.log(`Task ${task.id}: Using end_date = ${endDate}`);
+            console.log(`Task ${task.id}: Will let Gantt calculate end_date from start_date + duration`);
 
             const taskObject = {
               id: task.id,
               text: task.text || 'Untitled Task',
               start_date: startDate,
-              end_date: endDate,
+              // Do NOT provide end_date - let Gantt calculate it from start_date + duration
+              // This ensures our custom calculateEndDate function is used with working days logic
               duration: duration,
               progress: task.progress || 0,
               type: task.type || 'task',
@@ -817,7 +796,6 @@ const ProjectDetail: React.FC = () => {
               id: taskObject.id,
               text: taskObject.text,
               start_date: taskObject.start_date,
-              end_date: taskObject.end_date,
               duration: taskObject.duration
             });
 
