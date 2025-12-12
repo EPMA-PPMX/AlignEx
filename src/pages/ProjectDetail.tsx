@@ -3098,7 +3098,11 @@ const ProjectDetail: React.FC = () => {
 
                     // Convert Date object to string if needed
                     if (startDate instanceof Date) {
-                      startDate = startDate.toISOString().split('T')[0];
+                      // Format date in local timezone to avoid timezone shift
+                      const year = startDate.getFullYear();
+                      const month = String(startDate.getMonth() + 1).padStart(2, '0');
+                      const day = String(startDate.getDate()).padStart(2, '0');
+                      startDate = `${year}-${month}-${day}`;
                     } else if (typeof startDate === 'string' && startDate.includes(' ')) {
                       startDate = startDate.split(' ')[0];
                     }
