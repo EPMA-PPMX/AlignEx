@@ -1053,14 +1053,17 @@ export default class Gantt extends Component<GanttProps> {
         task.duration = Math.max(1, duration);
         console.log(`Task ${id} duration set to: ${task.duration}`);
 
-        // Recalculate end_date based on start_date and duration using calendar days
-        // When auto-scheduling changes start_date, this ensures end_date is recalculated
+        // Recalculate end_date based on start_date and duration using DHTMLX Gantt's calculation method
+        // This ensures consistency with the library's internal calculations
         if (task.start_date && task.duration) {
           const startDate = gantt.date.parseDate(task.start_date, "xml_date");
           if (startDate) {
-            // Use simple date arithmetic for calendar days
-            const endDate = new Date(startDate);
-            endDate.setDate(endDate.getDate() + task.duration);
+            // Use gantt.calculateEndDate to ensure consistent duration calculation
+            const endDate = gantt.calculateEndDate({
+              start_date: startDate,
+              duration: task.duration,
+              task: task
+            });
             task.end_date = endDate;
             console.log(`Recalculated end_date for task ${id}:`, task.end_date);
           }
