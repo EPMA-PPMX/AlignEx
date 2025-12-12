@@ -436,8 +436,11 @@ export default class Gantt extends Component<GanttProps> {
         resize: true,
         template: (task: any) => {
           if (task.$group_header) return "";
-          // Display the actual end date (start_date + duration)
-          return gantt.templates.date_grid(task.end_date, task);
+          // Manually calculate end date to ensure it's correct
+          const startDate = new Date(task.start_date);
+          const endDate = new Date(startDate);
+          endDate.setDate(startDate.getDate() + (task.duration || 0));
+          return gantt.templates.date_grid(endDate, task);
         }
       },
       {
@@ -646,23 +649,15 @@ export default class Gantt extends Component<GanttProps> {
     gantt.config.round_dnd_dates = false;
 
     // Override DHTMLX's calculateEndDate to use correct inclusive calculation
+    // This ensures that when a task has duration N, it spans N full days
     const originalCalculateEndDate = gantt.calculateEndDate.bind(gantt);
     gantt.calculateEndDate = (config: any) => {
       const startDate = new Date(config.start_date);
       const duration = config.duration || 0;
       const endDate = new Date(startDate);
       endDate.setDate(startDate.getDate() + duration);
+      console.log(`[calculateEndDate] start: ${startDate.toISOString()}, duration: ${duration}, end: ${endDate.toISOString()}`);
       return endDate;
-    };
-
-    // Override DHTMLX's calculateDuration to match our end date calculation
-    const originalCalculateDuration = gantt.calculateDuration.bind(gantt);
-    gantt.calculateDuration = (start: Date, end: Date) => {
-      const startDate = new Date(start);
-      const endDate = new Date(end);
-      const diffTime = endDate.getTime() - startDate.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return Math.max(0, diffDays);
     };
 
     const { projecttasks, onTaskUpdate, onOpenTaskModal, onEditTask, showResourcePanel } = this.props;
@@ -1068,8 +1063,19 @@ export default class Gantt extends Component<GanttProps> {
       }
     });
 
+    // Recalculate end_date when task is loaded to ensure consistency
+    gantt.attachEvent("onTaskLoading", (task: any) => {
+      if (task.start_date && task.duration !== undefined && !task.$group_header) {
+        const startDate = new Date(task.start_date);
+        const endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + task.duration);
+        task.end_date = endDate;
+        console.log(`[onTaskLoading] Task ${task.id}: duration=${task.duration}, start=${startDate.toISOString()}, end=${endDate.toISOString()}`);
+      }
+      return true;
+    });
+
     // Validate and normalize duration before task is updated
-    // Let DHTMLX Gantt handle date calculations to avoid conflicts with auto-scheduling
     gantt.attachEvent("onBeforeTaskUpdate", (id: any, task: any) => {
       // Ensure duration is a valid positive number
       if (task.duration !== undefined && task.duration !== null) {
@@ -1085,8 +1091,15 @@ export default class Gantt extends Component<GanttProps> {
         console.log(`Task ${id} duration set to: ${task.duration}`);
       }
 
-      // Don't manually recalculate end_date - let DHTMLX Gantt handle it
-      // This prevents conflicts with auto-scheduling which manages dates automatically
+      // Always recalculate end_date based on start_date and duration
+      if (task.start_date && task.duration !== undefined) {
+        const startDate = new Date(task.start_date);
+        const endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + task.duration);
+        task.end_date = endDate;
+        console.log(`[onBeforeTaskUpdate] Task ${id}: recalculated end_date=${endDate.toISOString()}`);
+      }
+
       return true;
     });
 
@@ -1095,28 +1108,6 @@ export default class Gantt extends Component<GanttProps> {
       gantt.attachEvent("onAfterTaskAdd", (id: any, task: any) => {
         console.log("Task added:", id, task);
         onTaskUpdate();
-        return true;
-      });
-
-      // Recalculate end_date when duration changes
-      gantt.attachEvent("onBeforeTaskUpdate", (id: any, newTask: any) => {
-        const oldTask = gantt.getTask(id);
-
-        // If duration was changed, recalculate end_date
-        if (oldTask.duration !== newTask.duration) {
-          console.log("Duration changed from", oldTask.duration, "to", newTask.duration);
-
-          // Calculate end date by adding duration days to start date
-          const startDate = new Date(newTask.start_date);
-          const endDate = new Date(startDate);
-          endDate.setDate(startDate.getDate() + newTask.duration);
-
-          newTask.end_date = endDate;
-          console.log("Start date:", startDate);
-          console.log("Duration:", newTask.duration);
-          console.log("New end_date:", endDate);
-        }
-
         return true;
       });
 
