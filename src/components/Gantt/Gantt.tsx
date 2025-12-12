@@ -639,29 +639,67 @@ export default class Gantt extends Component<GanttProps> {
     updateGridWidth();
     gantt.config.min_grid_column_width = 50;
 
-    // Disable work time to use calendar days for duration (not working days)
-    gantt.config.skip_off_time = false;
-    gantt.config.work_time = false;
+    // Enable work time to skip weekends
+    gantt.config.skip_off_time = true;
+    gantt.config.work_time = true;
+    gantt.config.correct_work_time = true;
 
     // Explicitly configure duration settings to prevent calculation issues
     gantt.config.duration_unit = "day";
     gantt.config.duration_step = 1;
-    gantt.config.correct_work_time = false;
     gantt.config.round_dnd_dates = false;
 
-    // Override DHTMLX's calculateEndDate to use correct inclusive calculation
-    // This ensures that when a task has duration N, it spans N full days
-    const originalCalculateEndDate = gantt.calculateEndDate.bind(gantt);
+    // Helper function to check if a date is a weekend
+    const isWeekend = (date: Date): boolean => {
+      const day = date.getDay();
+      return day === 0 || day === 6; // Sunday (0) or Saturday (6)
+    };
+
+    // Helper function to add working days to a date, skipping weekends
+    const addWorkingDays = (startDate: Date, daysToAdd: number): Date => {
+      const result = new Date(startDate);
+      let remainingDays = daysToAdd;
+
+      while (remainingDays > 0) {
+        result.setDate(result.getDate() + 1);
+        // Only count non-weekend days
+        if (!isWeekend(result)) {
+          remainingDays--;
+        }
+      }
+
+      return result;
+    };
+
+    // Helper function to count working days between two dates
+    const countWorkingDays = (startDate: Date, endDate: Date): number => {
+      let count = 0;
+      const current = new Date(startDate);
+
+      while (current < endDate) {
+        if (!isWeekend(current)) {
+          count++;
+        }
+        current.setDate(current.getDate() + 1);
+      }
+
+      return count;
+    };
+
+    // Override DHTMLX's calculateEndDate to skip weekends
+    // This ensures that when a task has duration N, it spans N working days
     gantt.calculateEndDate = (config: any) => {
       const startDate = new Date(config.start_date);
       const duration = config.duration || 0;
-      const endDate = new Date(startDate);
-      endDate.setDate(startDate.getDate() + duration);
-      console.log(`[calculateEndDate] start: ${startDate.toISOString()}, duration: ${duration}, end: ${endDate.toISOString()}`);
+
+      // Add working days to start date
+      const endDate = addWorkingDays(startDate, duration);
+
+      console.log(`[calculateEndDate] start: ${startDate.toISOString()}, duration: ${duration} working days, end: ${endDate.toISOString()}`);
       return endDate;
     };
 
-    // Override DHTMLX's calculateDuration to match our date calculation logic
+    // Override DHTMLX's calculateDuration to count only working days
     // This ensures that the visual representation matches the duration value
     gantt.calculateDuration = (config: any) => {
       // If no end_date is provided, return the stored duration or use config.duration
@@ -678,12 +716,11 @@ export default class Gantt extends Component<GanttProps> {
         return config.duration || 1;
       }
 
-      // Calculate the difference in days
-      const timeDiff = endDate.getTime() - startDate.getTime();
-      const daysDiff = Math.round(timeDiff / (1000 * 60 * 60 * 24));
+      // Count working days between start and end
+      const workingDays = countWorkingDays(startDate, endDate);
 
-      console.log(`[calculateDuration] start: ${startDate.toISOString()}, end: ${endDate.toISOString()}, duration: ${daysDiff}`);
-      return Math.max(0, daysDiff); // Ensure non-negative duration
+      console.log(`[calculateDuration] start: ${startDate.toISOString()}, end: ${endDate.toISOString()}, duration: ${workingDays} working days`);
+      return Math.max(0, workingDays); // Ensure non-negative duration
     };
 
     const { projecttasks, onTaskUpdate, onOpenTaskModal, onEditTask, showResourcePanel } = this.props;
