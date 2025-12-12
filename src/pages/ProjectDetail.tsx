@@ -2037,16 +2037,11 @@ const ProjectDetail: React.FC = () => {
       let updatedTaskData;
       let currentTaskId = editingTaskId; // Track the task ID being worked with
 
-      // Ensure start_date has a value, default to project creation date if empty
+      // Ensure start_date has a value
       let startDateValue = taskForm.start_date;
       if (!startDateValue || startDateValue.trim() === '') {
-        if (project?.created_at) {
-          startDateValue = new Date(project.created_at).toISOString().split('T')[0];
-          console.log('Using project creation date as default start_date:', startDateValue);
-        } else {
-          alert('Please select a start date for the task');
-          return;
-        }
+        alert('Please select a start date for the task');
+        return;
       }
 
       // Adjust start date to skip weekends
@@ -2302,7 +2297,7 @@ const ProjectDetail: React.FC = () => {
       setEditingTaskId(null);
       setTaskForm({
         description: '',
-        start_date: project?.created_at ? new Date(project.created_at).toISOString().split('T')[0] : '',
+        start_date: '',
         duration: 1,
         owner_id: '',
         resource_ids: [],
@@ -3008,7 +3003,19 @@ const ProjectDetail: React.FC = () => {
                 </div>
                 <button
                   onClick={() => {
-                    setTaskForm({ ...taskForm, parent_id: undefined });
+                    setEditingTaskId(null);
+                    setTaskForm({
+                      description: '',
+                      start_date: '',
+                      duration: 1,
+                      owner_id: '',
+                      resource_ids: [],
+                      parent_id: undefined,
+                      parent_wbs: '',
+                      predecessor_ids: [],
+                      type: 'task',
+                      progress: 0
+                    });
                     setShowTaskModal(true);
                   }}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -3064,7 +3071,7 @@ const ProjectDetail: React.FC = () => {
 
                   setTaskForm({
                     description: '',
-                    start_date: project?.created_at ? new Date(project.created_at).toISOString().split('T')[0] : '',
+                    start_date: '',
                     duration: 1,
                     owner_id: '',
                     resource_ids: [],
@@ -4368,7 +4375,7 @@ const ProjectDetail: React.FC = () => {
                     setEditingTaskId(null);
                     setTaskForm({
                       description: '',
-                      start_date: project?.created_at ? new Date(project.created_at).toISOString().split('T')[0] : '',
+                      start_date: '',
                       duration: 1,
                       owner_id: '',
                       resource_ids: [],
