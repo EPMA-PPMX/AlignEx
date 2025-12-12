@@ -154,6 +154,13 @@ const ProjectDetail: React.FC = () => {
   // Utility function to adjust date to skip weekends
   const adjustToWorkday = (dateString: string): string => {
     const date = new Date(dateString);
+
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      console.error('Invalid date string provided to adjustToWorkday:', dateString);
+      return dateString; // Return original string if invalid
+    }
+
     const dayOfWeek = date.getDay();
 
     // If Saturday (6), move to Monday
@@ -2052,8 +2059,20 @@ const ProjectDetail: React.FC = () => {
       let updatedTaskData;
       let currentTaskId = editingTaskId; // Track the task ID being worked with
 
+      // Ensure start_date has a value, default to project creation date if empty
+      let startDateValue = taskForm.start_date;
+      if (!startDateValue || startDateValue.trim() === '') {
+        if (project?.created_at) {
+          startDateValue = new Date(project.created_at).toISOString().split('T')[0];
+          console.log('Using project creation date as default start_date:', startDateValue);
+        } else {
+          alert('Please select a start date for the task');
+          return;
+        }
+      }
+
       // Adjust start date to skip weekends
-      const adjustedStartDate = adjustToWorkday(taskForm.start_date);
+      const adjustedStartDate = adjustToWorkday(startDateValue);
       console.log('Adjusted start date:', adjustedStartDate);
 
       if (editingTaskId) {
