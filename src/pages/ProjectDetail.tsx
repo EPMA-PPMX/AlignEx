@@ -17,6 +17,7 @@ interface Project {
   id: string;
   name: string;
   description?: string;
+  start_date?: string | null;
   status: string;
   state: string;
   health_status: string;
@@ -211,7 +212,8 @@ const ProjectDetail: React.FC = () => {
   const [editingProject, setEditingProject] = useState(false);
   const [projectForm, setProjectForm] = useState({
     name: '',
-    description: ''
+    description: '',
+    start_date: ''
   });
 
   const [riskForm, setRiskForm] = useState({
@@ -337,7 +339,8 @@ const ProjectDetail: React.FC = () => {
         if (data) {
           setProjectForm({
             name: data.name || '',
-            description: data.description || ''
+            description: data.description || '',
+            start_date: data.start_date || ''
           });
         }
       }
@@ -1040,7 +1043,8 @@ const ProjectDetail: React.FC = () => {
     setEditingProject(true);
     setProjectForm({
       name: project?.name || '',
-      description: project?.description || ''
+      description: project?.description || '',
+      start_date: project?.start_date || ''
     });
   };
 
@@ -1048,7 +1052,8 @@ const ProjectDetail: React.FC = () => {
     setEditingProject(false);
     setProjectForm({
       name: project?.name || '',
-      description: project?.description || ''
+      description: project?.description || '',
+      start_date: project?.start_date || ''
     });
   };
 
@@ -1064,7 +1069,8 @@ const ProjectDetail: React.FC = () => {
         .from('projects')
         .update({
           name: projectForm.name.trim(),
-          description: projectForm.description.trim()
+          description: projectForm.description.trim(),
+          start_date: projectForm.start_date || null
         })
         .eq('id', id);
 
@@ -1074,7 +1080,8 @@ const ProjectDetail: React.FC = () => {
         setProject(prev => prev ? {
           ...prev,
           name: projectForm.name.trim(),
-          description: projectForm.description.trim()
+          description: projectForm.description.trim(),
+          start_date: projectForm.start_date || null
         } : null);
         setEditingProject(false);
         showNotification('Project updated successfully!', 'success');
@@ -2201,6 +2208,15 @@ const ProjectDetail: React.FC = () => {
                     placeholder="Enter project description"
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Project Start Date</label>
+                  <input
+                    type="date"
+                    value={projectForm.start_date}
+                    onChange={(e) => setProjectForm({ ...projectForm, start_date: e.target.value })}
+                    className="w-full max-w-2xl px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
                 <div className="flex items-center space-x-3">
                   <button
                     onClick={handleProjectUpdate}
@@ -2255,6 +2271,15 @@ const ProjectDetail: React.FC = () => {
                       }}
                     />
                   </div>
+                  {project.start_date && (
+                    <span className="text-sm text-gray-500">
+                      Start Date: {new Date(project.start_date).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                      })}
+                    </span>
+                  )}
                   <span className="text-sm text-gray-500">
                     Created {formatDate(project.created_at)}
                   </span>
