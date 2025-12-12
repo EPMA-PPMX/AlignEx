@@ -544,9 +544,23 @@ export default class Gantt extends Component<GanttProps> {
     gantt.config.duration_unit = "day";
     gantt.config.skip_off_time = true; // Hide non-working time in chart
 
+    console.log("=== DHTMLX Gantt Configuration ===");
+    console.log("work_time enabled:", gantt.config.work_time);
+    console.log("duration_unit:", gantt.config.duration_unit);
+    console.log("skip_off_time:", gantt.config.skip_off_time);
+
     // Configure working days (Monday-Friday)
     gantt.setWorkTime({ day: 0, hours: false }); // Sunday
     gantt.setWorkTime({ day: 6, hours: false }); // Saturday
+
+    console.log("Working days configured: Monday-Friday (weekends disabled)");
+
+    // Test calculateEndDate to verify work_time is working
+    const testStartDate = new Date(2024, 11, 12); // Thursday Dec 12, 2024
+    const testDuration = 3; // 3 working days
+    const testEndDate = gantt.calculateEndDate(testStartDate, testDuration);
+    console.log("Test calculation: Start=Thu Dec 12, Duration=3 days -> End=", testEndDate);
+    console.log("Expected: Tue Dec 17 (skipping Sat/Sun)");
 
     // Enable plugins
     gantt.plugins({
@@ -1059,14 +1073,31 @@ export default class Gantt extends Component<GanttProps> {
     // Recalculate end_date when task is loaded to ensure consistency
     gantt.attachEvent("onTaskLoading", (task: any) => {
       if (task.start_date && task.duration !== undefined && !task.$group_header) {
+        console.log("=== onTaskLoading ===");
+        console.log("Task:", task.text);
+        console.log("Original start_date:", task.start_date);
+        console.log("Original end_date:", task.end_date);
+        console.log("Duration:", task.duration);
+
         // Use DHTMLX's calculateEndDate which respects work_time config
-        task.end_date = gantt.calculateEndDate(task.start_date, task.duration);
+        const calculatedEndDate = gantt.calculateEndDate(task.start_date, task.duration);
+        console.log("Calculated end_date:", calculatedEndDate);
+
+        task.end_date = calculatedEndDate;
+        console.log("Final end_date set:", task.end_date);
       }
       return true;
     });
 
     // Validate and normalize duration before task is updated
     gantt.attachEvent("onBeforeTaskUpdate", (id: any, task: any) => {
+      console.log("=== onBeforeTaskUpdate ===");
+      console.log("Task ID:", id);
+      console.log("Task:", task.text);
+      console.log("start_date:", task.start_date);
+      console.log("end_date before:", task.end_date);
+      console.log("duration before:", task.duration);
+
       // Ensure duration is a valid positive number
       if (task.duration !== undefined && task.duration !== null) {
         let duration = task.duration;
@@ -1078,12 +1109,16 @@ export default class Gantt extends Component<GanttProps> {
         }
         // Store duration exactly as entered (no rounding)
         task.duration = Math.max(1, duration);
+        console.log("duration after validation:", task.duration);
       }
 
       // Recalculate end_date based on start_date and duration
       if (task.start_date && task.duration !== undefined) {
         // Use DHTMLX's calculateEndDate which respects work_time config
-        task.end_date = gantt.calculateEndDate(task.start_date, task.duration);
+        const calculatedEndDate = gantt.calculateEndDate(task.start_date, task.duration);
+        console.log("Calculated end_date:", calculatedEndDate);
+        task.end_date = calculatedEndDate;
+        console.log("end_date after calculation:", task.end_date);
       }
 
       return true;
@@ -1110,19 +1145,43 @@ export default class Gantt extends Component<GanttProps> {
 
       // Also listen for inline editor save
       gantt.attachEvent("onAfterInlineEditorSave", (state: any) => {
+        console.log("=== onAfterInlineEditorSave ===");
+        console.log("Column edited:", state.columnName);
+        console.log("Task ID:", state.id);
+        console.log("Old value:", state.oldValue);
+        console.log("New value:", state.newValue);
+
         // If duration was edited, recalculate end_date using DHTMLX's work_time calculation
         if (state.columnName === "duration" && state.id) {
           const task = gantt.getTask(state.id);
+          console.log("Duration edited - Task:", task.text);
+          console.log("start_date:", task.start_date);
+          console.log("duration:", task.duration);
+          console.log("end_date before:", task.end_date);
+
           // Use DHTMLX's calculateEndDate which respects work_time config
-          task.end_date = gantt.calculateEndDate(task.start_date, task.duration);
+          const calculatedEndDate = gantt.calculateEndDate(task.start_date, task.duration);
+          console.log("Calculated end_date:", calculatedEndDate);
+          task.end_date = calculatedEndDate;
+          console.log("end_date after:", task.end_date);
+
           gantt.updateTask(state.id);
         }
 
         // If start_date was edited, recalculate end_date preserving duration
         if (state.columnName === "start_date" && state.id) {
           const task = gantt.getTask(state.id);
+          console.log("Start date edited - Task:", task.text);
+          console.log("start_date:", task.start_date);
+          console.log("duration:", task.duration);
+          console.log("end_date before:", task.end_date);
+
           // Use DHTMLX's calculateEndDate which respects work_time config
-          task.end_date = gantt.calculateEndDate(task.start_date, task.duration);
+          const calculatedEndDate = gantt.calculateEndDate(task.start_date, task.duration);
+          console.log("Calculated end_date:", calculatedEndDate);
+          task.end_date = calculatedEndDate;
+          console.log("end_date after:", task.end_date);
+
           gantt.updateTask(state.id);
         }
 
@@ -1162,6 +1221,14 @@ export default class Gantt extends Component<GanttProps> {
 
       // Auto-scheduling event handlers
       gantt.attachEvent("onBeforeTaskAutoSchedule", (task: any, start: Date, link: any, predecessor: any) => {
+        console.log("=== onBeforeTaskAutoSchedule ===");
+        console.log("Task:", task.text);
+        console.log("Current start_date:", task.start_date);
+        console.log("Current end_date:", task.end_date);
+        console.log("Current duration:", task.duration);
+        console.log("New start date:", start);
+        console.log("Predecessor:", predecessor?.text);
+
         // Store the original duration to preserve it after auto-scheduling
         task.$original_duration = task.duration;
         task.$original_start_date = task.start_date;
@@ -1170,14 +1237,26 @@ export default class Gantt extends Component<GanttProps> {
       });
 
       gantt.attachEvent("onAfterTaskAutoSchedule", (task: any, start: Date, link: any, predecessor: any) => {
+        console.log("=== onAfterTaskAutoSchedule ===");
+        console.log("Task:", task.text);
+        console.log("New start_date:", task.start_date);
+        console.log("end_date before recalc:", task.end_date);
+        console.log("duration before recalc:", task.duration);
+
         // Restore the original duration and recalculate end_date to preserve duration
         if (task.$original_duration) {
           const originalDuration = task.$original_duration;
+          console.log("Original duration:", originalDuration);
 
           // Recalculate end_date based on new start_date and original duration
           // Use DHTMLX's calculateEndDate which respects work_time config
-          task.end_date = gantt.calculateEndDate(task.start_date, originalDuration);
+          const calculatedEndDate = gantt.calculateEndDate(task.start_date, originalDuration);
+          console.log("Calculated end_date:", calculatedEndDate);
+
+          task.end_date = calculatedEndDate;
           task.duration = originalDuration;
+          console.log("Final end_date:", task.end_date);
+          console.log("Final duration:", task.duration);
 
           delete task.$original_duration;
           delete task.$original_start_date;
