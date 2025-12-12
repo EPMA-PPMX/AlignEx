@@ -683,7 +683,6 @@ export default class Gantt extends Component<GanttProps> {
         }
       }
 
-      console.log(`[addWorkingDays] start: ${startDate.toDateString()}, duration: ${daysToAdd}, end: ${result.toDateString()}`);
       return result;
     };
 
@@ -701,7 +700,6 @@ export default class Gantt extends Component<GanttProps> {
         current.setDate(current.getDate() + 1);
       }
 
-      console.log(`[countWorkingDays] start: ${startDate.toDateString()}, end: ${endDate.toDateString()}, count: ${count}`);
       return count;
     };
 
@@ -1183,8 +1181,8 @@ export default class Gantt extends Component<GanttProps> {
     gantt.attachEvent("onTaskLoading", (task: any) => {
       if (task.start_date && task.duration !== undefined && !task.$group_header) {
         const startDate = new Date(task.start_date);
-        const endDate = new Date(startDate);
-        endDate.setDate(startDate.getDate() + task.duration);
+        // Use addWorkingDays to calculate end date (DHTMLX end dates are exclusive)
+        const endDate = addWorkingDays(startDate, task.duration);
         task.end_date = endDate;
         console.log(`[onTaskLoading] Task ${task.id}: duration=${task.duration}, start=${startDate.toISOString()}, end=${endDate.toISOString()}`);
       }
@@ -1207,11 +1205,11 @@ export default class Gantt extends Component<GanttProps> {
         console.log(`Task ${id} duration set to: ${task.duration}`);
       }
 
-      // Always recalculate end_date based on start_date and duration
+      // Always recalculate end_date based on start_date and duration (using working days)
       if (task.start_date && task.duration !== undefined) {
         const startDate = new Date(task.start_date);
-        const endDate = new Date(startDate);
-        endDate.setDate(startDate.getDate() + task.duration);
+        // Use addWorkingDays to calculate end date (DHTMLX end dates are exclusive)
+        const endDate = addWorkingDays(startDate, task.duration);
         task.end_date = endDate;
         console.log(`[onBeforeTaskUpdate] Task ${id}: recalculated end_date=${endDate.toISOString()}`);
       }
