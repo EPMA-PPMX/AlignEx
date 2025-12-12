@@ -433,8 +433,8 @@ export default class Gantt extends Component<GanttProps> {
         template: (task: any) => {
           if (task.$group_header) return "";
           // Display inclusive end date (last working day) by subtracting 1 day
-          const endDate = gantt.date.parseDate(task.end_date, "xml_date");
-          const inclusiveEnd = new Date(endDate);
+          // task.end_date is already a Date object in DHTMLX
+          const inclusiveEnd = new Date(task.end_date);
           inclusiveEnd.setDate(inclusiveEnd.getDate() - 1);
           return gantt.templates.date_grid(inclusiveEnd, task);
         }
