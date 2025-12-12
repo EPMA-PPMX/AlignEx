@@ -64,7 +64,11 @@ interface GanttProps {
   projectCreatedAt?: string;
 }
 
-export default class Gantt extends Component<GanttProps> {
+interface GanttState {
+  skipWeekends: boolean;
+}
+
+export default class Gantt extends Component<GanttProps, GanttState> {
   private ganttContainer = createRef<HTMLDivElement>();
   private pendingParentId: number | undefined = undefined;
   private allTasks: Task[] = [];
@@ -73,6 +77,15 @@ export default class Gantt extends Component<GanttProps> {
   private originalLinks: any[] = [];
   private groupHeaderIdStart: number = 999900;
   private resizeObserver: ResizeObserver | null = null;
+
+  constructor(props: GanttProps) {
+    super(props);
+    // Load skipWeekends preference from localStorage, default to false
+    const savedPreference = localStorage.getItem('gantt_skip_weekends');
+    this.state = {
+      skipWeekends: savedPreference === 'true'
+    };
+  }
 
   public isGroupedByOwner = (): boolean => {
     return this.isGrouped;
@@ -152,8 +165,10 @@ export default class Gantt extends Component<GanttProps> {
       console.log('Ungrouping: restoring original tasks', this.originalTasks);
       console.log('Ungrouping: restoring original links', this.originalLinks);
       gantt.clearAll();
+      // Prepare tasks by removing end_date to recalculate based on current skipWeekends setting
+      const preparedTasks = this.prepareTasksForParsing(this.originalTasks);
       gantt.parse({
-        data: this.originalTasks,
+        data: preparedTasks,
         links: this.originalLinks
       });
       this.isGrouped = false;
@@ -269,8 +284,10 @@ export default class Gantt extends Component<GanttProps> {
 
       // Clear and reload with grouped structure
       gantt.clearAll();
+      // Prepare tasks by removing end_date to recalculate based on current skipWeekends setting
+      const preparedTasks = this.prepareTasksForParsing(newTasks);
       gantt.parse({
-        data: newTasks,
+        data: preparedTasks,
         links: []
       });
 
@@ -539,33 +556,21 @@ export default class Gantt extends Component<GanttProps> {
     gantt.config.readonly = false;
     gantt.config.details_on_dblclick = true;
 
-    // Disable work time calculation to include weekends in duration
-    gantt.config.work_time = false;
+    // Configure work time based on skipWeekends state
     gantt.config.duration_unit = "day";
-    gantt.config.skip_off_time = false; // Show all days including weekends
+    gantt.config.skip_off_time = false; // Always show weekends in chart (never hide them)
+
+    // Apply work time configuration based on state
+    this.updateWorkTimeConfig(this.state.skipWeekends);
 
     console.log("=== DHTMLX Gantt Configuration ===");
     console.log("work_time enabled:", gantt.config.work_time);
     console.log("duration_unit:", gantt.config.duration_unit);
     console.log("skip_off_time:", gantt.config.skip_off_time);
-    console.log("All days (including weekends) are included in duration calculations");
-
-    // Test calculateEndDate to verify calendar day calculation
-    const testStartDate = new Date(2024, 11, 12, 8, 0); // Thursday Dec 12, 2024 at 8am
-    const testDuration = 3; // 3 calendar days
-    const testEndDate = gantt.calculateEndDate(testStartDate, testDuration);
-    console.log("=== Test Calculation ===");
-    console.log("Start: Thu Dec 12, 2024 8:00 AM");
-    console.log("Duration: 3 calendar days");
-    console.log("Calculated End Date:", testEndDate);
-    console.log("Expected: Sun Dec 15, 2024 (including weekend)");
-
-    // Test the reverse - calculate duration between two dates
-    const testEnd2 = new Date(2024, 11, 15, 8, 0); // Sunday Dec 15, 2024
-    const calculatedDuration = gantt.calculateDuration(testStartDate, testEnd2);
-    console.log("=== Reverse Test ===");
-    console.log("Start: Thu Dec 12, Duration between dates:", calculatedDuration, "days");
-    console.log("Expected: 3 days (Thu, Fri, Sat)");
+    console.log("skipWeekends:", this.state.skipWeekends);
+    console.log(this.state.skipWeekends
+      ? "Duration excludes weekends (working days only)"
+      : "Duration includes weekends (calendar days)");
 
     // Enable plugins
     gantt.plugins({
@@ -1311,6 +1316,9 @@ export default class Gantt extends Component<GanttProps> {
       console.log("Task types config:", gantt.config.types);
       this.allTasks = projecttasks.data || [];
 
+      // Prepare tasks by removing end_date to let DHTMLX calculate it from start_date + duration
+      const preparedTasks = this.prepareTasksForParsing(projecttasks.data || []);
+
       // Parse data with resources and assignments if available
       if (showResourcePanel && projecttasks.resources) {
         console.log("Loading resources:", projecttasks.resources);
@@ -1318,7 +1326,7 @@ export default class Gantt extends Component<GanttProps> {
 
         // First parse the main task data
         gantt.parse({
-          data: projecttasks.data,
+          data: preparedTasks,
           links: projecttasks.links || []
         });
 
@@ -1335,7 +1343,10 @@ export default class Gantt extends Component<GanttProps> {
         console.log("Resources loaded:", resourceStore.count());
         console.log("Assignments loaded:", assignmentStore.count());
       } else {
-        gantt.parse(projecttasks);
+        gantt.parse({
+          data: preparedTasks,
+          links: projecttasks.links || []
+        });
       }
 
       // Sort tasks to ensure proper parent-child hierarchy display
@@ -1627,6 +1638,9 @@ export default class Gantt extends Component<GanttProps> {
         // Reinitialize with new layout
         gantt.init(this.ganttContainer.current);
 
+        // Prepare tasks by removing end_date
+        const preparedTasks = this.prepareTasksForParsing(projecttasks.data || []);
+
         // Reload data with resources if panel is shown
         if (showResourcePanel && projecttasks.resources) {
           console.log("Reloading with resources:", projecttasks.resources);
@@ -1634,7 +1648,7 @@ export default class Gantt extends Component<GanttProps> {
 
           // First parse the main task data
           gantt.parse({
-            data: projecttasks.data,
+            data: preparedTasks,
             links: projecttasks.links || []
           });
 
@@ -1651,7 +1665,10 @@ export default class Gantt extends Component<GanttProps> {
           console.log("Resources reloaded:", resourceStore.count());
           console.log("Assignments reloaded:", assignmentStore.count());
         } else {
-          gantt.parse(projecttasks);
+          gantt.parse({
+            data: preparedTasks,
+            links: projecttasks.links || []
+          });
         }
 
         gantt.render();
@@ -1713,7 +1730,13 @@ export default class Gantt extends Component<GanttProps> {
       this.originalTasks = [];
       this.originalLinks = [];
       gantt.clearAll();
-      gantt.parse(projecttasks);
+
+      // Prepare tasks by removing end_date
+      const preparedTasks = this.prepareTasksForParsing(projecttasks.data || []);
+      gantt.parse({
+        data: preparedTasks,
+        links: projecttasks.links || []
+      });
 
       // Sort tasks to ensure proper parent-child hierarchy display
       gantt.sort((a: any, b: any) => {
@@ -1781,7 +1804,11 @@ export default class Gantt extends Component<GanttProps> {
       } else {
         // Restore ungrouped view
         gantt.clearAll();
-        gantt.parse(projecttasks);
+        const preparedTasks = this.prepareTasksForParsing(projecttasks.data || []);
+        gantt.parse({
+          data: preparedTasks,
+          links: projecttasks.links || []
+        });
       }
       return;
     }
@@ -1818,8 +1845,10 @@ export default class Gantt extends Component<GanttProps> {
       ];
 
       gantt.clearAll();
+      // Prepare tasks by removing end_date to recalculate
+      const preparedTasks = this.prepareTasksForParsing(filteredData);
       gantt.parse({
-        data: filteredData,
+        data: preparedTasks,
         links: []
       });
     } else {
@@ -1835,8 +1864,10 @@ export default class Gantt extends Component<GanttProps> {
       });
 
       gantt.clearAll();
+      // Prepare tasks by removing end_date to recalculate
+      const preparedTasks = this.prepareTasksForParsing(filteredData);
       gantt.parse({
-        data: filteredData,
+        data: preparedTasks,
         links: filteredLinks
       });
     }
@@ -1855,13 +1886,97 @@ export default class Gantt extends Component<GanttProps> {
     }
   }
 
+  private handleSkipWeekendsToggle = () => {
+    const newValue = !this.state.skipWeekends;
+    this.setState({ skipWeekends: newValue });
+    localStorage.setItem('gantt_skip_weekends', String(newValue));
+
+    // Update gantt configuration
+    this.updateWorkTimeConfig(newValue);
+
+    // Recalculate all task end dates based on new setting
+    gantt.eachTask((task: any) => {
+      if (!task.$group_header && task.start_date && task.duration) {
+        const startDate = typeof task.start_date === 'string'
+          ? gantt.date.parseDate(task.start_date, "xml_date")
+          : task.start_date;
+        task.end_date = gantt.calculateEndDate(startDate, task.duration);
+        gantt.updateTask(task.id);
+      }
+    });
+
+    gantt.render();
+  };
+
+  private updateWorkTimeConfig(skipWeekends: boolean) {
+    if (skipWeekends) {
+      // Enable work time to exclude weekends from duration
+      gantt.config.work_time = true;
+      gantt.setWorkTime({ hours: [8, 17] }); // Default working hours
+      gantt.setWorkTime({ day: 0, hours: false }); // Sunday
+      gantt.setWorkTime({ day: 6, hours: false }); // Saturday
+      console.log("Weekend skipping enabled: Duration excludes Sat/Sun");
+    } else {
+      // Disable work time to include weekends in duration
+      gantt.config.work_time = false;
+      console.log("Weekend skipping disabled: Duration includes all days");
+    }
+  }
+
+  /**
+   * Remove end_date from tasks to prevent DHTMLX from prioritizing it over duration.
+   * DHTMLX will calculate end_date automatically based on start_date + duration.
+   * This fixes the bug where old end_date from database causes incorrect duration recalculation.
+   */
+  private prepareTasksForParsing(tasks: any[]): any[] {
+    return tasks.map(task => {
+      const { end_date, ...taskWithoutEndDate } = task;
+      return taskWithoutEndDate;
+    });
+  }
+
   render(): React.ReactNode {
     return (
-      <div
-        ref={this.ganttContainer}
-        className="gantt-container"
-        style={{ width: "100%", height: "100%" }}
-      ></div>
+      <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
+        <div style={{
+          padding: "8px 12px",
+          backgroundColor: "#f9fafb",
+          borderBottom: "1px solid #e5e7eb",
+          display: "flex",
+          alignItems: "center",
+          gap: "8px"
+        }}>
+          <input
+            type="checkbox"
+            id="skip-weekends-toggle"
+            checked={this.state.skipWeekends}
+            onChange={this.handleSkipWeekendsToggle}
+            style={{ cursor: "pointer" }}
+          />
+          <label
+            htmlFor="skip-weekends-toggle"
+            style={{
+              cursor: "pointer",
+              fontSize: "14px",
+              color: "#374151",
+              userSelect: "none",
+              fontWeight: 500
+            }}
+          >
+            Skip Weekends in Duration Calculation
+          </label>
+          <span style={{ fontSize: "12px", color: "#6b7280", marginLeft: "8px" }}>
+            {this.state.skipWeekends
+              ? "(7 days = 7 working days, Mon-Fri)"
+              : "(7 days = 7 calendar days, including weekends)"}
+          </span>
+        </div>
+        <div
+          ref={this.ganttContainer}
+          className="gantt-container"
+          style={{ width: "100%", flex: 1 }}
+        ></div>
+      </div>
     );
   }
 }
