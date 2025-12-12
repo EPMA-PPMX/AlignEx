@@ -2037,16 +2037,12 @@ const ProjectDetail: React.FC = () => {
       let updatedTaskData;
       let currentTaskId = editingTaskId; // Track the task ID being worked with
 
-      // Ensure start_date has a value
-      let startDateValue = taskForm.start_date;
-      if (!startDateValue || startDateValue.trim() === '') {
-        alert('Please select a start date for the task');
-        return;
+      // Adjust start date to skip weekends if provided
+      let adjustedStartDate = null;
+      if (taskForm.start_date && taskForm.start_date.trim() !== '') {
+        adjustedStartDate = adjustToWorkday(taskForm.start_date);
+        console.log('Adjusted start date:', adjustedStartDate);
       }
-
-      // Adjust start date to skip weekends
-      const adjustedStartDate = adjustToWorkday(startDateValue);
-      console.log('Adjusted start date:', adjustedStartDate);
 
       if (editingTaskId) {
         // Update existing task
@@ -2066,7 +2062,6 @@ const ProjectDetail: React.FC = () => {
         updatedTaskData = {
           data: projectTasks.data.map((task: any) => {
             if (task.id === editingTaskId) {
-              const startDateStr = `${adjustedStartDate} 00:00`;
               const duration = taskForm.type === 'milestone' ? 0 : taskForm.duration;
 
               // Don't calculate end_date here - let DHTMLX Gantt calculate it based on work_time config
@@ -2075,18 +2070,23 @@ const ProjectDetail: React.FC = () => {
               const updatedTask: any = {
                 ...task,
                 text: taskForm.description,
-                start_date: startDateStr,
                 duration: duration,
                 type: taskForm.type,
                 progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
               };
+
+              // Set start_date only if provided
+              if (adjustedStartDate) {
+                const startDateStr = `${adjustedStartDate} 00:00`;
+                updatedTask.start_date = startDateStr;
+              }
 
               // Remove end_date so DHTMLX Gantt calculates it from duration
               delete updatedTask.end_date;
 
               console.log('Updated task values:', {
                 id: editingTaskId,
-                start_date: startDateStr,
+                start_date: adjustedStartDate ? `${adjustedStartDate} 00:00` : 'not set',
                 duration: duration,
                 note: 'end_date will be calculated by DHTMLX Gantt'
               });
@@ -2121,7 +2121,6 @@ const ProjectDetail: React.FC = () => {
           ? Math.max(...projectTasks.data.map((t: any) => t.id)) + 1
           : 1;
 
-        const startDateStr = `${adjustedStartDate} 00:00`;
         const duration = taskForm.type === 'milestone' ? 0 : taskForm.duration;
 
         // Don't calculate end_date here - let DHTMLX Gantt calculate it based on work_time config
@@ -2130,11 +2129,16 @@ const ProjectDetail: React.FC = () => {
         const newTask: any = {
           id: newTaskId,
           text: taskForm.description,
-          start_date: startDateStr,
           duration: duration,
           type: taskForm.type,
           progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
         };
+
+        // Set start_date only if provided
+        if (adjustedStartDate) {
+          const startDateStr = `${adjustedStartDate} 00:00`;
+          newTask.start_date = startDateStr;
+        }
 
         // Set parent - MUST be 0 for root tasks, not undefined
         console.log('Checking parent_id:', taskForm.parent_id);
