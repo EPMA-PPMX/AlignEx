@@ -1,6 +1,5 @@
 import React, { Component, createRef } from "react";
 import { gantt } from "../../lib/dhtmlxgantt/gantt-wrapper";
-import "../../lib/dhtmlxgantt/dhtmlxgantt.js.map";
 import "../../lib/dhtmlxgantt/dhtmlxgantt.css";
 import "./Gantt.css";
 
