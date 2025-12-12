@@ -640,6 +640,34 @@ export default class Gantt extends Component<GanttProps> {
     gantt.config.correct_work_time = false;
     gantt.config.round_dnd_dates = false;
 
+    // Configure inclusive end dates: end_date should be the last working day, not the day after
+    // Override date calculation to use inclusive end dates
+    gantt.config.inclusive_end_dates = false; // Keep DHTMLX's default behavior internally
+
+    // Store the original calculateEndDate function
+    const originalCalculateEndDate = gantt.calculateEndDate.bind(gantt);
+
+    // Override to calculate inclusive end date (subtract 1 from the result)
+    gantt.calculateEndDate = function(config: any) {
+      const result = originalCalculateEndDate(config);
+      // Subtract 1 day to make end date inclusive
+      const adjustedEnd = new Date(result);
+      adjustedEnd.setDate(adjustedEnd.getDate() - 1);
+      // Preserve the time component from the start date
+      adjustedEnd.setHours(config.start_date.getHours());
+      adjustedEnd.setMinutes(config.start_date.getMinutes());
+      return adjustedEnd;
+    };
+
+    // Override calculateDuration to account for inclusive end dates
+    const originalCalculateDuration = gantt.calculateDuration.bind(gantt);
+    gantt.calculateDuration = function(start: Date, end: Date, task?: any) {
+      // Add 1 day to end date before calculating duration to compensate for inclusive model
+      const adjustedEnd = new Date(end);
+      adjustedEnd.setDate(adjustedEnd.getDate() + 1);
+      return originalCalculateDuration(start, adjustedEnd, task);
+    };
+
     const { projecttasks, onTaskUpdate, onOpenTaskModal, onEditTask, showResourcePanel } = this.props;
 
     // Define inline editors
