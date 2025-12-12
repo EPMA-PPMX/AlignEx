@@ -762,24 +762,33 @@ const ProjectDetail: React.FC = () => {
               }
             }
 
-            // Always calculate end_date from start_date and duration
-            // Don't rely on stored end_date as it may be stale after duration changes
+            // Use stored end_date and duration as-is - DHTMLX Gantt will handle calculations
             const duration = task.duration || 1;
             console.log(`Task ${task.id} (${task.text}): Raw duration from DB = ${task.duration}, Using duration = ${duration}`);
             console.log(`Task ${task.id}: Raw end_date from DB = ${task.end_date}`);
 
-            let endDate;
-            if (startDate) {
-              const start = new Date(startDate);
-              const end = new Date(start);
-              end.setDate(start.getDate() + duration);
-              // Format as "YYYY-MM-DD HH:MM" to match gantt.config.date_format
-              const year = end.getFullYear();
-              const month = String(end.getMonth() + 1).padStart(2, '0');
-              const day = String(end.getDate()).padStart(2, '0');
-              endDate = `${year}-${month}-${day} 00:00`;
-              console.log(`Task ${task.id}: Calculated end_date = ${endDate}`);
+            // Use the stored end_date, preserving time component if present
+            let endDate = task.end_date;
+            if (endDate) {
+              // Convert to string if it's not already
+              endDate = String(endDate);
+
+              // If date contains 'T' or 'Z', convert to gantt format
+              if (endDate.includes('T') || endDate.includes('Z')) {
+                const dateObj = new Date(endDate);
+                const year = dateObj.getFullYear();
+                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                const hours = String(dateObj.getHours()).padStart(2, '0');
+                const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+                endDate = `${year}-${month}-${day} ${hours}:${minutes}`;
+              }
+              // Ensure it has time component
+              if (!endDate.includes(':')) {
+                endDate = `${endDate} 00:00`;
+              }
             }
+            console.log(`Task ${task.id}: Using end_date = ${endDate}`);
 
             const taskObject = {
               id: task.id,
