@@ -92,7 +92,7 @@ export default class Gantt extends Component<GanttProps> {
 
       // Get current start and end dates
       const startDate = gantt.date.parseDate(task.start_date, "xml_date");
-      // Use DHTMLX's calculateEndDate which respects work_time config
+      // Use DHTMLX's calculateEndDate which calculates calendar days (including weekends)
       const endDate = gantt.calculateEndDate(startDate, task.duration);
 
       // Format dates as YYYY-MM-DD HH:mm for storage
@@ -539,47 +539,33 @@ export default class Gantt extends Component<GanttProps> {
     gantt.config.readonly = false;
     gantt.config.details_on_dblclick = true;
 
-    // Enable work time calculation (excludes weekends from duration)
-    gantt.config.work_time = true;
+    // Disable work time calculation to include weekends in duration
+    gantt.config.work_time = false;
     gantt.config.duration_unit = "day";
-    gantt.config.skip_off_time = true; // Hide non-working time in chart
+    gantt.config.skip_off_time = false; // Show all days including weekends
 
     console.log("=== DHTMLX Gantt Configuration ===");
     console.log("work_time enabled:", gantt.config.work_time);
     console.log("duration_unit:", gantt.config.duration_unit);
     console.log("skip_off_time:", gantt.config.skip_off_time);
+    console.log("All days (including weekends) are included in duration calculations");
 
-    // Configure working days (Monday-Friday)
-    // First, set all days as working days with standard hours
-    gantt.setWorkTime({ hours: [8, 17] }); // Default working hours 8am-5pm
-
-    // Then explicitly disable weekends
-    gantt.setWorkTime({ day: 0, hours: false }); // Sunday - no working hours
-    gantt.setWorkTime({ day: 6, hours: false }); // Saturday - no working hours
-
-    console.log("Working days configured: Monday-Friday (weekends disabled)");
-
-    // Verify work time settings
-    console.log("Is Sunday working day?", gantt.isWorkTime(new Date(2024, 11, 15, 9, 0))); // Dec 15, 2024 is Sunday
-    console.log("Is Saturday working day?", gantt.isWorkTime(new Date(2024, 11, 14, 9, 0))); // Dec 14, 2024 is Saturday
-    console.log("Is Monday working day?", gantt.isWorkTime(new Date(2024, 11, 16, 9, 0))); // Dec 16, 2024 is Monday
-
-    // Test calculateEndDate to verify work_time is working
+    // Test calculateEndDate to verify calendar day calculation
     const testStartDate = new Date(2024, 11, 12, 8, 0); // Thursday Dec 12, 2024 at 8am
-    const testDuration = 3; // 3 working days
+    const testDuration = 3; // 3 calendar days
     const testEndDate = gantt.calculateEndDate(testStartDate, testDuration);
     console.log("=== Test Calculation ===");
     console.log("Start: Thu Dec 12, 2024 8:00 AM");
-    console.log("Duration: 3 working days");
+    console.log("Duration: 3 calendar days");
     console.log("Calculated End Date:", testEndDate);
-    console.log("Expected: Tue Dec 17, 2024 (skipping Sat/Sun)");
+    console.log("Expected: Sun Dec 15, 2024 (including weekend)");
 
     // Test the reverse - calculate duration between two dates
-    const testEnd2 = new Date(2024, 11, 17, 8, 0); // Tuesday Dec 17, 2024
+    const testEnd2 = new Date(2024, 11, 15, 8, 0); // Sunday Dec 15, 2024
     const calculatedDuration = gantt.calculateDuration(testStartDate, testEnd2);
     console.log("=== Reverse Test ===");
     console.log("Start: Thu Dec 12, Duration between dates:", calculatedDuration, "days");
-    console.log("Expected: 3 days (Thu, Fri, Mon)");
+    console.log("Expected: 3 days (Thu, Fri, Sat)");
 
     // Enable plugins
     gantt.plugins({
@@ -1098,17 +1084,15 @@ export default class Gantt extends Component<GanttProps> {
         console.log("Original end_date:", task.end_date);
         console.log("Duration:", task.duration);
 
-        // Check if original dates span a weekend
+        // Check if original dates exist
         if (task.end_date) {
           const calculatedDurationFromDates = gantt.calculateDuration(task.start_date, task.end_date);
-          console.log("Duration calculated from original dates (working days):", calculatedDurationFromDates);
+          console.log("Duration calculated from original dates (calendar days):", calculatedDurationFromDates);
         }
 
-        // Use DHTMLX's calculateEndDate which respects work_time config
+        // Use DHTMLX's calculateEndDate which calculates calendar days (including weekends)
         const calculatedEndDate = gantt.calculateEndDate(task.start_date, task.duration);
         console.log("Calculated end_date using duration:", calculatedEndDate);
-        console.log("Is start_date a working time?", gantt.isWorkTime(task.start_date));
-        console.log("Is calculated end_date a working time?", gantt.isWorkTime(calculatedEndDate));
 
         task.end_date = calculatedEndDate;
         console.log("Final end_date set:", task.end_date);
@@ -1141,7 +1125,7 @@ export default class Gantt extends Component<GanttProps> {
 
       // Recalculate end_date based on start_date and duration
       if (task.start_date && task.duration !== undefined) {
-        // Use DHTMLX's calculateEndDate which respects work_time config
+        // Use DHTMLX's calculateEndDate which calculates calendar days (including weekends)
         const calculatedEndDate = gantt.calculateEndDate(task.start_date, task.duration);
         console.log("Calculated end_date:", calculatedEndDate);
         task.end_date = calculatedEndDate;
@@ -1186,7 +1170,7 @@ export default class Gantt extends Component<GanttProps> {
           console.log("duration:", task.duration);
           console.log("end_date before:", task.end_date);
 
-          // Use DHTMLX's calculateEndDate which respects work_time config
+          // Use DHTMLX's calculateEndDate which calculates calendar days (including weekends)
           const calculatedEndDate = gantt.calculateEndDate(task.start_date, task.duration);
           console.log("Calculated end_date:", calculatedEndDate);
           task.end_date = calculatedEndDate;
@@ -1203,7 +1187,7 @@ export default class Gantt extends Component<GanttProps> {
           console.log("duration:", task.duration);
           console.log("end_date before:", task.end_date);
 
-          // Use DHTMLX's calculateEndDate which respects work_time config
+          // Use DHTMLX's calculateEndDate which calculates calendar days (including weekends)
           const calculatedEndDate = gantt.calculateEndDate(task.start_date, task.duration);
           console.log("Calculated end_date:", calculatedEndDate);
           task.end_date = calculatedEndDate;
@@ -1276,7 +1260,7 @@ export default class Gantt extends Component<GanttProps> {
           console.log("Original duration:", originalDuration);
 
           // Recalculate end_date based on new start_date and original duration
-          // Use DHTMLX's calculateEndDate which respects work_time config
+          // Use DHTMLX's calculateEndDate which calculates calendar days (including weekends)
           const calculatedEndDate = gantt.calculateEndDate(task.start_date, originalDuration);
           console.log("Calculated end_date:", calculatedEndDate);
 
