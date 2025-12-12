@@ -84,9 +84,11 @@ export default class Gantt extends Component<GanttProps> {
 
   // Helper function to calculate end date correctly (inclusive)
   private calculateEndDateFromDuration = (startDate: Date, duration: number): Date => {
-    const endDate = new Date(startDate);
-    endDate.setDate(startDate.getDate() + duration);
-    return endDate;
+    // Use gantt's calculateEndDate which respects working days
+    return gantt.calculateEndDate({
+      start_date: startDate,
+      duration: duration
+    });
   };
 
   public setBaseline = (baselineNum: number = 0): any[] => {
@@ -1221,6 +1223,16 @@ export default class Gantt extends Component<GanttProps> {
           const endDate = this.calculateEndDateFromDuration(startDate, task.duration);
           task.end_date = endDate;
           console.log("Recalculated end_date after duration edit:", endDate);
+          gantt.updateTask(state.id);
+        }
+
+        // If start_date was edited, recalculate end_date preserving duration
+        if (state.columnName === "start_date" && state.id) {
+          const task = gantt.getTask(state.id);
+          const startDate = new Date(task.start_date);
+          const endDate = this.calculateEndDateFromDuration(startDate, task.duration);
+          task.end_date = endDate;
+          console.log("Recalculated end_date after start_date edit, preserving duration:", task.duration, "End date:", endDate);
           gantt.updateTask(state.id);
         }
 
