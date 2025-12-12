@@ -12,6 +12,8 @@ import ProjectHealthStatus from '../components/ProjectHealthStatus';
 import BenefitTracking from '../components/BenefitTracking';
 import ProjectTeams from '../components/ProjectTeams';
 import PeoplePicker from '../components/PeoplePicker';
+import CustomFieldsRenderer from '../components/CustomFieldsRenderer';
+import { loadCustomFieldValues, saveCustomFieldValues } from '../lib/customFieldHelpers';
 
 interface Project {
   id: string;
@@ -229,6 +231,8 @@ const ProjectDetail: React.FC = () => {
     notes: ''
   });
 
+  const [riskCustomFieldValues, setRiskCustomFieldValues] = useState<Record<string, string>>({});
+
   const [issueForm, setIssueForm] = useState({
     title: '',
     owner: '',
@@ -239,6 +243,8 @@ const ProjectDetail: React.FC = () => {
     description: '',
     resolution: ''
   });
+
+  const [issueCustomFieldValues, setIssueCustomFieldValues] = useState<Record<string, string>>({});
 
   const [changeRequestForm, setChangeRequestForm] = useState({
     title: '',
@@ -251,6 +257,8 @@ const ProjectDetail: React.FC = () => {
     resource_impact: 'Low',
     attachments: ''
   });
+
+  const [changeRequestCustomFieldValues, setChangeRequestCustomFieldValues] = useState<Record<string, string>>({});
 
   const [budgetForm, setBudgetForm] = useState({
     categories: [] as string[]
@@ -1114,19 +1122,23 @@ const ProjectDetail: React.FC = () => {
         if (error) {
           showNotification(`Error: ${error.message}`, 'error');
         } else {
+          await saveCustomFieldValues('risk', editingRisk.id, riskCustomFieldValues);
           await fetchRisks();
           setShowRiskModal(false);
           resetRiskForm();
           showNotification('Risk updated successfully!', 'success');
         }
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('project_risks')
-          .insert([payload]);
+          .insert([payload])
+          .select()
+          .single();
 
         if (error) {
           showNotification(`Error: ${error.message}`, 'error');
-        } else {
+        } else if (data) {
+          await saveCustomFieldValues('risk', data.id, riskCustomFieldValues);
           await fetchRisks();
           setShowRiskModal(false);
           resetRiskForm();
@@ -1139,7 +1151,7 @@ const ProjectDetail: React.FC = () => {
     }
   };
 
-  const handleEditRisk = (risk: Risk) => {
+  const handleEditRisk = async (risk: Risk) => {
     setEditingRisk(risk);
     setRiskForm({
       title: risk.title,
@@ -1153,6 +1165,8 @@ const ProjectDetail: React.FC = () => {
       description: risk.description,
       notes: risk.notes || ''
     });
+    const customValues = await loadCustomFieldValues('risk', risk.id);
+    setRiskCustomFieldValues(customValues);
     setShowRiskModal(true);
   };
 
@@ -1195,6 +1209,7 @@ const ProjectDetail: React.FC = () => {
       description: '',
       notes: ''
     });
+    setRiskCustomFieldValues({});
     setEditingRisk(null);
   };
 
@@ -1218,19 +1233,23 @@ const ProjectDetail: React.FC = () => {
         if (error) {
           showNotification(`Error: ${error.message}`, 'error');
         } else {
+          await saveCustomFieldValues('issue', editingIssue.id, issueCustomFieldValues);
           await fetchIssues();
           setShowIssueModal(false);
           resetIssueForm();
           showNotification('Issue updated successfully!', 'success');
         }
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('project_issues')
-          .insert([payload]);
+          .insert([payload])
+          .select()
+          .single();
 
         if (error) {
           showNotification(`Error: ${error.message}`, 'error');
-        } else {
+        } else if (data) {
+          await saveCustomFieldValues('issue', data.id, issueCustomFieldValues);
           await fetchIssues();
           setShowIssueModal(false);
           resetIssueForm();
@@ -1243,7 +1262,7 @@ const ProjectDetail: React.FC = () => {
     }
   };
 
-  const handleEditIssue = (issue: Issue) => {
+  const handleEditIssue = async (issue: Issue) => {
     setEditingIssue(issue);
     setIssueForm({
       title: issue.title,
@@ -1255,6 +1274,8 @@ const ProjectDetail: React.FC = () => {
       description: issue.description,
       resolution: issue.resolution || ''
     });
+    const customValues = await loadCustomFieldValues('issue', issue.id);
+    setIssueCustomFieldValues(customValues);
     setShowIssueModal(true);
   };
 
@@ -1295,6 +1316,7 @@ const ProjectDetail: React.FC = () => {
       description: '',
       resolution: ''
     });
+    setIssueCustomFieldValues({});
     setEditingIssue(null);
   };
 
@@ -1327,19 +1349,23 @@ const ProjectDetail: React.FC = () => {
         if (error) {
           showNotification(`Error: ${error.message}`, 'error');
         } else {
+          await saveCustomFieldValues('change_request', editingChangeRequest.id, changeRequestCustomFieldValues);
           await fetchChangeRequests();
           setShowChangeRequestModal(false);
           resetChangeRequestForm();
           showNotification('Change request updated successfully!', 'success');
         }
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('change_requests')
-          .insert([payload]);
+          .insert([payload])
+          .select()
+          .single();
 
         if (error) {
           showNotification(`Error: ${error.message}`, 'error');
-        } else {
+        } else if (data) {
+          await saveCustomFieldValues('change_request', data.id, changeRequestCustomFieldValues);
           await fetchChangeRequests();
           setShowChangeRequestModal(false);
           resetChangeRequestForm();
@@ -1381,7 +1407,7 @@ const ProjectDetail: React.FC = () => {
     }
   };
 
-  const handleEditChangeRequest = (changeRequest: ChangeRequest) => {
+  const handleEditChangeRequest = async (changeRequest: ChangeRequest) => {
     setEditingChangeRequest(changeRequest);
     setChangeRequestForm({
       title: changeRequest.request_title,
@@ -1408,6 +1434,8 @@ const ProjectDetail: React.FC = () => {
       setUploadedFiles([]);
     }
 
+    const customValues = await loadCustomFieldValues('change_request', changeRequest.id);
+    setChangeRequestCustomFieldValues(customValues);
     setShowChangeRequestModal(true);
   };
 
@@ -1449,6 +1477,7 @@ const ProjectDetail: React.FC = () => {
       resource_impact: 'Low',
       attachments: ''
     });
+    setChangeRequestCustomFieldValues({});
     setUploadedFiles([]);
     setEditingChangeRequest(null);
   };
@@ -3243,6 +3272,13 @@ const ProjectDetail: React.FC = () => {
                 />
               </div>
 
+              <CustomFieldsRenderer
+                entityType="risk"
+                entityId={editingRisk?.id}
+                values={riskCustomFieldValues}
+                onChange={(fieldName, value) => setRiskCustomFieldValues({ ...riskCustomFieldValues, [fieldName]: value })}
+              />
+
               <div className="flex space-x-4 pt-4">
                 <button
                   type="button"
@@ -3364,6 +3400,13 @@ const ProjectDetail: React.FC = () => {
                   rows={3}
                 />
               </div>
+
+              <CustomFieldsRenderer
+                entityType="issue"
+                entityId={editingIssue?.id}
+                values={issueCustomFieldValues}
+                onChange={(fieldName, value) => setIssueCustomFieldValues({ ...issueCustomFieldValues, [fieldName]: value })}
+              />
 
               <div className="flex space-x-4 pt-4">
                 <button
@@ -3630,6 +3673,14 @@ const ProjectDetail: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              <CustomFieldsRenderer
+                entityType="change_request"
+                entityId={editingChangeRequest?.id}
+                values={changeRequestCustomFieldValues}
+                onChange={(fieldName, value) => setChangeRequestCustomFieldValues({ ...changeRequestCustomFieldValues, [fieldName]: value })}
+              />
+
               <div className="flex space-x-4 pt-4">
                 <button
                   type="button"
