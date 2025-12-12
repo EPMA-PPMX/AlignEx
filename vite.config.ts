@@ -7,4 +7,16 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  build: {
+    sourcemap: true,
+    rollupOptions: {
+      onwarn(warning, warn) {
+        // Suppress source map warnings for dhtmlxgantt
+        if (warning.code === 'SOURCEMAP_ERROR' && warning.message.includes('dhtmlxgantt')) {
+          return;
+        }
+        warn(warning);
+      }
+    }
+  }
 });
