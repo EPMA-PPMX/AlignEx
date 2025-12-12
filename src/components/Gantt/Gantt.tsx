@@ -661,6 +661,20 @@ export default class Gantt extends Component<GanttProps> {
       return endDate;
     };
 
+    // Override DHTMLX's calculateDuration to match our date calculation logic
+    // This ensures that the visual representation matches the duration value
+    gantt.calculateDuration = (config: any) => {
+      const startDate = new Date(config.start_date);
+      const endDate = new Date(config.end_date);
+
+      // Calculate the difference in days
+      const timeDiff = endDate.getTime() - startDate.getTime();
+      const daysDiff = Math.round(timeDiff / (1000 * 60 * 60 * 24));
+
+      console.log(`[calculateDuration] start: ${startDate.toISOString()}, end: ${endDate.toISOString()}, duration: ${daysDiff}`);
+      return daysDiff;
+    };
+
     const { projecttasks, onTaskUpdate, onOpenTaskModal, onEditTask, showResourcePanel } = this.props;
 
     // Define inline editors
