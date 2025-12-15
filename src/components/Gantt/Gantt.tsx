@@ -468,8 +468,10 @@ export default class Gantt extends Component<GanttProps, GanttState> {
               ? gantt.date.parseDate(task.start_date, "xml_date")
               : task.start_date;
             const endDate = gantt.calculateEndDate(startDate, task.duration);
+            // Subtract 1 day from end date to show the actual last working day
+            const adjustedEndDate = gantt.date.add(endDate, -1, "day");
             // Format with date and time
-            return gantt.date.date_to_str("%Y-%m-%d %H:%i")(endDate);
+            return gantt.date.date_to_str("%Y-%m-%d %H:%i")(adjustedEndDate);
           }
           return "";
         }
