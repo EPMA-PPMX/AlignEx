@@ -4484,7 +4484,10 @@ const ProjectDetail: React.FC = () => {
                     type="number"
                     min={taskForm.type === 'milestone' ? '0' : '1'}
                     value={taskForm.type === 'milestone' ? 0 : taskForm.duration}
-                    onChange={(e) => setTaskForm({ ...taskForm, duration: parseInt(e.target.value) || 1 })}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      setTaskForm({ ...taskForm, duration: taskForm.type === 'milestone' ? 0 : (value || 1) });
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
                     placeholder="Enter duration in days..."
                     required={taskForm.type !== 'milestone'}
