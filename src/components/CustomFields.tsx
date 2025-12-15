@@ -29,7 +29,6 @@ const CustomFields: React.FC = () => {
     is_required: false,
     default_value: '',
     entity_type: 'project' as 'project' | 'resource' | 'task',
-    entity_type: 'project' as 'project' | 'resource',
     track_history: false,
     options: []
   });
