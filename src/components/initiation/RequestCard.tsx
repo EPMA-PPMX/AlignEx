@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Edit2, Trash2, CheckCircle, XCircle, AlertCircle, Calendar, DollarSign, Clock } from 'lucide-react';
+import { formatDate as utilFormatDate, formatCurrencyWithK } from '../../lib/utils';
 
 interface ProjectRequest {
   id: string;
@@ -8,8 +9,8 @@ interface ProjectRequest {
   project_type: string;
   problem_statement: string;
   estimated_start_date: string | null;
-  estimated_duration: string | null;
-  initial_estimated_cost: string | null;
+  estimated_duration: number | null;
+  initial_estimated_cost: number | null;
   expected_benefits: string;
   consequences_of_inaction: string;
   comments: string | null;
@@ -52,14 +53,7 @@ export default function RequestCard({ request, onEdit, onDelete, onStatusChange 
     }
   };
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Not specified';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
+  const formatDate = utilFormatDate;
 
   const handleReviewSubmit = () => {
     if (reviewAction) {
@@ -100,13 +94,13 @@ export default function RequestCard({ request, onEdit, onDelete, onStatusChange 
               {request.estimated_duration && (
                 <div className="flex items-center gap-1">
                   <Clock className="w-4 h-4" />
-                  <span>{request.estimated_duration}</span>
+                  <span>{request.estimated_duration} months</span>
                 </div>
               )}
               {request.initial_estimated_cost && (
                 <div className="flex items-center gap-1">
                   <DollarSign className="w-4 h-4" />
-                  <span>{request.initial_estimated_cost}</span>
+                  <span>{formatCurrencyWithK(request.initial_estimated_cost)}</span>
                 </div>
               )}
             </div>

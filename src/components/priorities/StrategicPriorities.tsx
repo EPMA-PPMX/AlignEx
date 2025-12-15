@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, CheckCircle, Circle, Pause, XCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { formatCurrencyInput, extractNumericValue } from '../../lib/utils';
+import { useNotification } from '../../lib/useNotification';
 
 interface Priority {
   id: string;
@@ -15,6 +16,7 @@ interface Priority {
 }
 
 export default function StrategicPriorities() {
+  const { showConfirm } = useNotification();
   const [priorities, setPriorities] = useState<Priority[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -94,7 +96,12 @@ export default function StrategicPriorities() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this priority?')) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Priority',
+      message: 'Are you sure you want to delete this priority?',
+      confirmText: 'Delete'
+    });
+    if (!confirmed) return;
 
     try {
       const { error } = await supabase
