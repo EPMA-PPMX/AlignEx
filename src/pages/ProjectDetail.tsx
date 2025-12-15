@@ -4456,12 +4456,10 @@ const ProjectDetail: React.FC = () => {
                     required
                   >
                     <option value="task">Task</option>
-                    <option value="project">Summary Task</option>
                     <option value="milestone">Milestone</option>
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
                     {taskForm.type === 'task' && 'Standard task with start date, duration, and progress tracking'}
-                    {taskForm.type === 'project' && 'Container for subtasks with automatic duration calculation'}
                     {taskForm.type === 'milestone' && 'Key event or goal marker with zero duration'}
                   </p>
                 </div>
