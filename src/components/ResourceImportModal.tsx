@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Upload, X, AlertCircle, CheckCircle, FileSpreadsheet } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import * as ExcelJS from 'exceljs';
+import ExcelJS from 'exceljs';
 
 interface CustomField {
   id: string;
