@@ -910,14 +910,17 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       return "";
     };
 
-    // Hide milestone text on the chart - name only appears in grid
+    // Configure milestone text display - required for milestones to render properly
     gantt.templates.rightside_text = function(start: any, end: any, task: any) {
+      if (task.type === gantt.config.types.milestone || task.type === "milestone") {
+        return task.text;
+      }
       return "";
     };
 
-    // Hide text inside milestone diamond
+    // Hide text inside milestone diamond, show text to the right instead
     gantt.templates.task_text = function(start: any, end: any, task: any) {
-      if (task.type === gantt.config.types.milestone) {
+      if (task.type === gantt.config.types.milestone || task.type === "milestone") {
         return "";
       }
       return task.text;
@@ -1386,7 +1389,14 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         }
         // Debug: Log milestone tasks and parent relationships
         if (task.type === "milestone" || task.type === gantt.config.types.milestone) {
-          console.log("Milestone task found:", task);
+          console.log("=== MILESTONE FOUND ===");
+          console.log("Task ID:", task.id);
+          console.log("Task text:", task.text);
+          console.log("Task type:", task.type);
+          console.log("Task duration:", task.duration);
+          console.log("gantt.config.types.milestone:", gantt.config.types.milestone);
+          console.log("Type match:", task.type === gantt.config.types.milestone);
+          console.log("Full task object:", task);
         }
         if (task.parent) {
           console.log(`Task ${task.id} (${task.text}) has parent: ${task.parent}`);
