@@ -898,32 +898,24 @@ const ProjectDetail: React.FC = () => {
       if (!taskError && taskData?.task_data) {
         const tasks = taskData.task_data.data || [];
 
-        // Fetch resource assignments
-        const taskIds = tasks.map((t: any) => t.id);
-        if (taskIds.length > 0) {
-          const { data: assignments } = await supabase
-            .from('task_resource_assignments')
-            .select('task_id, resource_id')
-            .in('task_id', taskIds);
+        // Calculate total hours per resource from task data
+        // Resource assignments are stored in resource_ids array in each task
+        const resourceHours: { [key: string]: number } = {};
 
-          // Calculate total hours per resource
-          const resourceHours: { [key: string]: number } = {};
+        tasks.forEach((task: any) => {
+          if (task.resource_ids && Array.isArray(task.resource_ids) && task.duration) {
+            // Convert days to hours (assuming 8 hours per day)
+            const hours = task.duration * 8;
+            task.resource_ids.forEach((resourceId: string) => {
+              resourceHours[resourceId] = (resourceHours[resourceId] || 0) + hours;
+            });
+          }
+        });
 
-          (assignments || []).forEach((assignment: any) => {
-            const task = tasks.find((t: any) => t.id === assignment.task_id);
-            if (task && task.duration) {
-              // Convert days to hours (assuming 8 hours per day)
-              const hours = task.duration * 8;
-              resourceHours[assignment.resource_id] =
-                (resourceHours[assignment.resource_id] || 0) + hours;
-            }
-          });
-
-          // Add hours to resource objects
-          uniqueResources.forEach((resource: any) => {
-            resource.hours = resourceHours[resource.id] || 0;
-          });
-        }
+        // Add hours to resource objects
+        uniqueResources.forEach((resource: any) => {
+          resource.hours = resourceHours[resource.id] || 0;
+        });
       }
 
       return uniqueResources;
@@ -949,31 +941,11 @@ const ProjectDetail: React.FC = () => {
         return [];
       }
 
-      // Extract task IDs from task_data
-      const taskIds = (tasks.task_data.data || []).map((t: any) => t.id);
-
-      if (taskIds.length === 0) {
-        return [];
-      }
-
-      // Fetch assignments for these tasks
-      const { data, error } = await supabase
-        .from('task_resource_assignments')
-        .select('id, task_id, resource_id')
-        .in('task_id', taskIds);
-
-      if (error) {
-        console.error('Error fetching resource assignments:', error);
-        return [];
-      }
-
-      // Transform to Gantt assignment format
-      return (data || []).map(assignment => ({
-        id: assignment.id,
-        task_id: assignment.task_id,
-        resource_id: assignment.resource_id,
-        value: 1
-      }));
+      // NOTE: Resource assignments are stored in the task JSONB data itself
+      // (resource_ids and resource_names arrays in each task)
+      // The task_resource_assignments table is not used for JSONB-based tasks
+      // because task IDs in JSONB are integers, not UUIDs
+      return [];
     } catch (error) {
       console.error('Error fetching resource assignments:', error);
       return [];
@@ -2239,37 +2211,8 @@ const ProjectDetail: React.FC = () => {
         if (error) throw error;
       }
 
-      // Save resource assignments to junction table
-      if (taskForm.resource_ids.length > 0 && currentTaskId) {
-        // First, get the actual database task ID by finding it in task_data
-        const { data: taskRecord } = await supabase
-          .from('project_tasks')
-          .select('id, task_data')
-          .eq('project_id', id)
-          .maybeSingle();
-
-        if (taskRecord?.id) {
-          // Delete existing assignments for this task
-          await supabase
-            .from('task_resource_assignments')
-            .delete()
-            .eq('task_id', taskRecord.id);
-
-          // Insert new assignments
-          const assignments = taskForm.resource_ids.map(resourceId => ({
-            task_id: taskRecord.id,
-            resource_id: resourceId
-          }));
-
-          const { error: assignmentError } = await supabase
-            .from('task_resource_assignments')
-            .insert(assignments);
-
-          if (assignmentError) {
-            console.error('Error saving resource assignments:', assignmentError);
-          }
-        }
-      }
+      // Resource assignments are already saved in the task JSONB data
+      // No need to save separately to task_resource_assignments table
 
       // Update local state
       setProjectTasks(updatedTaskData);
