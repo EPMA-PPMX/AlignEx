@@ -771,9 +771,20 @@ const ProjectDetail: React.FC = () => {
 
             // Use stored duration - let Gantt calculate end_date from start_date + duration
             // This ensures working days logic is applied correctly
-            const duration = task.duration || 1;
+            // IMPORTANT: For milestones, duration MUST be 0, so use !== undefined check
+            const duration = task.duration !== undefined && task.duration !== null ? task.duration : 1;
             console.log(`Task ${task.id} (${task.text}): Raw duration from DB = ${task.duration}, Using duration = ${duration}`);
             console.log(`Task ${task.id}: Will let Gantt calculate end_date from start_date + duration`);
+
+            // DEBUG: Check for milestone tasks
+            if (task.type === 'milestone' || task.type === 'Milestone') {
+              console.log(`🔶 MILESTONE DETECTED IN DATABASE - Task ${task.id}:`);
+              console.log(`   - Text: ${task.text}`);
+              console.log(`   - Type from DB: "${task.type}"`);
+              console.log(`   - Duration from DB: ${task.duration}`);
+              console.log(`   - Using duration: ${duration}`);
+              console.log(`   - Duration preserved as 0: ${duration === 0}`);
+            }
 
             const taskObject = {
               id: task.id,
