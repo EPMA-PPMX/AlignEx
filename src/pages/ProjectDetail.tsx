@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp, Search, Group, Flag, ZoomIn, ZoomOut, Maximize2, Minimize2, History } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -26,6 +26,7 @@ interface Project {
   created_at: string;
   updated_at: string;
   template_id?: string;
+  selected_task_fields?: string[];
 }
 
 interface CustomField {
@@ -158,6 +159,13 @@ const ProjectDetail: React.FC = () => {
   // Utility function to adjust date to skip weekends
   const adjustToWorkday = (dateString: string): string => {
     const date = new Date(dateString);
+
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      console.error('Invalid date string provided to adjustToWorkday:', dateString);
+      return dateString; // Return original string if invalid
+    }
+
     const dayOfWeek = date.getDay();
 
     // If Saturday (6), move to Monday
@@ -190,6 +198,10 @@ const ProjectDetail: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [isGroupedByOwner, setIsGroupedByOwner] = useState(false);
   const [isGanttFullscreen, setIsGanttFullscreen] = useState(false);
+  const [taskCustomFields, setTaskCustomFields] = useState<CustomField[]>([]);
+  const [selectedTaskFields, setSelectedTaskFields] = useState<string[]>([]);
+  const [showTaskFieldsDropdown, setShowTaskFieldsDropdown] = useState(false);
+  const [showBaselineDropdown, setShowBaselineDropdown] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -272,7 +284,7 @@ const ProjectDetail: React.FC = () => {
     resource_ids: [] as string[],
     parent_id: undefined as number | undefined,
     parent_wbs: '' as string,
-    successor_ids: [] as number[],
+    predecessor_ids: [] as number[],
     type: 'task' as string,
     progress: 0
   });
@@ -289,8 +301,14 @@ const ProjectDetail: React.FC = () => {
 
   const [projectTasks, setProjectTasks] = useState<any>({
     data: [],
-    links: []
+    links: [],
+    resources: [],
+    resourceAssignments: []
   });
+
+  // Use a ref to always have access to the latest projectTasks value
+  const projectTasksRef = useRef(projectTasks);
+  const [showResourcePanel, setShowResourcePanel] = useState(false);
 
   const [taskSearchQuery, setTaskSearchQuery] = useState('');
   const ganttRef = useRef<any>(null);
@@ -306,6 +324,11 @@ const ProjectDetail: React.FC = () => {
     { id: 'settings', name: 'Documents', icon: FileText },
   ];
 
+  // Update ref whenever projectTasks changes
+  useEffect(() => {
+    projectTasksRef.current = projectTasks;
+  }, [projectTasks]);
+
   useEffect(() => {
     if (id) {
       fetchProject();
@@ -318,6 +341,7 @@ const ProjectDetail: React.FC = () => {
       fetchMonthlyForecasts();
       fetchProjectTasks();
       fetchProjectTeamMembers();
+      fetchTaskCustomFields();
     }
   }, [id]);
 
@@ -331,6 +355,103 @@ const ProjectDetail: React.FC = () => {
   useEffect(() => {
     fetchMonthlyForecasts();
   }, [selectedYear, id]);
+
+  // Track previous selected task fields to detect additions
+  const prevSelectedTaskFieldsRef = useRef<string[]>([]);
+
+  // Save selected task fields whenever they change
+  useEffect(() => {
+    const saveSelectedTaskFields = async () => {
+      if (!id || !project) return;
+
+      try {
+        const { error } = await supabase
+          .from('projects')
+          .update({ selected_task_fields: selectedTaskFields })
+          .eq('id', id);
+
+        if (error) {
+          console.error('Error saving selected task fields:', error);
+        }
+      } catch (error) {
+        console.error('Error saving selected task fields:', error);
+      }
+    };
+
+    // Only save if project has been loaded (to avoid saving empty array on initial load)
+    if (project) {
+      saveSelectedTaskFields();
+    }
+  }, [selectedTaskFields, id, project]);
+
+  // Initialize new custom fields in all tasks when fields are added
+  useEffect(() => {
+    const initializeNewFieldsInTasks = async () => {
+      if (!id || !project || projectTasks.data.length === 0 || taskCustomFields.length === 0) return;
+
+      // Find newly added fields
+      const previousFields = prevSelectedTaskFieldsRef.current;
+      const newFieldIds = selectedTaskFields.filter(fieldId => !previousFields.includes(fieldId));
+
+      if (newFieldIds.length === 0) {
+        prevSelectedTaskFieldsRef.current = selectedTaskFields;
+        return;
+      }
+
+      console.log('Initializing new fields in tasks:', newFieldIds);
+
+      // Create a copy of tasks and add new fields with null values
+      const updatedTasks = projectTasks.data.map((task: any) => {
+        const updatedTask = { ...task };
+
+        newFieldIds.forEach(fieldId => {
+          const field = taskCustomFields.find(f => f.id === fieldId);
+          if (field) {
+            const fieldKey = `custom_${field.field_name}`;
+            // Initialize with null if not already set
+            if (updatedTask[fieldKey] === undefined) {
+              updatedTask[fieldKey] = null;
+            }
+          }
+        });
+
+        return updatedTask;
+      });
+
+      // Save to database
+      try {
+        const taskData = {
+          data: updatedTasks,
+          links: projectTasks.links || [],
+          baseline: projectTasks.baseline || []
+        };
+
+        const { error } = await supabase
+          .from('project_tasks')
+          .upsert({
+            project_id: id,
+            task_data: taskData
+          }, {
+            onConflict: 'project_id'
+          });
+
+        if (error) {
+          console.error('Error saving initialized fields:', error);
+        } else {
+          console.log('Successfully initialized new fields in database');
+          // Refetch tasks to get the updated data
+          await fetchProjectTasks();
+        }
+      } catch (error) {
+        console.error('Error saving initialized fields:', error);
+      }
+
+      // Update the ref for next comparison
+      prevSelectedTaskFieldsRef.current = selectedTaskFields;
+    };
+
+    initializeNewFieldsInTasks();
+  }, [selectedTaskFields, id, project]);
 
   const fetchProject = async () => {
     try {
@@ -350,6 +471,10 @@ const ProjectDetail: React.FC = () => {
             description: data.description || '',
             start_date: data.start_date || ''
           });
+          // Load selected task fields if they exist
+          if (data.selected_task_fields && Array.isArray(data.selected_task_fields)) {
+            setSelectedTaskFields(data.selected_task_fields);
+          }
         }
       }
     } catch (error) {
@@ -634,38 +759,226 @@ const ProjectDetail: React.FC = () => {
               console.warn(`Task ${task.id} missing start_date, using today`);
             }
 
-            return {
+            // Preserve all custom fields and baseline fields
+            const customFields: any = {};
+            Object.keys(task).forEach(key => {
+              if (key.startsWith('custom_') || key.startsWith('baseline')) {
+                customFields[key] = task[key];
+              }
+            });
+
+            // Convert baseline string dates to Date objects for rendering
+            // Check for baseline0_StartDate and convert to planned_start/planned_end
+            if (customFields.baseline0_StartDate && customFields.baseline0_EndDate) {
+              try {
+                const startParts = customFields.baseline0_StartDate.split(' ');
+                const endParts = customFields.baseline0_EndDate.split(' ');
+                if (startParts.length >= 2 && endParts.length >= 2) {
+                  customFields.planned_start = new Date(customFields.baseline0_StartDate);
+                  customFields.planned_end = new Date(customFields.baseline0_EndDate);
+                }
+              } catch (e) {
+                console.warn(`Failed to parse baseline dates for task ${task.id}:`, e);
+              }
+            }
+
+            // Use stored duration - let Gantt calculate end_date from start_date + duration
+            // This ensures working days logic is applied correctly
+            const duration = task.duration || 1;
+            console.log(`Task ${task.id} (${task.text}): Raw duration from DB = ${task.duration}, Using duration = ${duration}`);
+            console.log(`Task ${task.id}: Will let Gantt calculate end_date from start_date + duration`);
+
+            const taskObject = {
               id: task.id,
               text: task.text || 'Untitled Task',
               start_date: startDate,
-              duration: task.duration || 1,
+              // Do NOT provide end_date - let Gantt calculate it from start_date + duration
+              // This ensures our custom calculateEndDate function is used with working days logic
+              duration: duration,
               progress: task.progress || 0,
               type: task.type || 'task',
               parent: task.parent !== undefined && task.parent !== null ? task.parent : 0,
               owner_id: task.owner_id,
               owner_name: task.owner_name,
               resource_ids: task.resource_ids || [],
-              resource_names: task.resource_names || []
+              resource_names: task.resource_names || [],
+              ...customFields  // Spread all custom fields
             };
+
+            console.log(`Task ${task.id} final object being returned:`, {
+              id: taskObject.id,
+              text: taskObject.text,
+              start_date: taskObject.start_date,
+              duration: taskObject.duration
+            });
+
+            return taskObject;
           });
         }
         console.log('Setting project tasks with data:', taskData.data?.length, 'tasks');
+
+        // Fetch resources and resource assignments
+        const resourcesData = await fetchResourcesForGantt();
+        const assignmentsData = await fetchResourceAssignments();
+
         setProjectTasks({
           data: taskData.data || [],
           links: taskData.links || [],
-          baseline: taskData.baseline || []
+          baseline: taskData.baseline || [],
+          resources: resourcesData,
+          resourceAssignments: assignmentsData
         });
         // Reset grouping state when new data is loaded
         setIsGroupedByOwner(false);
       } else {
         console.log('No task data found for project, setting empty array');
-        setProjectTasks({ data: [], links: [] });
+        setProjectTasks({ data: [], links: [], resources: [], resourceAssignments: [] });
         setIsGroupedByOwner(false);
       }
     } catch (error) {
       console.error('Error fetching project tasks:', error);
-      setProjectTasks({ data: [], links: [] });
+      setProjectTasks({ data: [], links: [], resources: [], resourceAssignments: [] });
       setIsGroupedByOwner(false);
+    }
+  };
+
+  const fetchResourcesForGantt = async () => {
+    if (!id) return [];
+
+    try {
+      // Fetch only resources that are members of this project
+      const { data, error } = await supabase
+        .from('project_team_members')
+        .select(`
+          resource_id,
+          resources (
+            id,
+            display_name,
+            cost_rate,
+            rate_type,
+            status
+          )
+        `)
+        .eq('project_id', id);
+
+      if (error) {
+        console.error('Error fetching project team resources:', error);
+        return [];
+      }
+
+      // Filter out null resources and transform to Gantt resource format
+      const resources = (data || [])
+        .filter(item => item.resources)
+        .map(item => {
+          const resource = item.resources as any;
+          return {
+            id: resource.id,
+            text: resource.display_name,
+            unit: resource.rate_type === 'hourly' ? 'hours/day' :
+                  resource.rate_type === 'daily' ? 'days' : 'months'
+          };
+        });
+
+      // Remove duplicates (in case a resource is added to team multiple times)
+      const uniqueResources = resources.reduce((acc: any[], current) => {
+        const exists = acc.find(r => r.id === current.id);
+        if (!exists) {
+          acc.push(current);
+        }
+        return acc;
+      }, []);
+
+      // Fetch tasks to calculate allocated hours per resource
+      const { data: taskData, error: taskError } = await supabase
+        .from('project_tasks')
+        .select('task_data')
+        .eq('project_id', id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!taskError && taskData?.task_data) {
+        const tasks = taskData.task_data.data || [];
+
+        // Fetch resource assignments
+        const taskIds = tasks.map((t: any) => t.id);
+        if (taskIds.length > 0) {
+          const { data: assignments } = await supabase
+            .from('task_resource_assignments')
+            .select('task_id, resource_id')
+            .in('task_id', taskIds);
+
+          // Calculate total hours per resource
+          const resourceHours: { [key: string]: number } = {};
+
+          (assignments || []).forEach((assignment: any) => {
+            const task = tasks.find((t: any) => t.id === assignment.task_id);
+            if (task && task.duration) {
+              // Convert days to hours (assuming 8 hours per day)
+              const hours = task.duration * 8;
+              resourceHours[assignment.resource_id] =
+                (resourceHours[assignment.resource_id] || 0) + hours;
+            }
+          });
+
+          // Add hours to resource objects
+          uniqueResources.forEach((resource: any) => {
+            resource.hours = resourceHours[resource.id] || 0;
+          });
+        }
+      }
+
+      return uniqueResources;
+    } catch (error) {
+      console.error('Error fetching resources for Gantt:', error);
+      return [];
+    }
+  };
+
+  const fetchResourceAssignments = async () => {
+    if (!id) return [];
+
+    try {
+      const { data: tasks, error: tasksError } = await supabase
+        .from('project_tasks')
+        .select('task_data')
+        .eq('project_id', id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (tasksError || !tasks || !tasks.task_data) {
+        return [];
+      }
+
+      // Extract task IDs from task_data
+      const taskIds = (tasks.task_data.data || []).map((t: any) => t.id);
+
+      if (taskIds.length === 0) {
+        return [];
+      }
+
+      // Fetch assignments for these tasks
+      const { data, error } = await supabase
+        .from('task_resource_assignments')
+        .select('id, task_id, resource_id')
+        .in('task_id', taskIds);
+
+      if (error) {
+        console.error('Error fetching resource assignments:', error);
+        return [];
+      }
+
+      // Transform to Gantt assignment format
+      return (data || []).map(assignment => ({
+        id: assignment.id,
+        task_id: assignment.task_id,
+        resource_id: assignment.resource_id,
+        value: 1
+      }));
+    } catch (error) {
+      console.error('Error fetching resource assignments:', error);
+      return [];
     }
   };
 
@@ -689,9 +1002,37 @@ const ProjectDetail: React.FC = () => {
         console.error('Error fetching project team members:', error);
       } else {
         setProjectTeamMembers(data || []);
+
+        // Refresh Gantt resources when team members change
+        const resourcesData = await fetchResourcesForGantt();
+        const assignmentsData = await fetchResourceAssignments();
+
+        setProjectTasks(prev => ({
+          ...prev,
+          resources: resourcesData,
+          resourceAssignments: assignmentsData
+        }));
       }
     } catch (error) {
       console.error('Error fetching team members:', error);
+    }
+  };
+
+  const fetchTaskCustomFields = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('custom_fields')
+        .select('*')
+        .eq('entity_type', 'task')
+        .order('field_label');
+
+      if (error) {
+        console.error('Error fetching task custom fields:', error);
+      } else {
+        setTaskCustomFields(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching task custom fields:', error);
     }
   };
 
@@ -719,18 +1060,49 @@ const ProjectDetail: React.FC = () => {
           const taskId = task.$original_id || task.id;
           // Only add if not already in map (handles duplicates from grouping)
           if (!taskMap.has(taskId)) {
+            // Collect custom fields and baseline fields (string format only, not Date objects)
+            const extraFields: any = {};
+            Object.keys(task).forEach(key => {
+              if (key.startsWith('custom_') || key.startsWith('baseline')) {
+                extraFields[key] = task[key];
+              }
+            });
+
+            // Ensure duration is a valid number
+            let duration = task.duration;
+            if (typeof duration !== 'number' || isNaN(duration)) {
+              duration = parseFloat(duration) || 1;
+            }
+            // Ensure it's a positive number (preserve exact value, no rounding)
+            duration = Math.max(1, duration);
+
+            console.log(`Task ${taskId}: duration=${task.duration} (type: ${typeof task.duration}), cleaned duration=${duration}`);
+
+            // Format end_date if it exists
+            let endDate = task.end_date;
+            if (endDate) {
+              // Convert Date object to string if needed
+              if (endDate instanceof Date) {
+                endDate = endDate.toISOString().split('T')[0] + ' 00:00';
+              } else if (typeof endDate === 'string' && !endDate.includes(' ')) {
+                endDate = endDate + ' 00:00';
+              }
+            }
+
             taskMap.set(taskId, {
               id: taskId,
               text: task.text,
               start_date: task.start_date,
-              duration: task.duration,
+              duration: duration,
+              end_date: endDate,
               progress: task.progress || 0,
               type: task.type || 'task',
               parent: task.$original_parent !== undefined ? task.$original_parent : (task.parent || 0),
               owner_id: task.owner_id,
               owner_name: task.owner_name,
               resource_ids: task.resource_ids || [],
-              resource_names: task.resource_names || []
+              resource_names: task.resource_names || [],
+              ...extraFields // Include custom fields and baseline fields
             });
           }
         });
@@ -770,6 +1142,8 @@ const ProjectDetail: React.FC = () => {
           console.error('Error updating tasks:', error);
         } else {
           console.log("Tasks updated successfully");
+          // Refresh data from database to ensure UI shows latest values
+          await fetchProjectTasks();
         }
       } else {
         // Insert new record only if none exists
@@ -785,6 +1159,8 @@ const ProjectDetail: React.FC = () => {
           console.error('Error inserting tasks:', error);
         } else {
           console.log("Tasks inserted successfully");
+          // Refresh data from database to ensure UI shows latest values
+          await fetchProjectTasks();
         }
       }
     } catch (error) {
@@ -1722,36 +2098,65 @@ const ProjectDetail: React.FC = () => {
       let updatedTaskData;
       let currentTaskId = editingTaskId; // Track the task ID being worked with
 
-      // Adjust start date to skip weekends
-      const adjustedStartDate = adjustToWorkday(taskForm.start_date);
-      console.log('Adjusted start date:', adjustedStartDate);
+      // Adjust start date to skip weekends if provided
+      let adjustedStartDate = null;
+      if (taskForm.start_date && taskForm.start_date.trim() !== '') {
+        adjustedStartDate = adjustToWorkday(taskForm.start_date);
+        console.log('Adjusted start date:', adjustedStartDate);
+      }
 
       if (editingTaskId) {
         // Update existing task
         const existingLinks = projectTasks.links || [];
 
-        // Remove old links where this task is the source
-        const filteredLinks = existingLinks.filter((link: any) => link.source !== editingTaskId);
+        // Remove old links where this task is the target (incoming links from predecessors)
+        const filteredLinks = existingLinks.filter((link: any) => link.target !== editingTaskId);
 
-        // Create new links for successor tasks
-        const newLinks = taskForm.successor_ids.map((successorId, index) => ({
+        // Create new links for predecessor tasks (predecessors point to this task)
+        const newLinks = taskForm.predecessor_ids.map((predecessorId, index) => ({
           id: Date.now() + index,
-          source: editingTaskId,
-          target: successorId,
+          source: predecessorId,
+          target: editingTaskId,
           type: "0" // Finish-to-Start dependency
         }));
 
         updatedTaskData = {
           data: projectTasks.data.map((task: any) => {
             if (task.id === editingTaskId) {
+              const duration = taskForm.type === 'milestone' ? 0 : taskForm.duration;
+
+              // Don't calculate end_date here - let DHTMLX Gantt calculate it based on work_time config
+              // DHTMLX will automatically calculate end_date from start_date + duration, respecting weekends
+
               const updatedTask: any = {
                 ...task,
                 text: taskForm.description,
-                start_date: `${adjustedStartDate} 00:00`,
-                duration: taskForm.type === 'milestone' ? 0 : taskForm.duration,
+                duration: duration,
                 type: taskForm.type,
                 progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
               };
+
+              // Set start_date: use provided date or default to project creation date or keep existing
+              if (adjustedStartDate) {
+                const startDateStr = `${adjustedStartDate} 00:00`;
+                updatedTask.start_date = startDateStr;
+              } else if (!task.start_date && project?.created_at) {
+                // If task has no start date and no new date provided, default to project creation date
+                const projectDate = new Date(project.created_at).toISOString().split('T')[0];
+                const startDateStr = `${projectDate} 00:00`;
+                updatedTask.start_date = startDateStr;
+                console.log('No start date provided, using project creation date:', startDateStr);
+              }
+
+              // Remove end_date so DHTMLX Gantt calculates it from duration
+              delete updatedTask.end_date;
+
+              console.log('Updated task values:', {
+                id: editingTaskId,
+                start_date: adjustedStartDate ? `${adjustedStartDate} 00:00` : 'not set',
+                duration: duration,
+                note: 'end_date will be calculated by DHTMLX Gantt'
+              });
 
               // Update resources if selected
               if (taskForm.resource_ids.length > 0) {
@@ -1783,14 +2188,30 @@ const ProjectDetail: React.FC = () => {
           ? Math.max(...projectTasks.data.map((t: any) => t.id)) + 1
           : 1;
 
+        const duration = taskForm.type === 'milestone' ? 0 : taskForm.duration;
+
+        // Don't calculate end_date here - let DHTMLX Gantt calculate it based on work_time config
+        // DHTMLX will automatically calculate end_date from start_date + duration, respecting weekends
+
         const newTask: any = {
           id: newTaskId,
           text: taskForm.description,
-          start_date: `${adjustedStartDate} 00:00`,
-          duration: taskForm.type === 'milestone' ? 0 : taskForm.duration,
+          duration: duration,
           type: taskForm.type,
           progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
         };
+
+        // Set start_date: use provided date or default to project creation date
+        if (adjustedStartDate) {
+          const startDateStr = `${adjustedStartDate} 00:00`;
+          newTask.start_date = startDateStr;
+        } else if (project?.created_at) {
+          // Default to project creation date if no start date provided
+          const projectDate = new Date(project.created_at).toISOString().split('T')[0];
+          const startDateStr = `${projectDate} 00:00`;
+          newTask.start_date = startDateStr;
+          console.log('No start date provided, using project creation date:', startDateStr);
+        }
 
         // Set parent - MUST be 0 for root tasks, not undefined
         console.log('Checking parent_id:', taskForm.parent_id);
@@ -1820,11 +2241,11 @@ const ProjectDetail: React.FC = () => {
         // Add to existing tasks
         const existingLinks = projectTasks.links || [];
 
-        // Create links for successor tasks
-        const newLinks = taskForm.successor_ids.map((successorId, index) => ({
+        // Create links for predecessor tasks (predecessors point to this task)
+        const newLinks = taskForm.predecessor_ids.map((predecessorId, index) => ({
           id: Date.now() + index,
-          source: newTask.id,
-          target: successorId,
+          source: predecessorId,
+          target: newTask.id,
           type: "0" // Finish-to-Start dependency
         }));
 
@@ -1905,7 +2326,50 @@ const ProjectDetail: React.FC = () => {
       // Reset grouping state when tasks are updated
       setIsGroupedByOwner(false);
 
-      showNotification(editingTaskId ? 'Task updated successfully!' : 'Task created successfully!', 'success');
+      // Force Gantt chart to refresh with new data
+      if (ganttRef.current) {
+        const ganttInstance = ganttRef.current.getGanttInstance();
+        if (ganttInstance) {
+          console.log('Refreshing Gantt with data:', updatedTaskData.data.map((t: any) => ({
+            id: t.id,
+            text: t.text,
+            start_date: t.start_date,
+            end_date: t.end_date,
+            duration: t.duration
+          })));
+
+          // Always clear and re-parse to ensure data consistency
+          ganttInstance.clearAll();
+          ganttInstance.parse(updatedTaskData);
+
+          // Sort tasks to ensure proper parent-child hierarchy display
+          ganttInstance.sort((a: any, b: any) => {
+            if (a.parent !== b.parent) {
+              if (a.parent === 0) return -1;
+              if (b.parent === 0) return 1;
+              return a.parent - b.parent;
+            }
+            return a.id - b.id;
+          });
+
+          // Open all parent tasks to show subtasks
+          ganttInstance.eachTask((task: any) => {
+            if (ganttInstance.hasChild(task.id)) {
+              ganttInstance.open(task.id);
+            }
+          });
+
+          // Force a complete refresh of the chart and grid
+          ganttInstance.render();
+
+          // Use setTimeout to ensure the grid updates after render
+          setTimeout(() => {
+            ganttInstance.refreshData();
+          }, 0);
+        }
+      }
+
+      alert(editingTaskId ? 'Task updated successfully!' : 'Task created successfully!');
       setShowTaskModal(false);
       setEditingTaskId(null);
       setTaskForm({
@@ -1915,7 +2379,7 @@ const ProjectDetail: React.FC = () => {
         owner_id: '',
         resource_ids: [],
         parent_id: undefined,
-        successor_ids: [],
+        predecessor_ids: [],
         type: 'task',
         progress: 0
       });
@@ -2476,57 +2940,190 @@ const ProjectDetail: React.FC = () => {
                   {isGroupedByOwner ? 'Show All Tasks' : 'Group by Owner'}
                 </button>
                 <button
-                  onClick={async () => {
-                    if (ganttRef.current && id) {
-                      const baselineData = ganttRef.current.setBaseline();
-                      console.log('Baseline set:', baselineData);
-
-                      // Save baseline to database
-                      try {
-                        // First, fetch the current task_data
-                        const { data: currentData, error: fetchError } = await supabase
-                          .from('project_tasks')
-                          .select('task_data')
-                          .eq('project_id', id)
-                          .single();
-
-                        if (fetchError) throw fetchError;
-
-                        // Merge baseline into existing task_data
-                        const updatedTaskData = {
-                          ...currentData.task_data,
-                          baseline: baselineData
-                        };
-
-                        // Update the record
-                        const { error: updateError } = await supabase
-                          .from('project_tasks')
-                          .update({ task_data: updatedTaskData })
-                          .eq('project_id', id);
-
-                        if (updateError) throw updateError;
-
-                        // Update local state to include baseline
-                        setProjectTasks({
-                          ...projectTasks,
-                          baseline: baselineData
-                        });
-
-                        showNotification('Baseline set successfully for all tasks!', 'success');
-                      } catch (error) {
-                        console.error('Error saving baseline:', error);
-                        showNotification('Failed to save baseline: ' + (error as Error).message, 'error');
-                      }
-                    }
-                  }}
+                  onClick={() => setShowResourcePanel(!showResourcePanel)}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                 >
-                  <Flag className="w-4 h-4" />
-                  Set Baseline
+                  <Users className="w-4 h-4" />
+                  {showResourcePanel ? 'Hide Resources' : 'Show Resources'}
                 </button>
+
+                {/* Task Fields Selector */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowTaskFieldsDropdown(!showTaskFieldsDropdown)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Task Fields
+                    {selectedTaskFields.length > 0 && (
+                      <span className="ml-1 px-2 py-0.5 bg-blue-500 rounded-full text-xs">
+                        {selectedTaskFields.length}
+                      </span>
+                    )}
+                  </button>
+
+                  {showTaskFieldsDropdown && (
+                    <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+                      <div className="p-3 border-b border-gray-200">
+                        <h4 className="font-medium text-gray-900">Select Task Fields</h4>
+                        <p className="text-xs text-gray-500 mt-1">Choose fields to display in task pane</p>
+                      </div>
+                      <div className="max-h-80 overflow-y-auto p-2">
+                        {taskCustomFields.length === 0 ? (
+                          <div className="text-center py-8 text-gray-500">
+                            <p className="text-sm">No task fields available</p>
+                            <p className="text-xs mt-1">Create task fields in Settings</p>
+                          </div>
+                        ) : (
+                          taskCustomFields.map((field) => (
+                            <label
+                              key={field.id}
+                              className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedTaskFields.includes(field.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedTaskFields([...selectedTaskFields, field.id]);
+                                  } else {
+                                    setSelectedTaskFields(selectedTaskFields.filter(id => id !== field.id));
+                                  }
+                                }}
+                                className="mt-1 w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                              />
+                              <div className="flex-1">
+                                <div className="text-sm font-medium text-gray-900">{field.field_label}</div>
+                                {field.field_description && (
+                                  <div className="text-xs text-gray-500 mt-0.5">{field.field_description}</div>
+                                )}
+                                <div className="text-xs text-gray-400 mt-0.5">Type: {field.field_type}</div>
+                              </div>
+                            </label>
+                          ))
+                        )}
+                      </div>
+                      <div className="p-3 border-t border-gray-200 flex justify-end gap-2">
+                        <button
+                          onClick={() => setShowTaskFieldsDropdown(false)}
+                          className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Baseline Selector */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowBaselineDropdown(!showBaselineDropdown)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    <Flag className="w-4 h-4" />
+                    Set Baseline
+                  </button>
+
+                  {showBaselineDropdown && (
+                    <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+                      <div className="p-3 border-b border-gray-200">
+                        <h4 className="font-medium text-gray-900">Select Baseline</h4>
+                        <p className="text-xs text-gray-500 mt-1">Choose which baseline to set</p>
+                      </div>
+                      <div className="max-h-80 overflow-y-auto p-2">
+                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((baselineNum) => (
+                          <button
+                            key={baselineNum}
+                            onClick={async () => {
+                              setShowBaselineDropdown(false);
+                              if (ganttRef.current && id) {
+                                // Set baseline on Gantt - this updates task data with baseline{N}_StartDate and baseline{N}_EndDate fields
+                                ganttRef.current.setBaseline(baselineNum);
+
+                                // Save baseline fields to database
+                                try {
+                                  const ganttInstance = ganttRef.current.getGanttInstance();
+
+                                  // Instead of using serialize which strips properties,
+                                  // manually collect all tasks with their full data including baseline fields
+                                  const updatedTasks: any[] = [];
+                                  ganttInstance.eachTask((task: any) => {
+                                    // Create a copy of the task with all its properties preserved
+                                    updatedTasks.push({ ...task });
+                                  });
+
+                                  // Get links separately
+                                  const links = ganttInstance.getLinks().map((link: any) => ({ ...link }));
+
+                                  // Verify that baseline fields exist
+                                  const tasksWithBaseline = updatedTasks.filter((task: any) =>
+                                    task[`baseline${baselineNum}_StartDate`] && task[`baseline${baselineNum}_EndDate`]
+                                  );
+                                  console.log(`${tasksWithBaseline.length} tasks have baseline ${baselineNum} fields set`);
+
+                                  // Update the database with the new task data containing baseline fields
+                                  const updatedTaskData = {
+                                    data: updatedTasks,
+                                    links: links
+                                  };
+
+                                  console.log('Saving task data with baseline fields to database:', updatedTaskData);
+
+                                  // Update the record
+                                  const { error: updateError } = await supabase
+                                    .from('project_tasks')
+                                    .update({ task_data: updatedTaskData })
+                                    .eq('project_id', id);
+
+                                  if (updateError) throw updateError;
+
+                                  // Update local state
+                                  setProjectTasks({
+                                    ...projectTasks,
+                                    data: updatedTasks,
+                                    links: links
+                                  });
+
+                                  alert(`Baseline ${baselineNum} set successfully! Fields baseline${baselineNum}_StartDate and baseline${baselineNum}_EndDate added to all tasks.`);
+                                } catch (error) {
+                                  console.error('Error saving baseline:', error);
+                                  alert('Failed to save baseline: ' + (error as Error).message);
+                                }
+                              }
+                            }}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded text-sm text-gray-900 transition-colors"
+                          >
+                            Baseline {baselineNum}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="p-3 border-t border-gray-200 flex justify-end gap-2">
+                        <button
+                          onClick={() => setShowBaselineDropdown(false)}
+                          className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <button
                   onClick={() => {
-                    setTaskForm({ ...taskForm, parent_id: undefined });
+                    setEditingTaskId(null);
+                    setTaskForm({
+                      description: '',
+                      start_date: '',
+                      duration: 1,
+                      owner_id: '',
+                      resource_ids: [],
+                      parent_id: undefined,
+                      parent_wbs: '',
+                      predecessor_ids: [],
+                      type: 'task',
+                      progress: 0
+                    });
                     setShowTaskModal(true);
                   }}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -2554,6 +3151,10 @@ const ProjectDetail: React.FC = () => {
                 projecttasks={projectTasks}
                 onTaskUpdate={saveProjectTasks}
                 searchQuery={taskSearchQuery}
+                selectedTaskFields={selectedTaskFields}
+                taskCustomFields={taskCustomFields}
+                showResourcePanel={showResourcePanel}
+                projectCreatedAt={project?.created_at}
                 onOpenTaskModal={(parentId) => {
                   console.log('=== onOpenTaskModal called ===');
                   console.log('parentId received:', parentId);
@@ -2584,7 +3185,7 @@ const ProjectDetail: React.FC = () => {
                     resource_ids: [],
                     parent_id: parentId,
                     parent_wbs: parentWbs,
-                    successor_ids: [],
+                    predecessor_ids: [],
                     type: 'task',
                     progress: 0
                   });
@@ -2594,31 +3195,55 @@ const ProjectDetail: React.FC = () => {
                 }}
                 onEditTask={(taskId) => {
                   console.log("onEditTask callback called with taskId:", taskId);
-                  console.log("projectTasks.data:", projectTasks.data);
-                  const task = projectTasks.data.find((t: any) => t.id === taskId);
+                  // Use ref to get the latest projectTasks value
+                  const currentTasks = projectTasksRef.current;
+                  console.log("projectTasks.data:", currentTasks.data);
+                  console.log("Number of tasks:", currentTasks.data?.length || 0);
+                  const task = currentTasks.data.find((t: any) => t.id === taskId);
                   console.log("Found task:", task);
                   if (task) {
                     let startDate = task.start_date;
 
                     // Convert Date object to string if needed
                     if (startDate instanceof Date) {
-                      startDate = startDate.toISOString().split('T')[0];
+                      // Format date in local timezone to avoid timezone shift
+                      const year = startDate.getFullYear();
+                      const month = String(startDate.getMonth() + 1).padStart(2, '0');
+                      const day = String(startDate.getDate()).padStart(2, '0');
+                      startDate = `${year}-${month}-${day}`;
                     } else if (typeof startDate === 'string' && startDate.includes(' ')) {
                       startDate = startDate.split(' ')[0];
                     }
 
-                    // Find successor tasks from links
-                    const successorIds = (projectTasks.links || [])
-                      .filter((link: any) => link.source === taskId)
-                      .map((link: any) => link.target);
+                    // Find predecessor tasks from links (tasks that point to this task)
+                    const predecessorIds = (currentTasks.links || [])
+                      .filter((link: any) => link.target === taskId)
+                      .map((link: any) => link.source);
 
                     // Get parent WBS if task has a parent
                     let parentWbs = '';
                     if (task.parent && task.parent !== 0) {
-                      const parentTask = projectTasks.data.find((t: any) => t.id === task.parent);
+                      const parentTask = currentTasks.data.find((t: any) => t.id === task.parent);
                       if (parentTask) {
                         parentWbs = parentTask.wbs || parentTask.$wbs || `Task #${task.parent}`;
                       }
+                    }
+
+                    // Determine resource_ids from task data
+                    let resourceIds = task.resource_ids || [];
+
+                    // If resource_ids is empty but owner_name exists, map owner_name to resource_ids
+                    if (resourceIds.length === 0 && task.owner_name) {
+                      const ownerNames = Array.isArray(task.owner_name) ? task.owner_name : [task.owner_name];
+                      resourceIds = ownerNames
+                        .map(name => {
+                          const member = projectTeamMembers.find((m: any) =>
+                            m.resources?.display_name === name
+                          );
+                          return member?.resource_id;
+                        })
+                        .filter(Boolean); // Remove undefined values
+                      console.log("Mapped owner_name to resource_ids:", ownerNames, "->", resourceIds);
                     }
 
                     console.log("Setting task form with:", {
@@ -2626,19 +3251,20 @@ const ProjectDetail: React.FC = () => {
                       start_date: startDate,
                       duration: task.duration,
                       owner_id: task.owner_id || '',
+                      resource_ids: resourceIds,
                       parent_id: task.parent || undefined,
                       parent_wbs: parentWbs,
-                      successor_ids: successorIds
+                      predecessor_ids: predecessorIds
                     });
                     setTaskForm({
                       description: task.text,
                       start_date: startDate,
                       duration: task.duration,
                       owner_id: task.owner_id || '',
-                      resource_ids: task.resource_ids || [],
+                      resource_ids: resourceIds,
                       parent_id: task.parent || undefined,
                       parent_wbs: parentWbs,
-                      successor_ids: successorIds,
+                      predecessor_ids: predecessorIds,
                       type: task.type || 'task',
                       progress: Math.round((task.progress || 0) * 100)
                     });
@@ -3889,7 +4515,7 @@ const ProjectDetail: React.FC = () => {
                       resource_ids: [],
                       parent_id: undefined,
                       parent_wbs: '',
-                      successor_ids: [],
+                      predecessor_ids: [],
                       type: 'task',
                       progress: 0
                     });
@@ -3944,26 +4570,23 @@ const ProjectDetail: React.FC = () => {
                     required
                   >
                     <option value="task">Task</option>
-                    <option value="project">Summary Task</option>
                     <option value="milestone">Milestone</option>
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
                     {taskForm.type === 'task' && 'Standard task with start date, duration, and progress tracking'}
-                    {taskForm.type === 'project' && 'Container for subtasks with automatic duration calculation'}
                     {taskForm.type === 'milestone' && 'Key event or goal marker with zero duration'}
                   </p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Start Date <span className="text-red-500">*</span>
+                    Start Date
                   </label>
                   <input
                     type="date"
                     value={taskForm.start_date}
                     onChange={(e) => setTaskForm({ ...taskForm, start_date: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
                   />
                 </div>
 
@@ -3975,7 +4598,10 @@ const ProjectDetail: React.FC = () => {
                     type="number"
                     min={taskForm.type === 'milestone' ? '0' : '1'}
                     value={taskForm.type === 'milestone' ? 0 : taskForm.duration}
-                    onChange={(e) => setTaskForm({ ...taskForm, duration: parseInt(e.target.value) || 1 })}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      setTaskForm({ ...taskForm, duration: taskForm.type === 'milestone' ? 0 : (value || 1) });
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
                     placeholder="Enter duration in days..."
                     required={taskForm.type !== 'milestone'}
@@ -4086,19 +4712,19 @@ const ProjectDetail: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Successor Tasks (Multiple Selection)
+                    Predecessor Tasks (Multiple Selection)
                   </label>
                   <p className="text-xs text-gray-500 mb-2">
-                    Select tasks that should start only after this task is completed. Hold Ctrl/Cmd to select multiple.
+                    Select tasks that must be completed before this task can start. Hold Ctrl/Cmd to select multiple.
                   </p>
                   <select
                     multiple
-                    value={taskForm.successor_ids.map(String)}
+                    value={taskForm.predecessor_ids.map(String)}
                     onChange={(e) => {
                       const selectedOptions = Array.from(e.target.selectedOptions).map(option => parseInt(option.value));
                       setTaskForm({
                         ...taskForm,
-                        successor_ids: selectedOptions
+                        predecessor_ids: selectedOptions
                       });
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -4107,7 +4733,7 @@ const ProjectDetail: React.FC = () => {
                     {getAllTasksWithWBS()
                       .filter(task => editingTaskId ? task.id !== editingTaskId : true)
                       .length === 0 ? (
-                      <option disabled>No tasks available. Create the task first, then edit it to add successors.</option>
+                      <option disabled>No tasks available. Create the task first, then edit it to add predecessors.</option>
                     ) : (
                       getAllTasksWithWBS()
                         .filter(task => editingTaskId ? task.id !== editingTaskId : true)
@@ -4118,9 +4744,9 @@ const ProjectDetail: React.FC = () => {
                         ))
                     )}
                   </select>
-                  {taskForm.successor_ids.length > 0 && (
+                  {taskForm.predecessor_ids.length > 0 && (
                     <p className="text-xs text-gray-500 mt-1">
-                      {taskForm.successor_ids.length} successor task(s) selected
+                      {taskForm.predecessor_ids.length} predecessor task(s) selected
                     </p>
                   )}
                 </div>

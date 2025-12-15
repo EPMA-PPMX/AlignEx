@@ -206,7 +206,16 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
       setLoading(true);
 
       const requestData = {
-        ...formData,
+        project_name: formData.project_name.trim(),
+        description: formData.description.trim() || null,
+        project_type: formData.project_type.trim(),
+        problem_statement: formData.problem_statement.trim(),
+        estimated_start_date: formData.estimated_start_date || null,
+        estimated_duration: formData.estimated_duration.trim() || null,
+        initial_estimated_cost: formData.initial_estimated_cost.trim() || null,
+        expected_benefits: formData.expected_benefits.trim(),
+        consequences_of_inaction: formData.consequences_of_inaction.trim(),
+        comments: formData.comments.trim() || null,
         status: isDraft ? 'Draft' : 'Pending Approval',
         submitted_at: isDraft ? null : new Date().toISOString(),
       };

@@ -1,6 +1,6 @@
 import React, { Component, createRef } from "react";
-import { gantt } from "dhtmlx-gantt";
-import "dhtmlx-gantt/codebase/dhtmlxgantt.css";
+import { gantt } from "../../lib/dhtmlxgantt/gantt-wrapper";
+import "../../lib/dhtmlxgantt/dhtmlxgantt.css";
 import "./Gantt.css";
 
 // Define TypeScript interfaces for props and tasks
@@ -21,19 +21,52 @@ interface Link {
   type: string;
 }
 
+interface CustomField {
+  id: string;
+  field_name: string;
+  field_type: string;
+  field_label: string;
+  field_description?: string;
+  is_required: boolean;
+  default_value?: string;
+  options?: string[];
+}
+
+interface Resource {
+  id: string;
+  text: string;
+  unit?: string;
+  parent?: string;
+}
+
+interface ResourceAssignment {
+  id: string;
+  task_id: number;
+  resource_id: string;
+  value?: number;
+}
+
 interface GanttProps {
   projecttasks: {
     data: Task[];
     links?: Link[];
     baseline?: any[];
+    resources?: Resource[];
+    resourceAssignments?: ResourceAssignment[];
   };
   onTaskUpdate?: () => void;
   onOpenTaskModal?: (parentId?: number) => void;
   onEditTask?: (taskId: number) => void;
   searchQuery?: string;
+  selectedTaskFields?: string[];
+  taskCustomFields?: CustomField[];
+  showResourcePanel?: boolean;
+  projectCreatedAt?: string;
 }
 
-export default class Gantt extends Component<GanttProps> {
+interface GanttState {}
+
+export default class Gantt extends Component<GanttProps, GanttState> {
   private ganttContainer = createRef<HTMLDivElement>();
   private pendingParentId: number | undefined = undefined;
   private allTasks: Task[] = [];
@@ -42,40 +75,67 @@ export default class Gantt extends Component<GanttProps> {
   private originalLinks: any[] = [];
   private groupHeaderIdStart: number = 999900;
   private resizeObserver: ResizeObserver | null = null;
+  private readonly skipWeekends: boolean = true; // Always skip weekends by default
+
+  constructor(props: GanttProps) {
+    super(props);
+    this.state = {};
+  }
 
   public isGroupedByOwner = (): boolean => {
     return this.isGrouped;
   };
 
-  public setBaseline = (): any[] => {
+  public getGanttInstance = () => {
+    return gantt;
+  };
+
+  // Helper function to calculate end date correctly (inclusive)
+  public setBaseline = (baselineNum: number = 0): any[] => {
     const baselineData: any[] = [];
 
     gantt.eachTask((task: any) => {
       // Skip group headers
       if (task.$group_header) return;
 
-      // Set planned_start and planned_end on the task itself
+      // Get current start and end dates
       const startDate = gantt.date.parseDate(task.start_date, "xml_date");
-      const endDate = gantt.calculateEndDate({
-        start_date: startDate,
-        duration: task.duration
-      });
+      // Use DHTMLX's calculateEndDate which calculates calendar days (including weekends)
+      const endDate = gantt.calculateEndDate(startDate, task.duration);
 
-      task.planned_start = startDate;
-      task.planned_end = endDate;
+      // Format dates as YYYY-MM-DD HH:mm for storage
+      const dateTimeFormat = gantt.date.date_to_str("%Y-%m-%d %H:%i");
+      const startDateStr = dateTimeFormat(startDate);
+      const endDateStr = dateTimeFormat(endDate);
 
-      // Store baseline data for database
+      // Store baseline fields directly in task data with the naming convention: baseline{N}_StartDate and baseline{N}_EndDate
+      task[`baseline${baselineNum}_StartDate`] = startDateStr;
+      task[`baseline${baselineNum}_EndDate`] = endDateStr;
+
+      // Also store as Date objects for rendering baseline bars
+      task[`planned_start_${baselineNum}`] = startDate;
+      task[`planned_end_${baselineNum}`] = endDate;
+
+      // Keep the default planned_start/planned_end for backward compatibility with baseline 0
+      if (baselineNum === 0) {
+        task.planned_start = startDate;
+        task.planned_end = endDate;
+      }
+
+      // Store baseline data for return (for logging purposes)
       baselineData.push({
         task_id: task.id,
-        planned_start: gantt.date.date_to_str("%Y-%m-%d %H:%i")(startDate),
-        planned_end: gantt.date.date_to_str("%Y-%m-%d %H:%i")(endDate)
+        baseline_number: baselineNum,
+        [`baseline${baselineNum}_StartDate`]: startDateStr,
+        [`baseline${baselineNum}_EndDate`]: endDateStr
       });
 
       // Update the task in gantt
       gantt.updateTask(task.id);
     });
 
-    console.log("Setting baseline data:", baselineData);
+    console.log(`Setting baseline ${baselineNum} with fields: baseline${baselineNum}_StartDate, baseline${baselineNum}_EndDate`);
+    console.log('Baseline data:', baselineData);
     gantt.render();
 
     // Manually trigger baseline rendering
@@ -100,8 +160,10 @@ export default class Gantt extends Component<GanttProps> {
       console.log('Ungrouping: restoring original tasks', this.originalTasks);
       console.log('Ungrouping: restoring original links', this.originalLinks);
       gantt.clearAll();
+      // Prepare tasks by removing end_date to recalculate based on current skipWeekends setting
+      const preparedTasks = this.prepareTasksForParsing(this.originalTasks);
       gantt.parse({
-        data: this.originalTasks,
+        data: preparedTasks,
         links: this.originalLinks
       });
       this.isGrouped = false;
@@ -138,6 +200,19 @@ export default class Gantt extends Component<GanttProps> {
 
             // Add this task to the resource's task list
             resourceTasksMap[resourceId].push({ ...task });
+          });
+        } else if (task.owner_name && Array.isArray(task.owner_name) && task.owner_name.length > 0) {
+          // Handle tasks with multiple owners (owner_name array)
+          task.owner_name.forEach((ownerName: string) => {
+            const ownerId = ownerName; // Use owner name as ID
+
+            if (!resourceMap[ownerId]) {
+              resourceMap[ownerId] = ownerName;
+              resourceTasksMap[ownerId] = [];
+            }
+
+            // Add this task to the resource's task list
+            resourceTasksMap[ownerId].push({ ...task });
           });
         } else {
           // Fallback for tasks with single owner (backward compatibility)
@@ -204,8 +279,10 @@ export default class Gantt extends Component<GanttProps> {
 
       // Clear and reload with grouped structure
       gantt.clearAll();
+      // Prepare tasks by removing end_date to recalculate based on current skipWeekends setting
+      const preparedTasks = this.prepareTasksForParsing(newTasks);
       gantt.parse({
-        data: newTasks,
+        data: preparedTasks,
         links: []
       });
 
@@ -251,7 +328,7 @@ export default class Gantt extends Component<GanttProps> {
           const taskBarVerticalOffset = (rowHeight - taskBarHeight) / 2;
           const taskBarTop = rowTop + taskBarVerticalOffset;
           const taskBarBottom = taskBarTop + taskBarHeight;
-          const baselineTop = taskBarBottom + 35;
+          const baselineTop = taskBarBottom + 25;
 
           console.log(`Task ${task.id} - calculated: rowTop=${rowTop}, taskBarTop=${taskBarTop}, taskBarBottom=${taskBarBottom}, baselineTop=${baselineTop}`);
 
@@ -284,16 +361,248 @@ export default class Gantt extends Component<GanttProps> {
     console.log(`Total baselines rendered: ${baselineCount}`);
   };
 
+  private buildGanttColumns = () => {
+    const { selectedTaskFields = [], taskCustomFields = [] } = this.props;
+
+    // Define text and date editors
+    const textEditor = { type: "text", map_to: "text" };
+    const dateEditor = { type: "date", map_to: "start_date" };
+    const durationEditor = { type: "number", map_to: "duration", min: 0, max: 100 };
+
+    // Base columns
+    const baseColumns: any[] = [
+      {
+        name: "edit",
+        label: "",
+        width: 40,
+        align: "center",
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          return `<div class="gantt_edit_btn" data-task-id="${task.$original_id || task.id}" title="Edit task">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </div>`;
+        }
+      },
+      {
+        name: "wbs",
+        label: "WBS",
+        width: 60,
+        resize: true,
+        template: gantt.getWBSCode
+      },
+      { name: "text", label: "Task name", tree: true, width: 250, min_width: 150, max_width: 500, resize: true, editor: textEditor },
+      {
+        name: "owner_name",
+        label: "Owners",
+        align: "center",
+        width: 150,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+
+          // Handle resource_ids array (multi-resource assignments)
+          if (task.resource_ids && Array.isArray(task.resource_ids) && task.resource_ids.length > 0) {
+            const owners = task.resource_names || [];
+            if (owners.length === 0) return "Unassigned";
+
+            const badges = owners.map((name: string, index: number) => {
+              const initial = name.charAt(0).toUpperCase();
+              const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+              const color = colors[index % colors.length];
+              return `<span class="owner-badge" style="background-color: ${color};" title="${name}">${initial}</span>`;
+            }).join('');
+
+            return `<div class="owner-badges-container">${badges}</div>`;
+          }
+
+          // Handle owner_name as array (multi-owner tasks)
+          if (task.owner_name && Array.isArray(task.owner_name) && task.owner_name.length > 0) {
+            const owners = task.owner_name;
+            const badges = owners.map((name: string, index: number) => {
+              const initial = name.charAt(0).toUpperCase();
+              const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+              const color = colors[index % colors.length];
+              return `<span class="owner-badge" style="background-color: ${color};" title="${name}">${initial}</span>`;
+            }).join('');
+
+            return `<div class="owner-badges-container">${badges}</div>`;
+          }
+
+          // Handle owner_name as string (legacy single-owner tasks)
+          return task.owner_name || "Unassigned";
+        }
+      },
+      {
+        name: "start_date",
+        label: "Start time",
+        align: "center",
+        width: 150,
+        resize: true,
+        editor: dateEditor,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          if (task.start_date) {
+            const startDate = typeof task.start_date === 'string'
+              ? gantt.date.parseDate(task.start_date, "xml_date")
+              : task.start_date;
+            // Format with date and time
+            return gantt.date.date_to_str("%Y-%m-%d %H:%i")(startDate);
+          }
+          return "";
+        }
+      },
+      {
+        name: "end_date",
+        label: "End time",
+        align: "center",
+        width: 150,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          // Use DHTMLX's calculateEndDate which respects work_time configuration
+          if (task.start_date && task.duration) {
+            const startDate = typeof task.start_date === 'string'
+              ? gantt.date.parseDate(task.start_date, "xml_date")
+              : task.start_date;
+            const endDate = gantt.calculateEndDate(startDate, task.duration);
+            // Subtract 1 day from end date to show the actual last working day
+            const adjustedEndDate = gantt.date.add(endDate, -1, "day");
+            // Format with date and time
+            return gantt.date.date_to_str("%Y-%m-%d %H:%i")(adjustedEndDate);
+          }
+          return "";
+        }
+      },
+      {
+        name: "duration",
+        label: "Duration",
+        align: "center",
+        width: 70,
+        resize: true,
+        editor: durationEditor,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          return task.duration || 0;
+        }
+      },
+      {
+        name: "progress",
+        label: "Progress",
+        align: "center",
+        width: 80,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+
+          const progress = Math.round((task.progress || 0) * 100);
+          const radius = 12;
+          const circumference = 2 * Math.PI * radius;
+          const strokeDashoffset = circumference - (progress / 100) * circumference;
+
+          return `
+            <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">
+              <svg width="30" height="30" style="transform: rotate(-90deg);">
+                <circle
+                  cx="15"
+                  cy="15"
+                  r="${radius}"
+                  stroke="#e5e7eb"
+                  stroke-width="3"
+                  fill="none"
+                />
+                <circle
+                  cx="15"
+                  cy="15"
+                  r="${radius}"
+                  stroke="#3b82f6"
+                  stroke-width="3"
+                  fill="none"
+                  stroke-dasharray="${circumference}"
+                  stroke-dashoffset="${strokeDashoffset}"
+                  stroke-linecap="round"
+                />
+                <text
+                  x="15"
+                  y="15"
+                  text-anchor="middle"
+                  dominant-baseline="middle"
+                  font-size="8"
+                  fill="#374151"
+                  transform="rotate(90 15 15)"
+                >
+                  ${progress}%
+                </text>
+              </svg>
+            </div>
+          `;
+        }
+      }
+    ];
+
+    // Add custom field columns
+    selectedTaskFields.forEach(fieldId => {
+      const field = taskCustomFields.find(f => f.id === fieldId);
+      if (field) {
+        baseColumns.push({
+          name: `custom_${field.field_name}`,
+          label: field.field_label,
+          align: "center",
+          width: 150,
+          resize: true,
+          template: (task: any) => {
+            if (task.$group_header) return "";
+            const value = task[`custom_${field.field_name}`];
+            return value !== undefined && value !== null ? String(value) : "";
+          }
+        });
+      }
+    });
+
+    // Add the "add" button column at the end
+    baseColumns.push({ name: "add", label: "", width: 44 });
+
+    gantt.config.columns = baseColumns;
+  };
+
   componentDidMount(): void {
+    if (!this.ganttContainer.current) return;
+
+    gantt.license = "39548339";
+
     gantt.config.date_format = "%Y-%m-%d %H:%i";
     gantt.config.readonly = false;
     gantt.config.details_on_dblclick = true;
 
+    // Configure work time - always skip weekends by default
+    gantt.config.duration_unit = "day";
+    gantt.config.skip_off_time = false; // Always show weekends in chart (never hide them)
+
+    // Apply work time configuration to skip weekends
+    this.updateWorkTimeConfig(this.skipWeekends);
+
+    console.log("=== DHTMLX Gantt Configuration ===");
+    console.log("work_time enabled:", gantt.config.work_time);
+    console.log("duration_unit:", gantt.config.duration_unit);
+    console.log("skip_off_time:", gantt.config.skip_off_time);
+    console.log("skipWeekends:", this.skipWeekends);
+    console.log("Duration excludes weekends (working days only)");
+
     // Enable plugins
     gantt.plugins({
-      keyboard_navigation: true
+      keyboard_navigation: true,
+      auto_scheduling: true, // Enable auto-scheduling for automatic task rescheduling based on dependencies
+      inline_editors: true
     });
     gantt.config.keyboard_navigation_cells = true;
+
+    // Configure auto-scheduling behavior
+    gantt.config.auto_scheduling = true; // Enable auto-scheduling
+    gantt.config.auto_scheduling_strict = true; // Enforce strict scheduling rules to reschedule to earliest possible date
+    gantt.config.auto_scheduling_compatibility = true; // Maintain compatibility with manual edits
+    gantt.config.auto_scheduling_use_progress = false; // Include all tasks in auto-scheduling
 
     // Enable grid resizing - allows dragging the splitter between grid and timeline
     gantt.config.grid_resize = true;
@@ -359,8 +668,11 @@ export default class Gantt extends Component<GanttProps> {
       ]
     };
 
-    gantt.ext.zoom.init(zoomConfig);
-    gantt.ext.zoom.setLevel("day");
+    // Initialize zoom extension if it exists
+    if (gantt.ext && gantt.ext.zoom) {
+      gantt.ext.zoom.init(zoomConfig);
+      gantt.ext.zoom.setLevel("day");
+    }
 
     // Set grid width to 40% of container (task pane), leaving 60% for chart
     const updateGridWidth = () => {
@@ -373,15 +685,10 @@ export default class Gantt extends Component<GanttProps> {
     updateGridWidth();
     gantt.config.min_grid_column_width = 50;
 
-    // Configure to skip weekends
-    gantt.config.skip_off_time = true;
-    gantt.config.work_time = true;
+    gantt.config.duration_step = 1;
+    gantt.config.round_dnd_dates = false;
 
-    // Set weekend days (0 = Sunday, 6 = Saturday)
-    gantt.setWorkTime({ day: 0, hours: false });
-    gantt.setWorkTime({ day: 6, hours: false });
-
-    const { projecttasks, onTaskUpdate, onOpenTaskModal, onEditTask } = this.props;
+    const { projecttasks, onTaskUpdate, onOpenTaskModal, onEditTask, showResourcePanel } = this.props;
 
     // Define inline editors
     const textEditor = { type: "text", map_to: "text" };
@@ -393,48 +700,168 @@ export default class Gantt extends Component<GanttProps> {
       type: "number",
       map_to: "duration",
       min: 1,
-      max: 365
+      max: 365,
+      formatter: function(value: any) {
+        // Ensure the value is a number
+        const num = parseFloat(value);
+        return isNaN(num) ? 1 : Math.max(1, Math.round(num));
+      }
     };
 
-    // Configure layout with horizontal scroll for grid
-    gantt.config.layout = {
-      css: "gantt_container",
-      cols: [
+    // Configure resource management
+    if (showResourcePanel) {
+      gantt.config.resource_store = "resource";
+      gantt.config.resource_property = "owner_id";
+      gantt.config.process_resource_assignments = true;
+      gantt.config.resource_assignment_store = "resourceAssignments";
+
+      // Configure resource grid columns in gantt.config
+      gantt.config.columns = gantt.config.columns || [];
+
+      // Store resource columns separately
+      const resourceColumns = [
         {
-          width: 400,
-          min_width: 300,
-          rows: [
-            {
-              view: "grid",
-              scrollX: "gridScroll",
-              scrollable: true,
-              scrollY: "scrollVer"
-            },
-            {
-              view: "scrollbar",
-              id: "gridScroll",
-              group: "horizontal"
-            }
-          ]
+          name: "text",
+          label: "Resource Name",
+          tree: true,
+          width: 200,
+          template: function(resource: any) {
+            return resource.text || resource.name || "Unnamed Resource";
+          }
         },
-        { resizer: true, width: 1 },
         {
-          rows: [
-            {
-              view: "timeline",
-              scrollX: "scrollHor",
-              scrollY: "scrollVer"
-            },
-            {
-              view: "scrollbar",
-              id: "scrollHor",
-              group: "horizontal"
-            }
-          ]
+          name: "workload",
+          label: "Workload",
+          align: "center",
+          width: 100,
+          template: function(resource: any) {
+            const assignments = gantt.getDatastore("resourceAssignments").getItems().filter((a: any) => a.resource_id === resource.id);
+            return assignments.length + " tasks";
+          }
         },
-        { view: "scrollbar", id: "scrollVer" }
-      ]
-    };
+        {
+          name: "hours",
+          label: "Allocated Hours",
+          align: "center",
+          width: 135,
+          template: function(resource: any) {
+            return (resource.hours || 0) + " hrs";
+          }
+        }
+      ];
+
+      // Configure layout with resource panel
+      gantt.config.layout = {
+        css: "gantt_container",
+        rows: [
+          {
+            cols: [
+              {
+                width: 400,
+                min_width: 300,
+                rows: [
+                  {
+                    view: "grid",
+                    scrollX: "gridScroll",
+                    scrollable: true,
+                    scrollY: "scrollVer"
+                  },
+                  {
+                    view: "scrollbar",
+                    id: "gridScroll",
+                    group: "horizontal"
+                  }
+                ]
+              },
+              { resizer: true, width: 1 },
+              {
+                rows: [
+                  {
+                    view: "timeline",
+                    scrollX: "scrollHor",
+                    scrollY: "scrollVer"
+                  },
+                  {
+                    view: "scrollbar",
+                    id: "scrollHor",
+                    group: "horizontal"
+                  }
+                ]
+              },
+              { view: "scrollbar", id: "scrollVer" }
+            ],
+            gravity: 2
+          },
+          { resizer: true, width: 1 },
+          {
+            config: { height: 200 },
+            cols: [
+              {
+                view: "resourceGrid",
+                id: "resourceGrid",
+                group: "grids",
+                width: 450,
+                scrollY: "resourceVScroll",
+                bind: "resource",
+                config: {
+                  columns: resourceColumns
+                }
+              },
+              { resizer: true, width: 1 },
+              {
+                view: "resourceTimeline",
+                id: "resourceTimeline",
+                scrollX: "scrollHor",
+                scrollY: "resourceVScroll",
+                bind: "resource"
+              },
+              { view: "scrollbar", id: "resourceVScroll", group: "vertical" }
+            ],
+            gravity: 1
+          }
+        ]
+      };
+    } else {
+      // Configure layout without resource panel
+      gantt.config.layout = {
+        css: "gantt_container",
+        cols: [
+          {
+            width: 400,
+            min_width: 300,
+            rows: [
+              {
+                view: "grid",
+                scrollX: "gridScroll",
+                scrollable: true,
+                scrollY: "scrollVer"
+              },
+              {
+                view: "scrollbar",
+                id: "gridScroll",
+                group: "horizontal"
+              }
+            ]
+          },
+          { resizer: true, width: 1 },
+          {
+            rows: [
+              {
+                view: "timeline",
+                scrollX: "scrollHor",
+                scrollY: "scrollVer"
+              },
+              {
+                view: "scrollbar",
+                id: "scrollHor",
+                group: "horizontal"
+              }
+            ]
+          },
+          { view: "scrollbar", id: "scrollVer" }
+        ]
+      };
+    }
 
     // Configure task types - MUST be done before parsing data
     // DHTMLX Gantt recognizes these specific type values
@@ -459,125 +886,8 @@ export default class Gantt extends Component<GanttProps> {
     gantt.config.row_height = 42;
     gantt.config.task_height = 26;
 
-    // Custom add button column with resizable columns and inline editors
-    gantt.config.columns = [
-      {
-        name: "edit",
-        label: "",
-        width: 40,
-        align: "center",
-        template: (task: any) => {
-          if (task.$group_header) return "";
-          return `<div class="gantt_edit_btn" data-task-id="${task.$original_id || task.id}" title="Edit task">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-            </svg>
-          </div>`;
-        }
-      },
-      {
-        name: "wbs",
-        label: "WBS",
-        width: 60,
-        resize: true,
-        template: gantt.getWBSCode
-      },
-      { name: "text", label: "Task name", tree: true, width: 250, min_width: 150, max_width: 500, resize: true, editor: textEditor },
-      {
-        name: "owner_name",
-        label: "Owners",
-        align: "center",
-        width: 150,
-        resize: true,
-        template: (task: any) => {
-          if (task.$group_header) return "";
-
-          // Check if task has resource_ids array (multiple resources)
-          if (task.resource_ids && Array.isArray(task.resource_ids) && task.resource_ids.length > 0) {
-            const owners = task.resource_names || [];
-            if (owners.length === 0) return "Unassigned";
-
-            // Create owner badges
-            const badges = owners.map((name: string, index: number) => {
-              const initial = name.charAt(0).toUpperCase();
-              const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-              const color = colors[index % colors.length];
-              return `<span class="owner-badge" style="background-color: ${color};" title="${name}">${initial}</span>`;
-            }).join('');
-
-            return `<div class="owner-badges-container">${badges}</div>`;
-          }
-
-          // Fallback to single owner_name for backward compatibility
-          return task.owner_name || "Unassigned";
-        }
-      },
-      { name: "start_date", label: "Start time", align: "center", width: 120, resize: true, editor: dateEditor },
-      {
-        name: "end_date",
-        label: "End time",
-        align: "center",
-        width: 120,
-        resize: true,
-        template: (task: any) => {
-          if (task.$group_header) return "";
-          return gantt.templates.date_grid(task.end_date, task);
-        }
-      },
-      { name: "duration", label: "Duration", align: "center", width: 70, resize: true, editor: durationEditor },
-      {
-        name: "progress",
-        label: "Progress",
-        align: "center",
-        width: 80,
-        resize: true,
-        template: (task: any) => {
-          if (task.$group_header) return "";
-
-          const progress = Math.round((task.progress || 0) * 100);
-          const radius = 12;
-          const circumference = 2 * Math.PI * radius;
-          const strokeDashoffset = circumference - (progress / 100) * circumference;
-
-          return `
-            <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">
-              <svg width="32" height="32" viewBox="0 0 32 32" style="transform: rotate(-90deg);">
-                <circle
-                  cx="16"
-                  cy="16"
-                  r="${radius}"
-                  fill="none"
-                  stroke="#e5e7eb"
-                  stroke-width="2.5"
-                />
-                <circle
-                  cx="16"
-                  cy="16"
-                  r="${radius}"
-                  fill="none"
-                  stroke="#10b981"
-                  stroke-width="2.5"
-                  stroke-dasharray="${circumference}"
-                  stroke-dashoffset="${strokeDashoffset}"
-                  stroke-linecap="round"
-                />
-                <text
-                  x="16"
-                  y="16"
-                  text-anchor="middle"
-                  dominant-baseline="central"
-                  style="transform: rotate(90deg); transform-origin: center; font-size: 8px; font-weight: 600; fill: #374151;"
-                >
-                  ${progress}%
-                </text>
-              </svg>
-            </div>
-          `;
-        }
-      },
-      { name: "add", label: "", width: 44 }
-    ];
+    // Build columns dynamically based on selected custom fields
+    this.buildGanttColumns();
 
     // Custom styling for group headers
     gantt.templates.task_class = (start: any, end: any, task: any) => {
@@ -600,14 +910,17 @@ export default class Gantt extends Component<GanttProps> {
       return "";
     };
 
-    // Hide milestone text on the chart - name only appears in grid
+    // Configure milestone text display - required for milestones to render properly
     gantt.templates.rightside_text = function(start: any, end: any, task: any) {
+      if (task.type === gantt.config.types.milestone || task.type === "milestone") {
+        return task.text;
+      }
       return "";
     };
 
-    // Hide text inside milestone diamond
+    // Hide text inside milestone diamond, show text to the right instead
     gantt.templates.task_text = function(start: any, end: any, task: any) {
-      if (task.type === gantt.config.types.milestone) {
+      if (task.type === gantt.config.types.milestone || task.type === "milestone") {
         return "";
       }
       return task.text;
@@ -650,6 +963,13 @@ export default class Gantt extends Component<GanttProps> {
         console.log("task.parent:", task.parent);
         console.log("task.$rendered_parent:", task.$rendered_parent);
 
+        // Set default start date to project creation date if no start date provided
+        const { projectCreatedAt } = this.props;
+        if (!task.start_date && projectCreatedAt) {
+          task.start_date = new Date(projectCreatedAt);
+          console.log("Set default start_date to project creation date:", task.start_date);
+        }
+
         // Capture the parent - check various parent properties
         const parentId = task.$rendered_parent || task.parent;
 
@@ -668,6 +988,18 @@ export default class Gantt extends Component<GanttProps> {
       console.log("onEditTask callback exists:", !!onEditTask);
 
       try {
+        // Check if the double-click was on a grid cell with an editor
+        // If so, allow inline editing to proceed
+        const target = e?.target || e?.srcElement;
+        if (target) {
+          // Check if we're clicking on a grid cell (not the timeline area)
+          const gridCell = target.closest('.gantt_cell');
+          if (gridCell) {
+            console.log("Double-click on grid cell, allowing inline editor");
+            return true; // Allow default behavior (inline editing)
+          }
+        }
+
         // Check if task exists
         if (!gantt.isTaskExists(id)) {
           console.log("Task does not exist");
@@ -769,41 +1101,215 @@ export default class Gantt extends Component<GanttProps> {
       }
     });
 
+    // Recalculate end_date when task is loaded to ensure consistency
+    gantt.attachEvent("onTaskLoading", (task: any) => {
+      if (task.start_date && task.duration !== undefined && !task.$group_header) {
+        console.log("=== onTaskLoading ===");
+        console.log("Task:", task.text);
+        console.log("Original start_date:", task.start_date);
+        console.log("Original end_date:", task.end_date);
+        console.log("Duration:", task.duration);
+
+        // Check if original dates exist
+        if (task.end_date) {
+          const calculatedDurationFromDates = gantt.calculateDuration(task.start_date, task.end_date);
+          console.log("Duration calculated from original dates (calendar days):", calculatedDurationFromDates);
+        }
+
+        // Use DHTMLX's calculateEndDate which calculates calendar days (including weekends)
+        const calculatedEndDate = gantt.calculateEndDate(task.start_date, task.duration);
+        console.log("Calculated end_date using duration:", calculatedEndDate);
+
+        task.end_date = calculatedEndDate;
+        console.log("Final end_date set:", task.end_date);
+      }
+      return true;
+    });
+
+    // Validate and normalize duration before task is updated
+    gantt.attachEvent("onBeforeTaskUpdate", (id: any, task: any) => {
+      console.log("=== onBeforeTaskUpdate ===");
+      console.log("Task ID:", id);
+      console.log("Task:", task.text);
+      console.log("start_date:", task.start_date);
+      console.log("end_date before:", task.end_date);
+      console.log("duration before:", task.duration);
+
+      // Ensure duration is a valid positive number
+      if (task.duration !== undefined && task.duration !== null) {
+        let duration = task.duration;
+        if (typeof duration !== 'number' || isNaN(duration)) {
+          duration = parseFloat(duration);
+        }
+        if (isNaN(duration) || duration < 1) {
+          duration = 1;
+        }
+        // Store duration exactly as entered (no rounding)
+        task.duration = Math.max(1, duration);
+        console.log("duration after validation:", task.duration);
+      }
+
+      // Recalculate end_date based on start_date and duration
+      if (task.start_date && task.duration !== undefined) {
+        // Use DHTMLX's calculateEndDate which calculates calendar days (including weekends)
+        const calculatedEndDate = gantt.calculateEndDate(task.start_date, task.duration);
+        console.log("Calculated end_date:", calculatedEndDate);
+        task.end_date = calculatedEndDate;
+        console.log("end_date after calculation:", task.end_date);
+      }
+
+      return true;
+    });
+
     // Attach event listeners for task changes
     if (onTaskUpdate) {
       gantt.attachEvent("onAfterTaskAdd", (id: any, task: any) => {
-        console.log("Task added:", id, task);
         onTaskUpdate();
         return true;
       });
 
       gantt.attachEvent("onAfterTaskUpdate", (id: any, task: any) => {
-        console.log("Task updated:", id, task);
+        // Check if task has successors (tasks that depend on this one)
+        const links = gantt.getLinks();
+        const hasSuccessors = links.some((link: any) => link.source === id);
+        if (hasSuccessors) {
+          // Trigger auto-scheduling to update all successor tasks
+          gantt.autoSchedule(id);
+        }
+        onTaskUpdate();
+        return true;
+      });
+
+      // Also listen for inline editor save
+      gantt.attachEvent("onAfterInlineEditorSave", (state: any) => {
+        console.log("=== onAfterInlineEditorSave ===");
+        console.log("Column edited:", state.columnName);
+        console.log("Task ID:", state.id);
+        console.log("Old value:", state.oldValue);
+        console.log("New value:", state.newValue);
+
+        // If duration was edited, recalculate end_date using DHTMLX's work_time calculation
+        if (state.columnName === "duration" && state.id) {
+          const task = gantt.getTask(state.id);
+          console.log("Duration edited - Task:", task.text);
+          console.log("start_date:", task.start_date);
+          console.log("duration:", task.duration);
+          console.log("end_date before:", task.end_date);
+
+          // Use DHTMLX's calculateEndDate which calculates calendar days (including weekends)
+          const calculatedEndDate = gantt.calculateEndDate(task.start_date, task.duration);
+          console.log("Calculated end_date:", calculatedEndDate);
+          task.end_date = calculatedEndDate;
+          console.log("end_date after:", task.end_date);
+
+          gantt.updateTask(state.id);
+        }
+
+        // If start_date was edited, recalculate end_date preserving duration
+        if (state.columnName === "start_date" && state.id) {
+          const task = gantt.getTask(state.id);
+          console.log("Start date edited - Task:", task.text);
+          console.log("start_date:", task.start_date);
+          console.log("duration:", task.duration);
+          console.log("end_date before:", task.end_date);
+
+          // Use DHTMLX's calculateEndDate which calculates calendar days (including weekends)
+          const calculatedEndDate = gantt.calculateEndDate(task.start_date, task.duration);
+          console.log("Calculated end_date:", calculatedEndDate);
+          task.end_date = calculatedEndDate;
+          console.log("end_date after:", task.end_date);
+
+          gantt.updateTask(state.id);
+        }
+
         onTaskUpdate();
         return true;
       });
 
       gantt.attachEvent("onAfterTaskDelete", (id: any) => {
-        console.log("Task deleted:", id);
         onTaskUpdate();
         return true;
       });
 
       gantt.attachEvent("onAfterLinkAdd", (id: any, link: any) => {
         console.log("Link added:", id, link);
+        console.log("Triggering auto-schedule from target task:", link.target);
+        // Trigger auto-scheduling from the target task when a new link is added
+        gantt.autoSchedule(link.target);
         onTaskUpdate();
         return true;
       });
 
       gantt.attachEvent("onAfterLinkUpdate", (id: any, link: any) => {
         console.log("Link updated:", id, link);
+        console.log("Triggering auto-schedule from target task:", link.target);
+        // Trigger auto-scheduling when link is updated
+        gantt.autoSchedule(link.target);
         onTaskUpdate();
         return true;
       });
 
-      gantt.attachEvent("onAfterLinkDelete", (id: any) => {
-        console.log("Link deleted:", id);
+      gantt.attachEvent("onAfterLinkDelete", (id: any, link: any) => {
+        // Recalculate entire project after link deletion
+        gantt.autoSchedule();
         onTaskUpdate();
+        return true;
+      });
+
+      // Auto-scheduling event handlers
+      gantt.attachEvent("onBeforeTaskAutoSchedule", (task: any, start: Date, link: any, predecessor: any) => {
+        console.log("=== onBeforeTaskAutoSchedule ===");
+        console.log("Task:", task.text);
+        console.log("Current start_date:", task.start_date);
+        console.log("Current end_date:", task.end_date);
+        console.log("Current duration:", task.duration);
+        console.log("New start date:", start);
+        console.log("Predecessor:", predecessor?.text);
+
+        // Store the original duration to preserve it after auto-scheduling
+        task.$original_duration = task.duration;
+        task.$original_start_date = task.start_date;
+        task.$original_end_date = task.end_date;
+        return true;
+      });
+
+      gantt.attachEvent("onAfterTaskAutoSchedule", (task: any, start: Date, link: any, predecessor: any) => {
+        console.log("=== onAfterTaskAutoSchedule ===");
+        console.log("Task:", task.text);
+        console.log("New start_date:", task.start_date);
+        console.log("end_date before recalc:", task.end_date);
+        console.log("duration before recalc:", task.duration);
+
+        // Restore the original duration and recalculate end_date to preserve duration
+        if (task.$original_duration) {
+          const originalDuration = task.$original_duration;
+          console.log("Original duration:", originalDuration);
+
+          // Recalculate end_date based on new start_date and original duration
+          // Use DHTMLX's calculateEndDate which calculates calendar days (including weekends)
+          const calculatedEndDate = gantt.calculateEndDate(task.start_date, originalDuration);
+          console.log("Calculated end_date:", calculatedEndDate);
+
+          task.end_date = calculatedEndDate;
+          task.duration = originalDuration;
+          console.log("Final end_date:", task.end_date);
+          console.log("Final duration:", task.duration);
+
+          delete task.$original_duration;
+          delete task.$original_start_date;
+          delete task.$original_end_date;
+        }
+
+        // Trigger update to save the auto-scheduled changes
+        onTaskUpdate();
+        return true;
+      });
+
+      gantt.attachEvent("onAfterAutoSchedule", (taskId: any, updatedTasks: any[]) => {
+        console.log("Auto-scheduling complete. Tasks updated:", updatedTasks?.length || 0);
+        if (updatedTasks && updatedTasks.length > 0) {
+          console.log("Updated task IDs:", updatedTasks);
+        }
         return true;
       });
     }
@@ -830,7 +1336,39 @@ export default class Gantt extends Component<GanttProps> {
       console.log("Links in projecttasks:", projecttasks.links);
       console.log("Task types config:", gantt.config.types);
       this.allTasks = projecttasks.data || [];
-      gantt.parse(projecttasks);
+
+      // Prepare tasks by removing end_date to let DHTMLX calculate it from start_date + duration
+      const preparedTasks = this.prepareTasksForParsing(projecttasks.data || []);
+
+      // Parse data with resources and assignments if available
+      if (showResourcePanel && projecttasks.resources) {
+        console.log("Loading resources:", projecttasks.resources);
+        console.log("Loading resource assignments:", projecttasks.resourceAssignments);
+
+        // First parse the main task data
+        gantt.parse({
+          data: preparedTasks,
+          links: projecttasks.links || []
+        });
+
+        // Then load resources into the resource datastore
+        const resourceStore = gantt.getDatastore("resource");
+        resourceStore.clearAll();
+        resourceStore.parse(projecttasks.resources || []);
+
+        // Load resource assignments into the assignments datastore
+        const assignmentStore = gantt.getDatastore("resourceAssignments");
+        assignmentStore.clearAll();
+        assignmentStore.parse(projecttasks.resourceAssignments || []);
+
+        console.log("Resources loaded:", resourceStore.count());
+        console.log("Assignments loaded:", assignmentStore.count());
+      } else {
+        gantt.parse({
+          data: preparedTasks,
+          links: projecttasks.links || []
+        });
+      }
 
       // Sort tasks to ensure proper parent-child hierarchy display
       gantt.sort((a: any, b: any) => {
@@ -851,7 +1389,14 @@ export default class Gantt extends Component<GanttProps> {
         }
         // Debug: Log milestone tasks and parent relationships
         if (task.type === "milestone" || task.type === gantt.config.types.milestone) {
-          console.log("Milestone task found:", task);
+          console.log("=== MILESTONE FOUND ===");
+          console.log("Task ID:", task.id);
+          console.log("Task text:", task.text);
+          console.log("Task type:", task.type);
+          console.log("Task duration:", task.duration);
+          console.log("gantt.config.types.milestone:", gantt.config.types.milestone);
+          console.log("Type match:", task.type === gantt.config.types.milestone);
+          console.log("Full task object:", task);
         }
         if (task.parent) {
           console.log(`Task ${task.id} (${task.text}) has parent: ${task.parent}`);
@@ -859,26 +1404,33 @@ export default class Gantt extends Component<GanttProps> {
       });
 
       // Use event delegation to capture add and edit button clicks
-      this.ganttContainer.current.addEventListener('click', (e: any) => {
+      const clickHandler = (e: any) => {
         const target = e.target as HTMLElement;
-        console.log("Click detected on:", target);
+        console.log("=== Gantt Click Event ===");
+        console.log("Click target:", target);
+        console.log("Target class:", target.className);
+        console.log("Target tag:", target.tagName);
 
         // Check if click is on edit button or its child elements
         const editButton = target.closest('.gantt_edit_btn');
         console.log("Edit button found:", editButton);
-        console.log("onEditTask available:", !!onEditTask);
+        console.log("onEditTask callback available:", !!onEditTask);
 
         if (editButton) {
           const taskId = editButton.getAttribute('data-task-id');
           console.log("Task ID from edit button:", taskId);
 
           if (taskId && onEditTask) {
-            console.log("Edit button clicked for task:", taskId);
+            console.log("=== CALLING onEditTask with task ID:", taskId, "===");
             onEditTask(parseInt(taskId));
             e.stopPropagation();
             e.preventDefault();
             return;
+          } else {
+            console.warn("Cannot edit task - taskId:", taskId, "onEditTask:", !!onEditTask);
           }
+        } else {
+          console.log("Not an edit button click");
         }
 
         // Check if click is on add button or its child elements
@@ -926,7 +1478,17 @@ export default class Gantt extends Component<GanttProps> {
             e.preventDefault();
           }
         }
-      }, true); // Use capture phase to get the event before Gantt's handler
+      };
+
+      // Add listener with capture phase
+      this.ganttContainer.current.addEventListener('click', clickHandler, true);
+
+      // Also add listener in bubble phase as backup
+      this.ganttContainer.current.addEventListener('click', clickHandler, false);
+
+      console.log("=== Event listeners attached to gantt container ===");
+      console.log("Container:", this.ganttContainer.current);
+      console.log("onEditTask available at mount:", !!onEditTask);
     }
 
     // Expose gantt instance globally for access from parent
@@ -934,7 +1496,256 @@ export default class Gantt extends Component<GanttProps> {
   }
 
   componentDidUpdate(prevProps: GanttProps): void {
-    const { projecttasks, searchQuery } = this.props;
+    const { projecttasks, searchQuery, selectedTaskFields = [], taskCustomFields = [], showResourcePanel } = this.props;
+    const prevSelectedFields = prevProps.selectedTaskFields || [];
+
+    // Check if showResourcePanel changed
+    if (prevProps.showResourcePanel !== showResourcePanel) {
+      console.log("showResourcePanel changed from", prevProps.showResourcePanel, "to", showResourcePanel);
+
+      // Reconfigure resource management
+      if (showResourcePanel) {
+        gantt.config.resource_store = "resource";
+        gantt.config.resource_property = "owner_id";
+        gantt.config.process_resource_assignments = true;
+        gantt.config.resource_assignment_store = "resourceAssignments";
+
+        // Configure resource grid columns in gantt.config
+        gantt.config.columns = gantt.config.columns || [];
+
+        // Store resource columns separately
+        const resourceColumns = [
+          {
+            name: "text",
+            label: "Resource Name",
+            tree: true,
+            width: 200,
+            template: function(resource: any) {
+              return resource.text || resource.name || "Unnamed Resource";
+            }
+          },
+          {
+            name: "workload",
+            label: "Workload",
+            align: "center",
+            width: 100,
+            template: function(resource: any) {
+              const assignments = gantt.getDatastore("resourceAssignments").getItems().filter((a: any) => a.resource_id === resource.id);
+              return assignments.length + " tasks";
+            }
+          },
+          {
+            name: "hours",
+            label: "Allocated Hours",
+            align: "center",
+            width: 135,
+            template: function(resource: any) {
+              return (resource.hours || 0) + " hrs";
+            }
+          }
+        ];
+
+        // Configure layout with resource panel
+        gantt.config.layout = {
+          css: "gantt_container",
+          rows: [
+            {
+              cols: [
+                {
+                  width: 400,
+                  min_width: 300,
+                  rows: [
+                    {
+                      view: "grid",
+                      scrollX: "gridScroll",
+                      scrollable: true,
+                      scrollY: "scrollVer"
+                    },
+                    {
+                      view: "scrollbar",
+                      id: "gridScroll",
+                      group: "horizontal"
+                    }
+                  ]
+                },
+                { resizer: true, width: 1 },
+                {
+                  rows: [
+                    {
+                      view: "timeline",
+                      scrollX: "scrollHor",
+                      scrollY: "scrollVer"
+                    },
+                    {
+                      view: "scrollbar",
+                      id: "scrollHor",
+                      group: "horizontal"
+                    }
+                  ]
+                },
+                { view: "scrollbar", id: "scrollVer" }
+              ],
+              gravity: 2
+            },
+            { resizer: true, width: 1 },
+            {
+              config: { height: 200 },
+              cols: [
+                {
+                  view: "resourceGrid",
+                  id: "resourceGrid",
+                  group: "grids",
+                  width: 450,
+                  scrollY: "resourceVScroll",
+                  bind: "resource",
+                  config: {
+                    columns: resourceColumns
+                  }
+                },
+                { resizer: true, width: 1 },
+                {
+                  view: "resourceTimeline",
+                  id: "resourceTimeline",
+                  scrollX: "scrollHor",
+                  scrollY: "resourceVScroll",
+                  bind: "resource"
+                },
+                { view: "scrollbar", id: "resourceVScroll", group: "vertical" }
+              ],
+              gravity: 1
+            }
+          ]
+        };
+      } else {
+        // Configure layout without resource panel
+        gantt.config.layout = {
+          css: "gantt_container",
+          cols: [
+            {
+              width: 400,
+              min_width: 300,
+              rows: [
+                {
+                  view: "grid",
+                  scrollX: "gridScroll",
+                  scrollable: true,
+                  scrollY: "scrollVer"
+                },
+                {
+                  view: "scrollbar",
+                  id: "gridScroll",
+                  group: "horizontal"
+                }
+              ]
+            },
+            { resizer: true, width: 1 },
+            {
+              rows: [
+                {
+                  view: "timeline",
+                  scrollX: "scrollHor",
+                  scrollY: "scrollVer"
+                },
+                {
+                  view: "scrollbar",
+                  id: "scrollHor",
+                  group: "horizontal"
+                }
+              ]
+            },
+            { view: "scrollbar", id: "scrollVer" }
+          ]
+        };
+      }
+
+      // Reinitialize gantt with new layout
+      if (this.ganttContainer.current) {
+        // Clear all existing data and datastores
+        gantt.clearAll();
+
+        // Reinitialize with new layout
+        gantt.init(this.ganttContainer.current);
+
+        // Prepare tasks by removing end_date
+        const preparedTasks = this.prepareTasksForParsing(projecttasks.data || []);
+
+        // Reload data with resources if panel is shown
+        if (showResourcePanel && projecttasks.resources) {
+          console.log("Reloading with resources:", projecttasks.resources);
+          console.log("Reloading with assignments:", projecttasks.resourceAssignments);
+
+          // First parse the main task data
+          gantt.parse({
+            data: preparedTasks,
+            links: projecttasks.links || []
+          });
+
+          // Then load resources into the resource datastore
+          const resourceStore = gantt.getDatastore("resource");
+          resourceStore.clearAll();
+          resourceStore.parse(projecttasks.resources || []);
+
+          // Load resource assignments into the assignments datastore
+          const assignmentStore = gantt.getDatastore("resourceAssignments");
+          assignmentStore.clearAll();
+          assignmentStore.parse(projecttasks.resourceAssignments || []);
+
+          console.log("Resources reloaded:", resourceStore.count());
+          console.log("Assignments reloaded:", assignmentStore.count());
+        } else {
+          gantt.parse({
+            data: preparedTasks,
+            links: projecttasks.links || []
+          });
+        }
+
+        gantt.render();
+      }
+
+      return; // Exit early to avoid double render
+    }
+
+    // Check if selected task fields changed
+    const fieldsChanged =
+      selectedTaskFields.length !== prevSelectedFields.length ||
+      selectedTaskFields.some((fieldId, index) => fieldId !== prevSelectedFields[index]);
+
+    if (fieldsChanged) {
+      // Rebuild columns
+      this.buildGanttColumns();
+
+      // Initialize empty values for newly added fields in all tasks
+      const newFieldIds = selectedTaskFields.filter(id => !prevSelectedFields.includes(id));
+      if (newFieldIds.length > 0 && projecttasks.data.length > 0) {
+        const tasksNeedUpdate = projecttasks.data.filter(task => !task.$group_header);
+
+        tasksNeedUpdate.forEach((task: any) => {
+          newFieldIds.forEach(fieldId => {
+            const field = taskCustomFields.find(f => f.id === fieldId);
+            if (field) {
+              const fieldKey = `custom_${field.field_name}`;
+              // Only initialize if the field doesn't already have a value
+              if (task[fieldKey] === undefined || task[fieldKey] === null) {
+                task[fieldKey] = field.default_value || '';
+              }
+            }
+          });
+
+          // Update the task in gantt
+          if (gantt.isTaskExists(task.id)) {
+            gantt.updateTask(task.id);
+          }
+        });
+
+        // Trigger a save to persist the changes
+        if (this.props.onTaskUpdate) {
+          this.props.onTaskUpdate();
+        }
+      }
+
+      // Force gantt to re-render
+      gantt.render();
+    }
 
     if (JSON.stringify(prevProps.projecttasks) !== JSON.stringify(projecttasks)) {
       this.allTasks = projecttasks.data || [];
@@ -947,7 +1758,13 @@ export default class Gantt extends Component<GanttProps> {
       this.originalTasks = [];
       this.originalLinks = [];
       gantt.clearAll();
-      gantt.parse(projecttasks);
+
+      // Prepare tasks by removing end_date
+      const preparedTasks = this.prepareTasksForParsing(projecttasks.data || []);
+      gantt.parse({
+        data: preparedTasks,
+        links: projecttasks.links || []
+      });
 
       // Sort tasks to ensure proper parent-child hierarchy display
       gantt.sort((a: any, b: any) => {
@@ -1015,7 +1832,11 @@ export default class Gantt extends Component<GanttProps> {
       } else {
         // Restore ungrouped view
         gantt.clearAll();
-        gantt.parse(projecttasks);
+        const preparedTasks = this.prepareTasksForParsing(projecttasks.data || []);
+        gantt.parse({
+          data: preparedTasks,
+          links: projecttasks.links || []
+        });
       }
       return;
     }
@@ -1052,8 +1873,10 @@ export default class Gantt extends Component<GanttProps> {
       ];
 
       gantt.clearAll();
+      // Prepare tasks by removing end_date to recalculate
+      const preparedTasks = this.prepareTasksForParsing(filteredData);
       gantt.parse({
-        data: filteredData,
+        data: preparedTasks,
         links: []
       });
     } else {
@@ -1069,8 +1892,10 @@ export default class Gantt extends Component<GanttProps> {
       });
 
       gantt.clearAll();
+      // Prepare tasks by removing end_date to recalculate
+      const preparedTasks = this.prepareTasksForParsing(filteredData);
       gantt.parse({
-        data: filteredData,
+        data: preparedTasks,
         links: filteredLinks
       });
     }
@@ -1080,7 +1905,40 @@ export default class Gantt extends Component<GanttProps> {
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
     }
-    gantt.clearAll();
+
+    // Clear all data before cleanup
+    try {
+      gantt.clearAll();
+    } catch (e) {
+      console.warn('Error clearing gantt:', e);
+    }
+  }
+
+  private updateWorkTimeConfig(skipWeekends: boolean) {
+    if (skipWeekends) {
+      // Enable work time to exclude weekends from duration
+      gantt.config.work_time = true;
+      gantt.setWorkTime({ hours: [8, 17] }); // Default working hours
+      gantt.setWorkTime({ day: 0, hours: false }); // Sunday
+      gantt.setWorkTime({ day: 6, hours: false }); // Saturday
+      console.log("Weekend skipping enabled: Duration excludes Sat/Sun");
+    } else {
+      // Disable work time to include weekends in duration
+      gantt.config.work_time = false;
+      console.log("Weekend skipping disabled: Duration includes all days");
+    }
+  }
+
+  /**
+   * Remove end_date from tasks to prevent DHTMLX from prioritizing it over duration.
+   * DHTMLX will calculate end_date automatically based on start_date + duration.
+   * This fixes the bug where old end_date from database causes incorrect duration recalculation.
+   */
+  private prepareTasksForParsing(tasks: any[]): any[] {
+    return tasks.map(task => {
+      const { end_date, ...taskWithoutEndDate } = task;
+      return taskWithoutEndDate;
+    });
   }
 
   render(): React.ReactNode {

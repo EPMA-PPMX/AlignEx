@@ -61,7 +61,6 @@ interface TimesheetSubmission {
 const Timesheet: React.FC = () => {
   const { showNotification, showConfirm } = useNotification();
   const [rows, setRows] = useState<TimesheetRow[]>([]);
-  const [addedRows, setAddedRows] = useState<TimesheetRow[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [initiationRequests, setInitiationRequests] = useState<InitiationRequest[]>([]);
   const [categories, setCategories] = useState<NonProjectCategory[]>([]);
@@ -95,11 +94,7 @@ const Timesheet: React.FC = () => {
     notes: ''
   });
 
-  useEffect(() => {
-    fetchData();
-  }, [currentWeekStart]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     const weekEnd = new Date(currentWeekStart);
     weekEnd.setDate(weekEnd.getDate() + 6);
 

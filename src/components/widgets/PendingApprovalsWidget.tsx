@@ -7,11 +7,11 @@ import { Link } from 'react-router-dom';
 interface ChangeRequest {
   id: string;
   project_id: string;
-  title: string;
+  request_title: string;
   status: string;
-  priority: string;
-  requested_date: string;
-  project?: {
+  type: string;
+  created_at: string;
+  projects?: {
     id: string;
     name: string;
   };
@@ -34,17 +34,17 @@ export default function PendingApprovalsWidget() {
         .select(`
           id,
           project_id,
-          title,
+          request_title,
           status,
-          priority,
-          requested_date,
+          type,
+          created_at,
           projects (
             id,
             name
           )
         `)
-        .in('status', ['pending', 'under_review'])
-        .order('requested_date', { ascending: false })
+        .in('status', ['Pending Review', 'Under Review'])
+        .order('created_at', { ascending: false })
         .limit(10);
 
       if (error) throw error;
@@ -59,27 +59,30 @@ export default function PendingApprovalsWidget() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'pending':
+      case 'Pending Review':
         return <Clock className="w-4 h-4 text-yellow-600" />;
-      case 'under_review':
+      case 'Under Review':
         return <AlertCircle className="w-4 h-4 text-blue-600" />;
-      case 'approved':
+      case 'Approved':
         return <CheckCircle className="w-4 h-4 text-green-600" />;
-      case 'rejected':
+      case 'Rejected':
         return <XCircle className="w-4 h-4 text-red-600" />;
       default:
         return <Clock className="w-4 h-4 text-gray-600" />;
     }
   };
 
-  const getPriorityClass = (priority: string) => {
-    switch (priority?.toLowerCase()) {
-      case 'high':
-      case 'critical':
+  const getTypeClass = (type: string) => {
+    switch (type) {
+      case 'Budget Change':
         return 'text-red-700 bg-red-100';
-      case 'medium':
+      case 'Schedule Change':
         return 'text-yellow-700 bg-yellow-100';
-      case 'low':
+      case 'Scope Change':
+        return 'text-blue-700 bg-blue-100';
+      case 'Resource Change':
+        return 'text-purple-700 bg-purple-100';
+      case 'Quality Change':
         return 'text-green-700 bg-green-100';
       default:
         return 'text-gray-700 bg-gray-100';
@@ -135,22 +138,22 @@ export default function PendingApprovalsWidget() {
                   {getStatusIcon(request.status)}
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm text-gray-900 truncate">
-                      {request.title}
+                      {request.request_title}
                     </p>
                     <p className="text-xs text-gray-500 truncate">
-                      {request.project?.name}
+                      {request.projects?.name}
                     </p>
                   </div>
                 </div>
-                {request.priority && (
-                  <span className={`px-2 py-0.5 text-xs rounded-full font-medium whitespace-nowrap ${getPriorityClass(request.priority)}`}>
-                    {request.priority}
+                {request.type && (
+                  <span className={`px-2 py-0.5 text-xs rounded-full font-medium whitespace-nowrap ${getTypeClass(request.type)}`}>
+                    {request.type}
                   </span>
                 )}
               </div>
               <div className="flex items-center justify-between text-xs text-gray-500">
-                <span className="capitalize">{request.status.replace('_', ' ')}</span>
-                <span>{new Date(request.requested_date).toLocaleDateString()}</span>
+                <span>{request.status}</span>
+                <span>{new Date(request.created_at).toLocaleDateString()}</span>
               </div>
             </Link>
           ))}

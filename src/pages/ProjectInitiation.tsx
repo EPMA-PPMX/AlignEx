@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye, Edit2, Trash2, Calendar, DollarSign } from 'lucide-react';
+import { Plus, Search, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye, Edit2, Trash2, Calendar, DollarSign, TrendingUp, BarChart3 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatCurrency, formatDate as utilFormatDate, formatCurrencyWithK } from '../lib/utils';
 import { useNotification } from '../lib/useNotification';
@@ -77,9 +77,11 @@ export default function ProjectInitiation() {
   const handleDelete = async (id: string) => {
     const confirmed = await showConfirm({
       title: 'Delete Request',
-      message: 'Are you sure you want to delete this request?',
-      confirmText: 'Delete'
+      message: 'Are you sure you want to delete this request? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel'
     });
+
     if (!confirmed) return;
 
     try {
@@ -91,8 +93,10 @@ export default function ProjectInitiation() {
       if (error) throw error;
       setViewingRequest(null);
       fetchRequests();
+      showNotification('Request deleted successfully', 'success');
     } catch (error) {
       console.error('Error deleting request:', error);
+      showNotification('Error deleting request. Please try again.', 'error');
     }
   };
 
@@ -279,6 +283,7 @@ export default function ProjectInitiation() {
           </div>
         </div>
       </div>
+
 
       {filteredRequests.length === 0 ? (
         <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
