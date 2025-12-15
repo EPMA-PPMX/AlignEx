@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye, Edit2, Trash2, Calendar, DollarSign } from 'lucide-react';
+import { Plus, Search, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye, Edit2, Trash2, Calendar, DollarSign, TrendingUp, BarChart3 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useNotification } from '../lib/useNotification';
 import { formatCurrency } from '../lib/utils';
 import ProjectRequestForm from '../components/initiation/ProjectRequestForm';
 
@@ -27,6 +28,7 @@ interface ProjectRequest {
 }
 
 export default function ProjectInitiation() {
+  const { showNotification, showConfirm } = useNotification();
   const [requests, setRequests] = useState<ProjectRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -82,7 +84,14 @@ export default function ProjectInitiation() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this request?')) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Request',
+      message: 'Are you sure you want to delete this request? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel'
+    });
+
+    if (!confirmed) return;
 
     try {
       const { error } = await supabase
@@ -93,8 +102,10 @@ export default function ProjectInitiation() {
       if (error) throw error;
       setViewingRequest(null);
       fetchRequests();
+      showNotification('Request deleted successfully', 'success');
     } catch (error) {
       console.error('Error deleting request:', error);
+      showNotification('Error deleting request. Please try again.', 'error');
     }
   };
 
@@ -133,7 +144,7 @@ export default function ProjectInitiation() {
       }
     } catch (error) {
       console.error('Error updating status:', error);
-      alert('Error updating status. Please try again.');
+      showNotification('Error updating status. Please try again.', 'error');
     }
   };
 
@@ -190,11 +201,11 @@ export default function ProjectInitiation() {
           }
         }
 
-        alert(`Project "${request.project_name}" created successfully!`);
+        showNotification(`Project "${request.project_name}" created successfully!`, 'success');
       }
     } catch (error) {
       console.error('Error creating project from request:', error);
-      alert('Error creating project. Please try again or create it manually.');
+      showNotification('Error creating project. Please try again or create it manually.', 'error');
     }
   };
 
@@ -213,6 +224,44 @@ export default function ProjectInitiation() {
     if (status === 'all') return requests.length;
     return requests.filter((req) => req.status === status).length;
   };
+
+  const getAnalytics = () => {
+    const totalRequests = requests.length;
+    const pendingCount = requests.filter(r => r.status === 'Pending Approval').length;
+    const approvedCount = requests.filter(r => r.status === 'Approved').length;
+    const rejectedCount = requests.filter(r => r.status === 'Rejected').length;
+    const draftCount = requests.filter(r => r.status === 'Draft').length;
+    const moreInfoCount = requests.filter(r => r.status === 'More Information Needed').length;
+
+    const approvalRate = totalRequests > 0
+      ? Math.round((approvedCount / (approvedCount + rejectedCount)) * 100) || 0
+      : 0;
+
+    const typeDistribution = requests.reduce((acc, req) => {
+      acc[req.project_type] = (acc[req.project_type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const last30Days = new Date();
+    last30Days.setDate(last30Days.getDate() - 30);
+    const recentRequests = requests.filter(
+      r => new Date(r.created_at) >= last30Days
+    ).length;
+
+    return {
+      totalRequests,
+      pendingCount,
+      approvedCount,
+      rejectedCount,
+      draftCount,
+      moreInfoCount,
+      approvalRate,
+      typeDistribution,
+      recentRequests
+    };
+  };
+
+  const analytics = getAnalytics();
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -278,6 +327,79 @@ export default function ProjectInitiation() {
         </button>
       </div>
 
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-white border border-slate-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <BarChart3 className="w-4 h-4 text-slate-700" />
+            <h2 className="text-sm font-semibold text-slate-900">Requests by Status</h2>
+          </div>
+          <div className="space-y-2.5">
+            {analytics.totalRequests > 0 ? (
+              [
+                { label: 'Draft', count: analytics.draftCount, color: 'from-slate-500 to-slate-600' },
+                { label: 'Pending', count: analytics.pendingCount, color: 'from-amber-500 to-amber-600' },
+                { label: 'Approved', count: analytics.approvedCount, color: 'from-green-500 to-green-600' },
+                { label: 'Rejected', count: analytics.rejectedCount, color: 'from-red-500 to-red-600' },
+                { label: 'More Info', count: analytics.moreInfoCount, color: 'from-cyan-500 to-cyan-600' },
+              ]
+                .filter(item => item.count > 0)
+                .sort((a, b) => b.count - a.count)
+                .map(({ label, count, color }) => {
+                  const percentage = (count / analytics.totalRequests) * 100;
+                  return (
+                    <div key={label} className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium text-slate-700">{label}</span>
+                        <span className="text-slate-600">{count} ({percentage.toFixed(0)}%)</span>
+                      </div>
+                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full bg-gradient-to-r ${color} rounded-full transition-all`}
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+            ) : (
+              <p className="text-slate-500 text-sm text-center py-2">No requests yet</p>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <BarChart3 className="w-4 h-4 text-slate-700" />
+            <h2 className="text-sm font-semibold text-slate-900">Requests by Type</h2>
+          </div>
+          <div className="space-y-2.5">
+            {Object.entries(analytics.typeDistribution).length > 0 ? (
+              Object.entries(analytics.typeDistribution)
+                .sort(([, a], [, b]) => b - a)
+                .map(([type, count]) => {
+                  const percentage = (count / analytics.totalRequests) * 100;
+                  return (
+                    <div key={type} className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium text-slate-700">{type}</span>
+                        <span className="text-slate-600">{count} ({percentage.toFixed(0)}%)</span>
+                      </div>
+                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all"
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+            ) : (
+              <p className="text-slate-500 text-sm text-center py-2">No requests yet</p>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="bg-white border border-slate-200 rounded-lg p-4">
         <div className="flex gap-4 items-center">
           <div className="flex-1 relative">
@@ -293,38 +415,6 @@ export default function ProjectInitiation() {
         </div>
       </div>
 
-      <div className="grid grid-cols-6 gap-3">
-        {statuses.map((status) => {
-          const Icon = status.icon;
-          const isActive = selectedStatus === status.value;
-          const count = getStatusCount(status.value);
-
-          return (
-            <button
-              key={status.value}
-              onClick={() => setSelectedStatus(status.value)}
-              className={`
-                p-3 rounded-lg border-2 transition-all text-left
-                ${
-                  isActive
-                    ? `border-${status.color}-500 bg-${status.color}-50`
-                    : 'border-slate-200 bg-white hover:border-slate-300'
-                }
-              `}
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <Icon className={`w-4 h-4 ${isActive ? `text-${status.color}-600` : 'text-slate-400'}`} />
-                <span className={`text-xs font-medium ${isActive ? `text-${status.color}-900` : 'text-slate-600'}`}>
-                  {status.label}
-                </span>
-              </div>
-              <p className={`text-2xl font-bold ${isActive ? `text-${status.color}-700` : 'text-slate-700'}`}>
-                {count}
-              </p>
-            </button>
-          );
-        })}
-      </div>
 
       {filteredRequests.length === 0 ? (
         <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">

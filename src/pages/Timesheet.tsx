@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Plus, Trash2, ChevronLeft, ChevronRight, Edit2, Save, X } from 'lucide-react';
 
@@ -41,7 +41,6 @@ interface TimesheetRow {
 
 const Timesheet: React.FC = () => {
   const [rows, setRows] = useState<TimesheetRow[]>([]);
-  const [addedRows, setAddedRows] = useState<TimesheetRow[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [initiationRequests, setInitiationRequests] = useState<InitiationRequest[]>([]);
   const [categories, setCategories] = useState<NonProjectCategory[]>([]);
@@ -59,11 +58,7 @@ const Timesheet: React.FC = () => {
     selectedId: ''
   });
 
-  useEffect(() => {
-    fetchData();
-  }, [currentWeekStart]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     const weekEnd = new Date(currentWeekStart);
     weekEnd.setDate(weekEnd.getDate() + 6);
 
@@ -153,20 +148,13 @@ const Timesheet: React.FC = () => {
       }
     });
 
-    const entriesRows = Array.from(rowsMap.values());
-
-    const allRows = [...addedRows];
-    entriesRows.forEach(entryRow => {
-      const existingIndex = allRows.findIndex(r => r.id === entryRow.id);
-      if (existingIndex >= 0) {
-        allRows[existingIndex] = entryRow;
-      } else {
-        allRows.push(entryRow);
-      }
-    });
-
+    const allRows = Array.from(rowsMap.values());
     setRows(allRows);
-  };
+  }, [currentWeekStart]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const getWeekDates = () => {
     const dates = [];
@@ -245,7 +233,6 @@ const Timesheet: React.FC = () => {
       };
     }
 
-    setAddedRows([...addedRows, newRow]);
     setRows([...rows, newRow]);
     setShowAddModal(false);
     setNewRowForm({ type: 'project', selectedId: '' });

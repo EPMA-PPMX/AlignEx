@@ -58,7 +58,7 @@ const Sidebar: React.FC = () => {
     <div className={`${isCollapsed ? 'w-20' : 'w-64'} bg-white shadow-lg border-r border-gray-200 transition-all duration-300 flex flex-col`}>
       <div className="flex items-center justify-center py-8 px-4 border-b border-gray-200 relative">
         <img
-          src={isCollapsed ? "/Just Logo - AlignEX.png" : "/Full Logo.png"}
+          src={isCollapsed ? "/PPMX.gif" : "/PPMX.gif"}
           alt="AlignEx"
           className={`${isCollapsed ? 'h-16 w-16' : 'w-full h-auto'} transition-all duration-300`}
         />
