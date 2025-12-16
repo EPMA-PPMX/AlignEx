@@ -13,6 +13,7 @@ import BenefitTracking from '../components/BenefitTracking';
 import ProjectTeams from '../components/ProjectTeams';
 import PeoplePicker from '../components/PeoplePicker';
 import CustomFieldsRenderer from '../components/CustomFieldsRenderer';
+import SearchableMultiSelect from '../components/SearchableMultiSelect';
 import { loadCustomFieldValues, saveCustomFieldValues } from '../lib/customFieldHelpers';
 
 interface Project {
@@ -4619,55 +4620,18 @@ const ProjectDetail: React.FC = () => {
                   )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Task Owners (Multiple Selection)
-                  </label>
-                  <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto">
-                    {projectTeamMembers.length === 0 ? (
-                      <p className="text-sm text-gray-500">
-                        No team members assigned. Add team members in the Team tab first.
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {projectTeamMembers.map((member: any) => (
-                          <label
-                            key={member.id}
-                            className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={taskForm.resource_ids.includes(member.resource_id)}
-                              onChange={(e) => {
-                                const resourceId = member.resource_id;
-                                if (e.target.checked) {
-                                  setTaskForm({
-                                    ...taskForm,
-                                    resource_ids: [...taskForm.resource_ids, resourceId]
-                                  });
-                                } else {
-                                  setTaskForm({
-                                    ...taskForm,
-                                    resource_ids: taskForm.resource_ids.filter(id => id !== resourceId)
-                                  });
-                                }
-                              }}
-                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                            />
-                            <span className="text-sm text-gray-700">
-                              {member.resources?.display_name || 'Unknown'}
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  {taskForm.resource_ids.length > 0 && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {taskForm.resource_ids.length} team member(s) selected
-                    </p>
-                  )}
-                </div>
+                <SearchableMultiSelect
+                  label="Select Resources"
+                  placeholder="Search and select team members..."
+                  options={projectTeamMembers.map((member: any) => ({
+                    value: member.resource_id,
+                    label: member.resources?.display_name || 'Unknown'
+                  }))}
+                  selectedValues={taskForm.resource_ids}
+                  onChange={(values) => setTaskForm({ ...taskForm, resource_ids: values as string[] })}
+                  emptyMessage="No team members assigned. Add team members in the Team tab first."
+                  disabled={projectTeamMembers.length === 0}
+                />
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -4711,44 +4675,23 @@ const ProjectDetail: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Predecessor Tasks (Multiple Selection)
-                  </label>
                   <p className="text-xs text-gray-500 mb-2">
-                    Select tasks that must be completed before this task can start. Hold Ctrl/Cmd to select multiple.
+                    Select tasks that must be completed before this task can start.
                   </p>
-                  <select
-                    multiple
-                    value={taskForm.predecessor_ids.map(String)}
-                    onChange={(e) => {
-                      const selectedOptions = Array.from(e.target.selectedOptions).map(option => parseInt(option.value));
-                      setTaskForm({
-                        ...taskForm,
-                        predecessor_ids: selectedOptions
-                      });
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    size={6}
-                  >
-                    {getAllTasksWithWBS()
+                  <SearchableMultiSelect
+                    label="Predecessor Tasks"
+                    placeholder="Search and select predecessor tasks..."
+                    options={getAllTasksWithWBS()
                       .filter(task => editingTaskId ? task.id !== editingTaskId : true)
-                      .length === 0 ? (
-                      <option disabled>No tasks available. Create the task first, then edit it to add predecessors.</option>
-                    ) : (
-                      getAllTasksWithWBS()
-                        .filter(task => editingTaskId ? task.id !== editingTaskId : true)
-                        .map((task) => (
-                          <option key={task.id} value={task.id}>
-                            {task.wbs ? `${task.wbs} - ` : ''}{task.text}
-                          </option>
-                        ))
-                    )}
-                  </select>
-                  {taskForm.predecessor_ids.length > 0 && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {taskForm.predecessor_ids.length} predecessor task(s) selected
-                    </p>
-                  )}
+                      .map((task) => ({
+                        value: task.id,
+                        label: task.wbs ? `${task.wbs} - ${task.text}` : task.text
+                      }))}
+                    selectedValues={taskForm.predecessor_ids}
+                    onChange={(values) => setTaskForm({ ...taskForm, predecessor_ids: values as number[] })}
+                    emptyMessage="No tasks available. Create the task first, then edit it to add predecessors."
+                    disabled={getAllTasksWithWBS().filter(task => editingTaskId ? task.id !== editingTaskId : true).length === 0}
+                  />
                 </div>
 
                 <div className="flex space-x-3 pt-4">
