@@ -332,29 +332,30 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
 
           if (workDays === 0) continue;
 
-          // Calculate allocation percentages and total allocation
-          const resourceAllocations = new Map<string, number>();
-          let totalAllocationPercentage = 0;
+          // Use resource_work_hours if available (new format), otherwise calculate from allocation
+          const resourceWorkHours = task.resource_work_hours || {};
 
-          for (const resourceId of task.resource_ids) {
-            const key = `${projectId}_${resourceId}`;
-            const allocationPercentage = allocationPercentageMap.get(key) || 100;
-            resourceAllocations.set(resourceId, allocationPercentage);
-            totalAllocationPercentage += allocationPercentage;
-          }
-
-          // Distribute work hours proportionally based on allocation percentages
+          // Distribute work hours for each resource
           for (const resourceId of task.resource_ids) {
             const resourceWeekMap = allocationMap.get(resourceId);
             if (!resourceWeekMap) continue;
 
-            const allocationPercentage = resourceAllocations.get(resourceId) || 100;
+            // Get resource's total work hours for this task
+            let resourceTotalHours = 0;
 
-            // Calculate this resource's share of work hours
-            // work_hours is already calculated as: duration * 8 * (allocation% / 100) for each resource
-            // So we need to recalculate per-resource hours based on duration and allocation
-            const taskDuration = task.duration || workDays;
-            const hoursPerDay = (taskDuration * 8 * (allocationPercentage / 100)) / workDays;
+            if (resourceWorkHours[resourceId]) {
+              // Use pre-calculated resource-specific hours from the task
+              resourceTotalHours = resourceWorkHours[resourceId];
+            } else {
+              // Fallback: calculate from allocation percentage (for old tasks)
+              const key = `${projectId}_${resourceId}`;
+              const allocationPercentage = allocationPercentageMap.get(key) || 100;
+              const taskDuration = task.duration || workDays;
+              resourceTotalHours = taskDuration * 8 * (allocationPercentage / 100);
+            }
+
+            // Calculate hours per day for this resource
+            const hoursPerDay = resourceTotalHours / workDays;
 
             // Iterate through each day of the task
             const iterDate = new Date(taskStartDate);

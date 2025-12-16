@@ -2095,7 +2095,7 @@ const ProjectDetail: React.FC = () => {
     return tasksWithWBS;
   };
 
-  const calculateWorkHours = (duration: number, resourceIds: string[]): number => {
+  const calculateWorkHours = (duration: number, resourceIds: string[]): { total: number; byResource: { [key: string]: number } } => {
     console.log('\n=== Calculating Work Hours ===');
     console.log('Duration (days):', duration);
     console.log('Resource IDs:', resourceIds);
@@ -2108,10 +2108,11 @@ const ProjectDetail: React.FC = () => {
     // If no resources assigned, return 0
     if (!resourceIds || resourceIds.length === 0) {
       console.log('No resources assigned, returning 0');
-      return 0;
+      return { total: 0, byResource: {} };
     }
 
     let totalWorkHours = 0;
+    const resourceWorkHours: { [key: string]: number } = {};
 
     // Calculate work for each resource based on their allocation percentage
     resourceIds.forEach(resourceId => {
@@ -2123,6 +2124,7 @@ const ProjectDetail: React.FC = () => {
         // Formula: Duration (days) × 8 hours/day × (Allocation % / 100)
         const workHours = duration * 8 * (allocationPercentage / 100);
         totalWorkHours += workHours;
+        resourceWorkHours[resourceId] = Math.round(workHours * 100) / 100;
         console.log(`✓ Resource "${teamMember.resources?.display_name}" (${resourceId}):`);
         console.log(`  Allocation: ${allocationPercentage}%`);
         console.log(`  Calculation: ${duration} days × 8 hrs × ${allocationPercentage}% = ${workHours} hours`);
@@ -2130,14 +2132,19 @@ const ProjectDetail: React.FC = () => {
         // If team member not found (shouldn't happen), assume 100% allocation
         const workHours = duration * 8;
         totalWorkHours += workHours;
+        resourceWorkHours[resourceId] = Math.round(workHours * 100) / 100;
         console.warn(`⚠ Resource ${resourceId} NOT FOUND in team members - using default 100%`);
         console.log(`  Calculation: ${duration} days × 8 hrs × 100% (default) = ${workHours} hours`);
       }
     });
 
     console.log(`✓ Total work hours calculated: ${totalWorkHours}`);
+    console.log(`✓ Resource work hours breakdown:`, resourceWorkHours);
     console.log('=== End Calculation ===\n');
-    return Math.round(totalWorkHours * 100) / 100; // Round to 2 decimal places
+    return {
+      total: Math.round(totalWorkHours * 100) / 100,
+      byResource: resourceWorkHours
+    };
   };
 
   const handleTaskSubmit = async (e: React.FormEvent) => {
@@ -2228,14 +2235,17 @@ const ProjectDetail: React.FC = () => {
                 updatedTask.owner_id = taskForm.resource_ids[0];
                 updatedTask.owner_name = resourceNames[0];
 
-                // Calculate and store work hours
-                updatedTask.work_hours = calculateWorkHours(duration, taskForm.resource_ids);
+                // Calculate and store work hours (both total and per-resource)
+                const workHoursData = calculateWorkHours(duration, taskForm.resource_ids);
+                updatedTask.work_hours = workHoursData.total;
+                updatedTask.resource_work_hours = workHoursData.byResource;
               } else {
                 updatedTask.resource_ids = [];
                 updatedTask.resource_names = [];
                 updatedTask.owner_id = undefined;
                 updatedTask.owner_name = undefined;
                 updatedTask.work_hours = 0;
+                updatedTask.resource_work_hours = {};
               }
 
               return updatedTask;
@@ -2299,11 +2309,15 @@ const ProjectDetail: React.FC = () => {
           newTask.owner_id = taskForm.resource_ids[0];
           newTask.owner_name = resourceNames[0];
 
-          // Calculate and store work hours
-          newTask.work_hours = calculateWorkHours(duration, taskForm.resource_ids);
+          // Calculate and store work hours (both total and per-resource)
+          const workHoursData = calculateWorkHours(duration, taskForm.resource_ids);
+          newTask.work_hours = workHoursData.total;
+          newTask.resource_work_hours = workHoursData.byResource;
           console.log(`New task work hours: ${newTask.work_hours}`);
+          console.log(`Resource work hours breakdown:`, newTask.resource_work_hours);
         } else {
           newTask.work_hours = 0;
+          newTask.resource_work_hours = {};
         }
 
         // Add to existing tasks
