@@ -489,6 +489,20 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         }
       },
       {
+        name: "work_hours",
+        label: "Work (hrs)",
+        align: "center",
+        width: 90,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          if (task.work_hours !== undefined && task.work_hours !== null) {
+            return task.work_hours.toFixed(2);
+          }
+          return "-";
+        }
+      },
+      {
         name: "progress",
         label: "Progress",
         align: "center",

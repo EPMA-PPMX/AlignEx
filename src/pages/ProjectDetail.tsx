@@ -2082,6 +2082,37 @@ const ProjectDetail: React.FC = () => {
     return tasksWithWBS;
   };
 
+  const calculateWorkHours = (duration: number, resourceIds: string[]): number => {
+    // If no resources assigned, return 0
+    if (!resourceIds || resourceIds.length === 0) {
+      return 0;
+    }
+
+    let totalWorkHours = 0;
+
+    // Calculate work for each resource based on their allocation percentage
+    resourceIds.forEach(resourceId => {
+      // Find the team member to get their allocation percentage
+      const teamMember = projectTeamMembers.find((m: any) => m.resource_id === resourceId);
+
+      if (teamMember) {
+        const allocationPercentage = teamMember.allocation_percentage || 100;
+        // Formula: Duration (days) × 8 hours/day × (Allocation % / 100)
+        const workHours = duration * 8 * (allocationPercentage / 100);
+        totalWorkHours += workHours;
+        console.log(`Resource ${resourceId}: ${duration} days × 8 hrs × ${allocationPercentage}% = ${workHours} hours`);
+      } else {
+        // If team member not found (shouldn't happen), assume 100% allocation
+        const workHours = duration * 8;
+        totalWorkHours += workHours;
+        console.log(`Resource ${resourceId}: ${duration} days × 8 hrs × 100% (default) = ${workHours} hours`);
+      }
+    });
+
+    console.log(`Total work hours calculated: ${totalWorkHours}`);
+    return Math.round(totalWorkHours * 100) / 100; // Round to 2 decimal places
+  };
+
   const handleTaskSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -2169,11 +2200,15 @@ const ProjectDetail: React.FC = () => {
                 // Backward compatibility: set first resource as owner
                 updatedTask.owner_id = taskForm.resource_ids[0];
                 updatedTask.owner_name = resourceNames[0];
+
+                // Calculate and store work hours
+                updatedTask.work_hours = calculateWorkHours(duration, taskForm.resource_ids);
               } else {
                 updatedTask.resource_ids = [];
                 updatedTask.resource_names = [];
                 updatedTask.owner_id = undefined;
                 updatedTask.owner_name = undefined;
+                updatedTask.work_hours = 0;
               }
 
               return updatedTask;
@@ -2236,6 +2271,12 @@ const ProjectDetail: React.FC = () => {
           // Backward compatibility: set first resource as owner
           newTask.owner_id = taskForm.resource_ids[0];
           newTask.owner_name = resourceNames[0];
+
+          // Calculate and store work hours
+          newTask.work_hours = calculateWorkHours(duration, taskForm.resource_ids);
+          console.log(`New task work hours: ${newTask.work_hours}`);
+        } else {
+          newTask.work_hours = 0;
         }
 
         // Add to existing tasks
