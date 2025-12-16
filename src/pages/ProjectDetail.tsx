@@ -99,6 +99,16 @@ interface Issue {
   updated_at: string;
 }
 
+interface ProjectTeamMember {
+  id: string;
+  resource_id: string;
+  allocation_percentage: number;
+  resources?: {
+    id: string;
+    display_name: string;
+  };
+}
+
 interface ChangeRequest {
   id: string;
   project_id: string;
@@ -290,7 +300,7 @@ const ProjectDetail: React.FC = () => {
   });
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
 
-  const [projectTeamMembers, setProjectTeamMembers] = useState<any[]>([]);
+  const [projectTeamMembers, setProjectTeamMembers] = useState<ProjectTeamMember[]>([]);
 
   const [uploadedFiles, setUploadedFiles] = useState<Array<{
     fileName: string;
@@ -2093,7 +2103,7 @@ const ProjectDetail: React.FC = () => {
     // Calculate work for each resource based on their allocation percentage
     resourceIds.forEach(resourceId => {
       // Find the team member to get their allocation percentage
-      const teamMember = projectTeamMembers.find((m: any) => m.resource_id === resourceId);
+      const teamMember = projectTeamMembers.find(m => m.resource_id === resourceId);
 
       if (teamMember) {
         const allocationPercentage = teamMember.allocation_percentage || 100;
@@ -2193,7 +2203,7 @@ const ProjectDetail: React.FC = () => {
               if (taskForm.resource_ids.length > 0) {
                 updatedTask.resource_ids = taskForm.resource_ids;
                 const resourceNames = taskForm.resource_ids.map(resId => {
-                  const member = projectTeamMembers.find((m: any) => m.resource_id === resId);
+                  const member = projectTeamMembers.find(m => m.resource_id === resId);
                   return member?.resources?.display_name || 'Unknown';
                 });
                 updatedTask.resource_names = resourceNames;
@@ -2264,7 +2274,7 @@ const ProjectDetail: React.FC = () => {
         if (taskForm.resource_ids.length > 0) {
           newTask.resource_ids = taskForm.resource_ids;
           const resourceNames = taskForm.resource_ids.map(resId => {
-            const member = projectTeamMembers.find((m: any) => m.resource_id === resId);
+            const member = projectTeamMembers.find(m => m.resource_id === resId);
             return member?.resources?.display_name || 'Unknown';
           });
           newTask.resource_names = resourceNames;
@@ -3278,7 +3288,7 @@ const ProjectDetail: React.FC = () => {
                       const ownerNames = Array.isArray(task.owner_name) ? task.owner_name : [task.owner_name];
                       resourceIds = ownerNames
                         .map(name => {
-                          const member = projectTeamMembers.find((m: any) =>
+                          const member = projectTeamMembers.find(m =>
                             m.resources?.display_name === name
                           );
                           return member?.resource_id;
@@ -4671,7 +4681,7 @@ const ProjectDetail: React.FC = () => {
                       </p>
                     ) : (
                       <div className="space-y-2">
-                        {projectTeamMembers.map((member: any) => (
+                        {projectTeamMembers.map(member => (
                           <label
                             key={member.id}
                             className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
