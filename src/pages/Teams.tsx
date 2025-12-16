@@ -236,18 +236,161 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
   }, [teamMembers]);
 
   const fetchAllocations = async () => {
-    const allocationMap = new Map<string, Map<string, number>>();
-
-    for (const member of teamMembers) {
-      const weekMap = new Map<string, number>();
-      for (let i = 0; i < weeks; i++) {
-        const hours = Math.floor(Math.random() * 41);
-        weekMap.set(`week-${i}`, hours);
+    try {
+      // Initialize allocation map for all team members
+      const allocationMap = new Map<string, Map<string, number>>();
+      for (const member of teamMembers) {
+        allocationMap.set(member.resource_id, new Map<string, number>());
       }
-      allocationMap.set(member.resource_id, weekMap);
-    }
 
-    setAllocations(allocationMap);
+      // Get today's date to calculate week offsets
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Fetch all project tasks
+      const { data: projectTasksData, error } = await supabase
+        .from('project_tasks')
+        .select('task_data, project_id, projects(name)');
+
+      if (error) {
+        console.error('Error fetching project tasks:', error);
+        setAllocations(allocationMap);
+        return;
+      }
+
+      // Fetch all project team members with allocation percentages
+      const { data: projectTeamData, error: teamError } = await supabase
+        .from('project_team_members')
+        .select('project_id, resource_id, allocation_percentage');
+
+      if (teamError) {
+        console.error('Error fetching project team members:', teamError);
+      }
+
+      // Create a map of project_id + resource_id -> allocation_percentage
+      const allocationPercentageMap = new Map<string, number>();
+      if (projectTeamData) {
+        for (const teamMember of projectTeamData) {
+          const key = `${teamMember.project_id}_${teamMember.resource_id}`;
+          allocationPercentageMap.set(key, teamMember.allocation_percentage || 100);
+        }
+      }
+
+      // Process each project's tasks
+      for (const projectRecord of projectTasksData || []) {
+        if (!projectRecord.task_data?.data) continue;
+
+        const tasks = projectRecord.task_data.data;
+        const projectId = projectRecord.project_id;
+
+        // Process each task
+        for (const task of tasks) {
+          // Skip tasks without resources or work hours
+          if (!task.resource_ids || task.resource_ids.length === 0 || !task.work_hours) continue;
+
+          // Parse task dates
+          let taskStartDate: Date | null = null;
+          let taskEndDate: Date | null = null;
+
+          if (task.start_date) {
+            const startStr = String(task.start_date);
+            taskStartDate = new Date(startStr.split(' ')[0]);
+            taskStartDate.setHours(0, 0, 0, 0);
+          }
+
+          if (task.end_date) {
+            const endStr = String(task.end_date);
+            taskEndDate = new Date(endStr.split(' ')[0]);
+            taskEndDate.setHours(0, 0, 0, 0);
+          } else if (taskStartDate && task.duration) {
+            // Calculate end date if not provided
+            taskEndDate = new Date(taskStartDate);
+            // Simple calculation: add duration days (accounting for weekends would be more complex)
+            let daysToAdd = task.duration;
+            while (daysToAdd > 0) {
+              taskEndDate.setDate(taskEndDate.getDate() + 1);
+              const dayOfWeek = taskEndDate.getDay();
+              // Skip weekends
+              if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                daysToAdd--;
+              }
+            }
+          }
+
+          if (!taskStartDate || !taskEndDate) continue;
+
+          // Calculate work days in the task duration
+          let workDays = 0;
+          const currentDate = new Date(taskStartDate);
+          while (currentDate <= taskEndDate) {
+            const dayOfWeek = currentDate.getDay();
+            if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+              workDays++;
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+          }
+
+          if (workDays === 0) continue;
+
+          // Calculate allocation percentages and total allocation
+          const resourceAllocations = new Map<string, number>();
+          let totalAllocationPercentage = 0;
+
+          for (const resourceId of task.resource_ids) {
+            const key = `${projectId}_${resourceId}`;
+            const allocationPercentage = allocationPercentageMap.get(key) || 100;
+            resourceAllocations.set(resourceId, allocationPercentage);
+            totalAllocationPercentage += allocationPercentage;
+          }
+
+          // Distribute work hours proportionally based on allocation percentages
+          for (const resourceId of task.resource_ids) {
+            const resourceWeekMap = allocationMap.get(resourceId);
+            if (!resourceWeekMap) continue;
+
+            const allocationPercentage = resourceAllocations.get(resourceId) || 100;
+
+            // Calculate this resource's share of work hours
+            // work_hours is already calculated as: duration * 8 * (allocation% / 100) for each resource
+            // So we need to recalculate per-resource hours based on duration and allocation
+            const taskDuration = task.duration || workDays;
+            const hoursPerDay = (taskDuration * 8 * (allocationPercentage / 100)) / workDays;
+
+            // Iterate through each day of the task
+            const iterDate = new Date(taskStartDate);
+            while (iterDate <= taskEndDate) {
+              const dayOfWeek = iterDate.getDay();
+
+              // Only count weekdays
+              if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                // Calculate which week this date falls into (relative to today)
+                const daysDiff = Math.floor((iterDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                const weekIndex = Math.floor(daysDiff / 7);
+
+                // Only count if it's within our 12-week window
+                if (weekIndex >= 0 && weekIndex < weeks) {
+                  const weekKey = `week-${weekIndex}`;
+                  const currentHours = resourceWeekMap.get(weekKey) || 0;
+                  resourceWeekMap.set(weekKey, currentHours + hoursPerDay);
+                }
+              }
+
+              iterDate.setDate(iterDate.getDate() + 1);
+            }
+          }
+        }
+      }
+
+      setAllocations(allocationMap);
+    } catch (error) {
+      console.error('Error calculating allocations:', error);
+      // Set empty allocations on error
+      const allocationMap = new Map<string, Map<string, number>>();
+      for (const member of teamMembers) {
+        allocationMap.set(member.resource_id, new Map<string, number>());
+      }
+      setAllocations(allocationMap);
+    }
   };
 
   const getColorClass = (hours: number) => {
@@ -319,13 +462,14 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
                     </div>
                     {teamMembers.map((member) => {
                       const hours = allocations.get(member.resource_id)?.get(`week-${weekIndex}`) || 0;
+                      const roundedHours = Math.round(hours);
                       return (
                         <div
                           key={`${member.id}-${weekIndex}`}
-                          className={`h-12 border-b border-l border-gray-200 flex items-center justify-center text-sm font-medium ${getColorClass(hours)}`}
-                          title={`${member.resource.display_name} - Week ${weekIndex + 1}: ${hours}h`}
+                          className={`h-12 border-b border-l border-gray-200 flex items-center justify-center text-sm font-medium ${getColorClass(roundedHours)}`}
+                          title={`${member.resource.display_name} - Week ${weekIndex + 1}: ${hours.toFixed(1)}h`}
                         >
-                          {hours > 0 ? `${hours}h` : ''}
+                          {roundedHours > 0 ? `${roundedHours}h` : ''}
                         </div>
                       );
                     })}
