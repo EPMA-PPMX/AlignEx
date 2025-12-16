@@ -448,8 +448,8 @@ export default class Gantt extends Component<GanttProps, GanttState> {
             const startDate = typeof task.start_date === 'string'
               ? gantt.date.parseDate(task.start_date, "xml_date")
               : task.start_date;
-            // Format with date and time
-            return gantt.date.date_to_str("%Y-%m-%d %H:%i")(startDate);
+            // Format as "Mon 12/01/25"
+            return gantt.date.date_to_str("%D %m/%d/%y")(startDate);
           }
           return "";
         }
@@ -470,8 +470,8 @@ export default class Gantt extends Component<GanttProps, GanttState> {
             const endDate = gantt.calculateEndDate(startDate, task.duration);
             // Subtract 1 day from end date to show the actual last working day
             const adjustedEndDate = gantt.date.add(endDate, -1, "day");
-            // Format with date and time
-            return gantt.date.date_to_str("%Y-%m-%d %H:%i")(adjustedEndDate);
+            // Format as "Mon 12/01/25"
+            return gantt.date.date_to_str("%D %m/%d/%y")(adjustedEndDate);
           }
           return "";
         }
@@ -616,7 +616,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           scale_height: 27,
           min_column_width: 80,
           scales: [
-            { unit: "day", step: 1, format: "%d %M" }
+            { unit: "day", step: 1, format: "%D %m/%d/%y" }
           ]
         },
         {
@@ -625,13 +625,13 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           min_column_width: 50,
           scales: [
             { unit: "week", step: 1, format: function (date: Date) {
-                const dateToStr = gantt.date.date_to_str("%d %M");
+                const dateToStr = gantt.date.date_to_str("%m/%d/%y");
                 const endDate = gantt.date.add(date, -6, "day");
                 const weekNum = gantt.date.date_to_str("%W")(date);
                 return "#" + weekNum + ", " + dateToStr(date) + " - " + dateToStr(endDate);
               }
             },
-            { unit: "day", step: 1, format: "%j %D" }
+            { unit: "day", step: 1, format: "%D %m/%d" }
           ]
         },
         {
@@ -649,12 +649,12 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           min_column_width: 90,
           scales: [
             { unit: "quarter", step: 1, format: function (date: Date) {
-                const dateToStr = gantt.date.date_to_str("%M");
+                const dateToStr = gantt.date.date_to_str("%m/%d/%y");
                 const endDate = gantt.date.add(gantt.date.add(date, 3, "month"), -1, "day");
                 return dateToStr(date) + " - " + dateToStr(endDate);
               }
             },
-            { unit: "month", step: 1, format: "%M" }
+            { unit: "month", step: 1, format: "%M %y" }
           ]
         },
         {
