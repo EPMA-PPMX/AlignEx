@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp, Search, Group, Flag, ZoomIn, ZoomOut, Maximize2, Minimize2, History } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { useNotification } from '../lib/useNotification';
 import { trackFieldHistory, shouldTrackFieldHistory } from '../lib/fieldHistoryTracker';
 import { MonthlyBudgetGrid } from '../components/MonthlyBudgetGrid';
 import { BudgetSummaryTiles } from '../components/BudgetSummaryTiles';
@@ -12,14 +11,11 @@ import ProjectHealthStatus from '../components/ProjectHealthStatus';
 import BenefitTracking from '../components/BenefitTracking';
 import ProjectTeams from '../components/ProjectTeams';
 import PeoplePicker from '../components/PeoplePicker';
-import CustomFieldsRenderer from '../components/CustomFieldsRenderer';
-import { loadCustomFieldValues, saveCustomFieldValues } from '../lib/customFieldHelpers';
 
 interface Project {
   id: string;
   name: string;
   description?: string;
-  start_date?: string | null;
   status: string;
   state: string;
   health_status: string;
@@ -153,7 +149,6 @@ interface MonthlyBudgetForecast {
 const ProjectDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { showConfirm, showNotification } = useNotification();
   const [activeTab, setActiveTab] = useState('overview');
 
   // Utility function to adjust date to skip weekends
@@ -226,8 +221,7 @@ const ProjectDetail: React.FC = () => {
   const [editingProject, setEditingProject] = useState(false);
   const [projectForm, setProjectForm] = useState({
     name: '',
-    description: '',
-    start_date: ''
+    description: ''
   });
 
   const [riskForm, setRiskForm] = useState({
@@ -243,8 +237,6 @@ const ProjectDetail: React.FC = () => {
     notes: ''
   });
 
-  const [riskCustomFieldValues, setRiskCustomFieldValues] = useState<Record<string, string>>({});
-
   const [issueForm, setIssueForm] = useState({
     title: '',
     owner: '',
@@ -255,8 +247,6 @@ const ProjectDetail: React.FC = () => {
     description: '',
     resolution: ''
   });
-
-  const [issueCustomFieldValues, setIssueCustomFieldValues] = useState<Record<string, string>>({});
 
   const [changeRequestForm, setChangeRequestForm] = useState({
     title: '',
@@ -269,8 +259,6 @@ const ProjectDetail: React.FC = () => {
     resource_impact: 'Low',
     attachments: ''
   });
-
-  const [changeRequestCustomFieldValues, setChangeRequestCustomFieldValues] = useState<Record<string, string>>({});
 
   const [budgetForm, setBudgetForm] = useState({
     categories: [] as string[]
@@ -468,8 +456,7 @@ const ProjectDetail: React.FC = () => {
         if (data) {
           setProjectForm({
             name: data.name || '',
-            description: data.description || '',
-            start_date: data.start_date || ''
+            description: data.description || ''
           });
           // Load selected task fields if they exist
           if (data.selected_task_fields && Array.isArray(data.selected_task_fields)) {
@@ -1182,7 +1169,7 @@ const ProjectDetail: React.FC = () => {
       }));
 
       if (records.length === 0) {
-        showNotification('No field values to save', 'info');
+        alert('No field values to save');
         return;
       }
 
@@ -1196,9 +1183,9 @@ const ProjectDetail: React.FC = () => {
 
       if (error) {
         console.error('Error saving field values:', error);
-        showNotification(`Error saving field values: ${error.message}`, 'error');
+        alert(`Error saving field values: ${error.message}\n\nDetails: ${error.details || 'No additional details'}\n\nHint: ${error.hint || 'Check database constraints and permissions'}`);
       } else {
-        showNotification('Field values saved successfully!', 'success');
+        alert('Field values saved successfully!');
 
         // Track history for fields that have history tracking enabled
         if (overviewConfig && project) {
@@ -1230,7 +1217,7 @@ const ProjectDetail: React.FC = () => {
       }
     } catch (error) {
       console.error('Error saving field values:', error);
-      showNotification(`Unexpected error saving field values: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+      alert(`Unexpected error saving field values: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setSaving(false);
     }
@@ -1256,7 +1243,7 @@ const ProjectDetail: React.FC = () => {
       setFieldHistory(data || []);
     } catch (error) {
       console.error('Error loading field history:', error);
-      showNotification('Failed to load field history', 'error');
+      alert('Failed to load field history');
     } finally {
       setLoadingHistory(false);
     }
@@ -1427,8 +1414,7 @@ const ProjectDetail: React.FC = () => {
     setEditingProject(true);
     setProjectForm({
       name: project?.name || '',
-      description: project?.description || '',
-      start_date: project?.start_date || ''
+      description: project?.description || ''
     });
   };
 
@@ -1436,14 +1422,13 @@ const ProjectDetail: React.FC = () => {
     setEditingProject(false);
     setProjectForm({
       name: project?.name || '',
-      description: project?.description || '',
-      start_date: project?.start_date || ''
+      description: project?.description || ''
     });
   };
 
   const handleProjectUpdate = async () => {
     if (!id || !projectForm.name.trim()) {
-      showNotification('Project name is required', 'error');
+      alert('Project name is required');
       return;
     }
 
@@ -1453,26 +1438,24 @@ const ProjectDetail: React.FC = () => {
         .from('projects')
         .update({
           name: projectForm.name.trim(),
-          description: projectForm.description.trim(),
-          start_date: projectForm.start_date || null
+          description: projectForm.description.trim()
         })
         .eq('id', id);
 
       if (error) {
-        showNotification(`Error: ${error.message}`, 'error');
+        alert(`Error: ${error.message}`);
       } else {
         setProject(prev => prev ? {
           ...prev,
           name: projectForm.name.trim(),
-          description: projectForm.description.trim(),
-          start_date: projectForm.start_date || null
+          description: projectForm.description.trim()
         } : null);
         setEditingProject(false);
-        showNotification('Project updated successfully!', 'success');
+        alert('Project updated successfully!');
       }
     } catch (error) {
       console.error('Error updating project:', error);
-      showNotification('Error updating project. Please try again.', 'error');
+      alert('Error updating project. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -1496,38 +1479,34 @@ const ProjectDetail: React.FC = () => {
           .eq('id', editingRisk.id);
 
         if (error) {
-          showNotification(`Error: ${error.message}`, 'error');
+          alert(`Error: ${error.message}`);
         } else {
-          await saveCustomFieldValues('risk', editingRisk.id, riskCustomFieldValues);
           await fetchRisks();
           setShowRiskModal(false);
           resetRiskForm();
-          showNotification('Risk updated successfully!', 'success');
+          alert('Risk updated successfully!');
         }
       } else {
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('project_risks')
-          .insert([payload])
-          .select()
-          .single();
+          .insert([payload]);
 
         if (error) {
-          showNotification(`Error: ${error.message}`, 'error');
-        } else if (data) {
-          await saveCustomFieldValues('risk', data.id, riskCustomFieldValues);
+          alert(`Error: ${error.message}`);
+        } else {
           await fetchRisks();
           setShowRiskModal(false);
           resetRiskForm();
-          showNotification('Risk created successfully!', 'success');
+          alert('Risk created successfully!');
         }
       }
     } catch (error) {
       console.error('Error saving risk:', error);
-      showNotification('Error saving risk', 'error');
+      alert('Error saving risk');
     }
   };
 
-  const handleEditRisk = async (risk: Risk) => {
+  const handleEditRisk = (risk: Risk) => {
     setEditingRisk(risk);
     setRiskForm({
       title: risk.title,
@@ -1541,18 +1520,11 @@ const ProjectDetail: React.FC = () => {
       description: risk.description,
       notes: risk.notes || ''
     });
-    const customValues = await loadCustomFieldValues('risk', risk.id);
-    setRiskCustomFieldValues(customValues);
     setShowRiskModal(true);
   };
 
   const handleDeleteRisk = async (riskId: string) => {
-    const confirmed = await showConfirm({
-      title: 'Delete Risk',
-      message: 'Are you sure you want to delete this risk?',
-      confirmText: 'Delete'
-    });
-    if (!confirmed) return;
+    if (!window.confirm('Are you sure you want to delete this risk?')) return;
 
     try {
       const { error } = await supabase
@@ -1561,14 +1533,14 @@ const ProjectDetail: React.FC = () => {
         .eq('id', riskId);
 
       if (error) {
-        showNotification(`Error: ${error.message}`, 'error');
+        alert(`Error: ${error.message}`);
       } else {
         await fetchRisks();
-        showNotification('Risk deleted successfully!', 'success');
+        alert('Risk deleted successfully!');
       }
     } catch (error) {
       console.error('Error deleting risk:', error);
-      showNotification('Error deleting risk', 'error');
+      alert('Error deleting risk');
     }
   };
 
@@ -1585,7 +1557,6 @@ const ProjectDetail: React.FC = () => {
       description: '',
       notes: ''
     });
-    setRiskCustomFieldValues({});
     setEditingRisk(null);
   };
 
@@ -1607,38 +1578,34 @@ const ProjectDetail: React.FC = () => {
           .eq('id', editingIssue.id);
 
         if (error) {
-          showNotification(`Error: ${error.message}`, 'error');
+          alert(`Error: ${error.message}`);
         } else {
-          await saveCustomFieldValues('issue', editingIssue.id, issueCustomFieldValues);
           await fetchIssues();
           setShowIssueModal(false);
           resetIssueForm();
-          showNotification('Issue updated successfully!', 'success');
+          alert('Issue updated successfully!');
         }
       } else {
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('project_issues')
-          .insert([payload])
-          .select()
-          .single();
+          .insert([payload]);
 
         if (error) {
-          showNotification(`Error: ${error.message}`, 'error');
-        } else if (data) {
-          await saveCustomFieldValues('issue', data.id, issueCustomFieldValues);
+          alert(`Error: ${error.message}`);
+        } else {
           await fetchIssues();
           setShowIssueModal(false);
           resetIssueForm();
-          showNotification('Issue created successfully!', 'success');
+          alert('Issue created successfully!');
         }
       }
     } catch (error) {
       console.error('Error saving issue:', error);
-      showNotification('Error saving issue', 'error');
+      alert('Error saving issue');
     }
   };
 
-  const handleEditIssue = async (issue: Issue) => {
+  const handleEditIssue = (issue: Issue) => {
     setEditingIssue(issue);
     setIssueForm({
       title: issue.title,
@@ -1650,18 +1617,11 @@ const ProjectDetail: React.FC = () => {
       description: issue.description,
       resolution: issue.resolution || ''
     });
-    const customValues = await loadCustomFieldValues('issue', issue.id);
-    setIssueCustomFieldValues(customValues);
     setShowIssueModal(true);
   };
 
   const handleDeleteIssue = async (issueId: string) => {
-    const confirmed = await showConfirm({
-      title: 'Delete Issue',
-      message: 'Are you sure you want to delete this issue?',
-      confirmText: 'Delete'
-    });
-    if (!confirmed) return;
+    if (!window.confirm('Are you sure you want to delete this issue?')) return;
 
     try {
       const { error } = await supabase
@@ -1670,14 +1630,14 @@ const ProjectDetail: React.FC = () => {
         .eq('id', issueId);
 
       if (error) {
-        showNotification(`Error: ${error.message}`, 'error');
+        alert(`Error: ${error.message}`);
       } else {
         await fetchIssues();
-        showNotification('Issue deleted successfully!', 'success');
+        alert('Issue deleted successfully!');
       }
     } catch (error) {
       console.error('Error deleting issue:', error);
-      showNotification('Error deleting issue', 'error');
+      alert('Error deleting issue');
     }
   };
 
@@ -1692,7 +1652,6 @@ const ProjectDetail: React.FC = () => {
       description: '',
       resolution: ''
     });
-    setIssueCustomFieldValues({});
     setEditingIssue(null);
   };
 
@@ -1723,34 +1682,30 @@ const ProjectDetail: React.FC = () => {
           .eq('id', editingChangeRequest.id);
 
         if (error) {
-          showNotification(`Error: ${error.message}`, 'error');
+          alert(`Error: ${error.message}`);
         } else {
-          await saveCustomFieldValues('change_request', editingChangeRequest.id, changeRequestCustomFieldValues);
           await fetchChangeRequests();
           setShowChangeRequestModal(false);
           resetChangeRequestForm();
-          showNotification('Change request updated successfully!', 'success');
+          alert('Change request updated successfully!');
         }
       } else {
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('change_requests')
-          .insert([payload])
-          .select()
-          .single();
+          .insert([payload]);
 
         if (error) {
-          showNotification(`Error: ${error.message}`, 'error');
-        } else if (data) {
-          await saveCustomFieldValues('change_request', data.id, changeRequestCustomFieldValues);
+          alert(`Error: ${error.message}`);
+        } else {
           await fetchChangeRequests();
           setShowChangeRequestModal(false);
           resetChangeRequestForm();
-          showNotification('Change request created successfully!', 'success');
+          alert('Change request created successfully!');
         }
       }
     } catch (error) {
       console.error('Error saving change request:', error);
-      showNotification('Error saving change request', 'error');
+      alert('Error saving change request');
     }
   };
 
@@ -1779,11 +1734,11 @@ const ProjectDetail: React.FC = () => {
       document.body.removeChild(a);
     } catch (error) {
       console.error('Error downloading file:', error);
-      showNotification('Failed to download file. Please try again.', 'error');
+      alert('Failed to download file. Please try again.');
     }
   };
 
-  const handleEditChangeRequest = async (changeRequest: ChangeRequest) => {
+  const handleEditChangeRequest = (changeRequest: ChangeRequest) => {
     setEditingChangeRequest(changeRequest);
     setChangeRequestForm({
       title: changeRequest.request_title,
@@ -1810,18 +1765,11 @@ const ProjectDetail: React.FC = () => {
       setUploadedFiles([]);
     }
 
-    const customValues = await loadCustomFieldValues('change_request', changeRequest.id);
-    setChangeRequestCustomFieldValues(customValues);
     setShowChangeRequestModal(true);
   };
 
   const handleDeleteChangeRequest = async (changeRequestId: string) => {
-    const confirmed = await showConfirm({
-      title: 'Delete Change Request',
-      message: 'Are you sure you want to delete this change request?',
-      confirmText: 'Delete'
-    });
-    if (!confirmed) return;
+    if (!window.confirm('Are you sure you want to delete this change request?')) return;
 
     try {
       const { error } = await supabase
@@ -1830,14 +1778,14 @@ const ProjectDetail: React.FC = () => {
         .eq('id', changeRequestId);
 
       if (error) {
-        showNotification(`Error: ${error.message}`, 'error');
+        alert(`Error: ${error.message}`);
       } else {
         await fetchChangeRequests();
-        showNotification('Change request deleted successfully!', 'success');
+        alert('Change request deleted successfully!');
       }
     } catch (error) {
       console.error('Error deleting change request:', error);
-      showNotification('Error deleting change request', 'error');
+      alert('Error deleting change request');
     }
   };
 
@@ -1853,7 +1801,6 @@ const ProjectDetail: React.FC = () => {
       resource_impact: 'Low',
       attachments: ''
     });
-    setChangeRequestCustomFieldValues({});
     setUploadedFiles([]);
     setEditingChangeRequest(null);
   };
@@ -1887,11 +1834,11 @@ const ProjectDetail: React.FC = () => {
 
       const results = await Promise.all(uploadPromises);
       setUploadedFiles(prev => [...prev, ...results]);
-      showNotification(`${files.length} file(s) uploaded successfully!`, 'success');
+      alert(`${files.length} file(s) uploaded successfully!`);
       e.target.value = '';
     } catch (error: any) {
       console.error('Error uploading files:', error);
-      showNotification(error.message || 'Error uploading files', 'error');
+      alert(error.message || 'Error uploading files');
     } finally {
       setUploading(false);
     }
@@ -1917,17 +1864,14 @@ const ProjectDetail: React.FC = () => {
       window.document.body.removeChild(a);
     } catch (error) {
       console.error('Error downloading file:', error);
-      showNotification('Error downloading file', 'error');
+      alert('Error downloading file');
     }
   };
 
   const handleRemoveFile = async (filePath: string) => {
-    const confirmed = await showConfirm({
-      title: 'Delete File',
-      message: 'Are you sure you want to delete this file?',
-      confirmText: 'Delete'
-    });
-    if (!confirmed) return;
+    if (!window.confirm('Are you sure you want to delete this file?')) {
+      return;
+    }
 
     try {
       const { error } = await supabase.storage
@@ -1939,10 +1883,10 @@ const ProjectDetail: React.FC = () => {
       }
 
       setUploadedFiles(prev => prev.filter(f => f.path !== filePath));
-      showNotification('File deleted successfully', 'success');
+      alert('File deleted successfully');
     } catch (error: any) {
       console.error('Error deleting file:', error);
-      showNotification(`Error deleting file: ${error.message}`, 'error');
+      alert(`Error deleting file: ${error.message}`);
     }
   };
 
@@ -1981,11 +1925,11 @@ const ProjectDetail: React.FC = () => {
       }
 
       await fetchDocuments();
-      showNotification('Document uploaded successfully!', 'success');
+      alert('Document uploaded successfully!');
       event.target.value = '';
     } catch (error: any) {
       console.error('Error uploading document:', error);
-      showNotification(`Error uploading document: ${error.message}`, 'error');
+      alert(`Error uploading document: ${error.message}`);
     }
   };
 
@@ -2009,22 +1953,17 @@ const ProjectDetail: React.FC = () => {
       window.document.body.removeChild(a);
     } catch (error: any) {
       console.error('Error downloading document:', error);
-      showNotification(`Error downloading document: ${error.message}`, 'error');
+      alert(`Error downloading document: ${error.message}`);
     }
   };
 
   const handleDeleteDocument = async (documentId: string) => {
-    const confirmed = await showConfirm({
-      title: 'Delete Document',
-      message: 'Are you sure you want to delete this document?',
-      confirmText: 'Delete'
-    });
-    if (!confirmed) return;
+    if (!window.confirm('Are you sure you want to delete this document?')) return;
 
     try {
       const doc = documents.find(d => d.id === documentId);
       if (!doc) {
-        showNotification('Document not found', 'error');
+        alert('Document not found');
         return;
       }
 
@@ -2046,10 +1985,10 @@ const ProjectDetail: React.FC = () => {
       }
 
       setDocuments(prevDocs => prevDocs.filter(d => d.id !== documentId));
-      showNotification('Document deleted successfully!', 'success');
+      alert('Document deleted successfully!');
     } catch (error: any) {
       console.error('Error deleting document:', error);
-      showNotification(`Error deleting document: ${error.message}`, 'error');
+      alert(`Error deleting document: ${error.message}`);
     }
   };
 
@@ -2089,8 +2028,8 @@ const ProjectDetail: React.FC = () => {
     console.log('taskForm:', taskForm);
     console.log('editingTaskId:', editingTaskId);
 
-    if (!taskForm.description || !taskForm.start_date || !taskForm.duration) {
-      showNotification('Please fill in all required fields', 'error');
+    if (!taskForm.description || !taskForm.duration) {
+      alert('Please fill in all required fields');
       return;
     }
 
@@ -2385,7 +2324,7 @@ const ProjectDetail: React.FC = () => {
       });
     } catch (error: any) {
       console.error('Error creating task:', error);
-      showNotification(`Error creating task: ${error.message}`, 'error');
+      alert(`Error creating task: ${error.message}`);
     }
   };
 
@@ -2511,20 +2450,15 @@ const ProjectDetail: React.FC = () => {
       setBudgetForm({
         categories: []
       });
-      showNotification(editingBudget ? 'Budget updated successfully!' : 'Budget added successfully!', 'success');
+      alert(editingBudget ? 'Budget updated successfully!' : 'Budget added successfully!');
     } catch (error: any) {
       console.error('Error saving budget:', error);
-      showNotification(`Error saving budget: ${error.message}`, 'error');
+      alert(`Error saving budget: ${error.message}`);
     }
   };
 
   const handleDeleteBudget = async (budgetId: string) => {
-    const confirmed = await showConfirm({
-      title: 'Delete Budget Item',
-      message: 'Are you sure you want to delete this budget item? This will also delete all associated monthly forecasts.',
-      confirmText: 'Delete'
-    });
-    if (!confirmed) return;
+    if (!window.confirm('Are you sure you want to delete this budget item? This will also delete all associated monthly forecasts.')) return;
 
     try {
       const { error } = await supabase
@@ -2538,10 +2472,10 @@ const ProjectDetail: React.FC = () => {
 
       await fetchBudgets();
       await fetchMonthlyForecasts();
-      showNotification('Budget item deleted successfully!', 'success');
+      alert('Budget item deleted successfully!');
     } catch (error: any) {
       console.error('Error deleting budget:', error);
-      showNotification(`Error deleting budget item: ${error.message}`, 'error');
+      alert(`Error deleting budget item: ${error.message}`);
     }
   };
 
@@ -2569,7 +2503,7 @@ const ProjectDetail: React.FC = () => {
       );
     } catch (error: any) {
       console.error('Error updating monthly value:', error);
-      showNotification(`Error updating value: ${error.message}`, 'error');
+      alert(`Error updating value: ${error.message}`);
     }
   };
 
@@ -2701,15 +2635,6 @@ const ProjectDetail: React.FC = () => {
                     placeholder="Enter project description"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Project Start Date</label>
-                  <input
-                    type="date"
-                    value={projectForm.start_date}
-                    onChange={(e) => setProjectForm({ ...projectForm, start_date: e.target.value })}
-                    className="w-full max-w-2xl px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
                 <div className="flex items-center space-x-3">
                   <button
                     onClick={handleProjectUpdate}
@@ -2735,7 +2660,7 @@ const ProjectDetail: React.FC = () => {
                   <button
                     onClick={startEditingProject}
                     className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
-                    title="Edit project details"
+                    title="Edit project name and description"
                   >
                     <Edit2 className="w-5 h-5" />
                   </button>
@@ -2743,47 +2668,30 @@ const ProjectDetail: React.FC = () => {
                 {project.description && (
                   <p className="text-gray-600 mt-2">{project.description}</p>
                 )}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                  <div>
-                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Start Date</span>
-                    <p className="text-sm text-gray-900 mt-1">
-                      {project.start_date
-                        ? new Date(project.start_date).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric'
-                          })
-                        : 'Not set'}
-                    </p>
+                <div className="flex items-center space-x-4 mt-4">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm font-medium text-gray-600">State:</span>
+                    <ProjectStatusDropdown
+                      currentState={project.state}
+                      projectId={project.id}
+                      onStateUpdate={(newState) => {
+                        setProject(prev => prev ? { ...prev, state: newState } : null);
+                      }}
+                    />
                   </div>
-                  <div>
-                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">State</span>
-                    <div className="mt-1">
-                      <ProjectStatusDropdown
-                        currentState={project.state}
-                        projectId={project.id}
-                        onStateUpdate={(newState) => {
-                          setProject(prev => prev ? { ...prev, state: newState } : null);
-                        }}
-                      />
-                    </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm font-medium text-gray-600">Status:</span>
+                    <ProjectHealthStatus
+                      currentStatus={project.health_status}
+                      projectId={project.id}
+                      onStatusUpdate={(newStatus) => {
+                        setProject(prev => prev ? { ...prev, health_status: newStatus } : null);
+                      }}
+                    />
                   </div>
-                  <div>
-                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Status</span>
-                    <div className="mt-1">
-                      <ProjectHealthStatus
-                        currentStatus={project.health_status}
-                        projectId={project.id}
-                        onStatusUpdate={(newStatus) => {
-                          setProject(prev => prev ? { ...prev, health_status: newStatus } : null);
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Created</span>
-                    <p className="text-sm text-gray-900 mt-1">{formatDate(project.created_at)}</p>
-                  </div>
+                  <span className="text-sm text-gray-500">
+                    Created {formatDate(project.created_at)}
+                  </span>
                 </div>
               </div>
             )}
@@ -3898,13 +3806,6 @@ const ProjectDetail: React.FC = () => {
                 />
               </div>
 
-              <CustomFieldsRenderer
-                entityType="risk"
-                entityId={editingRisk?.id}
-                values={riskCustomFieldValues}
-                onChange={(fieldName, value) => setRiskCustomFieldValues({ ...riskCustomFieldValues, [fieldName]: value })}
-              />
-
               <div className="flex space-x-4 pt-4">
                 <button
                   type="button"
@@ -4026,13 +3927,6 @@ const ProjectDetail: React.FC = () => {
                   rows={3}
                 />
               </div>
-
-              <CustomFieldsRenderer
-                entityType="issue"
-                entityId={editingIssue?.id}
-                values={issueCustomFieldValues}
-                onChange={(fieldName, value) => setIssueCustomFieldValues({ ...issueCustomFieldValues, [fieldName]: value })}
-              />
 
               <div className="flex space-x-4 pt-4">
                 <button
@@ -4299,14 +4193,6 @@ const ProjectDetail: React.FC = () => {
                   </div>
                 )}
               </div>
-
-              <CustomFieldsRenderer
-                entityType="change_request"
-                entityId={editingChangeRequest?.id}
-                values={changeRequestCustomFieldValues}
-                onChange={(fieldName, value) => setChangeRequestCustomFieldValues({ ...changeRequestCustomFieldValues, [fieldName]: value })}
-              />
-
               <div className="flex space-x-4 pt-4">
                 <button
                   type="button"

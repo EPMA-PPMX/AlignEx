@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, AlertTriangle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { useNotification } from '../../lib/useNotification';
 
 interface Props {
   reportData: any;
@@ -20,7 +19,6 @@ interface Risk {
 }
 
 export default function StepRisks({ reportData, updateReportData }: Props) {
-  const { showConfirm } = useNotification();
   const [risks, setRisks] = useState<Risk[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newRisk, setNewRisk] = useState({
@@ -106,12 +104,7 @@ export default function StepRisks({ reportData, updateReportData }: Props) {
   };
 
   const handleDeleteRisk = async (riskId: string) => {
-    const confirmed = await showConfirm({
-      title: 'Delete Risk',
-      message: 'Are you sure you want to delete this risk?',
-      confirmText: 'Delete'
-    });
-    if (!confirmed) return;
+    if (!confirm('Are you sure you want to delete this risk?')) return;
 
     try {
       const { error } = await supabase

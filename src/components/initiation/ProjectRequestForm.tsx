@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Save, Send, Loader } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { formatCurrencyInput, extractNumericValue, formatCurrency } from '../../lib/utils';
 import { useNotification } from '../../lib/useNotification';
+import { formatCurrencyInput } from '../../lib/utils';
 
 interface ProjectRequest {
   id: string;
@@ -11,8 +11,8 @@ interface ProjectRequest {
   project_type: string;
   problem_statement: string;
   estimated_start_date: string | null;
-  estimated_duration: number | null;
-  initial_estimated_cost: number | null;
+  estimated_duration: string | null;
+  initial_estimated_cost: string | null;
   expected_benefits: string;
   consequences_of_inaction: string;
   comments: string | null;
@@ -45,9 +45,6 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
   const [projectTypesLoading, setProjectTypesLoading] = useState(true);
   const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
   const [priorityContributions, setPriorityContributions] = useState<{ [key: string]: string }>({});
-  const [formattedCost, setFormattedCost] = useState<string>(
-    request?.initial_estimated_cost ? formatCurrencyInput(request.initial_estimated_cost.toString()) : ''
-  );
 
   const [formData, setFormData] = useState({
     project_name: request?.project_name || '',
@@ -55,8 +52,8 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
     project_type: request?.project_type || '',
     problem_statement: request?.problem_statement || '',
     estimated_start_date: request?.estimated_start_date || '',
-    estimated_duration: request?.estimated_duration ?? null,
-    initial_estimated_cost: request?.initial_estimated_cost ?? null,
+    estimated_duration: request?.estimated_duration || '',
+    initial_estimated_cost: request?.initial_estimated_cost || '',
     expected_benefits: request?.expected_benefits || '',
     consequences_of_inaction: request?.consequences_of_inaction || '',
     comments: request?.comments || '',
@@ -132,14 +129,9 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
 
-    if (name === 'estimated_duration') {
-      const numValue = value === '' ? null : parseFloat(value);
-      setFormData((prev) => ({ ...prev, [name]: numValue }));
-    } else if (name === 'initial_estimated_cost') {
+    if (name === 'initial_estimated_cost') {
       const formatted = formatCurrencyInput(value);
-      setFormattedCost(formatted);
-      const numValue = formatted ? extractNumericValue(formatted) : null;
-      setFormData((prev) => ({ ...prev, [name]: numValue }));
+      setFormData((prev) => ({ ...prev, [name]: formatted }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
@@ -270,7 +262,7 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
     } catch (error: any) {
       console.error('Error saving request:', error);
       const errorMessage = error?.message || 'Error saving request. Please try again.';
-      showNotification(errorMessage, 'error');
+      showNotification(`Error saving request: ${errorMessage}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -375,28 +367,26 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                Estimated Duration (Months)
+                Estimated Duration
               </label>
               <input
-                type="number"
+                type="text"
                 name="estimated_duration"
-                value={formData.estimated_duration || ''}
+                value={formData.estimated_duration}
                 onChange={handleInputChange}
-                min="0"
-                step="1"
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="e.g., 3"
+                placeholder="e.g., 3 months, 6 weeks"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                Initial Estimated Cost
+                Initial Estimated Cost ($)
               </label>
               <input
                 type="text"
                 name="initial_estimated_cost"
-                value={formattedCost}
+                value={formData.initial_estimated_cost}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="e.g., $50,000"
@@ -482,7 +472,7 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
                           {priority.title}
                         </label>
                         <p className="text-sm text-slate-600 mt-1">
-                          Target: {formatCurrency(priority.target_value)}
+                          Target: {priority.target_value}
                         </p>
                         {selectedPriorities.includes(priority.id) && (
                           <div className="mt-3">

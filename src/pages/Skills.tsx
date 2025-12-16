@@ -5,7 +5,6 @@ import { supabase } from '../lib/supabase';
 import MySkillsTab from '../components/skills/MySkillsTab';
 import RoleComparisonTab from '../components/skills/RoleComparisonTab';
 import MyGoalsTab from '../components/skills/MyGoalsTab';
-import RequiresModule from '../components/RequiresModule';
 
 interface SkillCategory {
   id: string;
@@ -92,64 +91,62 @@ export default function Skills() {
   }
 
   return (
-    <RequiresModule moduleKey="skills">
-      <div className="p-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">My Skills</h1>
-          <p className="text-slate-600">Rate your proficiency in each skill area</p>
-        </div>
+    <div className="p-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-slate-900 mb-2">My Skills</h1>
+        <p className="text-slate-600">Rate your proficiency in each skill area</p>
+      </div>
 
-        <div className="mb-6 border-b border-slate-200">
-          <div className="flex gap-1">
-            <button
-              onClick={() => setActiveTab('my-skills')}
-              className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors border-b-2 ${
-                activeTab === 'my-skills'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <User className="w-5 h-5" />
-              My Skills
-            </button>
-            <button
-              onClick={() => setActiveTab('role-comparison')}
-              className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors border-b-2 ${
-                activeTab === 'role-comparison'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Target className="w-5 h-5" />
-              Role Comparison
-            </button>
-            <button
-              onClick={() => setActiveTab('my-goals')}
-              className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors border-b-2 ${
-                activeTab === 'my-goals'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Trophy className="w-5 h-5" />
-              My Goals
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-6">
-          {activeTab === 'my-skills' && (
-            <MySkillsTab
-              categories={categories}
-              allSkills={allSkills}
-              userSkills={userSkills}
-              onRefresh={fetchData}
-            />
-          )}
-          {activeTab === 'role-comparison' && <RoleComparisonTab />}
-          {activeTab === 'my-goals' && <MyGoalsTab />}
+      <div className="mb-6 border-b border-slate-200">
+        <div className="flex gap-1">
+          <button
+            onClick={() => setActiveTab('my-skills')}
+            className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors border-b-2 ${
+              activeTab === 'my-skills'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <User className="w-5 h-5" />
+            My Skills
+          </button>
+          <button
+            onClick={() => setActiveTab('role-comparison')}
+            className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors border-b-2 ${
+              activeTab === 'role-comparison'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Target className="w-5 h-5" />
+            Role Comparison
+          </button>
+          <button
+            onClick={() => setActiveTab('my-goals')}
+            className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors border-b-2 ${
+              activeTab === 'my-goals'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Trophy className="w-5 h-5" />
+            My Goals
+          </button>
         </div>
       </div>
-    </RequiresModule>
+
+      <div className="mt-6">
+        {activeTab === 'my-skills' && (
+          <MySkillsTab
+            categories={categories}
+            allSkills={allSkills}
+            userSkills={userSkills}
+            onRefresh={fetchData}
+          />
+        )}
+        {activeTab === 'role-comparison' && <RoleComparisonTab />}
+        {activeTab === 'my-goals' && <MyGoalsTab />}
+      </div>
+    </div>
   );
 }

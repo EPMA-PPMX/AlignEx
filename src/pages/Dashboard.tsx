@@ -82,9 +82,10 @@ const Dashboard: React.FC = () => {
             </span>
             <span className="text-gray-500">
               {new Date().toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
               })}
             </span>
           </p>

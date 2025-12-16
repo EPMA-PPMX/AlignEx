@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Trash2, Calendar, User, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { useNotification } from '../lib/useNotification';
 
 interface Resource {
   id: string;
@@ -29,7 +28,6 @@ interface ProjectTeamsProps {
 }
 
 export default function ProjectTeams({ projectId, onTeamMembersChange }: ProjectTeamsProps) {
-  const { showConfirm } = useNotification();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddMember, setShowAddMember] = useState(false);
@@ -79,12 +77,7 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
   };
 
   const handleRemoveMember = async (id: string) => {
-    const confirmed = await showConfirm({
-      title: 'Remove Team Member',
-      message: 'Are you sure you want to remove this team member from the project?',
-      confirmText: 'Remove'
-    });
-    if (!confirmed) return;
+    if (!confirm('Are you sure you want to remove this team member from the project?')) return;
 
     try {
       const { error } = await supabase

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Check, AlertTriangle, FileText, DollarSign, CheckSquare, Users, TrendingUp, Send, Save, History, Plus, Eye } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { useNotification } from '../lib/useNotification';
 import StepProjectSelection from '../components/status-report/StepProjectSelection';
 import StepRisks from '../components/status-report/StepRisks';
 import StepIssues from '../components/status-report/StepIssues';
@@ -41,7 +40,6 @@ interface StatusReportData {
 
 export default function StatusReport() {
   const navigate = useNavigate();
-  const { showNotification } = useNotification();
   const [viewMode, setViewMode] = useState<'create' | 'history'>('create');
   const [currentStep, setCurrentStep] = useState(0);
   const [reportData, setReportData] = useState<StatusReportData>({
@@ -110,10 +108,10 @@ export default function StatusReport() {
     try {
       setSaving(true);
       await saveStatusReport('draft');
-      showNotification('Status report saved as draft successfully!', 'success');
+      alert('Status report saved as draft successfully!');
     } catch (error) {
       console.error('Error saving draft:', error);
-      showNotification('Failed to save draft. Please try again.', 'error');
+      alert('Failed to save draft. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -123,11 +121,11 @@ export default function StatusReport() {
     try {
       setSaving(true);
       await saveStatusReport('submitted');
-      showNotification('Status report submitted successfully!', 'success');
+      alert('Status report submitted successfully!');
       navigate('/projects');
     } catch (error) {
       console.error('Error submitting report:', error);
-      showNotification('Failed to submit report. Please try again.', 'error');
+      alert('Failed to submit report. Please try again.');
     } finally {
       setSaving(false);
     }

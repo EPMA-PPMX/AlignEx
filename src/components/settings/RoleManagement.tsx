@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Save, X, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { useNotification } from '../../lib/useNotification';
 
 interface Role {
   id: string;
@@ -33,7 +32,6 @@ interface RoleSkillRequirement {
 const PROFICIENCY_LEVELS = ['None', 'Basic', 'Intermediate', 'Expert'];
 
 export default function RoleManagement() {
-  const { showConfirm } = useNotification();
   const [roles, setRoles] = useState<Role[]>([]);
   const [categories, setCategories] = useState<SkillCategory[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -160,12 +158,13 @@ export default function RoleManagement() {
   };
 
   const handleDelete = async (id: string) => {
-    const confirmed = await showConfirm({
-      title: 'Delete Role',
-      message: 'Are you sure you want to delete this role? All skill requirements for this role will also be deleted.',
-      confirmText: 'Delete'
-    });
-    if (!confirmed) return;
+    if (
+      !confirm(
+        'Are you sure you want to delete this role? All skill requirements for this role will also be deleted.'
+      )
+    ) {
+      return;
+    }
 
     try {
       const { error } = await supabase.from('roles').delete().eq('id', id);

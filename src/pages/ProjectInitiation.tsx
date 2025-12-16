@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye, Edit2, Trash2, Calendar, DollarSign, TrendingUp, BarChart3 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { formatCurrency, formatDate as utilFormatDate, formatCurrencyWithK } from '../lib/utils';
 import { useNotification } from '../lib/useNotification';
+import { formatCurrency } from '../lib/utils';
 import ProjectRequestForm from '../components/initiation/ProjectRequestForm';
-import RequestAnalytics from '../components/initiation/RequestAnalytics';
 
 interface ProjectRequest {
   id: string;
@@ -13,8 +12,8 @@ interface ProjectRequest {
   project_type: string;
   problem_statement: string;
   estimated_start_date: string | null;
-  estimated_duration: number | null;
-  initial_estimated_cost: number | null;
+  estimated_duration: string | null;
+  initial_estimated_cost: string | null;
   expected_benefits: string;
   consequences_of_inaction: string;
   comments: string | null;
@@ -29,13 +28,23 @@ interface ProjectRequest {
 }
 
 export default function ProjectInitiation() {
-  const { showConfirm, showNotification } = useNotification();
+  const { showNotification, showConfirm } = useNotification();
   const [requests, setRequests] = useState<ProjectRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [viewingRequest, setViewingRequest] = useState<ProjectRequest | null>(null);
   const [editingRequest, setEditingRequest] = useState<ProjectRequest | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+
+  const statuses = [
+    { value: 'all', label: 'All Requests', icon: FileText, color: 'slate' },
+    { value: 'Draft', label: 'Draft', icon: FileText, color: 'slate' },
+    { value: 'Pending Approval', label: 'Pending Approval', icon: Clock, color: 'amber' },
+    { value: 'Approved', label: 'Approved', icon: CheckCircle, color: 'green' },
+    { value: 'Rejected', label: 'Rejected', icon: XCircle, color: 'red' },
+    { value: 'More Information Needed', label: 'More Info Needed', icon: AlertCircle, color: 'blue' },
+  ];
 
   useEffect(() => {
     fetchRequests();
@@ -206,8 +215,53 @@ export default function ProjectInitiation() {
       request.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       request.project_type.toLowerCase().includes(searchQuery.toLowerCase());
 
-    return matchesSearch;
+    const matchesStatus = selectedStatus === 'all' || request.status === selectedStatus;
+
+    return matchesSearch && matchesStatus;
   });
+
+  const getStatusCount = (status: string) => {
+    if (status === 'all') return requests.length;
+    return requests.filter((req) => req.status === status).length;
+  };
+
+  const getAnalytics = () => {
+    const totalRequests = requests.length;
+    const pendingCount = requests.filter(r => r.status === 'Pending Approval').length;
+    const approvedCount = requests.filter(r => r.status === 'Approved').length;
+    const rejectedCount = requests.filter(r => r.status === 'Rejected').length;
+    const draftCount = requests.filter(r => r.status === 'Draft').length;
+    const moreInfoCount = requests.filter(r => r.status === 'More Information Needed').length;
+
+    const approvalRate = totalRequests > 0
+      ? Math.round((approvedCount / (approvedCount + rejectedCount)) * 100) || 0
+      : 0;
+
+    const typeDistribution = requests.reduce((acc, req) => {
+      acc[req.project_type] = (acc[req.project_type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const last30Days = new Date();
+    last30Days.setDate(last30Days.getDate() - 30);
+    const recentRequests = requests.filter(
+      r => new Date(r.created_at) >= last30Days
+    ).length;
+
+    return {
+      totalRequests,
+      pendingCount,
+      approvedCount,
+      rejectedCount,
+      draftCount,
+      moreInfoCount,
+      approvalRate,
+      typeDistribution,
+      recentRequests
+    };
+  };
+
+  const analytics = getAnalytics();
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -226,7 +280,14 @@ export default function ProjectInitiation() {
     }
   };
 
-  const formatDate = utilFormatDate;
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'Not specified';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
 
   if (loading) {
     return <div className="text-center py-12 text-slate-600">Loading project requests...</div>;
@@ -266,8 +327,78 @@ export default function ProjectInitiation() {
         </button>
       </div>
 
-      {/* Analytics Dashboard */}
-      <RequestAnalytics requests={requests} />
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-white border border-slate-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <BarChart3 className="w-4 h-4 text-slate-700" />
+            <h2 className="text-sm font-semibold text-slate-900">Requests by Status</h2>
+          </div>
+          <div className="space-y-2.5">
+            {analytics.totalRequests > 0 ? (
+              [
+                { label: 'Draft', count: analytics.draftCount, color: 'from-slate-500 to-slate-600' },
+                { label: 'Pending', count: analytics.pendingCount, color: 'from-amber-500 to-amber-600' },
+                { label: 'Approved', count: analytics.approvedCount, color: 'from-green-500 to-green-600' },
+                { label: 'Rejected', count: analytics.rejectedCount, color: 'from-red-500 to-red-600' },
+                { label: 'More Info', count: analytics.moreInfoCount, color: 'from-cyan-500 to-cyan-600' },
+              ]
+                .filter(item => item.count > 0)
+                .sort((a, b) => b.count - a.count)
+                .map(({ label, count, color }) => {
+                  const percentage = (count / analytics.totalRequests) * 100;
+                  return (
+                    <div key={label} className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium text-slate-700">{label}</span>
+                        <span className="text-slate-600">{count} ({percentage.toFixed(0)}%)</span>
+                      </div>
+                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full bg-gradient-to-r ${color} rounded-full transition-all`}
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+            ) : (
+              <p className="text-slate-500 text-sm text-center py-2">No requests yet</p>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <BarChart3 className="w-4 h-4 text-slate-700" />
+            <h2 className="text-sm font-semibold text-slate-900">Requests by Type</h2>
+          </div>
+          <div className="space-y-2.5">
+            {Object.entries(analytics.typeDistribution).length > 0 ? (
+              Object.entries(analytics.typeDistribution)
+                .sort(([, a], [, b]) => b - a)
+                .map(([type, count]) => {
+                  const percentage = (count / analytics.totalRequests) * 100;
+                  return (
+                    <div key={type} className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium text-slate-700">{type}</span>
+                        <span className="text-slate-600">{count} ({percentage.toFixed(0)}%)</span>
+                      </div>
+                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all"
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+            ) : (
+              <p className="text-slate-500 text-sm text-center py-2">No requests yet</p>
+            )}
+          </div>
+        </div>
+      </div>
 
       <div className="bg-white border border-slate-200 rounded-lg p-4">
         <div className="flex gap-4 items-center">
@@ -389,7 +520,14 @@ function RequestDetailsView({ request, onClose, onEdit, onDelete, onStatusChange
     }
   };
 
-  const formatDate = utilFormatDate;
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'Not specified';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
 
   const handleReviewSubmit = () => {
     if (reviewAction) {
@@ -458,7 +596,7 @@ function RequestDetailsView({ request, onClose, onEdit, onDelete, onStatusChange
               <label className="text-sm font-medium text-slate-500">Estimated Duration</label>
               <p className="text-slate-900 mt-1 flex items-center gap-2">
                 <Clock className="w-4 h-4 text-slate-400" />
-                {request.estimated_duration ? `${request.estimated_duration} months` : 'Not specified'}
+                {request.estimated_duration || 'Not specified'}
               </p>
             </div>
           </div>
@@ -467,7 +605,7 @@ function RequestDetailsView({ request, onClose, onEdit, onDelete, onStatusChange
             <label className="text-sm font-medium text-slate-500">Initial Estimated Cost</label>
             <p className="text-slate-900 mt-1 flex items-center gap-2">
               <DollarSign className="w-4 h-4 text-slate-400" />
-              {request.initial_estimated_cost ? formatCurrencyWithK(request.initial_estimated_cost) : 'Not specified'}
+              {request.initial_estimated_cost ? formatCurrency(request.initial_estimated_cost) : 'Not specified'}
             </p>
           </div>
 

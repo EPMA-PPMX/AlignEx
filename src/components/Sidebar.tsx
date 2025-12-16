@@ -1,23 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FolderKanban, Settings, Target, TrendingUp, FileText, Award, Users, CheckSquare, Clock, ChevronLeft, ChevronRight, BarChart3, Lock, ClipboardCheck } from 'lucide-react';
-import { usePermissions } from '../lib/usePermissions';
-import { ModuleKey } from '../lib/permissionService';
-
-interface NavItem {
-  name: string;
-  path: string;
-  icon: React.ElementType;
-  requiredModule?: ModuleKey;
-  requiresManagePermission?: boolean;
-}
+import { LayoutDashboard, FolderKanban, Settings, Target, TrendingUp, FileText, Award, Users, CheckSquare, Clock, ChevronLeft, ChevronRight, BarChart3 } from 'lucide-react';
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const { availableModules, can, loading } = usePermissions();
 
-  const allNavItems: NavItem[] = [
+  const navItems = [
     {
       name: 'My Hub',
       path: '/',
@@ -37,7 +26,6 @@ const Sidebar: React.FC = () => {
       name: 'Strategic Priorities',
       path: '/priorities',
       icon: TrendingUp,
-      requiresManagePermission: true,
     },
     {
       name: 'Resources',
@@ -48,17 +36,11 @@ const Sidebar: React.FC = () => {
       name: 'My Skills',
       path: '/skills',
       icon: Award,
-      requiredModule: 'skills',
     },
     {
       name: 'Timesheet',
       path: '/timesheet',
       icon: Clock,
-    },
-    {
-      name: 'Timesheet Approvals',
-      path: '/timesheet-approval',
-      icon: ClipboardCheck,
     },
     {
       name: 'Status Report',
@@ -69,27 +51,8 @@ const Sidebar: React.FC = () => {
       name: 'Settings',
       path: '/settings',
       icon: Settings,
-      requiresManagePermission: true,
     },
   ];
-
-  const navItems = useMemo(() => {
-    if (loading) return allNavItems; // Show all while loading
-
-    return allNavItems.filter((item) => {
-      // Check if module is required and available
-      if (item.requiredModule && !availableModules.includes(item.requiredModule)) {
-        return false;
-      }
-
-      // Check if management permission is required
-      if (item.requiresManagePermission && !can.manage) {
-        return false;
-      }
-
-      return true;
-    });
-  }, [availableModules, can.manage, loading]);
 
   return (
     <div className={`${isCollapsed ? 'w-20' : 'w-64'} bg-white shadow-lg border-r border-gray-200 transition-all duration-300 flex flex-col`}>

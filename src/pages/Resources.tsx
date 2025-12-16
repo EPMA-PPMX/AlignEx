@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Users, Plus, Search, Filter, Download, Upload, Edit2, Trash2, UserPlus, Package } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { useNotification } from '../lib/useNotification';
-import ResourceImportModal from '../components/ResourceImportModal';
 
 interface Resource {
   id: string;
@@ -26,14 +24,12 @@ interface Resource {
 }
 
 export default function Resources() {
-  const { showConfirm, showNotification } = useNotification();
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'person' | 'generic'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const [showModal, setShowModal] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false);
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
 
   useEffect(() => {
@@ -68,12 +64,7 @@ export default function Resources() {
   });
 
   const handleDelete = async (id: string) => {
-    const confirmed = await showConfirm({
-      title: 'Delete Resource',
-      message: 'Are you sure you want to delete this resource?',
-      confirmText: 'Delete'
-    });
-    if (!confirmed) return;
+    if (!confirm('Are you sure you want to delete this resource?')) return;
 
     try {
       const { error } = await supabase
@@ -85,7 +76,7 @@ export default function Resources() {
       fetchResources();
     } catch (error) {
       console.error('Error deleting resource:', error);
-      showNotification('Failed to delete resource', 'error');
+      alert('Failed to delete resource');
     }
   };
 
@@ -130,13 +121,6 @@ export default function Resources() {
           <p className="text-gray-500 mt-1">Manage people and generic resources</p>
         </div>
         <div className="flex gap-3">
-          <button
-            onClick={() => setShowImportModal(true)}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <Upload className="w-4 h-4" />
-            Import
-          </button>
           <button
             onClick={handleExportCSV}
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
@@ -328,15 +312,6 @@ export default function Resources() {
           }}
         />
       )}
-
-      {showImportModal && (
-        <ResourceImportModal
-          onClose={() => setShowImportModal(false)}
-          onImportComplete={() => {
-            fetchResources();
-          }}
-        />
-      )}
     </div>
   );
 }
@@ -359,7 +334,6 @@ interface CustomField {
 }
 
 function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
-  const { showNotification } = useNotification();
   const [formData, setFormData] = useState({
     resource_type: resource?.resource_type || 'person',
     first_name: resource?.first_name || '',
@@ -490,7 +464,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
       onSave();
     } catch (error) {
       console.error('Error saving resource:', error);
-      showNotification('Failed to save resource', 'error');
+      alert('Failed to save resource');
     } finally {
       setSaving(false);
     }

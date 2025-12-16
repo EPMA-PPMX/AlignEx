@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Pencil, Trash2, Check, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { useNotification } from '../../lib/useNotification';
 
 interface BudgetCategory {
   id: string;
@@ -13,7 +12,6 @@ interface BudgetCategory {
 }
 
 export default function BudgetCategoriesManagement() {
-  const { showConfirm } = useNotification();
   const [categories, setCategories] = useState<BudgetCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -98,12 +96,9 @@ export default function BudgetCategoriesManagement() {
   };
 
   const handleDelete = async (id: string) => {
-    const confirmed = await showConfirm({
-      title: 'Delete Budget Category',
-      message: 'Are you sure you want to delete this budget category?',
-      confirmText: 'Delete'
-    });
-    if (!confirmed) return;
+    if (!confirm('Are you sure you want to delete this budget category?')) {
+      return;
+    }
 
     try {
       const { error } = await supabase

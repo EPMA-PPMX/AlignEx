@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Calendar, User, Flag, CheckCircle2, Circle, Loader, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { useNotification } from '../lib/useNotification';
 
 interface ActionItem {
   id: string;
@@ -24,7 +23,6 @@ interface Project {
 }
 
 export default function ActionItems() {
-  const { showConfirm } = useNotification();
   const [actionItems, setActionItems] = useState<ActionItem[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,12 +131,7 @@ export default function ActionItems() {
   };
 
   const deleteActionItem = async (id: string) => {
-    const confirmed = await showConfirm({
-      title: 'Delete Action Item',
-      message: 'Are you sure you want to delete this action item?',
-      confirmText: 'Delete'
-    });
-    if (!confirmed) return;
+    if (!confirm('Are you sure you want to delete this action item?')) return;
 
     try {
       const { error } = await supabase
