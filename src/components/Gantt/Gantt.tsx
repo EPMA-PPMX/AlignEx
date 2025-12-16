@@ -598,6 +598,64 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     });
     gantt.config.keyboard_navigation_cells = true;
 
+    // Configure keyboard shortcuts for task creation
+    gantt.keys.edit_save = 13; // Enter key to save inline edit
+    gantt.keys.edit_cancel = 27; // Escape key to cancel inline edit
+
+    // Track inline editor state
+    let isInlineEditing = false;
+    gantt.attachEvent("onBeforeInlineEditorStart", () => {
+      isInlineEditing = true;
+      return true;
+    });
+    gantt.attachEvent("onAfterInlineEditorClose", () => {
+      isInlineEditing = false;
+      return true;
+    });
+
+    // Add keyboard shortcuts for creating new tasks
+    gantt.attachEvent("onKeyDown", (keyCode: number, e: KeyboardEvent) => {
+      // Enter key when NOT in inline editor - create new task
+      if (keyCode === 13 && !isInlineEditing && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        const selectedTaskId = gantt.getSelectedId();
+        if (selectedTaskId && onOpenTaskModal) {
+          const task = gantt.getTask(selectedTaskId);
+          // Don't create subtask for group headers
+          if (!task.$group_header) {
+            // Create sibling task (same parent level)
+            const parentId = task.parent || undefined;
+            onOpenTaskModal(parentId);
+          } else {
+            onOpenTaskModal();
+          }
+        } else if (onOpenTaskModal) {
+          onOpenTaskModal();
+        }
+        e.preventDefault();
+        return false;
+      }
+
+      // Ctrl+Enter or Cmd+Enter to create subtask
+      if (keyCode === 13 && (e.ctrlKey || e.metaKey)) {
+        const selectedTaskId = gantt.getSelectedId();
+        if (selectedTaskId && onOpenTaskModal) {
+          const task = gantt.getTask(selectedTaskId);
+          // Don't create subtask for group headers
+          if (!task.$group_header) {
+            // Create child task (subtask under selected task)
+            onOpenTaskModal(selectedTaskId);
+          } else {
+            onOpenTaskModal();
+          }
+        } else if (onOpenTaskModal) {
+          onOpenTaskModal();
+        }
+        e.preventDefault();
+        return false;
+      }
+      return true;
+    });
+
     // Configure auto-scheduling behavior
     gantt.config.auto_scheduling = true; // Enable auto-scheduling
     gantt.config.auto_scheduling_strict = true; // Enforce strict scheduling rules to reschedule to earliest possible date
