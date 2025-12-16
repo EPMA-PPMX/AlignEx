@@ -1001,6 +1001,7 @@ const ProjectDetail: React.FC = () => {
         .select(`
           id,
           resource_id,
+          allocation_percentage,
           resources (
             id,
             display_name
@@ -1011,6 +1012,7 @@ const ProjectDetail: React.FC = () => {
       if (error) {
         console.error('Error fetching project team members:', error);
       } else {
+        console.log('Fetched project team members with allocations:', data);
         setProjectTeamMembers(data || []);
 
         // Refresh Gantt resources when team members change
@@ -2093,8 +2095,18 @@ const ProjectDetail: React.FC = () => {
   };
 
   const calculateWorkHours = (duration: number, resourceIds: string[]): number => {
+    console.log('\n=== Calculating Work Hours ===');
+    console.log('Duration (days):', duration);
+    console.log('Resource IDs:', resourceIds);
+    console.log('Available team members:', projectTeamMembers.map(m => ({
+      resource_id: m.resource_id,
+      display_name: m.resources?.display_name,
+      allocation_percentage: m.allocation_percentage
+    })));
+
     // If no resources assigned, return 0
     if (!resourceIds || resourceIds.length === 0) {
+      console.log('No resources assigned, returning 0');
       return 0;
     }
 
@@ -2110,16 +2122,20 @@ const ProjectDetail: React.FC = () => {
         // Formula: Duration (days) × 8 hours/day × (Allocation % / 100)
         const workHours = duration * 8 * (allocationPercentage / 100);
         totalWorkHours += workHours;
-        console.log(`Resource ${resourceId}: ${duration} days × 8 hrs × ${allocationPercentage}% = ${workHours} hours`);
+        console.log(`✓ Resource "${teamMember.resources?.display_name}" (${resourceId}):`);
+        console.log(`  Allocation: ${allocationPercentage}%`);
+        console.log(`  Calculation: ${duration} days × 8 hrs × ${allocationPercentage}% = ${workHours} hours`);
       } else {
         // If team member not found (shouldn't happen), assume 100% allocation
         const workHours = duration * 8;
         totalWorkHours += workHours;
-        console.log(`Resource ${resourceId}: ${duration} days × 8 hrs × 100% (default) = ${workHours} hours`);
+        console.warn(`⚠ Resource ${resourceId} NOT FOUND in team members - using default 100%`);
+        console.log(`  Calculation: ${duration} days × 8 hrs × 100% (default) = ${workHours} hours`);
       }
     });
 
-    console.log(`Total work hours calculated: ${totalWorkHours}`);
+    console.log(`✓ Total work hours calculated: ${totalWorkHours}`);
+    console.log('=== End Calculation ===\n');
     return Math.round(totalWorkHours * 100) / 100; // Round to 2 decimal places
   };
 
