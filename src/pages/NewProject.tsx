@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, ArrowLeft, Loader } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { formatCurrencyInput } from '../lib/utils';
+import { formatCurrencyInput, formatCurrency } from '../lib/utils';
+import { useNotification } from '../lib/useNotification';
 
 interface ProjectTemplate {
   id: string;
   template_name: string;
   template_description?: string;
+  start_date?: string | null;
 }
 
 interface OrganizationalPriority {
@@ -18,6 +20,7 @@ interface OrganizationalPriority {
 
 const NewProject: React.FC = () => {
   const navigate = useNavigate();
+  const { showNotification } = useNotification();
   const [loading, setLoading] = useState(false);
   const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
@@ -28,7 +31,8 @@ const NewProject: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    template_id: ''
+    template_id: '',
+    start_date: ''
   });
 
   React.useEffect(() => {
@@ -81,13 +85,13 @@ const NewProject: React.FC = () => {
     e.preventDefault();
 
     if (!formData.name.trim() || !formData.template_id) {
-      alert('Project name and project type are required');
+      showNotification('Project name and project type are required', 'error');
       return;
     }
 
     for (const priorityId of selectedPriorities) {
       if (!priorityImpacts[priorityId]?.trim()) {
-        alert('Please provide planned impact for all selected priorities');
+        showNotification('Please provide planned impact for all selected priorities', 'error');
         return;
       }
     }
@@ -101,12 +105,13 @@ const NewProject: React.FC = () => {
           name: formData.name.trim(),
           description: formData.description.trim() || null,
           template_id: formData.template_id || null,
+          start_date: formData.start_date || null,
           status: 'In-Progress'
         }])
         .select();
 
       if (projectError) {
-        alert(`Error: ${projectError.message}`);
+        showNotification(`Error: ${projectError.message}`, 'error');
         return;
       }
 
@@ -129,11 +134,11 @@ const NewProject: React.FC = () => {
         }
       }
 
-      alert('Project created successfully!');
+      showNotification('Project created successfully!', 'success');
       navigate('/projects');
     } catch (error) {
       console.error('Error creating project:', error);
-      alert('Error creating project. Please try again.');
+      showNotification('Error creating project. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -149,10 +154,20 @@ const NewProject: React.FC = () => {
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+
+    if (name === 'template_id') {
+      const selectedTemplate = templates.find(t => t.id === value);
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        start_date: selectedTemplate?.start_date || ''
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   const handlePriorityToggle = (priorityId: string) => {
@@ -263,6 +278,30 @@ const NewProject: React.FC = () => {
               />
             </div>
 
+            <div>
+              <label htmlFor="start_date" className="block text-sm font-medium text-gray-700 mb-2">
+                Project Start Date
+              </label>
+              <input
+                type="date"
+                id="start_date"
+                name="start_date"
+                value={formData.start_date}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                disabled={loading}
+              />
+              {formData.template_id && templates.find(t => t.id === formData.template_id)?.start_date && (
+                <p className="text-sm text-gray-500 mt-1">
+                  Default start date from template: {new Date(templates.find(t => t.id === formData.template_id)!.start_date!).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                  })}
+                </p>
+              )}
+            </div>
+
             <div className="border-t border-gray-200 pt-6">
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Link to Organizational Priorities (Optional)
@@ -297,7 +336,7 @@ const NewProject: React.FC = () => {
                             {priority.title}
                           </label>
                           <p className="text-sm text-gray-600 mt-1">
-                            Target: {priority.target_value}
+                            Target: {formatCurrency(priority.target_value)}
                           </p>
                           {selectedPriorities.includes(priority.id) && (
                             <div className="mt-3">

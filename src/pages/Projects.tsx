@@ -4,44 +4,194 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, MoreHorizontal, Grid3x3 as Grid3X3, List, Calendar, User, Settings2, X, Check } from 'lucide-react';
 import ProjectCard from '../components/ProjectCard';
 import { supabase } from '../lib/supabase';
+import { DEMO_USER_ID } from '../lib/useCurrentUser';
+import { formatDate, formatCurrencyWithK } from '../lib/utils';
+import { useNotification } from '../lib/useNotification';
 
 interface Project {
   id: string;
   name: string;
   description?: string;
   status: string;
+  state?: string;
   created_at: string;
   updated_at: string;
   template_id?: string;
+  [key: string]: any;
 }
 
-type ColumnKey = 'name' | 'description' | 'status' | 'created' | 'updated';
+interface CustomField {
+  id: string;
+  field_name: string;
+  field_label: string;
+  field_type: string;
+  entity_type: string;
+}
 
 interface ColumnConfig {
-  key: ColumnKey;
+  key: string;
   label: string;
   enabled: boolean;
+  isCustomField?: boolean;
+  fieldType?: string;
 }
 
 const Projects: React.FC = () => {
   const navigate = useNavigate();
+  const { showNotification } = useNotification();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [viewMode, setViewMode] = useState<'tile' | 'list'>('tile');
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [showColumnCustomizer, setShowColumnCustomizer] = useState(false);
-  const [columns, setColumns] = useState<ColumnConfig[]>([
-    { key: 'name', label: 'Project Name', enabled: true },
-    { key: 'description', label: 'Description', enabled: true },
-    { key: 'status', label: 'Status', enabled: true },
-    { key: 'created', label: 'Created', enabled: true },
-    { key: 'updated', label: 'Updated', enabled: true },
-  ]);
+  const [columns, setColumns] = useState<ColumnConfig[]>([]);
+  const [customFields, setCustomFields] = useState<CustomField[]>([]);
+  const [projectFieldValues, setProjectFieldValues] = useState<Record<string, any>>({});
+  const [resources, setResources] = useState<Record<string, string>>({});
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
 
   useEffect(() => {
+    fetchResources();
+    fetchCustomFields();
     fetchProjects();
   }, []);
+
+  useEffect(() => {
+    if (columns.length > 0 && !preferencesLoaded) {
+      loadUserPreferences();
+    }
+  }, [columns, preferencesLoaded]);
+
+  const fetchResources = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('resources')
+        .select('id, display_name');
+
+      if (error) {
+        console.error('Error fetching resources:', error);
+      } else {
+        // Create a lookup map of resource ID to display name
+        const resourceMap: Record<string, string> = {};
+        (data || []).forEach(resource => {
+          resourceMap[resource.id] = resource.display_name;
+        });
+        setResources(resourceMap);
+      }
+    } catch (error) {
+      console.error('Error fetching resources:', error);
+    }
+  };
+
+  const fetchCustomFields = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('custom_fields')
+        .select('*')
+        .eq('entity_type', 'project')
+        .order('field_label', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching custom fields:', error);
+      } else {
+        setCustomFields(data || []);
+
+        // Initialize columns with base fields and custom fields
+        const baseColumns: ColumnConfig[] = [
+          { key: 'name', label: 'Project Name', enabled: true },
+          { key: 'status', label: 'Status', enabled: true },
+          { key: 'state', label: 'State', enabled: false },
+          { key: 'created', label: 'Created', enabled: true },
+          { key: 'updated', label: 'Last Updated', enabled: false },
+        ];
+
+        const customFieldColumns: ColumnConfig[] = (data || []).map(field => ({
+          key: field.id,
+          label: field.field_name,
+          enabled: false,
+          isCustomField: true,
+          fieldType: field.field_type
+        }));
+
+        setColumns([...baseColumns, ...customFieldColumns]);
+      }
+    } catch (error) {
+      console.error('Error fetching custom fields:', error);
+    }
+  };
+
+  const loadUserPreferences = async () => {
+    try {
+      // Load view mode preference
+      const { data: viewModeData } = await supabase
+        .from('user_preferences')
+        .select('preference_value')
+        .eq('user_id', DEMO_USER_ID)
+        .eq('preference_key', 'project_center_view_mode')
+        .maybeSingle();
+
+      if (viewModeData?.preference_value?.viewMode) {
+        setViewMode(viewModeData.preference_value.viewMode);
+      }
+
+      // Load column preferences
+      const { data: columnsData } = await supabase
+        .from('user_preferences')
+        .select('preference_value')
+        .eq('user_id', DEMO_USER_ID)
+        .eq('preference_key', 'project_center_columns')
+        .maybeSingle();
+
+      if (columnsData?.preference_value?.enabledColumns) {
+        const enabledKeys = columnsData.preference_value.enabledColumns;
+        setColumns(prev => prev.map(col => ({
+          ...col,
+          enabled: enabledKeys.includes(col.key)
+        })));
+      }
+
+      setPreferencesLoaded(true);
+    } catch (error) {
+      console.error('Error loading user preferences:', error);
+      setPreferencesLoaded(true);
+    }
+  };
+
+  const saveViewModePreference = async (mode: 'tile' | 'list') => {
+    try {
+      await supabase
+        .from('user_preferences')
+        .upsert({
+          user_id: DEMO_USER_ID,
+          preference_key: 'project_center_view_mode',
+          preference_value: { viewMode: mode },
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,preference_key'
+        });
+    } catch (error) {
+      console.error('Error saving view mode preference:', error);
+    }
+  };
+
+  const saveColumnsPreference = async (cols: ColumnConfig[]) => {
+    try {
+      const enabledColumns = cols.filter(c => c.enabled).map(c => c.key);
+      await supabase
+        .from('user_preferences')
+        .upsert({
+          user_id: DEMO_USER_ID,
+          preference_key: 'project_center_columns',
+          preference_value: { enabledColumns },
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,preference_key'
+        });
+    } catch (error) {
+      console.error('Error saving columns preference:', error);
+    }
+  };
 
   const fetchProjects = async () => {
     try {
@@ -53,15 +203,44 @@ const Projects: React.FC = () => {
 
       if (error) {
         console.error('Error fetching projects:', error);
-        alert('Error fetching projects: ' + error.message);
+        showNotification('Error fetching projects: ' + error.message, 'error');
       } else {
         setProjects(data || []);
+        // Fetch custom field values for all projects
+        if (data && data.length > 0) {
+          fetchProjectFieldValues(data.map(p => p.id));
+        }
       }
     } catch (error) {
       console.error('Error fetching projects:', error);
-      alert('Error fetching projects. Please try again.');
+      showNotification('Error fetching projects. Please try again.', 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchProjectFieldValues = async (projectIds: string[]) => {
+    try {
+      const { data, error } = await supabase
+        .from('project_field_values')
+        .select('*')
+        .in('project_id', projectIds);
+
+      if (error) {
+        console.error('Error fetching project field values:', error);
+      } else {
+        // Organize field values by project_id and field_id
+        const valuesByProject: Record<string, any> = {};
+        (data || []).forEach(item => {
+          if (!valuesByProject[item.project_id]) {
+            valuesByProject[item.project_id] = {};
+          }
+          valuesByProject[item.project_id][item.field_id] = item.value;
+        });
+        setProjectFieldValues(valuesByProject);
+      }
+    } catch (error) {
+      console.error('Error fetching project field values:', error);
     }
   };
 
@@ -72,10 +251,17 @@ const Projects: React.FC = () => {
     return matchesSearch && matchesFilter;
   });
 
-  const toggleColumn = (key: ColumnKey) => {
-    setColumns(prev => prev.map(col =>
+  const toggleColumn = (key: string) => {
+    const updatedColumns = columns.map(col =>
       col.key === key ? { ...col, enabled: !col.enabled } : col
-    ));
+    );
+    setColumns(updatedColumns);
+    saveColumnsPreference(updatedColumns);
+  };
+
+  const handleViewModeChange = (mode: 'tile' | 'list') => {
+    setViewMode(mode);
+    saveViewModePreference(mode);
   };
 
   const visibleColumns = columns.filter(col => col.enabled);
@@ -112,7 +298,7 @@ const Projects: React.FC = () => {
           {/* View Toggle */}
           <div className="flex items-center bg-gray-100 rounded-lg p-1">
             <button
-              onClick={() => setViewMode('tile')}
+              onClick={() => handleViewModeChange('tile')}
               className={`flex items-center space-x-2 px-3 py-2 rounded-md transition-colors ${
                 viewMode === 'tile'
                   ? 'bg-white text-gray-900 shadow-sm'
@@ -123,7 +309,7 @@ const Projects: React.FC = () => {
               <span className="text-sm font-medium">Tiles</span>
             </button>
             <button
-              onClick={() => setViewMode('list')}
+              onClick={() => handleViewModeChange('list')}
               className={`flex items-center space-x-2 px-3 py-2 rounded-md transition-colors ${
                 viewMode === 'list'
                   ? 'bg-white text-gray-900 shadow-sm'
@@ -208,17 +394,9 @@ const Projects: React.FC = () => {
                   </div>
 
                   <div className="text-sm text-gray-500">
-                    <p>Created: {new Date(project.created_at).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric'
-                    })}</p>
+                    <p>Created: {formatDate(project.created_at)}</p>
                     {project.updated_at !== project.created_at && (
-                      <p>Updated: {new Date(project.updated_at).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric'
-                      })}</p>
+                      <p>Updated: {formatDate(project.updated_at)}</p>
                     )}
                   </div>
                 </div>
@@ -266,16 +444,6 @@ const Projects: React.FC = () => {
                                 </div>
                               </td>
                             );
-                          } else if (col.key === 'description') {
-                            return (
-                              <td key={col.key} className="px-6 py-4">
-                                <div className="text-sm text-gray-900 max-w-xs">
-                                  <div className="truncate">
-                                    {project.description || '-'}
-                                  </div>
-                                </div>
-                              </td>
-                            );
                           } else if (col.key === 'status') {
                             return (
                               <td key={col.key} className="px-6 py-4 whitespace-nowrap">
@@ -291,16 +459,20 @@ const Projects: React.FC = () => {
                                 </span>
                               </td>
                             );
+                          } else if (col.key === 'state') {
+                            return (
+                              <td key={col.key} className="px-6 py-4 whitespace-nowrap">
+                                <span className="text-sm text-gray-900">
+                                  {project.state || '-'}
+                                </span>
+                              </td>
+                            );
                           } else if (col.key === 'created') {
                             return (
                               <td key={col.key} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 <div className="flex items-center">
                                   <Calendar className="w-4 h-4 mr-1" />
-                                  {new Date(project.created_at).toLocaleDateString('en-US', {
-                                    month: 'short',
-                                    day: 'numeric',
-                                    year: 'numeric'
-                                  })}
+                                  {formatDate(project.created_at)}
                                 </div>
                               </td>
                             );
@@ -310,12 +482,30 @@ const Projects: React.FC = () => {
                                 {project.updated_at !== project.created_at ? (
                                   <div className="flex items-center">
                                     <Calendar className="w-4 h-4 mr-1" />
-                                    {new Date(project.updated_at).toLocaleDateString('en-US', {
-                                      month: 'short',
-                                      day: 'numeric',
-                                      year: 'numeric'
-                                    })}
+                                    {formatDate(project.updated_at)}
                                   </div>
+                                ) : (
+                                  '-'
+                                )}
+                              </td>
+                            );
+                          } else if (col.isCustomField) {
+                            // Render custom field value
+                            const fieldValue = projectFieldValues[project.id]?.[col.key];
+                            return (
+                              <td key={col.key} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {fieldValue ? (
+                                  col.fieldType === 'date' ? (
+                                    formatDate(fieldValue)
+                                  ) : col.fieldType === 'cost' ? (
+                                    formatCurrencyWithK(parseFloat(fieldValue))
+                                  ) : col.fieldType === 'checkbox' ? (
+                                    fieldValue === 'true' || fieldValue === true ? 'Yes' : 'No'
+                                  ) : col.fieldType === 'people_picker' ? (
+                                    resources[fieldValue] || fieldValue
+                                  ) : (
+                                    fieldValue
+                                  )
                                 ) : (
                                   '-'
                                 )}

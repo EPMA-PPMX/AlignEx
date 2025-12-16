@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Target, CheckCircle, Circle, Pause, XCircle, Calendar, Trash2, Edit2, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useNotification } from '../../lib/useNotification';
 
 interface Skill {
   id: string;
@@ -43,6 +44,7 @@ interface GoalTask {
 }
 
 export default function MyGoalsTab() {
+  const { showConfirm } = useNotification();
   const [goals, setGoals] = useState<SkillGoal[]>([]);
   const [tasks, setTasks] = useState<{ [goalId: string]: GoalTask[] }>({});
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -177,7 +179,12 @@ export default function MyGoalsTab() {
   };
 
   const handleDeleteGoal = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this goal? All associated tasks will also be deleted.')) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Goal',
+      message: 'Are you sure you want to delete this goal? All associated tasks will also be deleted.',
+      confirmText: 'Delete'
+    });
+    if (!confirmed) return;
 
     try {
       const { error } = await supabase
@@ -270,7 +277,12 @@ export default function MyGoalsTab() {
   };
 
   const handleDeleteTask = async (taskId: string) => {
-    if (!confirm('Are you sure you want to delete this task?')) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Task',
+      message: 'Are you sure you want to delete this task?',
+      confirmText: 'Delete'
+    });
+    if (!confirmed) return;
 
     try {
       const { error } = await supabase
