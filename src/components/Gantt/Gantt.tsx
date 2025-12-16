@@ -598,63 +598,96 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     });
     gantt.config.keyboard_navigation_cells = true;
 
-    // Configure keyboard shortcuts for task creation
-    gantt.keys.edit_save = 13; // Enter key to save inline edit
+    // Configure keyboard shortcuts for inline editing
     gantt.keys.edit_cancel = 27; // Escape key to cancel inline edit
 
-    // Track inline editor state
+    // Track inline editor state more reliably
     let isInlineEditing = false;
+    let editingStartTime = 0;
+
+    gantt.attachEvent("onBeforeLightbox", () => {
+      // Lightbox is opening, not our inline editor
+      return true;
+    });
+
     gantt.attachEvent("onBeforeInlineEditorStart", () => {
       isInlineEditing = true;
+      editingStartTime = Date.now();
+      console.log("Inline editor started");
       return true;
     });
+
     gantt.attachEvent("onAfterInlineEditorClose", () => {
       isInlineEditing = false;
+      console.log("Inline editor closed");
       return true;
     });
 
-    // Add keyboard shortcuts for creating new tasks
-    gantt.attachEvent("onKeyDown", (keyCode: number, e: KeyboardEvent) => {
-      // Enter key when NOT in inline editor - create new task
-      if (keyCode === 13 && !isInlineEditing && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
-        const selectedTaskId = gantt.getSelectedId();
-        if (selectedTaskId && onOpenTaskModal) {
-          const task = gantt.getTask(selectedTaskId);
-          // Don't create subtask for group headers
-          if (!task.$group_header) {
-            // Create sibling task (same parent level)
-            const parentId = task.parent || undefined;
-            onOpenTaskModal(parentId);
-          } else {
-            onOpenTaskModal();
-          }
-        } else if (onOpenTaskModal) {
-          onOpenTaskModal();
-        }
-        e.preventDefault();
-        return false;
-      }
+    // Add keyboard shortcuts for creating new tasks using DOM event
+    const ganttElement = this.ganttContainer.current;
+    if (ganttElement) {
+      ganttElement.addEventListener('keydown', (e: KeyboardEvent) => {
+        const keyCode = e.keyCode || e.which;
 
-      // Ctrl+Enter or Cmd+Enter to create subtask
-      if (keyCode === 13 && (e.ctrlKey || e.metaKey)) {
-        const selectedTaskId = gantt.getSelectedId();
-        if (selectedTaskId && onOpenTaskModal) {
-          const task = gantt.getTask(selectedTaskId);
-          // Don't create subtask for group headers
-          if (!task.$group_header) {
-            // Create child task (subtask under selected task)
-            onOpenTaskModal(selectedTaskId);
-          } else {
-            onOpenTaskModal();
-          }
-        } else if (onOpenTaskModal) {
-          onOpenTaskModal();
+        // Only handle Enter keys
+        if (keyCode !== 13) return;
+
+        // Check if we're in an input, textarea, or contenteditable element
+        const target = e.target as HTMLElement;
+        const tagName = target.tagName.toLowerCase();
+        const isEditable = tagName === 'input' ||
+                          tagName === 'textarea' ||
+                          target.isContentEditable ||
+                          target.classList.contains('gantt_cal_light') ||
+                          isInlineEditing;
+
+        if (isEditable) {
+          console.log("In editable field, skipping task creation");
+          return; // Let the default behavior handle it
         }
-        e.preventDefault();
-        return false;
-      }
-      return true;
-    });
+
+        console.log("Enter pressed, isEditable:", isEditable, "isInlineEditing:", isInlineEditing);
+
+        // Ctrl+Enter or Cmd+Enter to create subtask
+        if (e.ctrlKey || e.metaKey) {
+          const selectedTaskId = gantt.getSelectedId();
+          console.log("Ctrl+Enter pressed, selectedTaskId:", selectedTaskId);
+          if (selectedTaskId && onOpenTaskModal) {
+            const task = gantt.getTask(selectedTaskId);
+            if (!task.$group_header) {
+              onOpenTaskModal(selectedTaskId);
+              e.preventDefault();
+              e.stopPropagation();
+            }
+          } else if (onOpenTaskModal) {
+            onOpenTaskModal();
+            e.preventDefault();
+            e.stopPropagation();
+          }
+          return;
+        }
+
+        // Plain Enter to create sibling task
+        if (!e.shiftKey && !e.altKey) {
+          const selectedTaskId = gantt.getSelectedId();
+          console.log("Enter pressed, selectedTaskId:", selectedTaskId);
+          if (selectedTaskId && onOpenTaskModal) {
+            const task = gantt.getTask(selectedTaskId);
+            if (!task.$group_header) {
+              const parentId = task.parent || undefined;
+              console.log("Creating sibling task with parentId:", parentId);
+              onOpenTaskModal(parentId);
+              e.preventDefault();
+              e.stopPropagation();
+            }
+          } else if (onOpenTaskModal) {
+            onOpenTaskModal();
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }
+      }, true); // Use capture phase to catch it early
+    }
 
     // Configure auto-scheduling behavior
     gantt.config.auto_scheduling = true; // Enable auto-scheduling
