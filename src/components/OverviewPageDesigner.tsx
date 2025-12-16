@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, CreditCard as Edit2, Trash2, Save, X, GripVertical, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useNotification } from '../lib/useNotification';
 
 interface Section {
   id: string;
@@ -34,6 +35,7 @@ interface ProjectTemplate {
 }
 
 const OverviewPageDesigner: React.FC = () => {
+  const { showConfirm } = useNotification();
   const [sections, setSections] = useState<Section[]>([]);
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [projectTemplates, setProjectTemplates] = useState<ProjectTemplate[]>([]);
@@ -174,11 +176,16 @@ const OverviewPageDesigner: React.FC = () => {
     }
   };
 
-  const resetConfiguration = () => {
-    if (window.confirm('Are you sure you want to reset the configuration? This will clear all sections and fields.')) {
-      setSections([]);
-      setSelectedTemplate('');
-    }
+  const resetConfiguration = async () => {
+    const confirmed = await showConfirm({
+      title: 'Reset Configuration',
+      message: 'Are you sure you want to reset the configuration? This will clear all sections and fields.',
+      confirmText: 'Reset'
+    });
+    if (!confirmed) return;
+
+    setSections([]);
+    setSelectedTemplate('');
   };
 
   const addSection = () => {
@@ -214,10 +221,15 @@ const OverviewPageDesigner: React.FC = () => {
     setEditName('');
   };
 
-  const deleteSection = (sectionId: string) => {
-    if (window.confirm('Are you sure you want to delete this section?')) {
-      setSections(sections.filter(section => section.id !== sectionId));
-    }
+  const deleteSection = async (sectionId: string) => {
+    const confirmed = await showConfirm({
+      title: 'Delete Section',
+      message: 'Are you sure you want to delete this section?',
+      confirmText: 'Delete'
+    });
+    if (!confirmed) return;
+
+    setSections(sections.filter(section => section.id !== sectionId));
   };
 
   const moveSectionUp = (index: number) => {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useNotification } from '../../lib/useNotification';
 
 interface Props {
   reportData: any;
@@ -18,6 +19,7 @@ interface Issue {
 }
 
 export default function StepIssues({ reportData, updateReportData }: Props) {
+  const { showConfirm } = useNotification();
   const [issues, setIssues] = useState<Issue[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newIssue, setNewIssue] = useState({
@@ -101,7 +103,12 @@ export default function StepIssues({ reportData, updateReportData }: Props) {
   };
 
   const handleDeleteIssue = async (issueId: string) => {
-    if (!confirm('Are you sure you want to delete this issue?')) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Issue',
+      message: 'Are you sure you want to delete this issue?',
+      confirmText: 'Delete'
+    });
+    if (!confirmed) return;
 
     try {
       const { error } = await supabase

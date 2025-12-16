@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { User, Bell, Shield, Database, Palette, Globe, Settings2, Award, Users, Clock, DollarSign } from 'lucide-react';
+import { User, Bell, Shield, Database, Palette, Globe, Settings2, Award, Clock, DollarSign, Key, AlertTriangle, AlertCircle, FileEdit } from 'lucide-react';
 import CustomFields from '../components/CustomFields';
 import ProjectTemplates from '../components/ProjectTemplates';
 import OverviewPageDesigner from '../components/OverviewPageDesigner';
-import SkillCategoriesManagement from '../components/settings/SkillCategoriesManagement';
-import SkillsManagement from '../components/settings/SkillsManagement';
-import RoleManagement from '../components/settings/RoleManagement';
+import SkillsSettings from '../components/settings/SkillsSettings';
 import TimesheetCategoriesManagement from '../components/settings/TimesheetCategoriesManagement';
 import BudgetCategoriesManagement from '../components/settings/BudgetCategoriesManagement';
+import LicenseManagement from '../components/settings/LicenseManagement';
+import RiskFieldsManagement from '../components/settings/RiskFieldsManagement';
+import IssuesFieldsManagement from '../components/settings/IssuesFieldsManagement';
+import ChangeRequestFieldsManagement from '../components/settings/ChangeRequestFieldsManagement';
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('profile');
@@ -16,17 +18,19 @@ const Settings: React.FC = () => {
     { id: 'profile', name: 'Profile', icon: User },
     { id: 'notifications', name: 'Notifications', icon: Bell },
     { id: 'security', name: 'Security', icon: Shield },
+    { id: 'license-management', name: 'License Management', icon: Key },
     { id: 'appearance', name: 'Appearance', icon: Palette },
     { id: 'integrations', name: 'Integrations', icon: Database },
     { id: 'general', name: 'General', icon: Globe },
     { id: 'project-templates', name: 'Project Types', icon: Settings2 },
     { id: 'custom-fields', name: 'Custom Fields', icon: Settings2 },
     { id: 'overview-designer', name: 'Overview Page Designer', icon: Settings2 },
+    { id: 'risk-fields', name: 'Risk Form Configuration', icon: AlertTriangle },
+    { id: 'issue-fields', name: 'Issue Form Configuration', icon: AlertCircle },
+    { id: 'change-request-fields', name: 'Change Request Form Configuration', icon: FileEdit },
     { id: 'budget-categories', name: 'Budget Categories', icon: DollarSign },
     { id: 'timesheet-categories', name: 'Timesheet Categories', icon: Clock },
-    { id: 'skill-categories', name: 'Skill Categories', icon: Award },
-    { id: 'skills-management', name: 'Skills Management', icon: Award },
-    { id: 'role-management', name: 'Role Management', icon: Users },
+    { id: 'skills-settings', name: 'Skills Settings', icon: Award },
   ];
 
   return (
@@ -173,6 +177,10 @@ const Settings: React.FC = () => {
               </div>
             )}
 
+            {activeTab === 'license-management' && (
+              <LicenseManagement />
+            )}
+
             {activeTab === 'appearance' && (
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 mb-6">Appearance</h2>
@@ -215,16 +223,20 @@ const Settings: React.FC = () => {
               <OverviewPageDesigner />
             )}
 
-            {activeTab === 'skill-categories' && (
-              <SkillCategoriesManagement />
+            {activeTab === 'risk-fields' && (
+              <RiskFieldsManagement />
             )}
 
-            {activeTab === 'skills-management' && (
-              <SkillsManagement />
+            {activeTab === 'issue-fields' && (
+              <IssuesFieldsManagement />
             )}
 
-            {activeTab === 'role-management' && (
-              <RoleManagement />
+            {activeTab === 'change-request-fields' && (
+              <ChangeRequestFieldsManagement />
+            )}
+
+            {activeTab === 'skills-settings' && (
+              <SkillsSettings />
             )}
 
             {activeTab === 'timesheet-categories' && (

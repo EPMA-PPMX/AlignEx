@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Plus, Edit2, Trash2, Save, X } from 'lucide-react';
+import { useNotification } from '../../lib/useNotification';
 
 interface Category {
   id: string;
@@ -10,6 +11,7 @@ interface Category {
 }
 
 const TimesheetCategoriesManagement: React.FC = () => {
+  const { showConfirm } = useNotification();
   const [categories, setCategories] = useState<Category[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -87,9 +89,12 @@ const TimesheetCategoriesManagement: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this category? This will also delete all associated timesheet entries.')) {
-      return;
-    }
+    const confirmed = await showConfirm({
+      title: 'Delete Timesheet Category',
+      message: 'Are you sure you want to delete this category? This will also delete all associated timesheet entries.',
+      confirmText: 'Delete'
+    });
+    if (!confirmed) return;
 
     const { error } = await supabase
       .from('non_project_work_categories')
