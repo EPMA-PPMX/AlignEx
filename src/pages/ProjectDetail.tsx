@@ -1115,8 +1115,6 @@ const ProjectDetail: React.FC = () => {
               owner_name: task.owner_name,
               resource_ids: task.resource_ids || [],
               resource_names: task.resource_names || [],
-              work_hours: task.work_hours,
-              resource_work_hours: task.resource_work_hours || {},
               ...extraFields // Include custom fields and baseline fields
             });
           }
@@ -1133,16 +1131,6 @@ const ProjectDetail: React.FC = () => {
       };
 
       console.log("Cleaned data:", cleanedData);
-
-      // Log tasks with resource work hours for debugging
-      console.log('\n=== Tasks with Resource Work Hours ===');
-      cleanedData.data.forEach((task: any) => {
-        if (task.resource_work_hours && Object.keys(task.resource_work_hours).length > 0) {
-          console.log(`Task "${task.text}" (ID: ${task.id}):`);
-          console.log(`  Total work_hours: ${task.work_hours}`);
-          console.log(`  Resource breakdown:`, task.resource_work_hours);
-        }
-      });
 
       // Check if project_tasks record exists (get the most recent one)
       const { data: existingData } = await supabase
