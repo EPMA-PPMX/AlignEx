@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, MoreHorizontal, Grid3x3 as Grid3X3, List, Calendar, User, Settings2, X, Check, Layers, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Search, Filter, MoreHorizontal, Grid3x3 as Grid3X3, List, Calendar, User, Settings2, X, Check, Layers, ChevronDown, ChevronRight, Archive, ArchiveRestore } from 'lucide-react';
 import ProjectCard from '../components/ProjectCard';
 import { supabase } from '../lib/supabase';
 import { DEMO_USER_ID } from '../lib/useCurrentUser';
@@ -17,6 +17,9 @@ interface Project {
   created_at: string;
   updated_at: string;
   template_id?: string;
+  archived?: boolean;
+  archived_at?: string;
+  archived_by?: string;
   [key: string]: any;
 }
 
@@ -52,6 +55,7 @@ const Projects: React.FC = () => {
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [groupBy, setGroupBy] = useState<string>('none');
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
     fetchResources();
@@ -275,11 +279,35 @@ const Projects: React.FC = () => {
     }
   };
 
+  const handleArchiveProject = async (projectId: string, archive: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({
+          archived: archive,
+          archived_at: archive ? new Date().toISOString() : null,
+          archived_by: archive ? DEMO_USER_ID : null
+        })
+        .eq('id', projectId);
+
+      if (error) {
+        showNotification(`Error ${archive ? 'archiving' : 'unarchiving'} project: ${error.message}`, 'error');
+      } else {
+        showNotification(`Project ${archive ? 'archived' : 'unarchived'} successfully`, 'success');
+        fetchProjects();
+      }
+    } catch (error) {
+      console.error('Error updating project:', error);
+      showNotification(`Error ${archive ? 'archiving' : 'unarchiving'} project`, 'error');
+    }
+  };
+
   const filteredProjects = projects.filter(project => {
     const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (project.description && project.description.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesFilter = filterStatus === 'all' || project.status.toLowerCase().replace(/[^a-z]/g, '') === filterStatus;
-    return matchesSearch && matchesFilter;
+    const matchesArchived = showArchived ? project.archived === true : project.archived !== true;
+    return matchesSearch && matchesFilter && matchesArchived;
   });
 
   const getGroupValue = (project: Project, groupByField: string): string => {
@@ -444,12 +472,43 @@ const Projects: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">Project Center</h1>
           <p className="text-gray-600 mt-2">Manage and track all your projects in one place.</p>
         </div>
-        <button 
+        <button
           onClick={() => window.location.href = '/projects/new'}
           className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Plus className="w-5 h-5" />
           <span>New Project</span>
+        </button>
+      </div>
+
+      {/* Active/Archived Toggle */}
+      <div className="flex items-center gap-2 mb-6">
+        <button
+          onClick={() => setShowArchived(false)}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+            !showArchived
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          <span>Active Projects</span>
+          <span className="ml-1 text-xs bg-white/20 px-2 py-0.5 rounded-full">
+            {projects.filter(p => !p.archived).length}
+          </span>
+        </button>
+        <button
+          onClick={() => setShowArchived(true)}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+            showArchived
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          <Archive className="w-4 h-4" />
+          <span>Archived Projects</span>
+          <span className="ml-1 text-xs bg-white/20 px-2 py-0.5 rounded-full">
+            {projects.filter(p => p.archived).length}
+          </span>
         </button>
       </div>
 
@@ -585,16 +644,24 @@ const Projects: React.FC = () => {
                     {groupProjects.map((project) => (
                       <div
                         key={project.id}
-                        className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow p-6 cursor-pointer"
+                        className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow p-6 cursor-pointer relative"
                         onClick={() => navigate(`/projects/${project.id}`)}
                       >
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="text-lg font-semibold text-gray-900 truncate">{project.name}</h3>
                           <button
-                            className="text-gray-400 hover:text-gray-600"
-                            onClick={(e) => e.stopPropagation()}
+                            className="text-gray-400 hover:text-gray-600 p-1"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleArchiveProject(project.id, !project.archived);
+                            }}
+                            title={project.archived ? 'Unarchive project' : 'Archive project'}
                           >
-                            <MoreHorizontal className="w-5 h-5" />
+                            {project.archived ? (
+                              <ArchiveRestore className="w-5 h-5" />
+                            ) : (
+                              <Archive className="w-5 h-5" />
+                            )}
                           </button>
                         </div>
 
@@ -781,10 +848,18 @@ const Projects: React.FC = () => {
                               })}
                               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <button
-                                  className="text-gray-400 hover:text-gray-600"
-                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-gray-400 hover:text-gray-600 p-1"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleArchiveProject(project.id, !project.archived);
+                                  }}
+                                  title={project.archived ? 'Unarchive project' : 'Archive project'}
                                 >
-                                  <MoreHorizontal className="w-5 h-5" />
+                                  {project.archived ? (
+                                    <ArchiveRestore className="w-5 h-5" />
+                                  ) : (
+                                    <Archive className="w-5 h-5" />
+                                  )}
                                 </button>
                               </td>
                             </tr>

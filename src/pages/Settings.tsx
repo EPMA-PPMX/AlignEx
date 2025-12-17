@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Bell, Shield, Database, Palette, Globe, Settings2, Award, Clock, DollarSign, Key, AlertTriangle, AlertCircle, FileEdit } from 'lucide-react';
+import { User, Bell, Shield, Database, Palette, Globe, Settings2, Award, Clock, DollarSign, Key, AlertTriangle, AlertCircle, FileEdit, FolderOpen } from 'lucide-react';
 import CustomFields from '../components/CustomFields';
 import ProjectTemplates from '../components/ProjectTemplates';
 import OverviewPageDesigner from '../components/OverviewPageDesigner';
@@ -10,6 +10,7 @@ import LicenseManagement from '../components/settings/LicenseManagement';
 import RiskFieldsManagement from '../components/settings/RiskFieldsManagement';
 import IssuesFieldsManagement from '../components/settings/IssuesFieldsManagement';
 import ChangeRequestFieldsManagement from '../components/settings/ChangeRequestFieldsManagement';
+import ProjectManagement from '../components/settings/ProjectManagement';
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('profile');
@@ -22,6 +23,7 @@ const Settings: React.FC = () => {
     { id: 'appearance', name: 'Appearance', icon: Palette },
     { id: 'integrations', name: 'Integrations', icon: Database },
     { id: 'general', name: 'General', icon: Globe },
+    { id: 'project-management', name: 'Project Management', icon: FolderOpen },
     { id: 'project-templates', name: 'Project Types', icon: Settings2 },
     { id: 'custom-fields', name: 'Custom Fields', icon: Settings2 },
     { id: 'overview-designer', name: 'Overview Page Designer', icon: Settings2 },
@@ -245,6 +247,10 @@ const Settings: React.FC = () => {
 
             {activeTab === 'budget-categories' && (
               <BudgetCategoriesManagement />
+            )}
+
+            {activeTab === 'project-management' && (
+              <ProjectManagement />
             )}
 
             {(activeTab === 'integrations' || activeTab === 'general') && (
