@@ -335,6 +335,10 @@ const Projects: React.FC = () => {
   const calculateGroupRollups = (groupProjects: Project[]) => {
     const rollups: Record<string, { label: string; value: string }> = {};
 
+    console.log('Calculating rollups for', groupProjects.length, 'projects');
+    console.log('Custom fields:', customFields);
+    console.log('Project field values:', projectFieldValues);
+
     customFields.forEach(field => {
       if (field.field_type === 'cost' || field.field_type === 'number') {
         let sum = 0;
@@ -342,6 +346,7 @@ const Projects: React.FC = () => {
 
         groupProjects.forEach(project => {
           const value = projectFieldValues[project.id]?.[field.id];
+          console.log(`Project ${project.name}, Field ${field.field_name}, Value:`, value);
           if (value !== undefined && value !== null && value !== '') {
             const numValue = parseFloat(value);
             if (!isNaN(numValue)) {
@@ -351,9 +356,10 @@ const Projects: React.FC = () => {
           }
         });
 
+        console.log(`Field ${field.field_name}: sum=${sum}, count=${count}`);
         if (count > 0) {
           rollups[field.id] = {
-            label: field.field_label,
+            label: field.field_name,
             value: field.field_type === 'cost'
               ? formatCurrencyWithK(sum)
               : sum.toLocaleString()
@@ -364,6 +370,7 @@ const Projects: React.FC = () => {
 
         groupProjects.forEach(project => {
           const value = projectFieldValues[project.id]?.[field.id];
+          console.log(`Project ${project.name}, Date Field ${field.field_name}, Value:`, value);
           if (value) {
             const date = new Date(value);
             if (!isNaN(date.getTime())) {
@@ -378,12 +385,12 @@ const Projects: React.FC = () => {
 
           if (earliest.getTime() === latest.getTime()) {
             rollups[field.id] = {
-              label: field.field_label,
+              label: field.field_name,
               value: formatDate(earliest.toISOString())
             };
           } else {
             rollups[field.id] = {
-              label: field.field_label,
+              label: field.field_name,
               value: `${formatDate(earliest.toISOString())} - ${formatDate(latest.toISOString())}`
             };
           }
@@ -391,6 +398,7 @@ const Projects: React.FC = () => {
       }
     });
 
+    console.log('Calculated rollups:', rollups);
     return rollups;
   };
 
