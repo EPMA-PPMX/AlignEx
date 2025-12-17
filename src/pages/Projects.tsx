@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, MoreHorizontal, Grid3x3 as Grid3X3, List, Calendar, User, Settings2, X, Check, Layers } from 'lucide-react';
+import { Plus, Search, Filter, MoreHorizontal, Grid3x3 as Grid3X3, List, Calendar, User, Settings2, X, Check, Layers, ChevronDown, ChevronRight } from 'lucide-react';
 import ProjectCard from '../components/ProjectCard';
 import { supabase } from '../lib/supabase';
 import { DEMO_USER_ID } from '../lib/useCurrentUser';
@@ -51,6 +51,7 @@ const Projects: React.FC = () => {
   const [resources, setResources] = useState<Record<string, string>>({});
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [groupBy, setGroupBy] = useState<string>('none');
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetchResources();
@@ -317,6 +318,80 @@ const Projects: React.FC = () => {
   const handleGroupByChange = (value: string) => {
     setGroupBy(value);
     saveGroupByPreference(value);
+    setExpandedGroups({});
+  };
+
+  const toggleGroup = (groupName: string) => {
+    setExpandedGroups(prev => ({
+      ...prev,
+      [groupName]: !prev[groupName]
+    }));
+  };
+
+  const isGroupExpanded = (groupName: string) => {
+    return expandedGroups[groupName] !== false;
+  };
+
+  const calculateGroupRollups = (groupProjects: Project[]) => {
+    const rollups: Record<string, { label: string; value: string }> = {};
+
+    customFields.forEach(field => {
+      if (field.field_type === 'cost' || field.field_type === 'number') {
+        let sum = 0;
+        let count = 0;
+
+        groupProjects.forEach(project => {
+          const value = projectFieldValues[project.id]?.[field.id];
+          if (value !== undefined && value !== null && value !== '') {
+            const numValue = parseFloat(value);
+            if (!isNaN(numValue)) {
+              sum += numValue;
+              count++;
+            }
+          }
+        });
+
+        if (count > 0) {
+          rollups[field.id] = {
+            label: field.field_label,
+            value: field.field_type === 'cost'
+              ? formatCurrencyWithK(sum)
+              : sum.toLocaleString()
+          };
+        }
+      } else if (field.field_type === 'date') {
+        const dates: Date[] = [];
+
+        groupProjects.forEach(project => {
+          const value = projectFieldValues[project.id]?.[field.id];
+          if (value) {
+            const date = new Date(value);
+            if (!isNaN(date.getTime())) {
+              dates.push(date);
+            }
+          }
+        });
+
+        if (dates.length > 0) {
+          const earliest = new Date(Math.min(...dates.map(d => d.getTime())));
+          const latest = new Date(Math.max(...dates.map(d => d.getTime())));
+
+          if (earliest.getTime() === latest.getTime()) {
+            rollups[field.id] = {
+              label: field.field_label,
+              value: formatDate(earliest.toISOString())
+            };
+          } else {
+            rollups[field.id] = {
+              label: field.field_label,
+              value: `${formatDate(earliest.toISOString())} - ${formatDate(latest.toISOString())}`
+            };
+          }
+        }
+      }
+    });
+
+    return rollups;
   };
 
   const getGroupByOptions = () => {
@@ -460,20 +535,45 @@ const Projects: React.FC = () => {
           {viewMode === 'tile' ? (
             /* Tile View */
             <div className="space-y-8">
-              {Object.entries(groupedProjects).map(([groupName, groupProjects]) => (
-                <div key={groupName}>
-                  {groupBy !== 'none' && (
-                    <div className="flex items-center mb-4">
-                      <Layers className="w-5 h-5 text-gray-500 mr-2" />
-                      <h2 className="text-xl font-semibold text-gray-900">
-                        {groupName}
-                      </h2>
-                      <span className="ml-2 text-sm text-gray-500">
-                        ({groupProjects.length})
-                      </span>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {Object.entries(groupedProjects).map(([groupName, groupProjects]) => {
+                const rollups = calculateGroupRollups(groupProjects);
+                const isExpanded = isGroupExpanded(groupName);
+
+                return (
+                  <div key={groupName}>
+                    {groupBy !== 'none' && (
+                      <div className="mb-4">
+                        <button
+                          onClick={() => toggleGroup(groupName)}
+                          className="flex items-center w-full hover:bg-gray-50 p-3 rounded-lg transition-colors"
+                        >
+                          {isExpanded ? (
+                            <ChevronDown className="w-5 h-5 text-gray-500 mr-2" />
+                          ) : (
+                            <ChevronRight className="w-5 h-5 text-gray-500 mr-2" />
+                          )}
+                          <Layers className="w-5 h-5 text-gray-500 mr-2" />
+                          <h2 className="text-xl font-semibold text-gray-900">
+                            {groupName}
+                          </h2>
+                          <span className="ml-2 text-sm text-gray-500">
+                            ({groupProjects.length})
+                          </span>
+                          {Object.keys(rollups).length > 0 && (
+                            <div className="ml-auto flex items-center gap-4">
+                              {Object.values(rollups).map((rollup, idx) => (
+                                <div key={idx} className="flex items-center gap-1.5 text-sm">
+                                  <span className="text-gray-600 font-medium">{rollup.label}:</span>
+                                  <span className="text-gray-900 font-semibold">{rollup.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                    {isExpanded && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {groupProjects.map((project) => (
                       <div
                         key={project.id}
@@ -515,27 +615,54 @@ const Projects: React.FC = () => {
                         </div>
                       </div>
                     ))}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             /* List View */
             <div className="space-y-8">
-              {Object.entries(groupedProjects).map(([groupName, groupProjects]) => (
-                <div key={groupName}>
-                  {groupBy !== 'none' && (
-                    <div className="flex items-center mb-4">
-                      <Layers className="w-5 h-5 text-gray-500 mr-2" />
-                      <h2 className="text-xl font-semibold text-gray-900">
-                        {groupName}
-                      </h2>
-                      <span className="ml-2 text-sm text-gray-500">
-                        ({groupProjects.length})
-                      </span>
-                    </div>
-                  )}
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              {Object.entries(groupedProjects).map(([groupName, groupProjects]) => {
+                const rollups = calculateGroupRollups(groupProjects);
+                const isExpanded = isGroupExpanded(groupName);
+
+                return (
+                  <div key={groupName}>
+                    {groupBy !== 'none' && (
+                      <div className="mb-4">
+                        <button
+                          onClick={() => toggleGroup(groupName)}
+                          className="flex items-center w-full hover:bg-gray-50 p-3 rounded-lg transition-colors"
+                        >
+                          {isExpanded ? (
+                            <ChevronDown className="w-5 h-5 text-gray-500 mr-2" />
+                          ) : (
+                            <ChevronRight className="w-5 h-5 text-gray-500 mr-2" />
+                          )}
+                          <Layers className="w-5 h-5 text-gray-500 mr-2" />
+                          <h2 className="text-xl font-semibold text-gray-900">
+                            {groupName}
+                          </h2>
+                          <span className="ml-2 text-sm text-gray-500">
+                            ({groupProjects.length})
+                          </span>
+                          {Object.keys(rollups).length > 0 && (
+                            <div className="ml-auto flex items-center gap-4">
+                              {Object.values(rollups).map((rollup, idx) => (
+                                <div key={idx} className="flex items-center gap-1.5 text-sm">
+                                  <span className="text-gray-600 font-medium">{rollup.label}:</span>
+                                  <span className="text-gray-900 font-semibold">{rollup.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                    {isExpanded && (
+                      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -657,13 +784,15 @@ const Projects: React.FC = () => {
                           </tbody>
                         </table>
                       </div>
-                    </div>
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
 
       {filteredProjects.length === 0 && (
         <div className="text-center py-12">
