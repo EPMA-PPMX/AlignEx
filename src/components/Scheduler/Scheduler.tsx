@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Calendar } from 'lucide-react';
+import { useNotification } from '../../lib/useNotification';
 import './Scheduler.css';
 
 declare global {
@@ -44,6 +45,13 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
   const [selectedProject, setSelectedProject] = useState<string>('all');
   const [selectedResource, setSelectedResource] = useState<string>('all');
   const [events, setEvents] = useState<SchedulerEvent[]>([]);
+  const { showNotification } = useNotification();
+  const notificationRef = useRef(showNotification);
+
+  // Keep notification ref up to date
+  useEffect(() => {
+    notificationRef.current = showNotification;
+  }, [showNotification]);
 
   useEffect(() => {
     fetchProjects();
@@ -125,9 +133,10 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
         scheduler.config.details_on_dblclick = false;
         scheduler.config.dblclick_create = false;
         scheduler.config.drag_create = false;
-        scheduler.config.drag_move = false;
-        scheduler.config.drag_resize = false;
-        scheduler.config.readonly = true;
+        scheduler.config.drag_move = true;  // Enable drag and drop
+        scheduler.config.drag_resize = true;  // Enable resizing
+        scheduler.config.readonly = false;  // Make editable
+        scheduler.config.mark_now = true;  // Show current time marker
 
         scheduler.templates.event_text = function(start: Date, end: Date, event: any) {
           let html = '<b>' + event.text + '</b>';
@@ -152,6 +161,99 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
           }
           return html;
         };
+
+        // Handle task drag and resize events
+        scheduler.attachEvent("onEventChanged", async function(id: any, event: any) {
+          console.log('Task changed:', id, event);
+
+          if (!event.task_id || !event.project_id) {
+            console.warn('Cannot update task: missing task_id or project_id');
+            return true;
+          }
+
+          try {
+            // Fetch the current project_tasks record
+            const { data: projectTasksData, error: fetchError } = await supabase
+              .from('project_tasks')
+              .select('task_data')
+              .eq('project_id', event.project_id)
+              .single();
+
+            if (fetchError) throw fetchError;
+
+            if (!projectTasksData?.task_data?.data) {
+              console.error('No task data found');
+              return false;
+            }
+
+            // Find and update the specific task
+            const tasks = projectTasksData.task_data.data;
+            const taskIndex = tasks.findIndex((t: any) => t.id === event.task_id);
+
+            if (taskIndex === -1) {
+              console.error('Task not found in data');
+              return false;
+            }
+
+            // Calculate duration in working days (excluding weekends)
+            const calculateWorkingDays = (startDate: Date, endDate: Date): number => {
+              let days = 0;
+              const current = new Date(startDate);
+              const end = new Date(endDate);
+
+              while (current < end) {
+                const dayOfWeek = current.getDay();
+                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                  days++;
+                }
+                current.setDate(current.getDate() + 1);
+              }
+
+              return days;
+            };
+
+            // Format dates to YYYY-MM-DD HH:MM
+            const formatDate = (date: Date): string => {
+              const year = date.getFullYear();
+              const month = String(date.getMonth() + 1).padStart(2, '0');
+              const day = String(date.getDate()).padStart(2, '0');
+              return `${year}-${month}-${day} 00:00`;
+            };
+
+            const newStartDate = formatDate(event.start_date);
+            const newEndDate = formatDate(event.end_date);
+            const newDuration = calculateWorkingDays(event.start_date, event.end_date);
+
+            // Update the task
+            tasks[taskIndex] = {
+              ...tasks[taskIndex],
+              start_date: newStartDate,
+              end_date: newEndDate,
+              duration: newDuration
+            };
+
+            // Save back to database
+            const { error: updateError } = await supabase
+              .from('project_tasks')
+              .update({
+                task_data: {
+                  ...projectTasksData.task_data,
+                  data: tasks
+                }
+              })
+              .eq('project_id', event.project_id);
+
+            if (updateError) throw updateError;
+
+            console.log('Task updated successfully in database');
+            notificationRef.current('Task dates updated successfully', 'success');
+            return true;
+          } catch (error) {
+            console.error('Error updating task:', error);
+            notificationRef.current('Failed to update task dates', 'error');
+            return false;
+          }
+        });
 
         if (!isMounted || !schedulerContainer.current) {
           console.log('Component unmounted before init, aborting');
@@ -448,6 +550,9 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
               <h2>Task Scheduler</h2>
             </div>
             <p>View and track all project tasks in calendar format</p>
+            <p className="text-sm text-gray-600 mt-1">
+              <span className="font-medium">Tip:</span> Drag tasks to change dates or resize to adjust duration. Changes sync with Gantt view.
+            </p>
           </div>
 
           <div className="filters-container">
