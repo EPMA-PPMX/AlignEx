@@ -36,6 +36,7 @@ interface SchedulerProps {
 
 export default function Scheduler({ projectId }: SchedulerProps = {}) {
   const schedulerContainer = useRef<HTMLDivElement>(null);
+  const schedulerInstance = useRef<any>(null);
   const [isSchedulerInitialized, setIsSchedulerInitialized] = useState(false);
   const initializationAttempted = useRef(false);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -74,14 +75,16 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
         }
 
         // Clear any existing instance
-        if (window.scheduler && typeof window.scheduler.destructor === 'function') {
+        if (schedulerInstance.current && typeof schedulerInstance.current.destructor === 'function') {
           try {
-            window.scheduler.destructor();
+            schedulerInstance.current.destructor();
           } catch (e) {
             console.log('No existing scheduler to destroy');
           }
         }
 
+        // Store in both ref and window for compatibility
+        schedulerInstance.current = scheduler;
         window.scheduler = scheduler;
 
         scheduler.skin = 'terrace';
@@ -149,13 +152,13 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
           width: schedulerContainer.current.offsetWidth,
           height: schedulerContainer.current.offsetHeight
         });
-        console.log('Scheduler instance:', window.scheduler);
+        console.log('Scheduler instance:', schedulerInstance.current);
         console.log('Scheduler methods available:', {
-          clearAll: typeof window.scheduler.clearAll,
-          parse: typeof window.scheduler.parse,
-          getEvents: typeof window.scheduler.getEvents,
-          addEvent: typeof window.scheduler.addEvent,
-          updateView: typeof window.scheduler.updateView
+          clearAll: typeof schedulerInstance.current.clearAll,
+          parse: typeof schedulerInstance.current.parse,
+          getEvents: typeof schedulerInstance.current.getEvents,
+          addEvent: typeof schedulerInstance.current.addEvent,
+          updateView: typeof schedulerInstance.current.updateView
         });
 
         // Wait a bit to ensure scheduler is fully ready
@@ -176,10 +179,11 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
     return () => {
       isMounted = false;
       console.log('Cleaning up scheduler...');
-      if (window.scheduler && typeof window.scheduler.destructor === 'function') {
+      if (schedulerInstance.current && typeof schedulerInstance.current.destructor === 'function') {
         try {
-          window.scheduler.clearAll();
-          window.scheduler.destructor();
+          schedulerInstance.current.clearAll();
+          schedulerInstance.current.destructor();
+          schedulerInstance.current = null;
           window.scheduler = null;
           console.log('Scheduler destroyed successfully');
         } catch (e) {
@@ -227,11 +231,13 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
   };
 
   const fetchTasksAndLoadScheduler = async () => {
-    if (!window.scheduler || !window.scheduler.clearAll || !window.scheduler.addEvent) {
+    const scheduler = schedulerInstance.current;
+
+    if (!scheduler || !scheduler.clearAll || !scheduler.addEvent) {
       console.error('Scheduler not ready yet, skipping data load', {
-        hasScheduler: !!window.scheduler,
-        hasClearAll: !!window.scheduler?.clearAll,
-        hasAddEvent: !!window.scheduler?.addEvent
+        hasScheduler: !!scheduler,
+        hasClearAll: !!scheduler?.clearAll,
+        hasAddEvent: !!scheduler?.addEvent
       });
       return;
     }
@@ -341,57 +347,50 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
       console.log(`Created ${schedulerEvents.length} scheduler events:`, schedulerEvents);
       setEvents(schedulerEvents);
 
-      if (window.scheduler && window.scheduler.clearAll) {
-        console.log('Clearing and parsing events into scheduler');
-        console.log('Sample event:', schedulerEvents[0]);
-        console.log('Event date types:', schedulerEvents[0] ? {
-          start: typeof schedulerEvents[0].start_date,
-          end: typeof schedulerEvents[0].end_date,
-          startValue: schedulerEvents[0].start_date,
-          endValue: schedulerEvents[0].end_date
-        } : 'No events');
+      console.log('Clearing and parsing events into scheduler');
+      console.log('Sample event:', schedulerEvents[0]);
+      console.log('Event date types:', schedulerEvents[0] ? {
+        start: typeof schedulerEvents[0].start_date,
+        end: typeof schedulerEvents[0].end_date,
+        startValue: schedulerEvents[0].start_date,
+        endValue: schedulerEvents[0].end_date
+      } : 'No events');
 
-        window.scheduler.clearAll();
+      scheduler.clearAll();
 
-        // Parse events using the correct dhtmlx-scheduler format
-        try {
-          // Try using parse with JSON format
-          console.log('Attempting to parse events with scheduler.parse()');
-          window.scheduler.parse({ data: schedulerEvents }, 'json');
+      // Parse events using the correct dhtmlx-scheduler format
+      try {
+        // Try using parse with JSON format
+        console.log('Attempting to parse events with scheduler.parse()');
+        scheduler.parse({ data: schedulerEvents }, 'json');
 
-          const loadedEvents = window.scheduler.getEvents();
-          console.log(`Scheduler events parsed successfully. Total events in scheduler: ${loadedEvents.length}`);
+        const loadedEvents = scheduler.getEvents();
+        console.log(`Scheduler events parsed successfully. Total events in scheduler: ${loadedEvents.length}`);
 
-          if (loadedEvents.length === 0 && schedulerEvents.length > 0) {
-            console.warn('No events loaded! Trying addEvent method instead...');
-            // Fallback: Add events individually
-            schedulerEvents.forEach((event) => {
-              const eventId = window.scheduler.addEvent({
-                id: event.id,
-                text: event.text,
-                start_date: event.start_date,
-                end_date: event.end_date,
-                project_name: event.project_name,
-                resource_names: event.resource_names,
-                task_id: event.task_id,
-                project_id: event.project_id
-              });
-              console.log(`Added event "${event.text}" with ID:`, eventId);
+        if (loadedEvents.length === 0 && schedulerEvents.length > 0) {
+          console.warn('No events loaded! Trying addEvent method instead...');
+          // Fallback: Add events individually
+          schedulerEvents.forEach((event) => {
+            const eventId = scheduler.addEvent({
+              id: event.id,
+              text: event.text,
+              start_date: event.start_date,
+              end_date: event.end_date,
+              project_name: event.project_name,
+              resource_names: event.resource_names,
+              task_id: event.task_id,
+              project_id: event.project_id
             });
+            console.log(`Added event "${event.text}" with ID:`, eventId);
+          });
 
-            const retryLoadedEvents = window.scheduler.getEvents();
-            console.log(`After addEvent retry: ${retryLoadedEvents.length} events`);
-          }
-
-          console.log('Final loaded events:', window.scheduler.getEvents());
-        } catch (parseError) {
-          console.error('Error parsing events to scheduler:', parseError);
+          const retryLoadedEvents = scheduler.getEvents();
+          console.log(`After addEvent retry: ${retryLoadedEvents.length} events`);
         }
-      } else {
-        console.error('Scheduler not initialized yet', {
-          hasScheduler: !!window.scheduler,
-          hasClearAll: window.scheduler ? typeof window.scheduler.clearAll : 'N/A'
-        });
+
+        console.log('Final loaded events:', scheduler.getEvents());
+      } catch (parseError) {
+        console.error('Error parsing events to scheduler:', parseError);
       }
     } catch (error) {
       console.error('Error fetching tasks:', error);
