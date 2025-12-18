@@ -158,7 +158,11 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
           updateView: typeof window.scheduler.updateView
         });
 
+        // Wait a bit to ensure scheduler is fully ready
+        await new Promise(resolve => setTimeout(resolve, 200));
+
         if (isMounted) {
+          console.log('Marking scheduler as initialized');
           setIsSchedulerInitialized(true);
         }
       } catch (error) {
@@ -223,8 +227,12 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
   };
 
   const fetchTasksAndLoadScheduler = async () => {
-    if (!window.scheduler || !window.scheduler.clearAll) {
-      console.error('Scheduler not ready yet, skipping data load');
+    if (!window.scheduler || !window.scheduler.clearAll || !window.scheduler.addEvent) {
+      console.error('Scheduler not ready yet, skipping data load', {
+        hasScheduler: !!window.scheduler,
+        hasClearAll: !!window.scheduler?.clearAll,
+        hasAddEvent: !!window.scheduler?.addEvent
+      });
       return;
     }
 
@@ -347,28 +355,37 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
 
         // Parse events using the correct dhtmlx-scheduler format
         try {
-          // Add events individually to ensure proper format
-          schedulerEvents.forEach((event) => {
-            window.scheduler.addEvent({
-              id: event.id,
-              text: event.text,
-              start_date: event.start_date,
-              end_date: event.end_date,
-              project_name: event.project_name,
-              resource_names: event.resource_names,
-              task_id: event.task_id,
-              project_id: event.project_id
-            });
-          });
+          // Try using parse with JSON format
+          console.log('Attempting to parse events with scheduler.parse()');
+          window.scheduler.parse({ data: schedulerEvents }, 'json');
 
           const loadedEvents = window.scheduler.getEvents();
-          console.log(`Scheduler events added successfully. Total events in scheduler: ${loadedEvents.length}`);
-          console.log('Loaded events:', loadedEvents);
+          console.log(`Scheduler events parsed successfully. Total events in scheduler: ${loadedEvents.length}`);
 
-          // Force a render update
-          window.scheduler.updateView();
+          if (loadedEvents.length === 0 && schedulerEvents.length > 0) {
+            console.warn('No events loaded! Trying addEvent method instead...');
+            // Fallback: Add events individually
+            schedulerEvents.forEach((event) => {
+              const eventId = window.scheduler.addEvent({
+                id: event.id,
+                text: event.text,
+                start_date: event.start_date,
+                end_date: event.end_date,
+                project_name: event.project_name,
+                resource_names: event.resource_names,
+                task_id: event.task_id,
+                project_id: event.project_id
+              });
+              console.log(`Added event "${event.text}" with ID:`, eventId);
+            });
+
+            const retryLoadedEvents = window.scheduler.getEvents();
+            console.log(`After addEvent retry: ${retryLoadedEvents.length} events`);
+          }
+
+          console.log('Final loaded events:', window.scheduler.getEvents());
         } catch (parseError) {
-          console.error('Error adding events to scheduler:', parseError);
+          console.error('Error parsing events to scheduler:', parseError);
         }
       } else {
         console.error('Scheduler not initialized yet', {
