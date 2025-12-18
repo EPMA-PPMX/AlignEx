@@ -1041,27 +1041,34 @@ const ProjectDetail: React.FC = () => {
     if (!id) return;
 
     try {
-      // Query all tasks from the database
-      const { data: tasks, error: tasksError } = await supabase
+      // Query task_data from the database
+      const { data: projectTasksData, error: tasksError } = await supabase
         .from('project_tasks')
-        .select('start_date, end_date')
-        .eq('project_id', id);
+        .select('task_data')
+        .eq('project_id', id)
+        .maybeSingle();
 
       if (tasksError) {
         console.error('Error fetching tasks:', tasksError);
         return;
       }
 
-      if (!tasks || tasks.length === 0) {
+      if (!projectTasksData?.task_data?.data || projectTasksData.task_data.data.length === 0) {
         console.log('No tasks found for project');
         return;
       }
 
-      // Find earliest start_date and latest end_date
+      const tasks = projectTasksData.task_data.data;
       let earliestStart: Date | null = null;
       let latestFinish: Date | null = null;
 
-      tasks.forEach((task) => {
+      const ganttInstance = (window as any).gantt;
+
+      tasks.forEach((task: any) => {
+        // Skip group headers or summary tasks
+        if (task.type === 'project' || task.$group_header) return;
+
+        // Check start_date
         if (task.start_date) {
           const startDate = new Date(task.start_date);
           if (!isNaN(startDate.getTime())) {
@@ -1071,8 +1078,18 @@ const ProjectDetail: React.FC = () => {
           }
         }
 
+        // Check end_date (calculated by Gantt)
         if (task.end_date) {
           const endDate = new Date(task.end_date);
+          if (!isNaN(endDate.getTime())) {
+            if (!latestFinish || endDate > latestFinish) {
+              latestFinish = endDate;
+            }
+          }
+        } else if (task.start_date && task.duration && ganttInstance) {
+          // Calculate end date if not present
+          const startDate = new Date(task.start_date);
+          const endDate = ganttInstance.calculateEndDate(startDate, task.duration);
           if (!isNaN(endDate.getTime())) {
             if (!latestFinish || endDate > latestFinish) {
               latestFinish = endDate;
