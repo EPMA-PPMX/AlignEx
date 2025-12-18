@@ -1037,29 +1037,33 @@ const ProjectDetail: React.FC = () => {
     }
   };
 
-  const updateProjectScheduleDates = async (tasks: any[]) => {
-    if (!id || tasks.length === 0) return;
+  const updateProjectScheduleDates = async () => {
+    if (!id) return;
 
     try {
-      // Calculate earliest start date and latest finish date from tasks
-      let earliestStart: Date | null = null;
-      let latestFinish: Date | null = null;
+      // Query all tasks from the database
+      const { data: tasks, error: tasksError } = await supabase
+        .from('project_tasks')
+        .select('start_date, end_date')
+        .eq('project_id', id);
 
-      const ganttInstance = (window as any).gantt;
-      if (!ganttInstance) {
-        console.error("Gantt instance not found for date calculation");
+      if (tasksError) {
+        console.error('Error fetching tasks:', tasksError);
         return;
       }
 
-      tasks.forEach((task: any) => {
-        if (task.$group_header) return; // Skip group headers
+      if (!tasks || tasks.length === 0) {
+        console.log('No tasks found for project');
+        return;
+      }
 
-        // Parse start date
+      // Find earliest start_date and latest end_date
+      let earliestStart: Date | null = null;
+      let latestFinish: Date | null = null;
+
+      tasks.forEach((task) => {
         if (task.start_date) {
-          const startDate = typeof task.start_date === 'string'
-            ? new Date(task.start_date)
-            : task.start_date;
-
+          const startDate = new Date(task.start_date);
           if (!isNaN(startDate.getTime())) {
             if (!earliestStart || startDate < earliestStart) {
               earliestStart = startDate;
@@ -1067,31 +1071,11 @@ const ProjectDetail: React.FC = () => {
           }
         }
 
-        // Use the actual end_date calculated by DHTMLX Gantt (which accounts for weekends)
-        // DHTMLX already calculated this properly based on start_date + duration with work_time config
-        if (task.start_date && task.duration) {
-          let finishDate: Date;
-
-          if (task.end_date) {
-            // Use the end_date that DHTMLX Gantt calculated
-            finishDate = typeof task.end_date === 'string'
-              ? new Date(task.end_date)
-              : task.end_date;
-          } else {
-            // Fallback: Calculate using DHTMLX's calculateEndDate which respects work_time
-            const startDate = typeof task.start_date === 'string'
-              ? ganttInstance.date.parseDate(task.start_date, "xml_date")
-              : task.start_date;
-            finishDate = ganttInstance.calculateEndDate(startDate, task.duration);
-          }
-
-          // Subtract 1 day to get the actual last working day (matching Gantt display logic)
-          finishDate = new Date(finishDate);
-          finishDate.setDate(finishDate.getDate() - 1);
-
-          if (!isNaN(finishDate.getTime())) {
-            if (!latestFinish || finishDate > latestFinish) {
-              latestFinish = finishDate;
+        if (task.end_date) {
+          const endDate = new Date(task.end_date);
+          if (!isNaN(endDate.getTime())) {
+            if (!latestFinish || endDate > latestFinish) {
+              latestFinish = endDate;
             }
           }
         }
@@ -1230,7 +1214,7 @@ const ProjectDetail: React.FC = () => {
         } else {
           console.log("Tasks updated successfully");
           // Update project schedule dates based on tasks
-          await updateProjectScheduleDates(currentTasks.data);
+          await updateProjectScheduleDates();
           // Refresh data from database to ensure UI shows latest values
           await fetchProjectTasks();
         }
@@ -1249,7 +1233,7 @@ const ProjectDetail: React.FC = () => {
         } else {
           console.log("Tasks inserted successfully");
           // Update project schedule dates based on tasks
-          await updateProjectScheduleDates(currentTasks.data);
+          await updateProjectScheduleDates();
           // Refresh data from database to ensure UI shows latest values
           await fetchProjectTasks();
         }
