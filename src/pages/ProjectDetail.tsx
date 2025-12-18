@@ -1045,12 +1045,21 @@ const ProjectDetail: React.FC = () => {
       let earliestStart: Date | null = null;
       let latestFinish: Date | null = null;
 
+      const ganttInstance = (window as any).gantt;
+      if (!ganttInstance) {
+        console.error("Gantt instance not found for date calculation");
+        return;
+      }
+
       tasks.forEach((task: any) => {
         if (task.$group_header) return; // Skip group headers
 
         // Parse start date
         if (task.start_date) {
-          const startDate = new Date(task.start_date);
+          const startDate = typeof task.start_date === 'string'
+            ? new Date(task.start_date)
+            : task.start_date;
+
           if (!isNaN(startDate.getTime())) {
             if (!earliestStart || startDate < earliestStart) {
               earliestStart = startDate;
@@ -1058,12 +1067,27 @@ const ProjectDetail: React.FC = () => {
           }
         }
 
-        // Calculate finish date from start_date + duration
+        // Use the actual end_date calculated by DHTMLX Gantt (which accounts for weekends)
+        // DHTMLX already calculated this properly based on start_date + duration with work_time config
         if (task.start_date && task.duration) {
-          const startDate = new Date(task.start_date);
-          // Duration is in days, so add duration to start date
-          const finishDate = new Date(startDate);
-          finishDate.setDate(finishDate.getDate() + task.duration);
+          let finishDate: Date;
+
+          if (task.end_date) {
+            // Use the end_date that DHTMLX Gantt calculated
+            finishDate = typeof task.end_date === 'string'
+              ? new Date(task.end_date)
+              : task.end_date;
+          } else {
+            // Fallback: Calculate using DHTMLX's calculateEndDate which respects work_time
+            const startDate = typeof task.start_date === 'string'
+              ? ganttInstance.date.parseDate(task.start_date, "xml_date")
+              : task.start_date;
+            finishDate = ganttInstance.calculateEndDate(startDate, task.duration);
+          }
+
+          // Subtract 1 day to get the actual last working day (matching Gantt display logic)
+          finishDate = new Date(finishDate);
+          finishDate.setDate(finishDate.getDate() - 1);
 
           if (!isNaN(finishDate.getTime())) {
             if (!latestFinish || finishDate > latestFinish) {
