@@ -137,23 +137,6 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
         scheduler.config.drag_resize = true;  // Enable resizing
         scheduler.config.readonly = false;  // Make editable
         scheduler.config.mark_now = true;  // Show current time marker
-        scheduler.config.multi_day = true;  // Enable multi-day events section
-        scheduler.config.all_timed = false;  // Show as all-day events
-        scheduler.config.multi_day_height_limit = 10;  // Increase height limit for multi-day section
-        scheduler.config.time_step = 60;  // Time step in minutes
-        scheduler.config.separate_short_events = false;  // Don't separate short events
-        scheduler.config.event_duration = 60;  // Default event duration
-        scheduler.config.auto_end_date = true;  // Automatically set end date
-
-        // Force events to appear in multi-day section in week view
-        scheduler.attachEvent("onBeforeViewChange", function(old_mode: any, old_date: any, mode: any, date: any) {
-          return true;
-        });
-
-        // Determine if event should be in multi-day section
-        scheduler.templates.event_class = function(start: Date, end: Date, event: any) {
-          return "";  // Return empty to use default behavior
-        };
 
         scheduler.templates.event_text = function(start: Date, end: Date, event: any) {
           let html = '<b>' + event.text + '</b>';
@@ -178,30 +161,6 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
           }
           return html;
         };
-
-        // Allow dragging in all views
-        scheduler.attachEvent("onBeforeDrag", function(id: any, mode: any, e: any) {
-          console.log('onBeforeDrag triggered:', { id, mode, view: scheduler._mode });
-          return true;  // Allow dragging
-        });
-
-        // Track when dragging starts
-        scheduler.attachEvent("onDragStart", function(id: any, mode: any) {
-          console.log('Drag started:', { id, mode, view: scheduler._mode });
-          return true;
-        });
-
-        // Track when dragging ends
-        scheduler.attachEvent("onDragEnd", function(id: any, mode: any) {
-          console.log('Drag ended:', { id, mode, view: scheduler._mode });
-          return true;
-        });
-
-        // Make sure events are not readonly
-        scheduler.attachEvent("onBeforeEventChanged", function(event: any, e: any, is_new: any, original: any) {
-          console.log('onBeforeEventChanged triggered:', { event, is_new });
-          return true;  // Allow changes
-        });
 
         // Handle task drag and resize events
         scheduler.attachEvent("onEventChanged", async function(id: any, event: any) {
@@ -492,14 +451,12 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
           if (task.start_date) {
             const startStr = String(task.start_date).split(' ')[0];
             startDate = new Date(startStr);
-            startDate.setHours(0, 0, 0, 0);  // Ensure time is set to midnight
             console.log(`Parsed start date for "${task.text}":`, startStr, '→', startDate);
           }
 
           if (task.end_date) {
             const endStr = String(task.end_date).split(' ')[0];
             endDate = new Date(endStr);
-            endDate.setHours(0, 0, 0, 0);  // Ensure time is set to midnight
             console.log(`Parsed end date for "${task.text}":`, endStr, '→', endDate);
           } else if (startDate && task.duration) {
             endDate = new Date(startDate);
