@@ -37,6 +37,7 @@ interface SchedulerProps {
 export default function Scheduler({ projectId }: SchedulerProps = {}) {
   const schedulerContainer = useRef<HTMLDivElement>(null);
   const [isSchedulerInitialized, setIsSchedulerInitialized] = useState(false);
+  const initializationAttempted = useRef(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>('all');
@@ -50,8 +51,10 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
 
   useEffect(() => {
     const loadScheduler = async () => {
-      if (schedulerContainer.current && !isSchedulerInitialized) {
-        console.log('Initializing scheduler...');
+      if (schedulerContainer.current && !initializationAttempted.current) {
+        console.log('Initializing scheduler...', 'Container exists:', !!schedulerContainer.current);
+        initializationAttempted.current = true;
+
         const schedulerModule = await import('dhtmlx-scheduler');
         const scheduler = schedulerModule.scheduler;
 
@@ -114,9 +117,14 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
     return () => {
       console.log('Cleaning up scheduler...');
       if (window.scheduler && window.scheduler.destructor) {
-        window.scheduler.destructor();
-        setIsSchedulerInitialized(false);
+        try {
+          window.scheduler.destructor();
+        } catch (e) {
+          console.error('Error destroying scheduler:', e);
+        }
       }
+      initializationAttempted.current = false;
+      setIsSchedulerInitialized(false);
     };
   }, []);
 
