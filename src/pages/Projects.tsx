@@ -20,6 +20,8 @@ interface Project {
   archived?: boolean;
   archived_at?: string;
   archived_by?: string;
+  schedule_start_date?: string;
+  schedule_finish_date?: string;
   [key: string]: any;
 }
 
@@ -108,6 +110,8 @@ const Projects: React.FC = () => {
           { key: 'name', label: 'Project Name', enabled: true },
           { key: 'status', label: 'Status', enabled: true },
           { key: 'state', label: 'State', enabled: false },
+          { key: 'schedule_start_date', label: 'Start Date', enabled: false },
+          { key: 'schedule_finish_date', label: 'Finish Date', enabled: false },
           { key: 'created', label: 'Created', enabled: true },
           { key: 'updated', label: 'Last Updated', enabled: false },
         ];
@@ -366,6 +370,32 @@ const Projects: React.FC = () => {
     console.log('Calculating rollups for', groupProjects.length, 'projects');
     console.log('Custom fields:', customFields);
     console.log('Project field values:', projectFieldValues);
+
+    // Calculate schedule date range
+    const scheduleDates: { starts: Date[]; finishes: Date[] } = { starts: [], finishes: [] };
+    groupProjects.forEach(project => {
+      if (project.schedule_start_date) {
+        const date = new Date(project.schedule_start_date);
+        if (!isNaN(date.getTime())) {
+          scheduleDates.starts.push(date);
+        }
+      }
+      if (project.schedule_finish_date) {
+        const date = new Date(project.schedule_finish_date);
+        if (!isNaN(date.getTime())) {
+          scheduleDates.finishes.push(date);
+        }
+      }
+    });
+
+    if (scheduleDates.starts.length > 0 && scheduleDates.finishes.length > 0) {
+      const earliestStart = new Date(Math.min(...scheduleDates.starts.map(d => d.getTime())));
+      const latestFinish = new Date(Math.max(...scheduleDates.finishes.map(d => d.getTime())));
+      rollups['schedule_dates'] = {
+        label: 'Schedule',
+        value: `${formatDate(earliestStart.toISOString())} - ${formatDate(latestFinish.toISOString())}`
+      };
+    }
 
     customFields.forEach(field => {
       if (field.field_type === 'cost' || field.field_type === 'number') {
@@ -816,6 +846,32 @@ const Projects: React.FC = () => {
                                         <div className="flex items-center">
                                           <Calendar className="w-4 h-4 mr-1" />
                                           {formatDate(project.updated_at)}
+                                        </div>
+                                      ) : (
+                                        '-'
+                                      )}
+                                    </td>
+                                  );
+                                } else if (col.key === 'schedule_start_date') {
+                                  return (
+                                    <td key={col.key} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                      {project.schedule_start_date ? (
+                                        <div className="flex items-center">
+                                          <Calendar className="w-4 h-4 mr-1" />
+                                          {formatDate(project.schedule_start_date)}
+                                        </div>
+                                      ) : (
+                                        '-'
+                                      )}
+                                    </td>
+                                  );
+                                } else if (col.key === 'schedule_finish_date') {
+                                  return (
+                                    <td key={col.key} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                      {project.schedule_finish_date ? (
+                                        <div className="flex items-center">
+                                          <Calendar className="w-4 h-4 mr-1" />
+                                          {formatDate(project.schedule_finish_date)}
                                         </div>
                                       ) : (
                                         '-'

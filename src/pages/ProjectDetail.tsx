@@ -1037,6 +1037,67 @@ const ProjectDetail: React.FC = () => {
     }
   };
 
+  const updateProjectScheduleDates = async (tasks: any[]) => {
+    if (!id || tasks.length === 0) return;
+
+    try {
+      // Calculate earliest start date and latest finish date from tasks
+      let earliestStart: Date | null = null;
+      let latestFinish: Date | null = null;
+
+      tasks.forEach((task: any) => {
+        if (task.$group_header) return; // Skip group headers
+
+        // Parse start date
+        if (task.start_date) {
+          const startDate = new Date(task.start_date);
+          if (!isNaN(startDate.getTime())) {
+            if (!earliestStart || startDate < earliestStart) {
+              earliestStart = startDate;
+            }
+          }
+        }
+
+        // Calculate finish date from start_date + duration
+        if (task.start_date && task.duration) {
+          const startDate = new Date(task.start_date);
+          // Duration is in days, so add duration to start date
+          const finishDate = new Date(startDate);
+          finishDate.setDate(finishDate.getDate() + task.duration);
+
+          if (!isNaN(finishDate.getTime())) {
+            if (!latestFinish || finishDate > latestFinish) {
+              latestFinish = finishDate;
+            }
+          }
+        }
+      });
+
+      // Update project with calculated dates
+      if (earliestStart || latestFinish) {
+        const { error } = await supabase
+          .from('projects')
+          .update({
+            schedule_start_date: earliestStart?.toISOString() || null,
+            schedule_finish_date: latestFinish?.toISOString() || null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', id);
+
+        if (error) {
+          console.error('Error updating project schedule dates:', error);
+        } else {
+          console.log('Project schedule dates updated:', {
+            start: earliestStart?.toISOString(),
+            finish: latestFinish?.toISOString()
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error updating project schedule dates:', error);
+    }
+  };
+
   const saveProjectTasks = async () => {
     if (!id) return;
 
@@ -1143,6 +1204,8 @@ const ProjectDetail: React.FC = () => {
           console.error('Error updating tasks:', error);
         } else {
           console.log("Tasks updated successfully");
+          // Update project schedule dates based on tasks
+          await updateProjectScheduleDates(currentTasks.data);
           // Refresh data from database to ensure UI shows latest values
           await fetchProjectTasks();
         }
@@ -1160,6 +1223,8 @@ const ProjectDetail: React.FC = () => {
           console.error('Error inserting tasks:', error);
         } else {
           console.log("Tasks inserted successfully");
+          // Update project schedule dates based on tasks
+          await updateProjectScheduleDates(currentTasks.data);
           // Refresh data from database to ensure UI shows latest values
           await fetchProjectTasks();
         }
