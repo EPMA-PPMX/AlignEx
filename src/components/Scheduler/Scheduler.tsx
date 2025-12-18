@@ -135,8 +135,28 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
           return;
         }
 
+        // Small delay to ensure DOM is fully ready
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        if (!isMounted || !schedulerContainer.current) {
+          console.log('Component unmounted during delay, aborting');
+          return;
+        }
+
         scheduler.init(schedulerContainer.current, new Date(), 'week');
         console.log('Scheduler initialized successfully');
+        console.log('Scheduler container size:', {
+          width: schedulerContainer.current.offsetWidth,
+          height: schedulerContainer.current.offsetHeight
+        });
+        console.log('Scheduler instance:', window.scheduler);
+        console.log('Scheduler methods available:', {
+          clearAll: typeof window.scheduler.clearAll,
+          parse: typeof window.scheduler.parse,
+          getEvents: typeof window.scheduler.getEvents,
+          addEvent: typeof window.scheduler.addEvent,
+          updateView: typeof window.scheduler.updateView
+        });
 
         if (isMounted) {
           setIsSchedulerInitialized(true);
@@ -203,6 +223,11 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
   };
 
   const fetchTasksAndLoadScheduler = async () => {
+    if (!window.scheduler || !window.scheduler.clearAll) {
+      console.error('Scheduler not ready yet, skipping data load');
+      return;
+    }
+
     try {
       console.log('Fetching tasks for projectId:', projectId);
       let query = supabase
@@ -249,11 +274,13 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
           if (task.start_date) {
             const startStr = String(task.start_date).split(' ')[0];
             startDate = new Date(startStr);
+            console.log(`Parsed start date for "${task.text}":`, startStr, '→', startDate);
           }
 
           if (task.end_date) {
             const endStr = String(task.end_date).split(' ')[0];
             endDate = new Date(endStr);
+            console.log(`Parsed end date for "${task.text}":`, endStr, '→', endDate);
           } else if (startDate && task.duration) {
             endDate = new Date(startDate);
             let daysToAdd = task.duration;
@@ -264,9 +291,13 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
                 daysToAdd--;
               }
             }
+            console.log(`Calculated end date for "${task.text}" (duration ${task.duration}):`, endDate);
           }
 
-          if (!startDate || !endDate) continue;
+          if (!startDate || !endDate) {
+            console.log(`Skipping task "${task.text}" - invalid dates:`, { startDate, endDate });
+            continue;
+          }
 
           let resourceNames = '';
           if (task.resource_ids && task.resource_ids.length > 0) {
@@ -304,11 +335,46 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
 
       if (window.scheduler && window.scheduler.clearAll) {
         console.log('Clearing and parsing events into scheduler');
+        console.log('Sample event:', schedulerEvents[0]);
+        console.log('Event date types:', schedulerEvents[0] ? {
+          start: typeof schedulerEvents[0].start_date,
+          end: typeof schedulerEvents[0].end_date,
+          startValue: schedulerEvents[0].start_date,
+          endValue: schedulerEvents[0].end_date
+        } : 'No events');
+
         window.scheduler.clearAll();
-        window.scheduler.parse(schedulerEvents);
-        console.log('Scheduler events parsed successfully');
+
+        // Parse events using the correct dhtmlx-scheduler format
+        try {
+          // Add events individually to ensure proper format
+          schedulerEvents.forEach((event) => {
+            window.scheduler.addEvent({
+              id: event.id,
+              text: event.text,
+              start_date: event.start_date,
+              end_date: event.end_date,
+              project_name: event.project_name,
+              resource_names: event.resource_names,
+              task_id: event.task_id,
+              project_id: event.project_id
+            });
+          });
+
+          const loadedEvents = window.scheduler.getEvents();
+          console.log(`Scheduler events added successfully. Total events in scheduler: ${loadedEvents.length}`);
+          console.log('Loaded events:', loadedEvents);
+
+          // Force a render update
+          window.scheduler.updateView();
+        } catch (parseError) {
+          console.error('Error adding events to scheduler:', parseError);
+        }
       } else {
-        console.error('Scheduler not initialized yet');
+        console.error('Scheduler not initialized yet', {
+          hasScheduler: !!window.scheduler,
+          hasClearAll: window.scheduler ? typeof window.scheduler.clearAll : 'N/A'
+        });
       }
     } catch (error) {
       console.error('Error fetching tasks:', error);
