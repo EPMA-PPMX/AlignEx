@@ -197,7 +197,11 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
 
   useEffect(() => {
     if (isSchedulerInitialized) {
-      fetchTasksAndLoadScheduler();
+      // Add a small delay to ensure scheduler DOM is fully ready
+      const timer = setTimeout(() => {
+        fetchTasksAndLoadScheduler();
+      }, 300);
+      return () => clearTimeout(timer);
     }
   }, [isSchedulerInitialized, selectedProject, selectedResource, projectId]);
 
@@ -356,13 +360,24 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
         endValue: schedulerEvents[0].end_date
       } : 'No events');
 
+      // Ensure scheduler is ready before manipulating events
+      if (!scheduler || !schedulerContainer.current) {
+        console.error('Scheduler not ready, aborting event load');
+        return;
+      }
+
       scheduler.clearAll();
 
-      // Add events individually (parse() can have issues with DOM access)
+      // Add events individually with batching
       console.log('Adding events to scheduler...');
+
+      // Disable auto-rendering while adding events
+      const autoRender = scheduler.config.update_render;
+      scheduler.config.update_render = false;
+
       schedulerEvents.forEach((event) => {
         try {
-          const eventId = scheduler.addEvent({
+          scheduler.addEvent({
             id: event.id,
             text: event.text,
             start_date: event.start_date,
@@ -372,15 +387,17 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
             task_id: event.task_id,
             project_id: event.project_id
           });
-          console.log(`Added event "${event.text}" with ID:`, eventId);
         } catch (eventError) {
           console.error(`Error adding event "${event.text}":`, eventError);
         }
       });
 
+      // Re-enable auto-rendering and update view once
+      scheduler.config.update_render = autoRender;
+      scheduler.updateView();
+
       const loadedEvents = scheduler.getEvents();
       console.log(`Successfully loaded ${loadedEvents.length} events into scheduler`);
-      console.log('Final loaded events:', loadedEvents);
     } catch (error) {
       console.error('Error fetching tasks:', error);
     }
