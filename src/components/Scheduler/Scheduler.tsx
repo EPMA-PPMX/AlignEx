@@ -54,11 +54,19 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
     let isMounted = true;
 
     const loadScheduler = async () => {
-      if (!schedulerContainer.current || initializationAttempted.current) {
-        console.log('Skipping scheduler init:', {
-          hasContainer: !!schedulerContainer.current,
-          attempted: initializationAttempted.current
-        });
+      if (initializationAttempted.current) {
+        console.log('Skipping scheduler init: already attempted');
+        return;
+      }
+
+      if (!schedulerContainer.current) {
+        console.log('Container not ready, will retry...');
+        // Container not ready yet, retry after a short delay
+        setTimeout(() => {
+          if (isMounted && !initializationAttempted.current) {
+            loadScheduler();
+          }
+        }, 50);
         return;
       }
 
