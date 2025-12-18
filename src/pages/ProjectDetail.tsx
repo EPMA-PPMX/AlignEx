@@ -1164,14 +1164,24 @@ const ProjectDetail: React.FC = () => {
 
             console.log(`Task ${taskId}: duration=${task.duration} (type: ${typeof task.duration}), cleaned duration=${duration}`);
 
-            // Format end_date if it exists
-            let endDate = task.end_date;
-            if (endDate) {
-              // Convert Date object to string if needed
-              if (endDate instanceof Date) {
-                endDate = endDate.toISOString().split('T')[0] + ' 00:00';
-              } else if (typeof endDate === 'string' && !endDate.includes(' ')) {
-                endDate = endDate + ' 00:00';
+            // Calculate end_date using DHTMLX Gantt to ensure it accounts for weekends
+            let endDate: string | null = null;
+            if (task.start_date && duration) {
+              if (task.end_date) {
+                // Use existing end_date if available
+                if (task.end_date instanceof Date) {
+                  endDate = task.end_date.toISOString().split('T')[0] + ' 00:00';
+                } else if (typeof task.end_date === 'string') {
+                  endDate = task.end_date.includes(' ') ? task.end_date : task.end_date + ' 00:00';
+                }
+              } else {
+                // Calculate end_date using DHTMLX's calculateEndDate (which respects work_time/weekends)
+                const startDate = typeof task.start_date === 'string'
+                  ? ganttInstance.date.parseDate(task.start_date, "xml_date")
+                  : task.start_date;
+                const calculatedEndDate = ganttInstance.calculateEndDate(startDate, duration);
+                endDate = calculatedEndDate.toISOString().split('T')[0] + ' 00:00';
+                console.log(`Task ${taskId}: Calculated end_date=${endDate} from start=${task.start_date} + duration=${duration}`);
               }
             }
 
