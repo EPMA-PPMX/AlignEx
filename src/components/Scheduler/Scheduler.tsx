@@ -366,35 +366,19 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
         return;
       }
 
+      // Verify scheduler is actually initialized
+      if (!scheduler._lightbox) {
+        console.error('Scheduler DOM not ready, waiting...');
+        // Retry after a short delay
+        setTimeout(() => fetchTasksAndLoadScheduler(), 200);
+        return;
+      }
+
+      console.log('Loading events into scheduler using parse...');
+
+      // Use parse() instead of addEvent() - it's the recommended way
       scheduler.clearAll();
-
-      // Add events individually with batching
-      console.log('Adding events to scheduler...');
-
-      // Disable auto-rendering while adding events
-      const autoRender = scheduler.config.update_render;
-      scheduler.config.update_render = false;
-
-      schedulerEvents.forEach((event) => {
-        try {
-          scheduler.addEvent({
-            id: event.id,
-            text: event.text,
-            start_date: event.start_date,
-            end_date: event.end_date,
-            project_name: event.project_name,
-            resource_names: event.resource_names,
-            task_id: event.task_id,
-            project_id: event.project_id
-          });
-        } catch (eventError) {
-          console.error(`Error adding event "${event.text}":`, eventError);
-        }
-      });
-
-      // Re-enable auto-rendering and update view once
-      scheduler.config.update_render = autoRender;
-      scheduler.updateView();
+      scheduler.parse(schedulerEvents, 'json');
 
       const loadedEvents = scheduler.getEvents();
       console.log(`Successfully loaded ${loadedEvents.length} events into scheduler`);
