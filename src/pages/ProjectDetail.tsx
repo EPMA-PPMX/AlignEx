@@ -3397,7 +3397,7 @@ const ProjectDetail: React.FC = () => {
 
             {timelineView === 'scheduler' && id && (
               <div style={{ width: "100%", height: "700px" }}>
-                <Scheduler projectId={id} />
+                <Scheduler key={`scheduler-${timelineView}`} projectId={id} />
               </div>
             )}
           </div>

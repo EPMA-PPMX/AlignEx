@@ -50,13 +50,37 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
   }, []);
 
   useEffect(() => {
-    const loadScheduler = async () => {
-      if (schedulerContainer.current && !initializationAttempted.current) {
-        console.log('Initializing scheduler...', 'Container exists:', !!schedulerContainer.current);
-        initializationAttempted.current = true;
+    let isMounted = true;
 
+    const loadScheduler = async () => {
+      if (!schedulerContainer.current || initializationAttempted.current) {
+        console.log('Skipping scheduler init:', {
+          hasContainer: !!schedulerContainer.current,
+          attempted: initializationAttempted.current
+        });
+        return;
+      }
+
+      console.log('Initializing scheduler...', 'Container exists:', !!schedulerContainer.current);
+      initializationAttempted.current = true;
+
+      try {
         const schedulerModule = await import('dhtmlx-scheduler');
         const scheduler = schedulerModule.scheduler;
+
+        if (!isMounted) {
+          console.log('Component unmounted during import, aborting');
+          return;
+        }
+
+        // Clear any existing instance
+        if (window.scheduler && typeof window.scheduler.destructor === 'function') {
+          try {
+            window.scheduler.destructor();
+          } catch (e) {
+            console.log('No existing scheduler to destroy');
+          }
+        }
 
         window.scheduler = scheduler;
 
@@ -106,19 +130,34 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
           return html;
         };
 
+        if (!isMounted || !schedulerContainer.current) {
+          console.log('Component unmounted before init, aborting');
+          return;
+        }
+
         scheduler.init(schedulerContainer.current, new Date(), 'week');
         console.log('Scheduler initialized successfully');
-        setIsSchedulerInitialized(true);
+
+        if (isMounted) {
+          setIsSchedulerInitialized(true);
+        }
+      } catch (error) {
+        console.error('Error initializing scheduler:', error);
+        initializationAttempted.current = false;
       }
     };
 
     loadScheduler();
 
     return () => {
+      isMounted = false;
       console.log('Cleaning up scheduler...');
-      if (window.scheduler && window.scheduler.destructor) {
+      if (window.scheduler && typeof window.scheduler.destructor === 'function') {
         try {
+          window.scheduler.clearAll();
           window.scheduler.destructor();
+          window.scheduler = null;
+          console.log('Scheduler destroyed successfully');
         } catch (e) {
           console.error('Error destroying scheduler:', e);
         }
