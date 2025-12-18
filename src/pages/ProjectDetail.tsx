@@ -7,6 +7,7 @@ import { trackFieldHistory, shouldTrackFieldHistory } from '../lib/fieldHistoryT
 import { MonthlyBudgetGrid } from '../components/MonthlyBudgetGrid';
 import { BudgetSummaryTiles } from '../components/BudgetSummaryTiles';
 import Gantt from "../components/Gantt/Gantt";
+import Scheduler from "../components/Scheduler/Scheduler";
 import ProjectStatusDropdown from '../components/ProjectStatusDropdown';
 import ProjectHealthStatus from '../components/ProjectHealthStatus';
 import BenefitTracking from '../components/BenefitTracking';
@@ -165,6 +166,7 @@ const ProjectDetail: React.FC = () => {
   const navigate = useNavigate();
   const { showConfirm, showNotification } = useNotification();
   const [activeTab, setActiveTab] = useState('overview');
+  const [timelineView, setTimelineView] = useState<'gantt' | 'scheduler'>('gantt');
 
   // Utility function to adjust date to skip weekends
   const adjustToWorkday = (dateString: string): string => {
@@ -2978,56 +2980,82 @@ const ProjectDetail: React.FC = () => {
         {activeTab === 'timeline' && (
           <div className={isGanttFullscreen ? "fixed inset-0 z-50 bg-white p-6" : "bg-white rounded-lg shadow-sm border border-gray-200 p-6"}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
+              <div className="flex items-center gap-4">
+                <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
+                <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setTimelineView('gantt')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      timelineView === 'gantt'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Gantt View
+                  </button>
+                  <button
+                    onClick={() => setTimelineView('scheduler')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      timelineView === 'scheduler'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Calendar View
+                  </button>
+                </div>
+              </div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    if (ganttRef.current) {
-                      ganttRef.current.zoomIn();
-                    }
-                  }}
-                  className="inline-flex items-center justify-center w-9 h-9 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                  title="Zoom In"
-                >
-                  <ZoomIn className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => {
-                    if (ganttRef.current) {
-                      ganttRef.current.zoomOut();
-                    }
-                  }}
-                  className="inline-flex items-center justify-center w-9 h-9 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                  title="Zoom Out"
-                >
-                  <ZoomOut className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setIsGanttFullscreen(!isGanttFullscreen)}
-                  className="inline-flex items-center justify-center w-9 h-9 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                  title={isGanttFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-                >
-                  {isGanttFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                </button>
-                <button
-                  onClick={() => {
-                    if (ganttRef.current) {
-                      ganttRef.current.toggleGroupByOwner();
-                      setIsGroupedByOwner(!isGroupedByOwner);
-                    }
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                >
-                  <Group className="w-4 h-4" />
-                  {isGroupedByOwner ? 'Show All Tasks' : 'Group by Owner'}
-                </button>
-                <button
-                  onClick={() => setShowResourcePanel(!showResourcePanel)}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  <Users className="w-4 h-4" />
-                  {showResourcePanel ? 'Hide Resources' : 'Show Resources'}
-                </button>
+                {timelineView === 'gantt' && (
+                  <>
+                    <button
+                      onClick={() => {
+                        if (ganttRef.current) {
+                          ganttRef.current.zoomIn();
+                        }
+                      }}
+                      className="inline-flex items-center justify-center w-9 h-9 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                      title="Zoom In"
+                    >
+                      <ZoomIn className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (ganttRef.current) {
+                          ganttRef.current.zoomOut();
+                        }
+                      }}
+                      className="inline-flex items-center justify-center w-9 h-9 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                      title="Zoom Out"
+                    >
+                      <ZoomOut className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setIsGanttFullscreen(!isGanttFullscreen)}
+                      className="inline-flex items-center justify-center w-9 h-9 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                      title={isGanttFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+                    >
+                      {isGanttFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (ganttRef.current) {
+                          ganttRef.current.toggleGroupByOwner();
+                          setIsGroupedByOwner(!isGroupedByOwner);
+                        }
+                      }}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                    >
+                      <Group className="w-4 h-4" />
+                      {isGroupedByOwner ? 'Show All Tasks' : 'Group by Owner'}
+                    </button>
+                    <button
+                      onClick={() => setShowResourcePanel(!showResourcePanel)}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      <Users className="w-4 h-4" />
+                      {showResourcePanel ? 'Hide Resources' : 'Show Resources'}
+                    </button>
 
                 {/* Task Fields Selector */}
                 <div className="relative">
@@ -3191,44 +3219,49 @@ const ProjectDetail: React.FC = () => {
                     </div>
                   )}
                 </div>
-                <button
-                  onClick={() => {
-                    setEditingTaskId(null);
-                    setTaskForm({
-                      description: '',
-                      start_date: '',
-                      duration: 1,
-                      owner_id: '',
-                      resource_ids: [],
-                      parent_id: undefined,
-                      parent_wbs: '',
-                      predecessor_ids: [],
-                      type: 'task',
-                      progress: 0
-                    });
-                    setShowTaskModal(true);
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  Create Task
-                </button>
+                    <button
+                      onClick={() => {
+                        setEditingTaskId(null);
+                        setTaskForm({
+                          description: '',
+                          start_date: '',
+                          duration: 1,
+                          owner_id: '',
+                          resource_ids: [],
+                          parent_id: undefined,
+                          parent_wbs: '',
+                          predecessor_ids: [],
+                          type: 'task',
+                          progress: 0
+                        });
+                        setShowTaskModal(true);
+                      }}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Create Task
+                    </button>
+                  </>
+                )}
               </div>
             </div>
-            <div className="mb-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search tasks by name..."
-                  value={taskSearchQuery}
-                  onChange={(e) => setTaskSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-            <div style={{ width: "100%", height: isGanttFullscreen ? "calc(100vh - 150px)" : "600px", overflow: "auto" }}>
-              <Gantt
+
+            {timelineView === 'gantt' && (
+              <>
+                <div className="mb-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search tasks by name..."
+                      value={taskSearchQuery}
+                      onChange={(e) => setTaskSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+                <div style={{ width: "100%", height: isGanttFullscreen ? "calc(100vh - 150px)" : "600px", overflow: "auto" }}>
+                  <Gantt
                 ref={ganttRef}
                 projecttasks={projectTasks}
                 onTaskUpdate={saveProjectTasks}
@@ -3358,7 +3391,15 @@ const ProjectDetail: React.FC = () => {
                   }
                 }}
               />
-            </div>
+                </div>
+              </>
+            )}
+
+            {timelineView === 'scheduler' && id && (
+              <div style={{ width: "100%", height: "700px" }}>
+                <Scheduler projectId={id} />
+              </div>
+            )}
           </div>
         )}
 

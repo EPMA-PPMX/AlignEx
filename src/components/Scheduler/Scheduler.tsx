@@ -30,7 +30,11 @@ interface SchedulerEvent {
   project_id?: string;
 }
 
-export default function Scheduler() {
+interface SchedulerProps {
+  projectId?: string;
+}
+
+export default function Scheduler({ projectId }: SchedulerProps = {}) {
   const schedulerContainer = useRef<HTMLDivElement>(null);
   const [isSchedulerInitialized, setIsSchedulerInitialized] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -116,7 +120,7 @@ export default function Scheduler() {
     if (isSchedulerInitialized) {
       fetchTasksAndLoadScheduler();
     }
-  }, [isSchedulerInitialized, selectedProject, selectedResource]);
+  }, [isSchedulerInitialized, selectedProject, selectedResource, projectId]);
 
   const fetchProjects = async () => {
     try {
@@ -153,7 +157,9 @@ export default function Scheduler() {
         .from('project_tasks')
         .select('task_data, project_id, projects(name)');
 
-      if (selectedProject !== 'all') {
+      if (projectId) {
+        query = query.eq('project_id', projectId);
+      } else if (selectedProject !== 'all') {
         query = query.eq('project_id', selectedProject);
       }
 
@@ -242,47 +248,71 @@ export default function Scheduler() {
 
   return (
     <div className="scheduler-wrapper">
-      <div className="scheduler-header">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-5 h-5 text-blue-600" />
-          <h2>Task Scheduler</h2>
-        </div>
-        <p>View and track all project tasks in calendar format</p>
-      </div>
+      {!projectId && (
+        <>
+          <div className="scheduler-header">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-blue-600" />
+              <h2>Task Scheduler</h2>
+            </div>
+            <p>View and track all project tasks in calendar format</p>
+          </div>
 
-      <div className="filters-container">
-        <div className="project-filter">
-          <label htmlFor="project-filter">Project:</label>
-          <select
-            id="project-filter"
-            value={selectedProject}
-            onChange={(e) => setSelectedProject(e.target.value)}
-          >
-            <option value="all">All Projects</option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.name}
-              </option>
-            ))}
-          </select>
-        </div>
+          <div className="filters-container">
+            <div className="project-filter">
+              <label htmlFor="project-filter">Project:</label>
+              <select
+                id="project-filter"
+                value={selectedProject}
+                onChange={(e) => setSelectedProject(e.target.value)}
+              >
+                <option value="all">All Projects</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        <div className="resource-filter">
-          <label htmlFor="resource-filter">Resource:</label>
-          <select
-            id="resource-filter"
-            value={selectedResource}
-            onChange={(e) => setSelectedResource(e.target.value)}
-          >
-            <option value="all">All Resources</option>
-            {resources.map((resource) => (
-              <option key={resource.id} value={resource.id}>
-                {resource.display_name}
-              </option>
-            ))}
-          </select>
+            <div className="resource-filter">
+              <label htmlFor="resource-filter">Resource:</label>
+              <select
+                id="resource-filter"
+                value={selectedResource}
+                onChange={(e) => setSelectedResource(e.target.value)}
+              >
+                <option value="all">All Resources</option>
+                {resources.map((resource) => (
+                  <option key={resource.id} value={resource.id}>
+                    {resource.display_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </>
+      )}
+
+      {projectId && (
+        <div className="filters-container">
+          <div className="resource-filter">
+            <label htmlFor="resource-filter">Filter by Resource:</label>
+            <select
+              id="resource-filter"
+              value={selectedResource}
+              onChange={(e) => setSelectedResource(e.target.value)}
+            >
+              <option value="all">All Resources</option>
+              {resources.map((resource) => (
+                <option key={resource.id} value={resource.id}>
+                  {resource.display_name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="scheduler-container">
         <div ref={schedulerContainer} className="dhx_cal_container" style={{ width: '100%', height: '100%' }}>
