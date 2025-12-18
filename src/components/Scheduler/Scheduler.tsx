@@ -366,18 +366,12 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
         return;
       }
 
-      // Verify scheduler is actually initialized
-      if (!scheduler._lightbox) {
-        console.error('Scheduler DOM not ready, waiting...');
-        // Retry after a short delay
-        setTimeout(() => fetchTasksAndLoadScheduler(), 200);
-        return;
-      }
-
       console.log('Loading events into scheduler using parse...');
 
-      // Use parse() instead of addEvent() - it's the recommended way
+      // Clear existing events and load new ones
       scheduler.clearAll();
+
+      // Use parse() instead of addEvent() - it's the recommended way
       scheduler.parse(schedulerEvents, 'json');
 
       const loadedEvents = scheduler.getEvents();
