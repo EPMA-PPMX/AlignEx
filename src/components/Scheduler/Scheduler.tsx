@@ -51,6 +51,7 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
   useEffect(() => {
     const loadScheduler = async () => {
       if (schedulerContainer.current && !isSchedulerInitialized) {
+        console.log('Initializing scheduler...');
         const schedulerModule = await import('dhtmlx-scheduler');
         const scheduler = schedulerModule.scheduler;
 
@@ -103,6 +104,7 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
         };
 
         scheduler.init(schedulerContainer.current, new Date(), 'week');
+        console.log('Scheduler initialized successfully');
         setIsSchedulerInitialized(true);
       }
     };
@@ -110,11 +112,13 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
     loadScheduler();
 
     return () => {
+      console.log('Cleaning up scheduler...');
       if (window.scheduler && window.scheduler.destructor) {
         window.scheduler.destructor();
+        setIsSchedulerInitialized(false);
       }
     };
-  }, [isSchedulerInitialized]);
+  }, []);
 
   useEffect(() => {
     if (isSchedulerInitialized) {
@@ -153,6 +157,7 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
 
   const fetchTasksAndLoadScheduler = async () => {
     try {
+      console.log('Fetching tasks for projectId:', projectId);
       let query = supabase
         .from('project_tasks')
         .select('task_data, project_id, projects(name)');
@@ -167,17 +172,29 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
 
       if (error) throw error;
 
+      console.log('Project tasks data:', projectTasksData);
+
       const schedulerEvents: SchedulerEvent[] = [];
       let eventIdCounter = 1;
 
       for (const projectRecord of projectTasksData || []) {
-        if (!projectRecord.task_data?.data) continue;
+        console.log('Processing project record:', projectRecord);
+        if (!projectRecord.task_data?.data) {
+          console.log('No task_data.data for this record');
+          continue;
+        }
 
         const tasks = projectRecord.task_data.data;
         const projectName = (projectRecord.projects as any)?.name || 'Unknown Project';
 
+        console.log(`Processing ${tasks.length} tasks for project: ${projectName}`);
+
         for (const task of tasks) {
-          if (!task.start_date || !task.text) continue;
+          console.log('Processing task:', task.text, 'start_date:', task.start_date);
+          if (!task.start_date || !task.text) {
+            console.log('Skipping task - missing start_date or text');
+            continue;
+          }
 
           let startDate: Date | null = null;
           let endDate: Date | null = null;
@@ -235,11 +252,16 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
         }
       }
 
+      console.log(`Created ${schedulerEvents.length} scheduler events:`, schedulerEvents);
       setEvents(schedulerEvents);
 
       if (window.scheduler && window.scheduler.clearAll) {
+        console.log('Clearing and parsing events into scheduler');
         window.scheduler.clearAll();
         window.scheduler.parse(schedulerEvents);
+        console.log('Scheduler events parsed successfully');
+      } else {
+        console.error('Scheduler not initialized yet');
       }
     } catch (error) {
       console.error('Error fetching tasks:', error);
