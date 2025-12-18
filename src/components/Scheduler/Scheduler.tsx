@@ -358,40 +358,29 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
 
       scheduler.clearAll();
 
-      // Parse events using the correct dhtmlx-scheduler format
-      try {
-        // Try using parse with JSON format
-        console.log('Attempting to parse events with scheduler.parse()');
-        scheduler.parse({ data: schedulerEvents }, 'json');
-
-        const loadedEvents = scheduler.getEvents();
-        console.log(`Scheduler events parsed successfully. Total events in scheduler: ${loadedEvents.length}`);
-
-        if (loadedEvents.length === 0 && schedulerEvents.length > 0) {
-          console.warn('No events loaded! Trying addEvent method instead...');
-          // Fallback: Add events individually
-          schedulerEvents.forEach((event) => {
-            const eventId = scheduler.addEvent({
-              id: event.id,
-              text: event.text,
-              start_date: event.start_date,
-              end_date: event.end_date,
-              project_name: event.project_name,
-              resource_names: event.resource_names,
-              task_id: event.task_id,
-              project_id: event.project_id
-            });
-            console.log(`Added event "${event.text}" with ID:`, eventId);
+      // Add events individually (parse() can have issues with DOM access)
+      console.log('Adding events to scheduler...');
+      schedulerEvents.forEach((event) => {
+        try {
+          const eventId = scheduler.addEvent({
+            id: event.id,
+            text: event.text,
+            start_date: event.start_date,
+            end_date: event.end_date,
+            project_name: event.project_name,
+            resource_names: event.resource_names,
+            task_id: event.task_id,
+            project_id: event.project_id
           });
-
-          const retryLoadedEvents = scheduler.getEvents();
-          console.log(`After addEvent retry: ${retryLoadedEvents.length} events`);
+          console.log(`Added event "${event.text}" with ID:`, eventId);
+        } catch (eventError) {
+          console.error(`Error adding event "${event.text}":`, eventError);
         }
+      });
 
-        console.log('Final loaded events:', scheduler.getEvents());
-      } catch (parseError) {
-        console.error('Error parsing events to scheduler:', parseError);
-      }
+      const loadedEvents = scheduler.getEvents();
+      console.log(`Successfully loaded ${loadedEvents.length} events into scheduler`);
+      console.log('Final loaded events:', loadedEvents);
     } catch (error) {
       console.error('Error fetching tasks:', error);
     }
