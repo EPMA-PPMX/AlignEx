@@ -82,13 +82,20 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
           return;
         }
 
-        // Clear any existing instance
-        if (schedulerInstance.current && typeof schedulerInstance.current.destructor === 'function') {
+        // Clear any existing instance completely
+        if (scheduler && typeof scheduler.destructor === 'function') {
           try {
-            schedulerInstance.current.destructor();
+            scheduler.clearAll();
+            scheduler.destructor();
+            console.log('Previous scheduler instance destroyed');
           } catch (e) {
-            console.log('No existing scheduler to destroy');
+            console.log('No existing scheduler to destroy or already destroyed');
           }
+        }
+
+        // Reset the scheduler to ensure clean state
+        if (scheduler && typeof scheduler.resetLightbox === 'function') {
+          scheduler.resetLightbox();
         }
 
         // Store in both ref and window for compatibility
@@ -154,8 +161,22 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
           return;
         }
 
-        scheduler.init(schedulerContainer.current, new Date(), 'week');
-        console.log('Scheduler initialized successfully');
+        // Verify container is in the DOM
+        if (!document.contains(schedulerContainer.current)) {
+          console.error('Container element is not in the DOM');
+          initializationAttempted.current = false;
+          return;
+        }
+
+        try {
+          scheduler.init(schedulerContainer.current, new Date(), 'week');
+          console.log('Scheduler initialized successfully');
+          console.log('Scheduler._obj:', scheduler._obj); // This should be the container element
+        } catch (initError) {
+          console.error('Error during scheduler.init():', initError);
+          initializationAttempted.current = false;
+          return;
+        }
         console.log('Scheduler container size:', {
           width: schedulerContainer.current.offsetWidth,
           height: schedulerContainer.current.offsetHeight
@@ -187,19 +208,28 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
     return () => {
       isMounted = false;
       console.log('Cleaning up scheduler...');
+
+      // Mark as uninitialized first to prevent any pending operations
+      setIsSchedulerInitialized(false);
+
       if (schedulerInstance.current && typeof schedulerInstance.current.destructor === 'function') {
         try {
           schedulerInstance.current.clearAll();
           schedulerInstance.current.destructor();
-          schedulerInstance.current = null;
-          window.scheduler = null;
           console.log('Scheduler destroyed successfully');
         } catch (e) {
           console.error('Error destroying scheduler:', e);
         }
       }
+
+      // Clear references
+      schedulerInstance.current = null;
+      if (window.scheduler) {
+        window.scheduler = null;
+      }
+
+      // Reset flag to allow re-initialization
       initializationAttempted.current = false;
-      setIsSchedulerInitialized(false);
     };
   }, []);
 
@@ -245,12 +275,19 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
   const fetchTasksAndLoadScheduler = async () => {
     const scheduler = schedulerInstance.current;
 
-    if (!scheduler || !scheduler.clearAll || !scheduler.addEvent) {
+    if (!scheduler || !scheduler.clearAll || !scheduler.parse || !scheduler._obj) {
       console.error('Scheduler not ready yet, skipping data load', {
         hasScheduler: !!scheduler,
         hasClearAll: !!scheduler?.clearAll,
-        hasAddEvent: !!scheduler?.addEvent
+        hasParse: !!scheduler?.parse,
+        hasObj: !!scheduler?._obj
       });
+      return;
+    }
+
+    // Double-check the scheduler has a valid DOM reference
+    if (!scheduler._obj || !document.contains(scheduler._obj)) {
+      console.error('Scheduler DOM element is invalid or not in document');
       return;
     }
 
