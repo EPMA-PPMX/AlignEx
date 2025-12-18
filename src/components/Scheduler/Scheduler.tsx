@@ -82,20 +82,25 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
           return;
         }
 
-        // Clear any existing instance completely
-        if (scheduler && typeof scheduler.destructor === 'function') {
+        // If scheduler was previously initialized, we need to clean it up carefully
+        if (scheduler._obj || scheduler.$initialized) {
           try {
-            scheduler.clearAll();
-            scheduler.destructor();
-            console.log('Previous scheduler instance destroyed');
-          } catch (e) {
-            console.log('No existing scheduler to destroy or already destroyed');
-          }
-        }
+            console.log('Cleaning up previous scheduler instance...');
+            console.log('Previous _obj:', scheduler._obj);
+            console.log('Previous $initialized:', scheduler.$initialized);
 
-        // Reset the scheduler to ensure clean state
-        if (scheduler && typeof scheduler.resetLightbox === 'function') {
-          scheduler.resetLightbox();
+            if (scheduler.clearAll) {
+              scheduler.clearAll();
+            }
+
+            // Reset the internal state to allow re-initialization
+            scheduler._obj = null;
+            scheduler.$initialized = false;
+
+            console.log('After cleanup - _obj:', scheduler._obj, '$initialized:', scheduler.$initialized);
+          } catch (e) {
+            console.log('Error during scheduler cleanup:', e);
+          }
         }
 
         // Store in both ref and window for compatibility
@@ -169,9 +174,21 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
         }
 
         try {
-          scheduler.init(schedulerContainer.current, new Date(), 'week');
+          // Force re-initialization even if already initialized
+          const currentDate = new Date();
+          console.log('Calling scheduler.init() with container:', schedulerContainer.current);
+          scheduler.init(schedulerContainer.current, currentDate, 'week');
+
+          // Verify initialization succeeded
           console.log('Scheduler initialized successfully');
-          console.log('Scheduler._obj:', scheduler._obj); // This should be the container element
+          console.log('Scheduler._obj:', scheduler._obj);
+          console.log('Scheduler._obj === container:', scheduler._obj === schedulerContainer.current);
+
+          if (!scheduler._obj) {
+            console.error('Scheduler._obj is still null after init - initialization failed!');
+            initializationAttempted.current = false;
+            return;
+          }
         } catch (initError) {
           console.error('Error during scheduler.init():', initError);
           initializationAttempted.current = false;
@@ -212,23 +229,18 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
       // Mark as uninitialized first to prevent any pending operations
       setIsSchedulerInitialized(false);
 
-      if (schedulerInstance.current && typeof schedulerInstance.current.destructor === 'function') {
+      if (schedulerInstance.current) {
         try {
+          // Clear all events but don't call destructor (it breaks re-init)
           schedulerInstance.current.clearAll();
-          schedulerInstance.current.destructor();
-          console.log('Scheduler destroyed successfully');
+          console.log('Scheduler events cleared');
         } catch (e) {
-          console.error('Error destroying scheduler:', e);
+          console.error('Error clearing scheduler:', e);
         }
       }
 
-      // Clear references
-      schedulerInstance.current = null;
-      if (window.scheduler) {
-        window.scheduler = null;
-      }
-
-      // Reset flag to allow re-initialization
+      // Don't clear the scheduler instance reference completely
+      // Just reset the initialization flag to allow re-initialization
       initializationAttempted.current = false;
     };
   }, []);
