@@ -78,6 +78,25 @@
   font-size: 0.875rem;
 }
 
+/* Multi-day section in week view */
+.dhx_multi_day {
+  min-height: 50px !important;
+}
+
+.dhx_multi_day .dhx_cal_event_line {
+  cursor: move;
+  cursor: grab;
+  transition: box-shadow 0.2s ease;
+}
+
+.dhx_multi_day .dhx_cal_event_line:hover {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.dhx_multi_day .dhx_cal_event_line:active {
+  cursor: grabbing;
+}
+
 .project-filter {
   display: flex;
   gap: 0.75rem;
