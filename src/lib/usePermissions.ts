@@ -155,7 +155,8 @@ export function usePermissions(userEmail?: string): UsePermissionsResult {
 
   useEffect(() => {
     loadPermissions();
-  }, [email]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return {
     licenseTier,

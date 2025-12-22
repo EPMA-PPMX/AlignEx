@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Users, Calendar } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { useCurrentUser } from '../../lib/useCurrentUser';
+import { DEMO_USER_ID } from '../../lib/useCurrentUser';
 import { Link } from 'react-router-dom';
 
 interface TeamMember {
@@ -19,7 +19,6 @@ interface Task {
 }
 
 export default function TeamCapacityWidget() {
-  const { user } = useCurrentUser();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [allocations, setAllocations] = useState<Map<string, Map<string, number>>>(new Map());
   const [weekStartDates, setWeekStartDates] = useState<Date[]>([]);
@@ -28,17 +27,24 @@ export default function TeamCapacityWidget() {
   const weeks = 4;
 
   useEffect(() => {
-    if (user) {
-      fetchTeamCapacity();
-    }
-  }, [user]);
+    fetchTeamCapacity();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchTeamCapacity = async () => {
     try {
       setLoading(true);
 
-      if (!user?.resource_id) {
+      // Get user's resource_id
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('resource_id')
+        .eq('id', DEMO_USER_ID)
+        .maybeSingle();
+
+      if (userError || !userData?.resource_id) {
         setTeamMembers([]);
+        setLoading(false);
         return;
       }
 
@@ -61,7 +67,7 @@ export default function TeamCapacityWidget() {
         .from('project_field_values')
         .select('project_id')
         .eq('field_id', pmField.id)
-        .eq('value', user.resource_id);
+        .eq('value', userData.resource_id);
 
       if (pfvError) throw pfvError;
 
