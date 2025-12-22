@@ -107,9 +107,13 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       server: file.size > 4 * 1024 * 1024 ? "https://export.dhtmlx.com/gantt/project" : "https://export.dhtmlx.com/gantt",
       callback: (project: any) => {
         console.log('=== MS Project Import Response ===');
-        console.log('Project data:', project);
+        console.log('Full project response:', project);
+        console.log('Project data:', project.data);
         console.log('Tasks count:', project.data?.data?.length || 0);
         console.log('Links count:', project.data?.links?.length || 0);
+        console.log('Resources:', project.data?.resources);
+        console.log('Resource assignments:', project.data?.resourceAssignments);
+        console.log('Sample task with resources:', project.data?.data?.[0]);
 
         if (project && project.data) {
           callback(true, project.data);

@@ -2076,10 +2076,15 @@ const ProjectDetail: React.FC = () => {
         try {
           const importedTasks = data.data || [];
           const importedLinks = data.links || [];
+          const importedResources = data.resources || [];
+          const importedResourceAssignments = data.resourceAssignments || [];
 
           console.log('=== Processing Imported Tasks ===');
           console.log('Tasks to import:', importedTasks.length);
           console.log('Links to import:', importedLinks.length);
+          console.log('Resources to import:', importedResources.length);
+          console.log('Resource assignments to import:', importedResourceAssignments.length);
+          console.log('Full import data:', data);
 
           // Get existing tasks
           const existingTasks = projectTasks.data || [];
@@ -2091,6 +2096,36 @@ const ProjectDetail: React.FC = () => {
 
           // Create a map to convert imported task IDs to new IDs
           const taskIdMap = new Map<string | number, number>();
+
+          // Create a resource map from imported resources
+          const resourceMap = new Map<string | number, string>();
+          if (importedResources && Array.isArray(importedResources)) {
+            importedResources.forEach((resource: any) => {
+              if (resource.id && resource.name) {
+                resourceMap.set(resource.id, resource.name);
+              }
+            });
+          }
+
+          // Create a task-to-resources map from resource assignments
+          const taskResourcesMap = new Map<string | number, string[]>();
+          if (importedResourceAssignments && Array.isArray(importedResourceAssignments)) {
+            importedResourceAssignments.forEach((assignment: any) => {
+              const taskId = assignment.task_id;
+              const resourceId = assignment.resource_id;
+              const resourceName = resourceMap.get(resourceId);
+
+              if (taskId && resourceName) {
+                if (!taskResourcesMap.has(taskId)) {
+                  taskResourcesMap.set(taskId, []);
+                }
+                taskResourcesMap.get(taskId)!.push(resourceName);
+              }
+            });
+          }
+
+          console.log('Resource map:', Array.from(resourceMap.entries()));
+          console.log('Task resources map:', Array.from(taskResourcesMap.entries()));
 
           // Process imported tasks and assign new IDs
           const newTasks = importedTasks.map((importedTask: any) => {
@@ -2119,6 +2154,47 @@ const ProjectDetail: React.FC = () => {
               ? (taskIdMap.get(importedTask.parent) || 0)
               : 0;
 
+            // Extract resource/owner information
+            let ownerName = null;
+            let resourceIds = null;
+            let resourceNames = null;
+
+            // First, check resource assignments map (most reliable)
+            const assignedResources = taskResourcesMap.get(originalId);
+            if (assignedResources && assignedResources.length > 0) {
+              ownerName = assignedResources.length === 1 ? assignedResources[0] : assignedResources;
+            }
+            // Fallback: check for resource assignments in different possible formats
+            else if (importedTask.owner_id) {
+              // Single resource assignment
+              ownerName = resourceMap.get(importedTask.owner_id) || null;
+            } else if (importedTask.resource_id) {
+              // Alternative single resource field
+              ownerName = resourceMap.get(importedTask.resource_id) || null;
+            } else if (importedTask.resources) {
+              // Multiple resources
+              if (Array.isArray(importedTask.resources)) {
+                resourceIds = importedTask.resources.map((r: any) => r.resource_id || r.id || r);
+                resourceNames = resourceIds.map((rid: any) => resourceMap.get(rid) || 'Unknown').filter((n: string) => n !== 'Unknown');
+                if (resourceNames.length > 0) {
+                  ownerName = resourceNames.length === 1 ? resourceNames[0] : resourceNames;
+                }
+              }
+            } else if (importedTask.owner || importedTask.resource) {
+              // Direct resource name
+              ownerName = importedTask.owner || importedTask.resource;
+            }
+
+            console.log(`Task ${newTaskId} (${importedTask.text}): owner_name=${ownerName}, resources in task:`, {
+              originalTaskId: originalId,
+              assignedResources,
+              owner_id: importedTask.owner_id,
+              resource_id: importedTask.resource_id,
+              resources: importedTask.resources,
+              owner: importedTask.owner,
+              resource: importedTask.resource
+            });
+
             return {
               id: newTaskId,
               text: importedTask.text || 'Untitled Task',
@@ -2127,8 +2203,8 @@ const ProjectDetail: React.FC = () => {
               progress: importedTask.progress || 0,
               parent: parentId,
               type: importedTask.type || 'task',
-              owner_id: null,
-              owner_name: null,
+              owner_id: resourceIds || null,
+              owner_name: ownerName,
             };
           });
 
