@@ -2,6 +2,7 @@ import React, { Component, createRef } from "react";
 import { gantt } from "../../lib/dhtmlxgantt/gantt-wrapper";
 import "../../lib/dhtmlxgantt/dhtmlxgantt.css";
 import "./Gantt.css";
+import { supabase } from "../../lib/supabase";
 
 // Define TypeScript interfaces for props and tasks
 interface Task {
@@ -76,10 +77,62 @@ export default class Gantt extends Component<GanttProps, GanttState> {
   private groupHeaderIdStart: number = 999900;
   private resizeObserver: ResizeObserver | null = null;
   private readonly skipWeekends: boolean = true; // Always skip weekends by default
+  private userId: string = 'anonymous'; // Default user ID for preferences
 
   constructor(props: GanttProps) {
     super(props);
     this.state = {};
+  }
+
+  // Save grid width preference to database
+  private async saveGridWidthPreference(gridWidth: number): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('user_preferences')
+        .upsert({
+          user_id: this.userId,
+          preference_key: 'gantt_grid_width',
+          preference_value: { width: gridWidth },
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,preference_key'
+        });
+
+      if (error) {
+        console.error('Error saving grid width preference:', error);
+      } else {
+        console.log('Grid width preference saved:', gridWidth);
+      }
+    } catch (error) {
+      console.error('Error saving grid width preference:', error);
+    }
+  }
+
+  // Load grid width preference from database
+  private async loadGridWidthPreference(): Promise<number | null> {
+    try {
+      const { data, error } = await supabase
+        .from('user_preferences')
+        .select('preference_value')
+        .eq('user_id', this.userId)
+        .eq('preference_key', 'gantt_grid_width')
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error loading grid width preference:', error);
+        return null;
+      }
+
+      if (data && data.preference_value && typeof data.preference_value.width === 'number') {
+        console.log('Grid width preference loaded:', data.preference_value.width);
+        return data.preference_value.width;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error loading grid width preference:', error);
+      return null;
+    }
   }
 
   public isGroupedByOwner = (): boolean => {
@@ -567,7 +620,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     gantt.config.columns = baseColumns;
   };
 
-  componentDidMount(): void {
+  async componentDidMount(): Promise<void> {
     if (!this.ganttContainer.current) return;
 
     gantt.license = "39548339";
@@ -765,15 +818,26 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       gantt.ext.zoom.setLevel("day");
     }
 
-    // Set grid width to 40% of container (task pane), leaving 60% for chart
-    const updateGridWidth = () => {
+    // Set grid width - load from preferences or use default (450px minimum to show task name)
+    const updateGridWidth = async () => {
       if (this.ganttContainer.current) {
         const containerWidth = this.ganttContainer.current.offsetWidth;
-        gantt.config.grid_width = Math.floor(containerWidth * 0.4);
+
+        // Try to load saved preference
+        const savedWidth = await this.loadGridWidthPreference();
+
+        if (savedWidth !== null) {
+          // Use saved width
+          gantt.config.grid_width = savedWidth;
+        } else {
+          // Use default: 40% of container but at least 450px to show task name column
+          const defaultWidth = Math.floor(containerWidth * 0.4);
+          gantt.config.grid_width = Math.max(450, defaultWidth);
+        }
       }
     };
 
-    updateGridWidth();
+    await updateGridWidth();
     gantt.config.min_grid_column_width = 50;
 
     gantt.config.duration_step = 1;
@@ -848,7 +912,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           {
             cols: [
               {
-                width: 400,
+                width: gantt.config.grid_width || 450,
                 min_width: 300,
                 rows: [
                   {
@@ -918,7 +982,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         css: "gantt_container",
         cols: [
           {
-            width: 400,
+            width: gantt.config.grid_width || 450,
             min_width: 300,
             rows: [
               {
@@ -1408,13 +1472,17 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     if (this.ganttContainer.current) {
       gantt.init(this.ganttContainer.current);
 
-      // Set up ResizeObserver to update grid width on container resize
+      // Listen for grid resize events to save the user's preference
+      gantt.attachEvent("onGridResizeEnd", (old_width: number, new_width: number) => {
+        console.log("Grid resized from", old_width, "to", new_width);
+        this.saveGridWidthPreference(new_width);
+        return true;
+      });
+
+      // Set up ResizeObserver to handle container resize (but not override user preference)
       this.resizeObserver = new ResizeObserver(() => {
-        if (this.ganttContainer.current) {
-          const containerWidth = this.ganttContainer.current.offsetWidth;
-          gantt.config.grid_width = Math.floor(containerWidth * 0.4);
-          gantt.render();
-        }
+        // Only render, don't change grid_width since user may have set a preference
+        gantt.render();
       });
       this.resizeObserver.observe(this.ganttContainer.current);
 
@@ -1643,7 +1711,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
             {
               cols: [
                 {
-                  width: 400,
+                  width: gantt.config.grid_width || 450,
                   min_width: 300,
                   rows: [
                     {
@@ -1713,7 +1781,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           css: "gantt_container",
           cols: [
             {
-              width: 400,
+              width: gantt.config.grid_width || 450,
               min_width: 300,
               rows: [
                 {
