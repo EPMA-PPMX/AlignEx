@@ -2081,21 +2081,29 @@ const ProjectDetail: React.FC = () => {
           console.log('Tasks to import:', importedTasks.length);
           console.log('Links to import:', importedLinks.length);
 
-          const taskIdMap = new Map<string | number, number>();
-          let nextTaskId = Math.max(0, ...projectTasks.data.map((t: any) => t.id || 0)) + 1;
+          // Get existing tasks
+          const existingTasks = projectTasks.data || [];
+          const existingLinks = projectTasks.links || [];
 
-          const tasksToInsert = [];
-          for (const importedTask of importedTasks) {
+          // Find the next available task ID
+          let nextTaskId = Math.max(0, ...existingTasks.map((t: any) => t.id || 0)) + 1;
+          let nextLinkId = Math.max(0, ...existingLinks.map((l: any) => l.id || 0)) + 1;
+
+          // Create a map to convert imported task IDs to new IDs
+          const taskIdMap = new Map<string | number, number>();
+
+          // Process imported tasks and assign new IDs
+          const newTasks = importedTasks.map((importedTask: any) => {
             const originalId = importedTask.id;
             const newTaskId = nextTaskId++;
             taskIdMap.set(originalId, newTaskId);
 
-            const startDate = importedTask.start_date;
+            // Format start_date to match expected format
             let formattedStartDate = '';
-            if (startDate) {
-              const dateObj = typeof startDate === 'string'
-                ? new Date(startDate)
-                : startDate;
+            if (importedTask.start_date) {
+              const dateObj = typeof importedTask.start_date === 'string'
+                ? new Date(importedTask.start_date)
+                : importedTask.start_date;
               if (!isNaN(dateObj.getTime())) {
                 const year = dateObj.getFullYear();
                 const month = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -2106,68 +2114,86 @@ const ProjectDetail: React.FC = () => {
               }
             }
 
+            // Map parent ID to new ID
             const parentId = importedTask.parent && importedTask.parent !== 0
               ? (taskIdMap.get(importedTask.parent) || 0)
               : 0;
 
-            const taskData = {
+            return {
               id: newTaskId,
-              project_id: id,
-              task_name: importedTask.text || 'Untitled Task',
+              text: importedTask.text || 'Untitled Task',
               start_date: formattedStartDate || null,
               duration: importedTask.duration || 1,
               progress: importedTask.progress || 0,
-              parent_task_id: parentId,
+              parent: parentId,
               type: importedTask.type || 'task',
               owner_id: null,
               owner_name: null,
-              task_data: {
-                ...importedTask,
-                id: newTaskId,
-                parent: parentId
-              }
             };
+          });
 
-            tasksToInsert.push(taskData);
-          }
-
-          console.log('=== Inserting Tasks into Database ===');
-          const { data: insertedTasks, error: insertError } = await supabase
-            .from('project_tasks')
-            .insert(tasksToInsert)
-            .select();
-
-          if (insertError) {
-            throw insertError;
-          }
-
-          console.log('Tasks inserted successfully:', insertedTasks?.length || 0);
-
-          const linksToInsert = importedLinks
+          // Process imported links with new task IDs
+          const newLinks = importedLinks
             .map((link: any) => ({
-              project_id: id,
-              source_task_id: taskIdMap.get(link.source),
-              target_task_id: taskIdMap.get(link.target),
-              link_type: link.type || '0'
+              id: nextLinkId++,
+              source: taskIdMap.get(link.source),
+              target: taskIdMap.get(link.target),
+              type: link.type || '0'
             }))
-            .filter((link: any) => link.source_task_id && link.target_task_id);
+            .filter((link: any) => link.source && link.target);
 
-          if (linksToInsert.length > 0) {
-            console.log('=== Inserting Links into Database ===');
-            const { error: linksError } = await supabase
-              .from('project_task_links')
-              .insert(linksToInsert);
+          // Combine existing and new tasks/links
+          const mergedTasks = [...existingTasks, ...newTasks];
+          const mergedLinks = [...existingLinks, ...newLinks];
 
-            if (linksError) {
-              console.error('Error inserting links:', linksError);
-            } else {
-              console.log('Links inserted successfully:', linksToInsert.length);
-            }
+          // Update the project_tasks record with merged data
+          const updatedTaskData = {
+            data: mergedTasks,
+            links: mergedLinks
+          };
+
+          console.log('=== Updating Database ===');
+          console.log('Total tasks:', mergedTasks.length);
+          console.log('Total links:', mergedLinks.length);
+
+          // Check if record exists for this project
+          const { data: existingRecord } = await supabase
+            .from('project_tasks')
+            .select('id')
+            .eq('project_id', id)
+            .single();
+
+          let updateError;
+          if (existingRecord) {
+            // Update existing record
+            const { error } = await supabase
+              .from('project_tasks')
+              .update({
+                task_data: updatedTaskData,
+                updated_at: new Date().toISOString()
+              })
+              .eq('project_id', id);
+            updateError = error;
+          } else {
+            // Insert new record
+            const { error } = await supabase
+              .from('project_tasks')
+              .insert({
+                project_id: id,
+                task_data: updatedTaskData
+              });
+            updateError = error;
           }
+
+          if (updateError) {
+            throw updateError;
+          }
+
+          console.log('Database updated successfully');
 
           await fetchProjectTasks();
           setImportingMSProject(false);
-          showNotification(`Successfully imported ${insertedTasks?.length || 0} tasks from MS Project!`, 'success');
+          showNotification(`Successfully imported ${newTasks.length} tasks from MS Project!`, 'success');
           event.target.value = '';
         } catch (error: any) {
           console.error('Error saving imported tasks:', error);
