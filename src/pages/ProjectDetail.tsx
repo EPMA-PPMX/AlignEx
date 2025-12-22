@@ -3266,6 +3266,7 @@ const ProjectDetail: React.FC = () => {
             <div style={{ width: "100%", height: isGanttFullscreen ? "calc(100vh - 150px)" : "600px", overflow: "auto" }}>
               <Gantt
                 ref={ganttRef}
+                projectId={id}
                 projecttasks={projectTasks}
                 onTaskUpdate={saveProjectTasks}
                 searchQuery={taskSearchQuery}

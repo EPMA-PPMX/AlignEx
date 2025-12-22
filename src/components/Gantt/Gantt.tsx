@@ -63,6 +63,7 @@ interface GanttProps {
   taskCustomFields?: CustomField[];
   showResourcePanel?: boolean;
   projectCreatedAt?: string;
+  projectId?: string;
 }
 
 interface GanttState {}
@@ -135,6 +136,65 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     }
   }
 
+  // Save zoom level preference to database (per project)
+  private async saveZoomLevelPreference(zoomLevel: string): Promise<void> {
+    const { projectId } = this.props;
+    if (!projectId) return;
+
+    try {
+      const preferenceKey = `gantt_zoom_level_${projectId}`;
+      const { error } = await supabase
+        .from('user_preferences')
+        .upsert({
+          user_id: this.userId,
+          preference_key: preferenceKey,
+          preference_value: { zoom_level: zoomLevel },
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,preference_key'
+        });
+
+      if (error) {
+        console.error('Error saving zoom level preference:', error);
+      } else {
+        console.log('Zoom level preference saved:', zoomLevel, 'for project:', projectId);
+      }
+    } catch (error) {
+      console.error('Error saving zoom level preference:', error);
+    }
+  }
+
+  // Load zoom level preference from database (per project)
+  private async loadZoomLevelPreference(): Promise<string | null> {
+    const { projectId } = this.props;
+    if (!projectId) return null;
+
+    try {
+      const preferenceKey = `gantt_zoom_level_${projectId}`;
+      const { data, error } = await supabase
+        .from('user_preferences')
+        .select('preference_value')
+        .eq('user_id', this.userId)
+        .eq('preference_key', preferenceKey)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error loading zoom level preference:', error);
+        return null;
+      }
+
+      if (data && data.preference_value && typeof data.preference_value.zoom_level === 'string') {
+        console.log('Zoom level preference loaded:', data.preference_value.zoom_level, 'for project:', projectId);
+        return data.preference_value.zoom_level;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error loading zoom level preference:', error);
+      return null;
+    }
+  }
+
   public isGroupedByOwner = (): boolean => {
     return this.isGrouped;
   };
@@ -201,10 +261,12 @@ export default class Gantt extends Component<GanttProps, GanttState> {
 
   public zoomIn = (): void => {
     gantt.ext.zoom.zoomIn();
+    // Note: onAfterZoom event will handle saving the preference
   };
 
   public zoomOut = (): void => {
     gantt.ext.zoom.zoomOut();
+    // Note: onAfterZoom event will handle saving the preference
   };
 
   public toggleGroupByOwner = (): void => {
@@ -815,7 +877,12 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     // Initialize zoom extension if it exists
     if (gantt.ext && gantt.ext.zoom) {
       gantt.ext.zoom.init(zoomConfig);
-      gantt.ext.zoom.setLevel("day");
+
+      // Load saved zoom level for this project, or use default
+      const savedZoomLevel = await this.loadZoomLevelPreference();
+      const initialZoomLevel = savedZoomLevel || "day";
+      gantt.ext.zoom.setLevel(initialZoomLevel);
+      console.log('Initial zoom level set to:', initialZoomLevel);
     }
 
     // Set grid width - load from preferences or use default (450px minimum to show task name)
@@ -1478,6 +1545,14 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         this.saveGridWidthPreference(new_width);
         return true;
       });
+
+      // Listen for zoom level changes to save the user's preference per project
+      if (gantt.ext && gantt.ext.zoom) {
+        gantt.ext.zoom.attachEvent("onAfterZoom", (level: any, config: any) => {
+          console.log("Zoom level changed to:", level);
+          this.saveZoomLevelPreference(level);
+        });
+      }
 
       // Set up ResizeObserver to handle container resize (but not override user preference)
       this.resizeObserver = new ResizeObserver(() => {
