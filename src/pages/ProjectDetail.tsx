@@ -2169,6 +2169,14 @@ const ProjectDetail: React.FC = () => {
 
             // First, check resource assignments map (most reliable)
             const assignedResources = taskResourcesMap.get(originalId);
+            console.log(`Task ${importedTask.text}: Looking for resources with originalId=${originalId}`);
+            console.log(`  Found assigned resources:`, assignedResources);
+            console.log(`  Available project team members:`, projectTeamMembers.map(m => ({
+              resource_id: m.resource_id,
+              display_name: m.resources?.display_name,
+              allocation: m.allocation_percentage
+            })));
+
             if (assignedResources && assignedResources.length > 0) {
               // Ensure all resources are strings
               const validResources = assignedResources.filter(r => r && typeof r === 'string');
@@ -2178,10 +2186,27 @@ const ProjectDetail: React.FC = () => {
                 resourceNames = validResources;
                 resourceIds = validResources
                   .map(resName => {
-                    const member = projectTeamMembers.find(m => m.resources?.display_name === resName);
+                    // Try exact match first
+                    let member = projectTeamMembers.find(m => m.resources?.display_name === resName);
+
+                    // Try case-insensitive match if exact match fails
+                    if (!member) {
+                      const normalizedResName = resName.toLowerCase().trim();
+                      member = projectTeamMembers.find(m =>
+                        m.resources?.display_name?.toLowerCase().trim() === normalizedResName
+                      );
+                    }
+
+                    console.log(`  Mapping resource "${resName}" => member:`, member ? {
+                      resource_id: member.resource_id,
+                      display_name: member.resources?.display_name
+                    } : 'NOT FOUND');
+
                     return member?.resource_id;
                   })
                   .filter((id): id is string => id !== undefined);
+
+                console.log(`  Final mapped resourceIds:`, resourceIds);
               }
             }
             // Fallback: check for resource assignments in different possible formats
@@ -2191,8 +2216,14 @@ const ProjectDetail: React.FC = () => {
               if (resourceName && typeof resourceName === 'string') {
                 ownerName = resourceName;
                 resourceNames = [resourceName];
-                // Try to find matching resource ID
-                const member = projectTeamMembers.find(m => m.resources?.display_name === resourceName);
+                // Try to find matching resource ID with case-insensitive matching
+                let member = projectTeamMembers.find(m => m.resources?.display_name === resourceName);
+                if (!member) {
+                  const normalizedResName = resourceName.toLowerCase().trim();
+                  member = projectTeamMembers.find(m =>
+                    m.resources?.display_name?.toLowerCase().trim() === normalizedResName
+                  );
+                }
                 if (member?.resource_id) {
                   resourceIds = [member.resource_id];
                 }
@@ -2203,8 +2234,14 @@ const ProjectDetail: React.FC = () => {
               if (resourceName && typeof resourceName === 'string') {
                 ownerName = resourceName;
                 resourceNames = [resourceName];
-                // Try to find matching resource ID
-                const member = projectTeamMembers.find(m => m.resources?.display_name === resourceName);
+                // Try to find matching resource ID with case-insensitive matching
+                let member = projectTeamMembers.find(m => m.resources?.display_name === resourceName);
+                if (!member) {
+                  const normalizedResName = resourceName.toLowerCase().trim();
+                  member = projectTeamMembers.find(m =>
+                    m.resources?.display_name?.toLowerCase().trim() === normalizedResName
+                  );
+                }
                 if (member?.resource_id) {
                   resourceIds = [member.resource_id];
                 }
@@ -2219,10 +2256,16 @@ const ProjectDetail: React.FC = () => {
                 if (tempResourceNames.length > 0) {
                   ownerName = tempResourceNames.length === 1 ? tempResourceNames[0] : tempResourceNames;
                   resourceNames = tempResourceNames;
-                  // Map resource names to IDs
+                  // Map resource names to IDs with case-insensitive matching
                   resourceIds = tempResourceNames
                     .map((resName: string) => {
-                      const member = projectTeamMembers.find(m => m.resources?.display_name === resName);
+                      let member = projectTeamMembers.find(m => m.resources?.display_name === resName);
+                      if (!member) {
+                        const normalizedResName = resName.toLowerCase().trim();
+                        member = projectTeamMembers.find(m =>
+                          m.resources?.display_name?.toLowerCase().trim() === normalizedResName
+                        );
+                      }
                       return member?.resource_id;
                     })
                     .filter((id): id is string => id !== undefined);
@@ -2234,8 +2277,14 @@ const ProjectDetail: React.FC = () => {
               if (directName && typeof directName === 'string') {
                 ownerName = directName;
                 resourceNames = [directName];
-                // Try to find matching resource ID
-                const member = projectTeamMembers.find(m => m.resources?.display_name === directName);
+                // Try to find matching resource ID with case-insensitive matching
+                let member = projectTeamMembers.find(m => m.resources?.display_name === directName);
+                if (!member) {
+                  const normalizedResName = directName.toLowerCase().trim();
+                  member = projectTeamMembers.find(m =>
+                    m.resources?.display_name?.toLowerCase().trim() === normalizedResName
+                  );
+                }
                 if (member?.resource_id) {
                   resourceIds = [member.resource_id];
                 }
@@ -2257,16 +2306,24 @@ const ProjectDetail: React.FC = () => {
             let workHours = 0;
             let resourceWorkHours = {};
 
+            console.log(`\n=== WORK HOURS CALCULATION for "${importedTask.text}" ===`);
+            console.log(`  Task Duration: ${taskDuration} days`);
+            console.log(`  Resource IDs: ${resourceIds.length > 0 ? resourceIds.join(', ') : 'NONE'}`);
+            console.log(`  Resource Names: ${resourceNames.length > 0 ? resourceNames.join(', ') : 'NONE'}`);
+
             // If resources are assigned, calculate work hours using the same logic as manual task creation
             if (resourceIds && resourceIds.length > 0) {
+              console.log(`  Calling calculateWorkHours with duration=${taskDuration}, resourceIds=[${resourceIds.join(',')}]`);
               const workHoursData = calculateWorkHours(taskDuration, resourceIds);
               workHours = workHoursData.total;
               resourceWorkHours = workHoursData.byResource;
-              console.log(`Task ${newTaskId} (${importedTask.text}): Calculated work_hours=${workHours} from duration=${taskDuration} and resources=${resourceIds.join(',')}`);
+              console.log(`  ✓ CALCULATED work_hours=${workHours}`);
+              console.log(`  ✓ Resource breakdown:`, resourceWorkHours);
             } else {
               // No resources assigned
-              console.log(`Task ${newTaskId} (${importedTask.text}): No resources assigned, work_hours=0`);
+              console.log(`  ✗ NO RESOURCES ASSIGNED - work_hours will be 0`);
             }
+            console.log(`=== END WORK HOURS CALCULATION ===\n`);
 
             return {
               id: newTaskId,
