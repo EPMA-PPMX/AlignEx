@@ -2090,6 +2090,8 @@ const ProjectDetail: React.FC = () => {
           if (importedTasks.length > 0) {
             console.log('Sample task fields:', Object.keys(importedTasks[0]));
             console.log('Sample task data:', importedTasks[0]);
+            console.log('Sample task $raw:', importedTasks[0].$raw);
+            console.log('Sample task $custom_data:', importedTasks[0].$custom_data);
           }
 
           // Get existing tasks
@@ -2212,20 +2214,39 @@ const ProjectDetail: React.FC = () => {
 
             // Extract work hours from various possible fields
             let workHours = 0;
+
+            // Check main task object
             if (importedTask.work_hours !== undefined && importedTask.work_hours !== null) {
               workHours = Number(importedTask.work_hours) || 0;
             } else if (importedTask.work !== undefined && importedTask.work !== null) {
-              // MS Project exports work in hours
               workHours = Number(importedTask.work) || 0;
             } else if (importedTask.Work !== undefined && importedTask.Work !== null) {
               workHours = Number(importedTask.Work) || 0;
             }
 
-            console.log(`Task ${newTaskId} (${importedTask.text}): work_hours=${workHours} (from:`, {
-              work_hours: importedTask.work_hours,
-              work: importedTask.work,
-              Work: importedTask.Work
-            }, ')');
+            // Check $raw field (MS Project raw data)
+            if (workHours === 0 && importedTask.$raw) {
+              if (importedTask.$raw.work !== undefined && importedTask.$raw.work !== null) {
+                workHours = Number(importedTask.$raw.work) || 0;
+              } else if (importedTask.$raw.Work !== undefined && importedTask.$raw.Work !== null) {
+                workHours = Number(importedTask.$raw.Work) || 0;
+              } else if (importedTask.$raw.work_hours !== undefined && importedTask.$raw.work_hours !== null) {
+                workHours = Number(importedTask.$raw.work_hours) || 0;
+              }
+            }
+
+            // Check $custom_data field
+            if (workHours === 0 && importedTask.$custom_data) {
+              if (importedTask.$custom_data.work !== undefined && importedTask.$custom_data.work !== null) {
+                workHours = Number(importedTask.$custom_data.work) || 0;
+              } else if (importedTask.$custom_data.Work !== undefined && importedTask.$custom_data.Work !== null) {
+                workHours = Number(importedTask.$custom_data.Work) || 0;
+              } else if (importedTask.$custom_data.work_hours !== undefined && importedTask.$custom_data.work_hours !== null) {
+                workHours = Number(importedTask.$custom_data.work_hours) || 0;
+              }
+            }
+
+            console.log(`Task ${newTaskId} (${importedTask.text}): work_hours=${workHours}`);
 
             return {
               id: newTaskId,
