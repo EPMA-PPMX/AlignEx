@@ -324,6 +324,8 @@ const ProjectDetail: React.FC = () => {
 
   const [taskSearchQuery, setTaskSearchQuery] = useState('');
   const ganttRef = useRef<any>(null);
+  const msProjectFileInputRef = useRef<HTMLInputElement>(null);
+  const [importingMSProject, setImportingMSProject] = useState(false);
 
   const tabs = [
     { id: 'overview', name: 'Overview', icon: Target },
@@ -2052,6 +2054,136 @@ const ProjectDetail: React.FC = () => {
     }
   };
 
+  const handleMSProjectImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !id || !ganttRef.current) {
+      event.target.value = '';
+      return;
+    }
+
+    try {
+      setImportingMSProject(true);
+      showNotification('Importing MS Project file...', 'info');
+
+      ganttRef.current.importFromMSProject(file, async (success: boolean, data?: any, error?: string) => {
+        if (!success || !data) {
+          setImportingMSProject(false);
+          showNotification(`Failed to import MS Project file: ${error || 'Unknown error'}`, 'error');
+          event.target.value = '';
+          return;
+        }
+
+        try {
+          const importedTasks = data.data || [];
+          const importedLinks = data.links || [];
+
+          console.log('=== Processing Imported Tasks ===');
+          console.log('Tasks to import:', importedTasks.length);
+          console.log('Links to import:', importedLinks.length);
+
+          const taskIdMap = new Map<string | number, number>();
+          let nextTaskId = Math.max(0, ...projectTasks.data.map((t: any) => t.id || 0)) + 1;
+
+          const tasksToInsert = [];
+          for (const importedTask of importedTasks) {
+            const originalId = importedTask.id;
+            const newTaskId = nextTaskId++;
+            taskIdMap.set(originalId, newTaskId);
+
+            const startDate = importedTask.start_date;
+            let formattedStartDate = '';
+            if (startDate) {
+              const dateObj = typeof startDate === 'string'
+                ? new Date(startDate)
+                : startDate;
+              if (!isNaN(dateObj.getTime())) {
+                const year = dateObj.getFullYear();
+                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                const hours = String(dateObj.getHours()).padStart(2, '0');
+                const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+                formattedStartDate = `${year}-${month}-${day} ${hours}:${minutes}`;
+              }
+            }
+
+            const parentId = importedTask.parent && importedTask.parent !== 0
+              ? (taskIdMap.get(importedTask.parent) || 0)
+              : 0;
+
+            const taskData = {
+              id: newTaskId,
+              project_id: id,
+              task_name: importedTask.text || 'Untitled Task',
+              start_date: formattedStartDate || null,
+              duration: importedTask.duration || 1,
+              progress: importedTask.progress || 0,
+              parent_task_id: parentId,
+              type: importedTask.type || 'task',
+              owner_id: null,
+              owner_name: null,
+              task_data: {
+                ...importedTask,
+                id: newTaskId,
+                parent: parentId
+              }
+            };
+
+            tasksToInsert.push(taskData);
+          }
+
+          console.log('=== Inserting Tasks into Database ===');
+          const { data: insertedTasks, error: insertError } = await supabase
+            .from('project_tasks')
+            .insert(tasksToInsert)
+            .select();
+
+          if (insertError) {
+            throw insertError;
+          }
+
+          console.log('Tasks inserted successfully:', insertedTasks?.length || 0);
+
+          const linksToInsert = importedLinks
+            .map((link: any) => ({
+              project_id: id,
+              source_task_id: taskIdMap.get(link.source),
+              target_task_id: taskIdMap.get(link.target),
+              link_type: link.type || '0'
+            }))
+            .filter((link: any) => link.source_task_id && link.target_task_id);
+
+          if (linksToInsert.length > 0) {
+            console.log('=== Inserting Links into Database ===');
+            const { error: linksError } = await supabase
+              .from('project_task_links')
+              .insert(linksToInsert);
+
+            if (linksError) {
+              console.error('Error inserting links:', linksError);
+            } else {
+              console.log('Links inserted successfully:', linksToInsert.length);
+            }
+          }
+
+          await fetchProjectTasks();
+          setImportingMSProject(false);
+          showNotification(`Successfully imported ${insertedTasks?.length || 0} tasks from MS Project!`, 'success');
+          event.target.value = '';
+        } catch (error: any) {
+          console.error('Error saving imported tasks:', error);
+          setImportingMSProject(false);
+          showNotification(`Error saving imported tasks: ${error.message}`, 'error');
+          event.target.value = '';
+        }
+      });
+    } catch (error: any) {
+      console.error('Error importing MS Project file:', error);
+      setImportingMSProject(false);
+      showNotification(`Error importing MS Project file: ${error.message}`, 'error');
+      event.target.value = '';
+    }
+  };
+
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -3003,6 +3135,22 @@ const ProjectDetail: React.FC = () => {
                     >
                       <Group className="w-4 h-4" />
                       {isGroupedByOwner ? 'Show All Tasks' : 'Group by Owner'}
+                    </button>
+                    <input
+                      ref={msProjectFileInputRef}
+                      type="file"
+                      accept=".mpp,.xml"
+                      onChange={handleMSProjectImport}
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => msProjectFileInputRef.current?.click()}
+                      disabled={importingMSProject}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:bg-orange-400 disabled:cursor-not-allowed"
+                      title="Import tasks from MS Project file (.mpp or .xml)"
+                    >
+                      <Upload className="w-4 h-4" />
+                      {importingMSProject ? 'Importing...' : 'Upload MS Project'}
                     </button>
                     <button
                       onClick={() => setShowResourcePanel(!showResourcePanel)}

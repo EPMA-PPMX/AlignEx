@@ -90,6 +90,36 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     return gantt;
   };
 
+  public importFromMSProject = (file: File, callback: (success: boolean, data?: any, error?: string) => void): void => {
+    if (!file) {
+      callback(false, null, 'No file provided');
+      return;
+    }
+
+    console.log('=== Importing MS Project file ===');
+    console.log('File name:', file.name);
+    console.log('File size:', file.size);
+    console.log('File type:', file.type);
+
+    gantt.importFromMSProject({
+      data: file,
+      durationUnit: "day",
+      server: file.size > 4 * 1024 * 1024 ? "https://export.dhtmlx.com/gantt/project" : "https://export.dhtmlx.com/gantt",
+      callback: (project: any) => {
+        console.log('=== MS Project Import Response ===');
+        console.log('Project data:', project);
+        console.log('Tasks count:', project.data?.data?.length || 0);
+        console.log('Links count:', project.data?.links?.length || 0);
+
+        if (project && project.data) {
+          callback(true, project.data);
+        } else {
+          callback(false, null, 'Failed to parse MS Project file');
+        }
+      }
+    });
+  };
+
   // Helper function to calculate end date correctly (inclusive)
   public setBaseline = (baselineNum: number = 0): any[] => {
     const baselineData: any[] = [];
@@ -608,7 +638,8 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     gantt.plugins({
       keyboard_navigation: true,
       auto_scheduling: true, // Enable auto-scheduling for automatic task rescheduling based on dependencies
-      inline_editors: true
+      inline_editors: true,
+      export_api: true // Enable MS Project import/export functionality
     });
     gantt.config.keyboard_navigation_cells = true;
 
