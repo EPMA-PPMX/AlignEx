@@ -2086,6 +2086,12 @@ const ProjectDetail: React.FC = () => {
           console.log('Resource assignments to import:', importedResourceAssignments.length);
           console.log('Full import data:', data);
 
+          // Debug: Show fields in first task
+          if (importedTasks.length > 0) {
+            console.log('Sample task fields:', Object.keys(importedTasks[0]));
+            console.log('Sample task data:', importedTasks[0]);
+          }
+
           // Get existing tasks
           const existingTasks = projectTasks.data || [];
           const existingLinks = projectTasks.links || [];
@@ -2204,6 +2210,23 @@ const ProjectDetail: React.FC = () => {
               resource: importedTask.resource
             });
 
+            // Extract work hours from various possible fields
+            let workHours = 0;
+            if (importedTask.work_hours !== undefined && importedTask.work_hours !== null) {
+              workHours = Number(importedTask.work_hours) || 0;
+            } else if (importedTask.work !== undefined && importedTask.work !== null) {
+              // MS Project exports work in hours
+              workHours = Number(importedTask.work) || 0;
+            } else if (importedTask.Work !== undefined && importedTask.Work !== null) {
+              workHours = Number(importedTask.Work) || 0;
+            }
+
+            console.log(`Task ${newTaskId} (${importedTask.text}): work_hours=${workHours} (from:`, {
+              work_hours: importedTask.work_hours,
+              work: importedTask.work,
+              Work: importedTask.Work
+            }, ')');
+
             return {
               id: newTaskId,
               text: importedTask.text || 'Untitled Task',
@@ -2214,6 +2237,7 @@ const ProjectDetail: React.FC = () => {
               type: importedTask.type || 'task',
               owner_id: resourceIds || null,
               owner_name: ownerName,
+              work_hours: workHours,
             };
           });
 
