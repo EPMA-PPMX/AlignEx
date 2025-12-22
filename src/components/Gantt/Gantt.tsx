@@ -455,18 +455,24 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           // Handle owner_name as array (multi-owner tasks)
           if (task.owner_name && Array.isArray(task.owner_name) && task.owner_name.length > 0) {
             const owners = task.owner_name;
-            const badges = owners.map((name: string, index: number) => {
-              const initial = name.charAt(0).toUpperCase();
-              const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-              const color = colors[index % colors.length];
-              return `<span class="owner-badge" style="background-color: ${color};" title="${name}">${initial}</span>`;
-            }).join('');
+            const badges = owners
+              .filter((name: any) => name && typeof name === 'string')
+              .map((name: string, index: number) => {
+                const initial = name.charAt(0).toUpperCase();
+                const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+                const color = colors[index % colors.length];
+                return `<span class="owner-badge" style="background-color: ${color};" title="${name}">${initial}</span>`;
+              }).join('');
 
-            return `<div class="owner-badges-container">${badges}</div>`;
+            return badges ? `<div class="owner-badges-container">${badges}</div>` : "Unassigned";
           }
 
           // Handle owner_name as string (legacy single-owner tasks)
-          return task.owner_name || "Unassigned";
+          if (task.owner_name && typeof task.owner_name === 'string') {
+            return task.owner_name;
+          }
+
+          return "Unassigned";
         }
       },
       {

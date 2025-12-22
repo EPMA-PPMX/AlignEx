@@ -2101,8 +2101,8 @@ const ProjectDetail: React.FC = () => {
           const resourceMap = new Map<string | number, string>();
           if (importedResources && Array.isArray(importedResources)) {
             importedResources.forEach((resource: any) => {
-              if (resource.id && resource.name) {
-                resourceMap.set(resource.id, resource.name);
+              if (resource.id && resource.name && typeof resource.name === 'string') {
+                resourceMap.set(resource.id, String(resource.name).trim());
               }
             });
           }
@@ -2115,7 +2115,7 @@ const ProjectDetail: React.FC = () => {
               const resourceId = assignment.resource_id;
               const resourceName = resourceMap.get(resourceId);
 
-              if (taskId && resourceName) {
+              if (taskId && resourceName && typeof resourceName === 'string') {
                 if (!taskResourcesMap.has(taskId)) {
                   taskResourcesMap.set(taskId, []);
                 }
@@ -2155,34 +2155,43 @@ const ProjectDetail: React.FC = () => {
               : 0;
 
             // Extract resource/owner information
-            let ownerName = null;
+            let ownerName: string | string[] | null = null;
             let resourceIds = null;
             let resourceNames = null;
 
             // First, check resource assignments map (most reliable)
             const assignedResources = taskResourcesMap.get(originalId);
             if (assignedResources && assignedResources.length > 0) {
-              ownerName = assignedResources.length === 1 ? assignedResources[0] : assignedResources;
+              // Ensure all resources are strings
+              const validResources = assignedResources.filter(r => r && typeof r === 'string');
+              if (validResources.length > 0) {
+                ownerName = validResources.length === 1 ? validResources[0] : validResources;
+              }
             }
             // Fallback: check for resource assignments in different possible formats
             else if (importedTask.owner_id) {
               // Single resource assignment
-              ownerName = resourceMap.get(importedTask.owner_id) || null;
+              const resourceName = resourceMap.get(importedTask.owner_id);
+              ownerName = (resourceName && typeof resourceName === 'string') ? resourceName : null;
             } else if (importedTask.resource_id) {
               // Alternative single resource field
-              ownerName = resourceMap.get(importedTask.resource_id) || null;
+              const resourceName = resourceMap.get(importedTask.resource_id);
+              ownerName = (resourceName && typeof resourceName === 'string') ? resourceName : null;
             } else if (importedTask.resources) {
               // Multiple resources
               if (Array.isArray(importedTask.resources)) {
                 resourceIds = importedTask.resources.map((r: any) => r.resource_id || r.id || r);
-                resourceNames = resourceIds.map((rid: any) => resourceMap.get(rid) || 'Unknown').filter((n: string) => n !== 'Unknown');
+                resourceNames = resourceIds
+                  .map((rid: any) => resourceMap.get(rid))
+                  .filter((n: any) => n && typeof n === 'string' && n !== 'Unknown');
                 if (resourceNames.length > 0) {
                   ownerName = resourceNames.length === 1 ? resourceNames[0] : resourceNames;
                 }
               }
             } else if (importedTask.owner || importedTask.resource) {
               // Direct resource name
-              ownerName = importedTask.owner || importedTask.resource;
+              const directName = importedTask.owner || importedTask.resource;
+              ownerName = (directName && typeof directName === 'string') ? directName : null;
             }
 
             console.log(`Task ${newTaskId} (${importedTask.text}): owner_name=${ownerName}, resources in task:`, {
