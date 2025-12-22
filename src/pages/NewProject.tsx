@@ -10,6 +10,7 @@ interface ProjectTemplate {
   template_name: string;
   template_description?: string;
   start_date?: string | null;
+  schedule_template_id?: string | null;
 }
 
 interface OrganizationalPriority {
@@ -115,22 +116,68 @@ const NewProject: React.FC = () => {
         return;
       }
 
-      if (projectData && projectData[0] && selectedPriorities.length > 0) {
+      if (projectData && projectData[0]) {
         const projectId = projectData[0].id;
-        const impactRecords = selectedPriorities.map(priorityId => ({
-          project_id: projectId,
-          priority_id: priorityId,
-          planned_impact: priorityImpacts[priorityId].trim(),
-          actual_impact: null,
-          notes: null
-        }));
 
-        const { error: impactError } = await supabase
-          .from('project_priority_impacts')
-          .insert(impactRecords);
+        // Link selected priorities
+        if (selectedPriorities.length > 0) {
+          const impactRecords = selectedPriorities.map(priorityId => ({
+            project_id: projectId,
+            priority_id: priorityId,
+            planned_impact: priorityImpacts[priorityId].trim(),
+            actual_impact: null,
+            notes: null
+          }));
 
-        if (impactError) {
-          console.error('Error linking priorities:', impactError);
+          const { error: impactError } = await supabase
+            .from('project_priority_impacts')
+            .insert(impactRecords);
+
+          if (impactError) {
+            console.error('Error linking priorities:', impactError);
+          }
+        }
+
+        // Apply schedule template if one is linked to the project type
+        if (formData.template_id) {
+          const selectedTemplate = templates.find(t => t.id === formData.template_id);
+          if (selectedTemplate && selectedTemplate.schedule_template_id) {
+            try {
+              // Fetch the schedule template
+              const { data: scheduleTemplate, error: scheduleTemplateError } = await supabase
+                .from('schedule_templates')
+                .select('*')
+                .eq('id', selectedTemplate.schedule_template_id)
+                .maybeSingle();
+
+              if (scheduleTemplateError) {
+                console.error('Error fetching schedule template:', scheduleTemplateError);
+              } else if (scheduleTemplate) {
+                // Create project tasks from the schedule template
+                const taskData = {
+                  data: scheduleTemplate.tasks_data || [],
+                  links: scheduleTemplate.links_data || [],
+                  resources: scheduleTemplate.resources_data || [],
+                  resourceAssignments: scheduleTemplate.resource_assignments_data || []
+                };
+
+                const { error: tasksError } = await supabase
+                  .from('project_tasks')
+                  .insert({
+                    project_id: projectId,
+                    task_data: taskData
+                  });
+
+                if (tasksError) {
+                  console.error('Error creating project tasks from template:', tasksError);
+                } else {
+                  console.log('Schedule template applied successfully');
+                }
+              }
+            } catch (error) {
+              console.error('Error applying schedule template:', error);
+            }
+          }
         }
       }
 
