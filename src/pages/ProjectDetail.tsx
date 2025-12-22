@@ -2164,8 +2164,8 @@ const ProjectDetail: React.FC = () => {
 
             // Extract resource/owner information
             let ownerName: string | string[] | null = null;
-            let resourceIds = null;
-            let resourceNames = null;
+            let resourceIds: string[] = [];
+            let resourceNames: string[] = [];
 
             // First, check resource assignments map (most reliable)
             const assignedResources = taskResourcesMap.get(originalId);
@@ -2174,32 +2174,72 @@ const ProjectDetail: React.FC = () => {
               const validResources = assignedResources.filter(r => r && typeof r === 'string');
               if (validResources.length > 0) {
                 ownerName = validResources.length === 1 ? validResources[0] : validResources;
+                // Map resource names to resource IDs by finding matching team members
+                resourceNames = validResources;
+                resourceIds = validResources
+                  .map(resName => {
+                    const member = projectTeamMembers.find(m => m.resources?.display_name === resName);
+                    return member?.resource_id;
+                  })
+                  .filter((id): id is string => id !== undefined);
               }
             }
             // Fallback: check for resource assignments in different possible formats
             else if (importedTask.owner_id) {
               // Single resource assignment
               const resourceName = resourceMap.get(importedTask.owner_id);
-              ownerName = (resourceName && typeof resourceName === 'string') ? resourceName : null;
+              if (resourceName && typeof resourceName === 'string') {
+                ownerName = resourceName;
+                resourceNames = [resourceName];
+                // Try to find matching resource ID
+                const member = projectTeamMembers.find(m => m.resources?.display_name === resourceName);
+                if (member?.resource_id) {
+                  resourceIds = [member.resource_id];
+                }
+              }
             } else if (importedTask.resource_id) {
               // Alternative single resource field
               const resourceName = resourceMap.get(importedTask.resource_id);
-              ownerName = (resourceName && typeof resourceName === 'string') ? resourceName : null;
+              if (resourceName && typeof resourceName === 'string') {
+                ownerName = resourceName;
+                resourceNames = [resourceName];
+                // Try to find matching resource ID
+                const member = projectTeamMembers.find(m => m.resources?.display_name === resourceName);
+                if (member?.resource_id) {
+                  resourceIds = [member.resource_id];
+                }
+              }
             } else if (importedTask.resources) {
               // Multiple resources
               if (Array.isArray(importedTask.resources)) {
-                resourceIds = importedTask.resources.map((r: any) => r.resource_id || r.id || r);
-                resourceNames = resourceIds
+                const tempResourceIds = importedTask.resources.map((r: any) => r.resource_id || r.id || r);
+                const tempResourceNames = tempResourceIds
                   .map((rid: any) => resourceMap.get(rid))
                   .filter((n: any) => n && typeof n === 'string' && n !== 'Unknown');
-                if (resourceNames.length > 0) {
-                  ownerName = resourceNames.length === 1 ? resourceNames[0] : resourceNames;
+                if (tempResourceNames.length > 0) {
+                  ownerName = tempResourceNames.length === 1 ? tempResourceNames[0] : tempResourceNames;
+                  resourceNames = tempResourceNames;
+                  // Map resource names to IDs
+                  resourceIds = tempResourceNames
+                    .map((resName: string) => {
+                      const member = projectTeamMembers.find(m => m.resources?.display_name === resName);
+                      return member?.resource_id;
+                    })
+                    .filter((id): id is string => id !== undefined);
                 }
               }
             } else if (importedTask.owner || importedTask.resource) {
               // Direct resource name
               const directName = importedTask.owner || importedTask.resource;
-              ownerName = (directName && typeof directName === 'string') ? directName : null;
+              if (directName && typeof directName === 'string') {
+                ownerName = directName;
+                resourceNames = [directName];
+                // Try to find matching resource ID
+                const member = projectTeamMembers.find(m => m.resources?.display_name === directName);
+                if (member?.resource_id) {
+                  resourceIds = [member.resource_id];
+                }
+              }
             }
 
             console.log(`Task ${newTaskId} (${importedTask.text}): owner_name=${ownerName}, resources in task:`, {
@@ -2212,53 +2252,36 @@ const ProjectDetail: React.FC = () => {
               resource: importedTask.resource
             });
 
-            // Extract work hours from various possible fields
+            // Calculate work hours based on duration and assigned resources
+            const taskDuration = importedTask.duration || 1;
             let workHours = 0;
+            let resourceWorkHours = {};
 
-            // Check main task object
-            if (importedTask.work_hours !== undefined && importedTask.work_hours !== null) {
-              workHours = Number(importedTask.work_hours) || 0;
-            } else if (importedTask.work !== undefined && importedTask.work !== null) {
-              workHours = Number(importedTask.work) || 0;
-            } else if (importedTask.Work !== undefined && importedTask.Work !== null) {
-              workHours = Number(importedTask.Work) || 0;
+            // If resources are assigned, calculate work hours using the same logic as manual task creation
+            if (resourceIds && resourceIds.length > 0) {
+              const workHoursData = calculateWorkHours(taskDuration, resourceIds);
+              workHours = workHoursData.total;
+              resourceWorkHours = workHoursData.byResource;
+              console.log(`Task ${newTaskId} (${importedTask.text}): Calculated work_hours=${workHours} from duration=${taskDuration} and resources=${resourceIds.join(',')}`);
+            } else {
+              // No resources assigned
+              console.log(`Task ${newTaskId} (${importedTask.text}): No resources assigned, work_hours=0`);
             }
-
-            // Check $raw field (MS Project raw data)
-            if (workHours === 0 && importedTask.$raw) {
-              if (importedTask.$raw.work !== undefined && importedTask.$raw.work !== null) {
-                workHours = Number(importedTask.$raw.work) || 0;
-              } else if (importedTask.$raw.Work !== undefined && importedTask.$raw.Work !== null) {
-                workHours = Number(importedTask.$raw.Work) || 0;
-              } else if (importedTask.$raw.work_hours !== undefined && importedTask.$raw.work_hours !== null) {
-                workHours = Number(importedTask.$raw.work_hours) || 0;
-              }
-            }
-
-            // Check $custom_data field
-            if (workHours === 0 && importedTask.$custom_data) {
-              if (importedTask.$custom_data.work !== undefined && importedTask.$custom_data.work !== null) {
-                workHours = Number(importedTask.$custom_data.work) || 0;
-              } else if (importedTask.$custom_data.Work !== undefined && importedTask.$custom_data.Work !== null) {
-                workHours = Number(importedTask.$custom_data.Work) || 0;
-              } else if (importedTask.$custom_data.work_hours !== undefined && importedTask.$custom_data.work_hours !== null) {
-                workHours = Number(importedTask.$custom_data.work_hours) || 0;
-              }
-            }
-
-            console.log(`Task ${newTaskId} (${importedTask.text}): work_hours=${workHours}`);
 
             return {
               id: newTaskId,
               text: importedTask.text || 'Untitled Task',
               start_date: formattedStartDate || null,
-              duration: importedTask.duration || 1,
+              duration: taskDuration,
               progress: importedTask.progress || 0,
               parent: parentId,
               type: importedTask.type || 'task',
-              owner_id: resourceIds || null,
+              owner_id: resourceIds.length > 0 ? resourceIds[0] : null,
               owner_name: ownerName,
+              resource_ids: resourceIds,
+              resource_names: resourceNames,
               work_hours: workHours,
+              resource_work_hours: resourceWorkHours,
             };
           });
 
