@@ -1037,6 +1037,23 @@ const ProjectDetail: React.FC = () => {
     }
   };
 
+  // Helper function to add working days (skip weekends)
+  const addWorkingDays = (startDate: Date, days: number): Date => {
+    const result = new Date(startDate);
+    let remainingDays = days;
+
+    while (remainingDays > 0) {
+      result.setDate(result.getDate() + 1);
+      const dayOfWeek = result.getDay();
+      // Skip weekends (0 = Sunday, 6 = Saturday)
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        remainingDays--;
+      }
+    }
+
+    return result;
+  };
+
   const updateProjectScheduleDates = async () => {
     if (!id) return;
 
@@ -1086,10 +1103,19 @@ const ProjectDetail: React.FC = () => {
               latestFinish = endDate;
             }
           }
-        } else if (task.start_date && task.duration && ganttInstance) {
+        } else if (task.start_date && task.duration) {
           // Calculate end date if not present
           const startDate = new Date(task.start_date);
-          const endDate = ganttInstance.calculateEndDate(startDate, task.duration);
+          let endDate: Date;
+
+          if (ganttInstance && ganttInstance.calculateEndDate) {
+            // Use Gantt's calculation if available (more accurate)
+            endDate = ganttInstance.calculateEndDate(startDate, task.duration);
+          } else {
+            // Fallback: calculate working days manually
+            endDate = addWorkingDays(startDate, task.duration);
+          }
+
           if (!isNaN(endDate.getTime())) {
             if (!latestFinish || endDate > latestFinish) {
               latestFinish = endDate;
