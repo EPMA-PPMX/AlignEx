@@ -2064,19 +2064,9 @@ const ProjectDetail: React.FC = () => {
     try {
       setImportingMSProject(true);
 
-      console.log('\n=== PRE-IMPORT CHECK ===');
-      console.log(`Project Team Members: ${projectTeamMembers.length}`);
-      if (projectTeamMembers.length > 0) {
-        console.log('Available team members:');
-        projectTeamMembers.forEach(m => {
-          console.log(`  - ${m.resources?.display_name} (${m.allocation_percentage}% allocated)`);
-        });
-      } else {
-        console.error('❌ WARNING: No team members found for this project!');
-        console.error('Resources from MS Project will not be assigned.');
-        console.error('Add team members in the Team tab BEFORE importing.');
+      if (projectTeamMembers.length === 0) {
+        console.error('⚠️  No team members found. Resources will not be assigned.');
       }
-      console.log('=====================\n');
 
       showNotification('Importing MS Project file...', 'info');
 
@@ -2094,33 +2084,7 @@ const ProjectDetail: React.FC = () => {
           const importedResources = data.resources || [];
           const importedResourceAssignments = data.resourceAssignments || [];
 
-          console.log('=== Processing Imported Tasks ===');
-          console.log('Tasks to import:', importedTasks.length);
-          console.log('Links to import:', importedLinks.length);
-          console.log('Resources to import:', importedResources.length);
-          console.log('Resource assignments to import:', importedResourceAssignments.length);
-          console.log('Full import data:', data);
-
-          // Debug: Show fields in first task
-          if (importedTasks.length > 0) {
-            console.log('Sample task fields:', Object.keys(importedTasks[0]));
-            console.log('Sample task data:', importedTasks[0]);
-            console.log('Sample task $raw:', importedTasks[0].$raw);
-            console.log('Sample task $custom_data:', importedTasks[0].$custom_data);
-
-            // Check for resource text fields
-            const task = importedTasks[0];
-            console.log('\n=== CHECKING FOR RESOURCE TEXT FIELDS ===');
-            console.log('task.resources:', task.resources);
-            console.log('task.resource:', task.resource);
-            console.log('task.resource_name:', task.resource_name);
-            console.log('task.resource_names:', task.resource_names);
-            console.log('task.owner_name:', task.owner_name);
-            console.log('task.$raw?.resources:', task.$raw?.resources);
-            console.log('task.$raw?.resource:', task.$raw?.resource);
-            console.log('task.$custom_data?.resources:', task.$custom_data?.resources);
-            console.log('=== END RESOURCE TEXT FIELDS CHECK ===\n');
-          }
+          console.log(`\n📥 IMPORTING: ${importedTasks.length} tasks, ${importedResources.length} resources, ${importedResourceAssignments.length} assignments`);
 
           // Get existing tasks
           const existingTasks = projectTasks.data || [];
@@ -2160,9 +2124,6 @@ const ProjectDetail: React.FC = () => {
             });
           }
 
-          console.log('Resource map:', Array.from(resourceMap.entries()));
-          console.log('Task resources map:', Array.from(taskResourcesMap.entries()));
-
           // Process imported tasks and assign new IDs
           const newTasks = importedTasks.map((importedTask: any) => {
             const originalId = importedTask.id;
@@ -2197,49 +2158,37 @@ const ProjectDetail: React.FC = () => {
 
             // First, check resource assignments map (most reliable)
             const assignedResources = taskResourcesMap.get(originalId);
-            console.log(`\n=== TASK: ${importedTask.text} (ID: ${originalId}) ===`);
-            console.log(`Resources from MS Project:`, assignedResources);
-            console.log(`\nYour Project Team Members:`, projectTeamMembers.map(m => ({
-              resource_id: m.resource_id,
-              display_name: m.resources?.display_name,
-              allocation: m.allocation_percentage
-            })));
 
             if (projectTeamMembers.length === 0) {
-              console.error('❌ NO TEAM MEMBERS FOUND! You must add resources to the Project Team tab first.');
+              console.error('❌ NO TEAM MEMBERS! Add resources to Project Team tab first.');
             }
 
             if (assignedResources && assignedResources.length > 0) {
-              // Ensure all resources are strings
               const validResources = assignedResources.filter(r => r && typeof r === 'string');
               if (validResources.length > 0) {
                 ownerName = validResources.length === 1 ? validResources[0] : validResources;
-                // Map resource names to resource IDs by finding matching team members
                 resourceNames = validResources;
+                const unmatched: string[] = [];
+
                 resourceIds = validResources
                   .map(resName => {
-                    // Try exact match first
                     let member = projectTeamMembers.find(m => m.resources?.display_name === resName);
-
-                    // Try case-insensitive match if exact match fails
                     if (!member) {
                       const normalizedResName = resName.toLowerCase().trim();
                       member = projectTeamMembers.find(m =>
                         m.resources?.display_name?.toLowerCase().trim() === normalizedResName
                       );
                     }
-
-                    if (member) {
-                      console.log(`  ✅ MATCHED: "${resName}" => ${member.resources?.display_name} (ID: ${member.resource_id})`);
-                    } else {
-                      console.error(`  ❌ NOT MATCHED: "${resName}" - Check if this exact name exists in Project Team tab!`);
-                    }
-
+                    if (!member) unmatched.push(resName);
                     return member?.resource_id;
                   })
                   .filter((id): id is string => id !== undefined);
 
-                console.log(`  Final resourceIds: [${resourceIds.join(', ')}]`);
+                if (unmatched.length > 0) {
+                  console.error(`❌ "${importedTask.text}": Unmatched resources [${unmatched.join(', ')}]`);
+                } else if (resourceIds.length > 0) {
+                  console.log(`✅ "${importedTask.text}": Matched ${resourceIds.length} resource(s)`);
+                }
               }
             }
             // Check for comma-separated resource names in text fields
@@ -2254,44 +2203,36 @@ const ProjectDetail: React.FC = () => {
                 importedTask.$custom_data?.resources;
 
               if (resourceTextField && typeof resourceTextField === 'string') {
-                console.log(`  Found resource text field: "${resourceTextField}"`);
-                // Parse comma-separated names
                 const namesFromText = resourceTextField
                   .split(',')
                   .map(name => name.trim())
                   .filter(name => name.length > 0);
 
-                console.log(`  Parsed resource names:`, namesFromText);
-
                 if (namesFromText.length > 0) {
+                  console.log(`📝 "${importedTask.text}": Found text resources "${resourceTextField}"`);
                   ownerName = namesFromText.length === 1 ? namesFromText[0] : namesFromText;
                   resourceNames = namesFromText;
+                  const unmatched: string[] = [];
 
-                  // Match each name to a resource ID
                   resourceIds = namesFromText
                     .map(resName => {
-                      // Try exact match first
                       let member = projectTeamMembers.find(m => m.resources?.display_name === resName);
-
-                      // Try case-insensitive match if exact match fails
                       if (!member) {
                         const normalizedResName = resName.toLowerCase().trim();
                         member = projectTeamMembers.find(m =>
                           m.resources?.display_name?.toLowerCase().trim() === normalizedResName
                         );
                       }
-
-                      if (member) {
-                        console.log(`  ✅ MATCHED: "${resName}" => ${member.resources?.display_name} (ID: ${member.resource_id})`);
-                      } else {
-                        console.error(`  ❌ NOT MATCHED: "${resName}" - Check if this exact name exists in Project Team tab!`);
-                      }
-
+                      if (!member) unmatched.push(resName);
                       return member?.resource_id;
                     })
                     .filter((id): id is string => id !== undefined);
 
-                  console.log(`  Final resourceIds from text: [${resourceIds.join(', ')}]`);
+                  if (unmatched.length > 0) {
+                    console.error(`❌ "${importedTask.text}": Unmatched resources [${unmatched.join(', ')}]`);
+                  } else if (resourceIds.length > 0) {
+                    console.log(`✅ "${importedTask.text}": Matched ${resourceIds.length} resource(s)`);
+                  }
                 }
               }
             }
@@ -2382,41 +2323,18 @@ const ProjectDetail: React.FC = () => {
               }
             }
 
-            console.log(`Task ${newTaskId} (${importedTask.text}): owner_name=${ownerName}, resources in task:`, {
-              originalTaskId: originalId,
-              assignedResources,
-              owner_id: importedTask.owner_id,
-              resource_id: importedTask.resource_id,
-              resources: importedTask.resources,
-              owner: importedTask.owner,
-              resource: importedTask.resource
-            });
-
             // Calculate work hours based on duration and assigned resources
             const taskDuration = importedTask.duration || 1;
             let workHours = 0;
             let resourceWorkHours = {};
 
-            console.log(`\n=== WORK HOURS CALCULATION for "${importedTask.text}" ===`);
-            console.log(`  Task Duration: ${taskDuration} days`);
-            console.log(`  Resource IDs: ${resourceIds.length > 0 ? resourceIds.join(', ') : 'NONE'}`);
-            console.log(`  Resource Names: ${resourceNames.length > 0 ? resourceNames.join(', ') : 'NONE'}`);
-
-            // If resources are assigned, calculate work hours using the same logic as manual task creation
             if (resourceIds && resourceIds.length > 0) {
-              console.log(`  Calling calculateWorkHours with duration=${taskDuration}, resourceIds=[${resourceIds.join(',')}]`);
               const workHoursData = calculateWorkHours(taskDuration, resourceIds);
               workHours = workHoursData.total;
               resourceWorkHours = workHoursData.byResource;
-              console.log(`  ✓ CALCULATED work_hours=${workHours}`);
-              console.log(`  ✓ Resource breakdown:`, resourceWorkHours);
-            } else {
-              // No resources assigned
-              console.log(`  ✗ NO RESOURCES ASSIGNED - work_hours will be 0`);
             }
-            console.log(`=== END WORK HOURS CALCULATION ===\n`);
 
-            const taskObject = {
+            return {
               id: newTaskId,
               text: importedTask.text || 'Untitled Task',
               start_date: formattedStartDate || null,
@@ -2431,16 +2349,6 @@ const ProjectDetail: React.FC = () => {
               work_hours: workHours,
               resource_work_hours: resourceWorkHours,
             };
-
-            console.log(`\n=== FINAL TASK OBJECT for "${taskObject.text}" ===`);
-            console.log(`  owner_name: ${JSON.stringify(taskObject.owner_name)}`);
-            console.log(`  owner_id: ${taskObject.owner_id}`);
-            console.log(`  resource_ids: [${taskObject.resource_ids.join(', ')}]`);
-            console.log(`  resource_names: [${taskObject.resource_names.join(', ')}]`);
-            console.log(`  work_hours: ${taskObject.work_hours}`);
-            console.log(`=== END FINAL TASK OBJECT ===\n`);
-
-            return taskObject;
           });
 
           // Process imported links with new task IDs
@@ -2463,21 +2371,6 @@ const ProjectDetail: React.FC = () => {
             links: mergedLinks
           };
 
-          console.log('=== Updating Database ===');
-          console.log('Total tasks:', mergedTasks.length);
-          console.log('Total links:', mergedLinks.length);
-
-          // Debug: Check if resource data is present in tasks being saved
-          console.log('\n=== RESOURCE DATA BEFORE SAVE ===');
-          const tasksWithResourcesArray = newTasks.filter(t => t.resource_ids && t.resource_ids.length > 0);
-          console.log(`Tasks with resources: ${tasksWithResourcesArray.length} out of ${newTasks.length}`);
-          if (tasksWithResourcesArray.length > 0) {
-            console.log('Sample task with resources:', JSON.stringify(tasksWithResourcesArray[0], null, 2));
-          } else {
-            console.log('⚠️ NO TASKS HAVE RESOURCES! Showing first task:', JSON.stringify(newTasks[0], null, 2));
-          }
-          console.log('Full updatedTaskData being saved:', JSON.stringify(updatedTaskData, null, 2));
-          console.log('=== END RESOURCE DATA CHECK ===\n');
 
           // Check if record exists for this project
           const { data: existingRecord } = await supabase
@@ -2512,19 +2405,14 @@ const ProjectDetail: React.FC = () => {
             throw updateError;
           }
 
-          console.log('Database updated successfully');
-
           // Resource matching summary
           const tasksWithResources = newTasks.filter(t => t.resource_ids && t.resource_ids.length > 0).length;
           const tasksWithoutResources = newTasks.length - tasksWithResources;
-          console.log('\n=== IMPORT SUMMARY ===');
-          console.log(`Total tasks imported: ${newTasks.length}`);
-          console.log(`✅ Tasks with resources assigned: ${tasksWithResources}`);
-          console.log(`❌ Tasks without resources: ${tasksWithoutResources}`);
-          console.log(`Project team members available: ${projectTeamMembers.length}`);
+
+          console.log(`\n✅ IMPORT COMPLETE: ${newTasks.length} tasks`);
+          console.log(`   Resources matched: ${tasksWithResources}/${newTasks.length}`);
           if (tasksWithoutResources > 0 && projectTeamMembers.length === 0) {
-            console.error('\n⚠️  WARNING: No resources assigned because Project Team is empty!');
-            console.error('👉 Go to the Team tab and add your resources to this project first.');
+            console.error('   ⚠️  Add team members in Team tab to assign resources!');
           }
 
           await fetchProjectTasks();
@@ -2583,18 +2471,7 @@ const ProjectDetail: React.FC = () => {
   };
 
   const calculateWorkHours = (duration: number, resourceIds: string[]): { total: number; byResource: { [key: string]: number } } => {
-    console.log('\n=== Calculating Work Hours ===');
-    console.log('Duration (days):', duration);
-    console.log('Resource IDs:', resourceIds);
-    console.log('Available team members:', projectTeamMembers.map(m => ({
-      resource_id: m.resource_id,
-      display_name: m.resources?.display_name,
-      allocation_percentage: m.allocation_percentage
-    })));
-
-    // If no resources assigned, return 0
     if (!resourceIds || resourceIds.length === 0) {
-      console.log('No resources assigned, returning 0');
       return { total: 0, byResource: {} };
     }
 
@@ -2612,22 +2489,13 @@ const ProjectDetail: React.FC = () => {
         const workHours = duration * 8 * (allocationPercentage / 100);
         totalWorkHours += workHours;
         resourceWorkHours[resourceId] = Math.round(workHours * 100) / 100;
-        console.log(`✓ Resource "${teamMember.resources?.display_name}" (${resourceId}):`);
-        console.log(`  Allocation: ${allocationPercentage}%`);
-        console.log(`  Calculation: ${duration} days × 8 hrs × ${allocationPercentage}% = ${workHours} hours`);
       } else {
         // If team member not found (shouldn't happen), assume 100% allocation
         const workHours = duration * 8;
         totalWorkHours += workHours;
         resourceWorkHours[resourceId] = Math.round(workHours * 100) / 100;
-        console.warn(`⚠ Resource ${resourceId} NOT FOUND in team members - using default 100%`);
-        console.log(`  Calculation: ${duration} days × 8 hrs × 100% (default) = ${workHours} hours`);
       }
     });
-
-    console.log(`✓ Total work hours calculated: ${totalWorkHours}`);
-    console.log(`✓ Resource work hours breakdown:`, resourceWorkHours);
-    console.log('=== End Calculation ===\n');
     return {
       total: Math.round(totalWorkHours * 100) / 100,
       byResource: resourceWorkHours
@@ -2637,10 +2505,6 @@ const ProjectDetail: React.FC = () => {
   const handleTaskSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    console.log('=== Task Submit Started ===');
-    console.log('taskForm:', taskForm);
-    console.log('editingTaskId:', editingTaskId);
-
     if (!taskForm.description || !taskForm.start_date || !taskForm.duration) {
       showNotification('Please fill in all required fields', 'error');
       return;
@@ -2648,13 +2512,10 @@ const ProjectDetail: React.FC = () => {
 
     try {
       let updatedTaskData;
-      let currentTaskId = editingTaskId; // Track the task ID being worked with
-
-      // Adjust start date to skip weekends if provided
+      let currentTaskId = editingTaskId;
       let adjustedStartDate = null;
       if (taskForm.start_date && taskForm.start_date.trim() !== '') {
         adjustedStartDate = adjustToWorkday(taskForm.start_date);
-        console.log('Adjusted start date:', adjustedStartDate);
       }
 
       if (editingTaskId) {
