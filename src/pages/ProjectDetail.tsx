@@ -2107,6 +2107,19 @@ const ProjectDetail: React.FC = () => {
             console.log('Sample task data:', importedTasks[0]);
             console.log('Sample task $raw:', importedTasks[0].$raw);
             console.log('Sample task $custom_data:', importedTasks[0].$custom_data);
+
+            // Check for resource text fields
+            const task = importedTasks[0];
+            console.log('\n=== CHECKING FOR RESOURCE TEXT FIELDS ===');
+            console.log('task.resources:', task.resources);
+            console.log('task.resource:', task.resource);
+            console.log('task.resource_name:', task.resource_name);
+            console.log('task.resource_names:', task.resource_names);
+            console.log('task.owner_name:', task.owner_name);
+            console.log('task.$raw?.resources:', task.$raw?.resources);
+            console.log('task.$raw?.resource:', task.$raw?.resource);
+            console.log('task.$custom_data?.resources:', task.$custom_data?.resources);
+            console.log('=== END RESOURCE TEXT FIELDS CHECK ===\n');
           }
 
           // Get existing tasks
@@ -2229,8 +2242,62 @@ const ProjectDetail: React.FC = () => {
                 console.log(`  Final resourceIds: [${resourceIds.join(', ')}]`);
               }
             }
+            // Check for comma-separated resource names in text fields
+            else {
+              const resourceTextField =
+                importedTask.resource_names ||
+                importedTask.resource_name ||
+                importedTask.resources ||
+                importedTask.owner_name ||
+                importedTask.$raw?.resources ||
+                importedTask.$raw?.resource ||
+                importedTask.$custom_data?.resources;
+
+              if (resourceTextField && typeof resourceTextField === 'string') {
+                console.log(`  Found resource text field: "${resourceTextField}"`);
+                // Parse comma-separated names
+                const namesFromText = resourceTextField
+                  .split(',')
+                  .map(name => name.trim())
+                  .filter(name => name.length > 0);
+
+                console.log(`  Parsed resource names:`, namesFromText);
+
+                if (namesFromText.length > 0) {
+                  ownerName = namesFromText.length === 1 ? namesFromText[0] : namesFromText;
+                  resourceNames = namesFromText;
+
+                  // Match each name to a resource ID
+                  resourceIds = namesFromText
+                    .map(resName => {
+                      // Try exact match first
+                      let member = projectTeamMembers.find(m => m.resources?.display_name === resName);
+
+                      // Try case-insensitive match if exact match fails
+                      if (!member) {
+                        const normalizedResName = resName.toLowerCase().trim();
+                        member = projectTeamMembers.find(m =>
+                          m.resources?.display_name?.toLowerCase().trim() === normalizedResName
+                        );
+                      }
+
+                      if (member) {
+                        console.log(`  ✅ MATCHED: "${resName}" => ${member.resources?.display_name} (ID: ${member.resource_id})`);
+                      } else {
+                        console.error(`  ❌ NOT MATCHED: "${resName}" - Check if this exact name exists in Project Team tab!`);
+                      }
+
+                      return member?.resource_id;
+                    })
+                    .filter((id): id is string => id !== undefined);
+
+                  console.log(`  Final resourceIds from text: [${resourceIds.join(', ')}]`);
+                }
+              }
+            }
+
             // Fallback: check for resource assignments in different possible formats
-            else if (importedTask.owner_id) {
+            if (resourceIds.length === 0 && importedTask.owner_id) {
               // Single resource assignment
               const resourceName = resourceMap.get(importedTask.owner_id);
               if (resourceName && typeof resourceName === 'string') {
@@ -2248,7 +2315,9 @@ const ProjectDetail: React.FC = () => {
                   resourceIds = [member.resource_id];
                 }
               }
-            } else if (importedTask.resource_id) {
+            }
+
+            if (resourceIds.length === 0 && importedTask.resource_id) {
               // Alternative single resource field
               const resourceName = resourceMap.get(importedTask.resource_id);
               if (resourceName && typeof resourceName === 'string') {
@@ -2266,7 +2335,9 @@ const ProjectDetail: React.FC = () => {
                   resourceIds = [member.resource_id];
                 }
               }
-            } else if (importedTask.resources) {
+            }
+
+            if (resourceIds.length === 0 && importedTask.resources) {
               // Multiple resources
               if (Array.isArray(importedTask.resources)) {
                 const tempResourceIds = importedTask.resources.map((r: any) => r.resource_id || r.id || r);
