@@ -2063,6 +2063,21 @@ const ProjectDetail: React.FC = () => {
 
     try {
       setImportingMSProject(true);
+
+      console.log('\n=== PRE-IMPORT CHECK ===');
+      console.log(`Project Team Members: ${projectTeamMembers.length}`);
+      if (projectTeamMembers.length > 0) {
+        console.log('Available team members:');
+        projectTeamMembers.forEach(m => {
+          console.log(`  - ${m.resources?.display_name} (${m.allocation_percentage}% allocated)`);
+        });
+      } else {
+        console.error('❌ WARNING: No team members found for this project!');
+        console.error('Resources from MS Project will not be assigned.');
+        console.error('Add team members in the Team tab BEFORE importing.');
+      }
+      console.log('=====================\n');
+
       showNotification('Importing MS Project file...', 'info');
 
       ganttRef.current.importFromMSProject(file, async (success: boolean, data?: any, error?: string) => {
@@ -2169,13 +2184,17 @@ const ProjectDetail: React.FC = () => {
 
             // First, check resource assignments map (most reliable)
             const assignedResources = taskResourcesMap.get(originalId);
-            console.log(`Task ${importedTask.text}: Looking for resources with originalId=${originalId}`);
-            console.log(`  Found assigned resources:`, assignedResources);
-            console.log(`  Available project team members:`, projectTeamMembers.map(m => ({
+            console.log(`\n=== TASK: ${importedTask.text} (ID: ${originalId}) ===`);
+            console.log(`Resources from MS Project:`, assignedResources);
+            console.log(`\nYour Project Team Members:`, projectTeamMembers.map(m => ({
               resource_id: m.resource_id,
               display_name: m.resources?.display_name,
               allocation: m.allocation_percentage
             })));
+
+            if (projectTeamMembers.length === 0) {
+              console.error('❌ NO TEAM MEMBERS FOUND! You must add resources to the Project Team tab first.');
+            }
 
             if (assignedResources && assignedResources.length > 0) {
               // Ensure all resources are strings
@@ -2197,16 +2216,17 @@ const ProjectDetail: React.FC = () => {
                       );
                     }
 
-                    console.log(`  Mapping resource "${resName}" => member:`, member ? {
-                      resource_id: member.resource_id,
-                      display_name: member.resources?.display_name
-                    } : 'NOT FOUND');
+                    if (member) {
+                      console.log(`  ✅ MATCHED: "${resName}" => ${member.resources?.display_name} (ID: ${member.resource_id})`);
+                    } else {
+                      console.error(`  ❌ NOT MATCHED: "${resName}" - Check if this exact name exists in Project Team tab!`);
+                    }
 
                     return member?.resource_id;
                   })
                   .filter((id): id is string => id !== undefined);
 
-                console.log(`  Final mapped resourceIds:`, resourceIds);
+                console.log(`  Final resourceIds: [${resourceIds.join(', ')}]`);
               }
             }
             // Fallback: check for resource assignments in different possible formats
@@ -2401,9 +2421,29 @@ const ProjectDetail: React.FC = () => {
 
           console.log('Database updated successfully');
 
+          // Resource matching summary
+          const tasksWithResources = newTasks.filter(t => t.resource_ids && t.resource_ids.length > 0).length;
+          const tasksWithoutResources = newTasks.length - tasksWithResources;
+          console.log('\n=== IMPORT SUMMARY ===');
+          console.log(`Total tasks imported: ${newTasks.length}`);
+          console.log(`✅ Tasks with resources assigned: ${tasksWithResources}`);
+          console.log(`❌ Tasks without resources: ${tasksWithoutResources}`);
+          console.log(`Project team members available: ${projectTeamMembers.length}`);
+          if (tasksWithoutResources > 0 && projectTeamMembers.length === 0) {
+            console.error('\n⚠️  WARNING: No resources assigned because Project Team is empty!');
+            console.error('👉 Go to the Team tab and add your resources to this project first.');
+          }
+
           await fetchProjectTasks();
           setImportingMSProject(false);
-          showNotification(`Successfully imported ${newTasks.length} tasks from MS Project!`, 'success');
+
+          let message = `Successfully imported ${newTasks.length} tasks from MS Project!`;
+          if (tasksWithoutResources > 0 && projectTeamMembers.length === 0) {
+            message += ' Note: No resources assigned - add team members in the Team tab first.';
+          } else if (tasksWithoutResources > 0) {
+            message += ` Warning: ${tasksWithoutResources} tasks have unassigned resources. Check console for details.`;
+          }
+          showNotification(message, tasksWithoutResources > 0 ? 'warning' : 'success');
           event.target.value = '';
         } catch (error: any) {
           console.error('Error saving imported tasks:', error);
