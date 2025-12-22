@@ -2519,6 +2519,12 @@ const ProjectDetail: React.FC = () => {
       }
 
       if (editingTaskId) {
+        // Get the original task to compare
+        const originalTask = projectTasks.data.find((t: any) => t.id === editingTaskId);
+        console.log('🔍 UPDATE TASK - Original resources:', originalTask?.resource_ids);
+        console.log('🔍 UPDATE TASK - Form resources:', taskForm.resource_ids);
+        console.log('🔍 UPDATE TASK - Original work hours:', originalTask?.resource_work_hours);
+
         // Update existing task
         const existingLinks = projectTasks.links || [];
 
@@ -2587,6 +2593,10 @@ const ProjectDetail: React.FC = () => {
                 const workHoursData = calculateWorkHours(duration, taskForm.resource_ids);
                 updatedTask.work_hours = workHoursData.total;
                 updatedTask.resource_work_hours = workHoursData.byResource;
+
+                console.log('🔍 CALCULATED - New work hours:', workHoursData);
+                console.log('🔍 CALCULATED - Resources being saved:', taskForm.resource_ids);
+                console.log('🔍 CALCULATED - Resource names:', resourceNames);
               } else {
                 updatedTask.resource_ids = [];
                 updatedTask.resource_names = [];
@@ -3691,19 +3701,13 @@ const ProjectDetail: React.FC = () => {
                           return member?.resource_id;
                         })
                         .filter(Boolean); // Remove undefined values
-                      console.log("Mapped owner_name to resource_ids:", ownerNames, "->", resourceIds);
                     }
 
-                    console.log("Setting task form with:", {
-                      description: task.text,
-                      start_date: startDate,
-                      duration: task.duration,
-                      owner_id: task.owner_id || '',
-                      resource_ids: resourceIds,
-                      parent_id: task.parent || undefined,
-                      parent_wbs: parentWbs,
-                      predecessor_ids: predecessorIds
-                    });
+                    console.log("🔍 EDIT TASK - Loading task:", task.text);
+                    console.log("🔍 EDIT TASK - Task resource_ids:", task.resource_ids);
+                    console.log("🔍 EDIT TASK - Task resource_names:", task.resource_names);
+                    console.log("🔍 EDIT TASK - Task work hours:", task.resource_work_hours);
+                    console.log("🔍 EDIT TASK - Setting form resource_ids:", resourceIds);
                     setTaskForm({
                       description: task.text,
                       start_date: startDate,
