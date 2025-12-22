@@ -2345,7 +2345,7 @@ const ProjectDetail: React.FC = () => {
             }
             console.log(`=== END WORK HOURS CALCULATION ===\n`);
 
-            return {
+            const taskObject = {
               id: newTaskId,
               text: importedTask.text || 'Untitled Task',
               start_date: formattedStartDate || null,
@@ -2360,6 +2360,16 @@ const ProjectDetail: React.FC = () => {
               work_hours: workHours,
               resource_work_hours: resourceWorkHours,
             };
+
+            console.log(`\n=== FINAL TASK OBJECT for "${taskObject.text}" ===`);
+            console.log(`  owner_name: ${JSON.stringify(taskObject.owner_name)}`);
+            console.log(`  owner_id: ${taskObject.owner_id}`);
+            console.log(`  resource_ids: [${taskObject.resource_ids.join(', ')}]`);
+            console.log(`  resource_names: [${taskObject.resource_names.join(', ')}]`);
+            console.log(`  work_hours: ${taskObject.work_hours}`);
+            console.log(`=== END FINAL TASK OBJECT ===\n`);
+
+            return taskObject;
           });
 
           // Process imported links with new task IDs
@@ -2385,6 +2395,18 @@ const ProjectDetail: React.FC = () => {
           console.log('=== Updating Database ===');
           console.log('Total tasks:', mergedTasks.length);
           console.log('Total links:', mergedLinks.length);
+
+          // Debug: Check if resource data is present in tasks being saved
+          console.log('\n=== RESOURCE DATA BEFORE SAVE ===');
+          const tasksWithResourcesArray = newTasks.filter(t => t.resource_ids && t.resource_ids.length > 0);
+          console.log(`Tasks with resources: ${tasksWithResourcesArray.length} out of ${newTasks.length}`);
+          if (tasksWithResourcesArray.length > 0) {
+            console.log('Sample task with resources:', JSON.stringify(tasksWithResourcesArray[0], null, 2));
+          } else {
+            console.log('⚠️ NO TASKS HAVE RESOURCES! Showing first task:', JSON.stringify(newTasks[0], null, 2));
+          }
+          console.log('Full updatedTaskData being saved:', JSON.stringify(updatedTaskData, null, 2));
+          console.log('=== END RESOURCE DATA CHECK ===\n');
 
           // Check if record exists for this project
           const { data: existingRecord } = await supabase
