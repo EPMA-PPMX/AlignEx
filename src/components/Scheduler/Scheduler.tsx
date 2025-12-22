@@ -2,13 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Calendar } from 'lucide-react';
 import { useNotification } from '../../lib/useNotification';
+import { scheduler } from '../../lib/dhtmlxscheduler/scheduler-wrapper';
+import '../../lib/dhtmlxscheduler/dhtmlxscheduler.css';
 import './Scheduler.css';
-
-declare global {
-  interface Window {
-    scheduler: any;
-  }
-}
 
 interface Project {
   id: string;
@@ -82,11 +78,8 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
       initializationAttempted.current = true;
 
       try {
-        const schedulerModule = await import('dhtmlx-scheduler');
-        const scheduler = schedulerModule.scheduler;
-
         if (!isMounted) {
-          console.log('Component unmounted during import, aborting');
+          console.log('Component unmounted, aborting');
           return;
         }
 
