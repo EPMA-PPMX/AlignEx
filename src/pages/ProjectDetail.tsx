@@ -2070,6 +2070,17 @@ const ProjectDetail: React.FC = () => {
 
       showNotification('Importing MS Project file...', 'info');
 
+      // Pre-build resource lookup maps for O(1) lookups instead of O(n) searches
+      const resourceNameToId = new Map<string, string>();
+      const resourceNameToIdLower = new Map<string, string>();
+      projectTeamMembers.forEach(member => {
+        if (member.resources?.display_name && member.resource_id) {
+          const name = member.resources.display_name;
+          resourceNameToId.set(name, member.resource_id);
+          resourceNameToIdLower.set(name.toLowerCase().trim(), member.resource_id);
+        }
+      });
+
       ganttRef.current.importFromMSProject(file, async (success: boolean, data?: any, error?: string) => {
         if (!success || !data) {
           setImportingMSProject(false);
@@ -2172,15 +2183,9 @@ const ProjectDetail: React.FC = () => {
 
                 resourceIds = validResources
                   .map(resName => {
-                    let member = projectTeamMembers.find(m => m.resources?.display_name === resName);
-                    if (!member) {
-                      const normalizedResName = resName.toLowerCase().trim();
-                      member = projectTeamMembers.find(m =>
-                        m.resources?.display_name?.toLowerCase().trim() === normalizedResName
-                      );
-                    }
-                    if (!member) unmatched.push(resName);
-                    return member?.resource_id;
+                    const id = resourceNameToId.get(resName) || resourceNameToIdLower.get(resName.toLowerCase().trim());
+                    if (!id) unmatched.push(resName);
+                    return id;
                   })
                   .filter((id): id is string => id !== undefined);
 
@@ -2216,15 +2221,9 @@ const ProjectDetail: React.FC = () => {
 
                   resourceIds = namesFromText
                     .map(resName => {
-                      let member = projectTeamMembers.find(m => m.resources?.display_name === resName);
-                      if (!member) {
-                        const normalizedResName = resName.toLowerCase().trim();
-                        member = projectTeamMembers.find(m =>
-                          m.resources?.display_name?.toLowerCase().trim() === normalizedResName
-                        );
-                      }
-                      if (!member) unmatched.push(resName);
-                      return member?.resource_id;
+                      const id = resourceNameToId.get(resName) || resourceNameToIdLower.get(resName.toLowerCase().trim());
+                      if (!id) unmatched.push(resName);
+                      return id;
                     })
                     .filter((id): id is string => id !== undefined);
 
@@ -2244,16 +2243,9 @@ const ProjectDetail: React.FC = () => {
               if (resourceName && typeof resourceName === 'string') {
                 ownerName = resourceName;
                 resourceNames = [resourceName];
-                // Try to find matching resource ID with case-insensitive matching
-                let member = projectTeamMembers.find(m => m.resources?.display_name === resourceName);
-                if (!member) {
-                  const normalizedResName = resourceName.toLowerCase().trim();
-                  member = projectTeamMembers.find(m =>
-                    m.resources?.display_name?.toLowerCase().trim() === normalizedResName
-                  );
-                }
-                if (member?.resource_id) {
-                  resourceIds = [member.resource_id];
+                const id = resourceNameToId.get(resourceName) || resourceNameToIdLower.get(resourceName.toLowerCase().trim());
+                if (id) {
+                  resourceIds = [id];
                 }
               }
             }
@@ -2264,16 +2256,9 @@ const ProjectDetail: React.FC = () => {
               if (resourceName && typeof resourceName === 'string') {
                 ownerName = resourceName;
                 resourceNames = [resourceName];
-                // Try to find matching resource ID with case-insensitive matching
-                let member = projectTeamMembers.find(m => m.resources?.display_name === resourceName);
-                if (!member) {
-                  const normalizedResName = resourceName.toLowerCase().trim();
-                  member = projectTeamMembers.find(m =>
-                    m.resources?.display_name?.toLowerCase().trim() === normalizedResName
-                  );
-                }
-                if (member?.resource_id) {
-                  resourceIds = [member.resource_id];
+                const id = resourceNameToId.get(resourceName) || resourceNameToIdLower.get(resourceName.toLowerCase().trim());
+                if (id) {
+                  resourceIds = [id];
                 }
               }
             }
@@ -2288,18 +2273,8 @@ const ProjectDetail: React.FC = () => {
                 if (tempResourceNames.length > 0) {
                   ownerName = tempResourceNames.length === 1 ? tempResourceNames[0] : tempResourceNames;
                   resourceNames = tempResourceNames;
-                  // Map resource names to IDs with case-insensitive matching
                   resourceIds = tempResourceNames
-                    .map((resName: string) => {
-                      let member = projectTeamMembers.find(m => m.resources?.display_name === resName);
-                      if (!member) {
-                        const normalizedResName = resName.toLowerCase().trim();
-                        member = projectTeamMembers.find(m =>
-                          m.resources?.display_name?.toLowerCase().trim() === normalizedResName
-                        );
-                      }
-                      return member?.resource_id;
-                    })
+                    .map((resName: string) => resourceNameToId.get(resName) || resourceNameToIdLower.get(resName.toLowerCase().trim()))
                     .filter((id): id is string => id !== undefined);
                 }
               }
@@ -2309,16 +2284,9 @@ const ProjectDetail: React.FC = () => {
               if (directName && typeof directName === 'string') {
                 ownerName = directName;
                 resourceNames = [directName];
-                // Try to find matching resource ID with case-insensitive matching
-                let member = projectTeamMembers.find(m => m.resources?.display_name === directName);
-                if (!member) {
-                  const normalizedResName = directName.toLowerCase().trim();
-                  member = projectTeamMembers.find(m =>
-                    m.resources?.display_name?.toLowerCase().trim() === normalizedResName
-                  );
-                }
-                if (member?.resource_id) {
-                  resourceIds = [member.resource_id];
+                const id = resourceNameToId.get(directName) || resourceNameToIdLower.get(directName.toLowerCase().trim());
+                if (id) {
+                  resourceIds = [id];
                 }
               }
             }
@@ -2372,12 +2340,15 @@ const ProjectDetail: React.FC = () => {
           };
 
 
+          // Show progress notification
+          showNotification(`Processing ${newTasks.length} tasks...`, 'info');
+
           // Check if record exists for this project
           const { data: existingRecord } = await supabase
             .from('project_tasks')
             .select('id')
             .eq('project_id', id)
-            .single();
+            .maybeSingle();
 
           let updateError;
           if (existingRecord) {
@@ -2415,17 +2386,27 @@ const ProjectDetail: React.FC = () => {
             console.error('   ⚠️  Add team members in Team tab to assign resources!');
           }
 
-          await fetchProjectTasks();
-          setImportingMSProject(false);
+          // Use setTimeout to allow UI to update before heavy re-render
+          setTimeout(async () => {
+            try {
+              showNotification('Loading tasks...', 'info');
+              await fetchProjectTasks();
 
-          let message = `Successfully imported ${newTasks.length} tasks from MS Project!`;
-          if (tasksWithoutResources > 0 && projectTeamMembers.length === 0) {
-            message += ' Note: No resources assigned - add team members in the Team tab first.';
-          } else if (tasksWithoutResources > 0) {
-            message += ` Warning: ${tasksWithoutResources} tasks have unassigned resources. Check console for details.`;
-          }
-          showNotification(message, tasksWithoutResources > 0 ? 'warning' : 'success');
-          event.target.value = '';
+              let message = `Successfully imported ${newTasks.length} tasks from MS Project!`;
+              if (tasksWithoutResources > 0 && projectTeamMembers.length === 0) {
+                message += ' Note: No resources assigned - add team members in the Team tab first.';
+              } else if (tasksWithoutResources > 0) {
+                message += ` Warning: ${tasksWithoutResources} tasks have unassigned resources. Check console for details.`;
+              }
+              showNotification(message, tasksWithoutResources > 0 ? 'warning' : 'success');
+            } catch (fetchError: any) {
+              console.error('Error refreshing tasks:', fetchError);
+              showNotification('Tasks imported but failed to refresh view. Please reload the page.', 'warning');
+            } finally {
+              setImportingMSProject(false);
+              event.target.value = '';
+            }
+          }, 100);
         } catch (error: any) {
           console.error('Error saving imported tasks:', error);
           setImportingMSProject(false);
@@ -3078,7 +3059,22 @@ const ProjectDetail: React.FC = () => {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-8 relative">
+      {/* Loading Overlay for MS Project Import */}
+      {importingMSProject && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 shadow-2xl max-w-md">
+            <div className="flex flex-col items-center space-y-4">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600"></div>
+              <h3 className="text-xl font-semibold text-gray-900">Importing MS Project File</h3>
+              <p className="text-gray-600 text-center">
+                Please wait while we process your tasks. This may take a moment...
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-8">
         <button
