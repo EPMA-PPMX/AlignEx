@@ -1802,11 +1802,14 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       gantt.render();
     }
 
-    if (JSON.stringify(prevProps.projecttasks) !== JSON.stringify(projecttasks)) {
+    // Optimized comparison - check data length and reference instead of deep JSON comparison
+    const dataChanged = prevProps.projecttasks.data !== projecttasks.data ||
+                       prevProps.projecttasks.data?.length !== projecttasks.data?.length ||
+                       prevProps.projecttasks.links !== projecttasks.links;
+
+    if (dataChanged) {
       this.allTasks = projecttasks.data || [];
-      console.log("=== Gantt parsing tasks ===");
-      console.log("Tasks data:", projecttasks.data);
-      console.log("Milestone tasks:", projecttasks.data?.filter((t: any) => t.type === 'milestone'));
+      console.log("=== Gantt parsing tasks ===", projecttasks.data?.length || 0, "tasks");
 
       // Reset grouping state when data changes
       this.isGrouped = false;
@@ -1816,9 +1819,22 @@ export default class Gantt extends Component<GanttProps, GanttState> {
 
       // Prepare tasks by removing end_date
       const preparedTasks = this.prepareTasksForParsing(projecttasks.data || []);
-      gantt.parse({
-        data: preparedTasks,
-        links: projecttasks.links || []
+
+      // Use requestAnimationFrame to allow UI to update
+      requestAnimationFrame(() => {
+        try {
+          gantt.parse({
+            data: preparedTasks,
+            links: projecttasks.links || []
+          });
+        } catch (error) {
+          console.error('Error parsing Gantt data:', error);
+          // Try to recover by clearing and re-initializing
+          gantt.clearAll();
+          if (this.ganttContainer.current) {
+            gantt.init(this.ganttContainer.current);
+          }
+        }
       });
 
       // Sort tasks to ensure proper parent-child hierarchy display

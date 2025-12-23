@@ -400,19 +400,27 @@ const ProjectDetail: React.FC = () => {
 
   // Initialize new custom fields in all tasks when fields are added
   useEffect(() => {
-    const initializeNewFieldsInTasks = async () => {
-      if (!id || !project || projectTasks.data.length === 0 || taskCustomFields.length === 0) return;
+    // Debounce to prevent rapid re-runs during task loading
+    const timeoutId = setTimeout(() => {
+      initializeNewFieldsInTasks();
+    }, 500);
 
-      // Find newly added fields
-      const previousFields = prevSelectedTaskFieldsRef.current;
-      const newFieldIds = selectedTaskFields.filter(fieldId => !previousFields.includes(fieldId));
+    return () => clearTimeout(timeoutId);
+  }, [selectedTaskFields, id, project]);
 
-      if (newFieldIds.length === 0) {
-        prevSelectedTaskFieldsRef.current = selectedTaskFields;
-        return;
-      }
+  const initializeNewFieldsInTasks = async () => {
+    if (!id || !project || projectTasks.data.length === 0 || taskCustomFields.length === 0) return;
 
-      console.log('Initializing new fields in tasks:', newFieldIds);
+    // Find newly added fields
+    const previousFields = prevSelectedTaskFieldsRef.current;
+    const newFieldIds = selectedTaskFields.filter(fieldId => !previousFields.includes(fieldId));
+
+    if (newFieldIds.length === 0) {
+      prevSelectedTaskFieldsRef.current = selectedTaskFields;
+      return;
+    }
+
+    console.log('Initializing new fields in tasks:', newFieldIds);
 
       // Create a copy of tasks and add new fields with null values
       const updatedTasks = projectTasks.data.map((task: any) => {
@@ -460,12 +468,9 @@ const ProjectDetail: React.FC = () => {
         console.error('Error saving initialized fields:', error);
       }
 
-      // Update the ref for next comparison
-      prevSelectedTaskFieldsRef.current = selectedTaskFields;
-    };
-
-    initializeNewFieldsInTasks();
-  }, [selectedTaskFields, id, project]);
+    // Update the ref for next comparison
+    prevSelectedTaskFieldsRef.current = selectedTaskFields;
+  };
 
   const fetchProject = async () => {
     try {
@@ -799,8 +804,6 @@ const ProjectDetail: React.FC = () => {
             // Use stored duration - let Gantt calculate end_date from start_date + duration
             // This ensures working days logic is applied correctly
             const duration = task.duration || 1;
-            console.log(`Task ${task.id} (${task.text}): Raw duration from DB = ${task.duration}, Using duration = ${duration}`);
-            console.log(`Task ${task.id}: Will let Gantt calculate end_date from start_date + duration`);
 
             const taskObject = {
               id: task.id,
@@ -820,13 +823,6 @@ const ProjectDetail: React.FC = () => {
               ...customFields  // Spread all custom fields
             };
 
-            console.log(`Task ${task.id} final object being returned:`, {
-              id: taskObject.id,
-              text: taskObject.text,
-              start_date: taskObject.start_date,
-              duration: taskObject.duration
-            });
-
             return taskObject;
           });
         }
@@ -836,15 +832,18 @@ const ProjectDetail: React.FC = () => {
         const resourcesData = await fetchResourcesForGantt();
         const assignmentsData = await fetchResourceAssignments();
 
-        setProjectTasks({
-          data: taskData.data || [],
-          links: taskData.links || [],
-          baseline: taskData.baseline || [],
-          resources: resourcesData,
-          resourceAssignments: assignmentsData
-        });
-        // Reset grouping state when new data is loaded
-        setIsGroupedByOwner(false);
+        // Use setTimeout to allow UI thread to breathe
+        setTimeout(() => {
+          setProjectTasks({
+            data: taskData.data || [],
+            links: taskData.links || [],
+            baseline: taskData.baseline || [],
+            resources: resourcesData,
+            resourceAssignments: assignmentsData
+          });
+          // Reset grouping state when new data is loaded
+          setIsGroupedByOwner(false);
+        }, 0);
       } else {
         console.log('No task data found for project, setting empty array');
         setProjectTasks({ data: [], links: [], resources: [], resourceAssignments: [] });
