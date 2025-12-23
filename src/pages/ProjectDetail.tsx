@@ -217,6 +217,7 @@ const ProjectDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingDocument, setUploadingDocument] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [historyFieldId, setHistoryFieldId] = useState<string | null>(null);
   const [historyFieldName, setHistoryFieldName] = useState<string>('');
@@ -1950,6 +1951,8 @@ const ProjectDetail: React.FC = () => {
     const file = event.target.files?.[0];
     if (!file || !id) return;
 
+    setUploadingDocument(true);
+
     try {
       const timestamp = Date.now();
       const fileName = `${timestamp}-${file.name}`;
@@ -1986,6 +1989,8 @@ const ProjectDetail: React.FC = () => {
     } catch (error: any) {
       console.error('Error uploading document:', error);
       showNotification(`Error uploading document: ${error.message}`, 'error');
+    } finally {
+      setUploadingDocument(false);
     }
   };
 
@@ -4157,25 +4162,41 @@ const ProjectDetail: React.FC = () => {
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">Project Documents</h3>
-                <label className="cursor-pointer">
+                <div>
                   <input
                     type="file"
+                    id="document-upload-input"
                     className="hidden"
                     onChange={handleDocumentUpload}
+                    disabled={uploadingDocument}
                   />
                   <button
                     type="button"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     onClick={(e) => {
                       e.preventDefault();
-                      (e.currentTarget.previousElementSibling as HTMLInputElement)?.click();
+                      e.stopPropagation();
+                      const input = document.getElementById('document-upload-input') as HTMLInputElement;
+                      if (input && !uploadingDocument) {
+                        input.click();
+                      }
                     }}
+                    disabled={uploadingDocument}
                   >
                     <Upload className="w-4 h-4" />
-                    Upload Document
+                    {uploadingDocument ? 'Uploading...' : 'Upload Document'}
                   </button>
-                </label>
+                </div>
               </div>
+
+              {uploadingDocument && (
+                <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                    <p className="text-sm text-blue-800 font-medium">Uploading document...</p>
+                  </div>
+                </div>
+              )}
 
               {documents.length === 0 ? (
                 <div className="text-center py-12">
