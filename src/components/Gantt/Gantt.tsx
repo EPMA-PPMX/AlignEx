@@ -189,6 +189,9 @@ export default class Gantt extends Component<GanttProps, GanttState> {
   };
 
   public toggleGroupByOwner = (): void => {
+    // Save scroll position before toggling
+    const scrollState = gantt.getScrollState();
+
     if (this.isGrouped) {
       // Remove grouping - restore original tasks
       console.log('Ungrouping: restoring original tasks', this.originalTasks);
@@ -201,6 +204,17 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         links: this.originalLinks
       });
       this.isGrouped = false;
+
+      // Restore scroll position
+      if (scrollState) {
+        setTimeout(() => {
+          try {
+            gantt.scrollTo(scrollState.x, scrollState.y);
+          } catch (e) {
+            console.warn('Could not restore scroll position:', e);
+          }
+        }, 50);
+      }
     } else {
       // Save original tasks and links
       this.originalTasks = [];
@@ -321,6 +335,17 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       });
 
       this.isGrouped = true;
+
+      // Restore scroll position
+      if (scrollState) {
+        setTimeout(() => {
+          try {
+            gantt.scrollTo(scrollState.x, scrollState.y);
+          } catch (e) {
+            console.warn('Could not restore scroll position:', e);
+          }
+        }, 50);
+      }
     }
   };
 
@@ -1811,6 +1836,9 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       this.allTasks = projecttasks.data || [];
       console.log("=== Gantt parsing tasks ===", projecttasks.data?.length || 0, "tasks");
 
+      // Save current scroll position before clearing
+      const scrollState = gantt.getScrollState();
+
       // Reset grouping state when data changes
       this.isGrouped = false;
       this.originalTasks = [];
@@ -1827,6 +1855,58 @@ export default class Gantt extends Component<GanttProps, GanttState> {
             data: preparedTasks,
             links: projecttasks.links || []
           });
+
+          // Sort tasks to ensure proper parent-child hierarchy display
+          gantt.sort((a: any, b: any) => {
+            // First sort by parent - tasks with no parent (0) come first
+            if (a.parent !== b.parent) {
+              if (a.parent === 0) return -1;
+              if (b.parent === 0) return 1;
+              return a.parent - b.parent;
+            }
+            // Within same parent, sort by ID
+            return a.id - b.id;
+          });
+
+          // Open all parent tasks to show subtasks
+          gantt.eachTask((task: any) => {
+            if (gantt.hasChild(task.id)) {
+              gantt.open(task.id);
+            }
+          });
+
+          // Load baseline data if available and apply to tasks
+          if (projecttasks.baseline && projecttasks.baseline.length > 0) {
+            console.log("Loading baseline data:", projecttasks.baseline);
+
+            // Create a map of baseline data by task_id
+            const baselineMap: { [key: number]: any } = {};
+            projecttasks.baseline.forEach((baseline: any) => {
+              baselineMap[baseline.task_id] = baseline;
+            });
+
+            // Apply baseline data to each task
+            gantt.eachTask((task: any) => {
+              const baseline = baselineMap[task.id];
+              if (baseline) {
+                task.planned_start = gantt.date.parseDate(baseline.planned_start, "xml_date");
+                task.planned_end = gantt.date.parseDate(baseline.planned_end, "xml_date");
+              }
+            });
+          }
+
+          // Restore scroll position after parsing and rendering
+          if (scrollState) {
+            setTimeout(() => {
+              try {
+                gantt.scrollTo(scrollState.x, scrollState.y);
+              } catch (e) {
+                console.warn('Could not restore scroll position:', e);
+              }
+            }, 100);
+          }
+
+          gantt.render();
         } catch (error) {
           console.error('Error parsing Gantt data:', error);
           // Try to recover by clearing and re-initializing
@@ -1836,48 +1916,6 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           }
         }
       });
-
-      // Sort tasks to ensure proper parent-child hierarchy display
-      gantt.sort((a: any, b: any) => {
-        // First sort by parent - tasks with no parent (0) come first
-        if (a.parent !== b.parent) {
-          if (a.parent === 0) return -1;
-          if (b.parent === 0) return 1;
-          return a.parent - b.parent;
-        }
-        // Within same parent, sort by ID
-        return a.id - b.id;
-      });
-
-      // Open all parent tasks to show subtasks
-      gantt.eachTask((task: any) => {
-        if (gantt.hasChild(task.id)) {
-          gantt.open(task.id);
-        }
-      });
-
-      // Load baseline data if available and apply to tasks
-      if (projecttasks.baseline && projecttasks.baseline.length > 0) {
-        console.log("Loading baseline data:", projecttasks.baseline);
-
-        // Create a map of baseline data by task_id
-        const baselineMap: { [key: number]: any } = {};
-        projecttasks.baseline.forEach((baseline: any) => {
-          baselineMap[baseline.task_id] = baseline;
-        });
-
-        // Apply baseline data to each task
-        gantt.eachTask((task: any) => {
-          const baseline = baselineMap[task.id];
-          if (baseline) {
-            task.planned_start = gantt.date.parseDate(baseline.planned_start, "xml_date");
-            task.planned_end = gantt.date.parseDate(baseline.planned_end, "xml_date");
-            console.log(`Applied baseline to task ${task.id}:`, task.planned_start, task.planned_end);
-          }
-        });
-
-        gantt.render();
-      }
     }
 
     if (prevProps.searchQuery !== searchQuery) {
@@ -1887,6 +1925,9 @@ export default class Gantt extends Component<GanttProps, GanttState> {
 
   private filterTasks(query: string): void {
     const { projecttasks } = this.props;
+
+    // Save scroll position
+    const scrollState = gantt.getScrollState();
 
     // If no search query, restore to either grouped or ungrouped view
     if (!query.trim()) {
@@ -1908,6 +1949,17 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           data: preparedTasks,
           links: projecttasks.links || []
         });
+      }
+
+      // Restore scroll position
+      if (scrollState) {
+        setTimeout(() => {
+          try {
+            gantt.scrollTo(scrollState.x, scrollState.y);
+          } catch (e) {
+            console.warn('Could not restore scroll position:', e);
+          }
+        }, 50);
       }
       return;
     }
@@ -1969,6 +2021,17 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         data: preparedTasks,
         links: filteredLinks
       });
+    }
+
+    // Restore scroll position after filtering
+    if (scrollState) {
+      setTimeout(() => {
+        try {
+          gantt.scrollTo(scrollState.x, scrollState.y);
+        } catch (e) {
+          console.warn('Could not restore scroll position:', e);
+        }
+      }, 50);
     }
   }
 
