@@ -1146,8 +1146,8 @@ const ProjectDetail: React.FC = () => {
           console.error('Error updating tasks:', error);
         } else {
           console.log("Tasks updated successfully");
-          // Refresh data from database to ensure UI shows latest values
-          await fetchProjectTasks();
+          // Don't fetch - this causes infinite loop
+          // The Gantt already has the updated data
         }
       } else {
         // Insert new record only if none exists
@@ -1163,8 +1163,8 @@ const ProjectDetail: React.FC = () => {
           console.error('Error inserting tasks:', error);
         } else {
           console.log("Tasks inserted successfully");
-          // Refresh data from database to ensure UI shows latest values
-          await fetchProjectTasks();
+          // Don't fetch - this causes infinite loop
+          // The Gantt already has the updated data
         }
       }
     } catch (error) {
