@@ -2257,7 +2257,8 @@ const ProjectDetail: React.FC = () => {
             let resourceWorkHours = {};
 
             if (resourceIds && resourceIds.length > 0) {
-              const workHoursData = calculateWorkHours(taskDuration, resourceIds);
+              // For MS Project import, default to 100% allocation for each resource
+              const workHoursData = calculateWorkHours(taskDuration, resourceIds, {});
               workHours = workHoursData.total;
               resourceWorkHours = workHoursData.byResource;
             }
@@ -2411,7 +2412,11 @@ const ProjectDetail: React.FC = () => {
     return tasksWithWBS;
   };
 
-  const calculateWorkHours = (duration: number, resourceIds: string[]): { total: number; byResource: { [key: string]: number } } => {
+  const calculateWorkHours = (
+    duration: number,
+    resourceIds: string[],
+    taskAllocations: Record<string, number> = {}
+  ): { total: number; byResource: { [key: string]: number } } => {
     if (!resourceIds || resourceIds.length === 0) {
       return { total: 0, byResource: {} };
     }
@@ -2419,24 +2424,17 @@ const ProjectDetail: React.FC = () => {
     let totalWorkHours = 0;
     const resourceWorkHours: { [key: string]: number } = {};
 
-    // Calculate work for each resource based on their allocation percentage
+    // Calculate work for each resource based on their task-specific allocation percentage
     resourceIds.forEach(resourceId => {
-      // Find the team member to get their allocation percentage
-      const teamMember = projectTeamMembers.find(m => m.resource_id === resourceId);
+      // Use task-specific allocation percentage, default to 100% if not specified
+      const allocationPercentage = taskAllocations[resourceId] || 100;
 
-      if (teamMember) {
-        const allocationPercentage = teamMember.allocation_percentage || 100;
-        // Formula: Duration (days) × 8 hours/day × (Allocation % / 100)
-        const workHours = duration * 8 * (allocationPercentage / 100);
-        totalWorkHours += workHours;
-        resourceWorkHours[resourceId] = Math.round(workHours * 100) / 100;
-      } else {
-        // If team member not found (shouldn't happen), assume 100% allocation
-        const workHours = duration * 8;
-        totalWorkHours += workHours;
-        resourceWorkHours[resourceId] = Math.round(workHours * 100) / 100;
-      }
+      // Formula: Duration (days) × 8 hours/day × (Allocation % / 100)
+      const workHours = duration * 8 * (allocationPercentage / 100);
+      totalWorkHours += workHours;
+      resourceWorkHours[resourceId] = Math.round(workHours * 100) / 100;
     });
+
     return {
       total: Math.round(totalWorkHours * 100) / 100,
       byResource: resourceWorkHours
@@ -2537,7 +2535,7 @@ const ProjectDetail: React.FC = () => {
                 updatedTask.resource_allocations = resourceAllocations;
 
                 // Calculate and store work hours (both total and per-resource)
-                const workHoursData = calculateWorkHours(duration, taskForm.resource_ids);
+                const workHoursData = calculateWorkHours(duration, taskForm.resource_ids, resourceAllocations);
                 updatedTask.work_hours = workHoursData.total;
                 updatedTask.resource_work_hours = workHoursData.byResource;
 
@@ -2620,7 +2618,7 @@ const ProjectDetail: React.FC = () => {
           newTask.resource_allocations = resourceAllocations;
 
           // Calculate and store work hours (both total and per-resource)
-          const workHoursData = calculateWorkHours(duration, taskForm.resource_ids);
+          const workHoursData = calculateWorkHours(duration, taskForm.resource_ids, resourceAllocations);
           newTask.work_hours = workHoursData.total;
           newTask.resource_work_hours = workHoursData.byResource;
           console.log(`New task work hours: ${newTask.work_hours}`);
