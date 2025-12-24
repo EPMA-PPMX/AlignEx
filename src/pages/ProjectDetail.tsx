@@ -3683,13 +3683,18 @@ const ProjectDetail: React.FC = () => {
                     console.log("🔍 EDIT TASK - Task resource_ids:", task.resource_ids);
                     console.log("🔍 EDIT TASK - Task resource_names:", task.resource_names);
                     console.log("🔍 EDIT TASK - Task work hours:", task.resource_work_hours);
+                    console.log("🔍 EDIT TASK - Task resource_allocations (RAW):", task.resource_allocations);
+                    console.log("🔍 EDIT TASK - Type of resource_allocations:", typeof task.resource_allocations);
+                    console.log("🔍 EDIT TASK - Full task object:", JSON.stringify(task, null, 2));
                     console.log("🔍 EDIT TASK - Setting form resource_ids:", resourceIds);
 
                     // Load resource allocations
                     const allocations: Record<string, number> = {};
-                    if (task.resource_allocations && typeof task.resource_allocations === 'object') {
+                    if (task.resource_allocations && typeof task.resource_allocations === 'object' && Object.keys(task.resource_allocations).length > 0) {
+                      console.log("🔍 EDIT TASK - Loading allocations from task.resource_allocations");
                       Object.assign(allocations, task.resource_allocations);
                     } else {
+                      console.log("🔍 EDIT TASK - No allocations found (or empty object), defaulting to 100%");
                       // Default to 100% for existing resources without allocation data
                       resourceIds.forEach(resId => {
                         allocations[resId] = 100;
