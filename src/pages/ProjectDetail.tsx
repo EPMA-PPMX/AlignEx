@@ -2444,6 +2444,9 @@ const ProjectDetail: React.FC = () => {
   const handleTaskSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    console.log('🎯 SUBMIT - Form submitted with resourceAllocations:', resourceAllocations);
+    console.log('🎯 SUBMIT - taskForm.resource_ids:', taskForm.resource_ids);
+
     if (!taskForm.description || !taskForm.start_date || !taskForm.duration) {
       showNotification('Please fill in all required fields', 'error');
       return;
@@ -2647,6 +2650,11 @@ const ProjectDetail: React.FC = () => {
         currentTaskId = newTask.id;
       }
 
+      // Log the task data before saving to verify allocations are included
+      console.log('💾 SAVING TASK DATA - Full updatedTaskData:', JSON.stringify(updatedTaskData, null, 2));
+      const taskBeingSaved = updatedTaskData.data.find((t: any) => t.id === currentTaskId);
+      console.log('💾 SAVING TASK DATA - Current task resource_allocations:', taskBeingSaved?.resource_allocations);
+
       // Check if project_tasks record exists (get the most recent one)
       const { data: existingData, error: fetchError } = await supabase
         .from('project_tasks')
@@ -2666,6 +2674,7 @@ const ProjectDetail: React.FC = () => {
           .eq('id', existingData[0].id);
 
         if (error) throw error;
+        console.log('💾 SAVED - Task data updated in database');
       } else {
         // Insert new record only if none exists
         const { error } = await supabase
