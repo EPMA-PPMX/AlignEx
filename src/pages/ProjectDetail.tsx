@@ -302,6 +302,7 @@ const ProjectDetail: React.FC = () => {
     progress: 0
   });
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const [resourceAllocations, setResourceAllocations] = useState<Record<string, number>>({});
 
   const [projectTeamMembers, setProjectTeamMembers] = useState<ProjectTeamMember[]>([]);
 
@@ -2527,6 +2528,9 @@ const ProjectDetail: React.FC = () => {
                 updatedTask.owner_id = taskForm.resource_ids[0];
                 updatedTask.owner_name = resourceNames[0];
 
+                // Store allocation percentages
+                updatedTask.resource_allocations = resourceAllocations;
+
                 // Calculate and store work hours (both total and per-resource)
                 const workHoursData = calculateWorkHours(duration, taskForm.resource_ids);
                 updatedTask.work_hours = workHoursData.total;
@@ -2535,6 +2539,7 @@ const ProjectDetail: React.FC = () => {
                 console.log('🔍 CALCULATED - New work hours:', workHoursData);
                 console.log('🔍 CALCULATED - Resources being saved:', taskForm.resource_ids);
                 console.log('🔍 CALCULATED - Resource names:', resourceNames);
+                console.log('🔍 CALCULATED - Resource allocations:', resourceAllocations);
               } else {
                 updatedTask.resource_ids = [];
                 updatedTask.resource_names = [];
@@ -2542,6 +2547,7 @@ const ProjectDetail: React.FC = () => {
                 updatedTask.owner_name = undefined;
                 updatedTask.work_hours = 0;
                 updatedTask.resource_work_hours = {};
+                updatedTask.resource_allocations = {};
               }
 
               return updatedTask;
@@ -2605,15 +2611,20 @@ const ProjectDetail: React.FC = () => {
           newTask.owner_id = taskForm.resource_ids[0];
           newTask.owner_name = resourceNames[0];
 
+          // Store allocation percentages
+          newTask.resource_allocations = resourceAllocations;
+
           // Calculate and store work hours (both total and per-resource)
           const workHoursData = calculateWorkHours(duration, taskForm.resource_ids);
           newTask.work_hours = workHoursData.total;
           newTask.resource_work_hours = workHoursData.byResource;
           console.log(`New task work hours: ${newTask.work_hours}`);
           console.log(`Resource work hours breakdown:`, newTask.resource_work_hours);
+          console.log('Resource allocations:', resourceAllocations);
         } else {
           newTask.work_hours = 0;
           newTask.resource_work_hours = {};
+          newTask.resource_allocations = {};
         }
 
         // Add to existing tasks
@@ -2732,6 +2743,7 @@ const ProjectDetail: React.FC = () => {
         type: 'task',
         progress: 0
       });
+      setResourceAllocations({});
     } catch (error: any) {
       console.error('Error creating task:', error);
       showNotification(`Error creating task: ${error.message}`, 'error');
@@ -3530,6 +3542,7 @@ const ProjectDetail: React.FC = () => {
                           type: 'task',
                           progress: 0
                         });
+                        setResourceAllocations({});
                         setShowTaskModal(true);
                       }}
                       className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -3601,6 +3614,7 @@ const ProjectDetail: React.FC = () => {
                     progress: 0
                   });
                   console.log('Task form after setting - parent_wbs:', parentWbs);
+                  setResourceAllocations({});
                   setEditingTaskId(null);
                   setShowTaskModal(true);
                 }}
@@ -3661,6 +3675,18 @@ const ProjectDetail: React.FC = () => {
                     console.log("🔍 EDIT TASK - Task resource_names:", task.resource_names);
                     console.log("🔍 EDIT TASK - Task work hours:", task.resource_work_hours);
                     console.log("🔍 EDIT TASK - Setting form resource_ids:", resourceIds);
+
+                    // Load resource allocations
+                    const allocations: Record<string, number> = {};
+                    if (task.resource_allocations && typeof task.resource_allocations === 'object') {
+                      Object.assign(allocations, task.resource_allocations);
+                    } else {
+                      // Default to 100% for existing resources without allocation data
+                      resourceIds.forEach(resId => {
+                        allocations[resId] = 100;
+                      });
+                    }
+
                     setTaskForm({
                       description: task.text,
                       start_date: startDate,
@@ -3673,8 +3699,10 @@ const ProjectDetail: React.FC = () => {
                       type: task.type || 'task',
                       progress: Math.round((task.progress || 0) * 100)
                     });
+                    setResourceAllocations(allocations);
                     setEditingTaskId(taskId);
                     console.log("Opening modal with editingTaskId:", taskId);
+                    console.log("🔍 EDIT TASK - Loaded allocations:", allocations);
                     setShowTaskModal(true);
                   } else {
                     console.error("Task not found for ID:", taskId);
@@ -5038,33 +5066,60 @@ const ProjectDetail: React.FC = () => {
                     ) : (
                       <div className="space-y-2">
                         {projectTeamMembers.map(member => (
-                          <label
-                            key={member.id}
-                            className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={taskForm.resource_ids.includes(member.resource_id)}
-                              onChange={(e) => {
-                                const resourceId = member.resource_id;
-                                if (e.target.checked) {
-                                  setTaskForm({
-                                    ...taskForm,
-                                    resource_ids: [...taskForm.resource_ids, resourceId]
-                                  });
-                                } else {
-                                  setTaskForm({
-                                    ...taskForm,
-                                    resource_ids: taskForm.resource_ids.filter(id => id !== resourceId)
-                                  });
-                                }
-                              }}
-                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                            />
-                            <span className="text-sm text-gray-700">
-                              {member.resources?.display_name || 'Unknown'}
-                            </span>
-                          </label>
+                          <div key={member.id} className="space-y-1">
+                            <label className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                              <input
+                                type="checkbox"
+                                checked={taskForm.resource_ids.includes(member.resource_id)}
+                                onChange={(e) => {
+                                  const resourceId = member.resource_id;
+                                  if (e.target.checked) {
+                                    setTaskForm({
+                                      ...taskForm,
+                                      resource_ids: [...taskForm.resource_ids, resourceId]
+                                    });
+                                    setResourceAllocations({
+                                      ...resourceAllocations,
+                                      [resourceId]: 100
+                                    });
+                                  } else {
+                                    setTaskForm({
+                                      ...taskForm,
+                                      resource_ids: taskForm.resource_ids.filter(id => id !== resourceId)
+                                    });
+                                    const newAllocations = { ...resourceAllocations };
+                                    delete newAllocations[resourceId];
+                                    setResourceAllocations(newAllocations);
+                                  }
+                                }}
+                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                              <span className="text-sm text-gray-700 flex-1">
+                                {member.resources?.display_name || 'Unknown'}
+                              </span>
+                            </label>
+                            {taskForm.resource_ids.includes(member.resource_id) && (
+                              <div className="ml-6 flex items-center gap-2">
+                                <label className="text-xs text-gray-600 w-20">Allocation:</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="1"
+                                  value={resourceAllocations[member.resource_id] || 100}
+                                  onChange={(e) => {
+                                    const value = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                                    setResourceAllocations({
+                                      ...resourceAllocations,
+                                      [member.resource_id]: value
+                                    });
+                                  }}
+                                  className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                                <span className="text-xs text-gray-600">%</span>
+                              </div>
+                            )}
+                          </div>
                         ))}
                       </div>
                     )}
