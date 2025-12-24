@@ -822,6 +822,8 @@ const ProjectDetail: React.FC = () => {
               resource_ids: task.resource_ids || [],
               resource_names: task.resource_names || [],
               work_hours: task.work_hours || 0,
+              resource_work_hours: task.resource_work_hours || {},
+              resource_allocations: task.resource_allocations || {},
               ...customFields  // Spread all custom fields
             };
 
