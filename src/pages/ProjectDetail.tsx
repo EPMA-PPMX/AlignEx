@@ -1090,11 +1090,9 @@ const ProjectDetail: React.FC = () => {
                 ? ganttInstance.date.parseDate(task.start_date, "xml_date")
                 : task.start_date;
               const calculatedEndDate = ganttInstance.calculateEndDate(startDate, duration);
-              // Subtract 1 day to show the actual last working day (matching Task Pane display)
-              const adjustedEndDate = ganttInstance.date.add(calculatedEndDate, -1, "day");
               // Format as YYYY-MM-DD HH:mm for storage
               const dateTimeFormat = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i");
-              endDate = dateTimeFormat(adjustedEndDate);
+              endDate = dateTimeFormat(calculatedEndDate);
             } else if (endDate) {
               // If end_date exists but we couldn't calculate it, format it properly
               if (endDate instanceof Date) {
@@ -2465,11 +2463,9 @@ const ProjectDetail: React.FC = () => {
       const parsedStartDate = ganttInstance.date.parseDate(startDate, "xml_date");
       // Calculate end date using Gantt's method (respects weekends/work time)
       const calculatedEndDate = ganttInstance.calculateEndDate(parsedStartDate, duration);
-      // Subtract 1 day to show the actual last working day (matching Task Pane display)
-      const adjustedEndDate = ganttInstance.date.add(calculatedEndDate, -1, "day");
       // Format as YYYY-MM-DD HH:mm for storage
       const dateTimeFormat = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i");
-      return dateTimeFormat(adjustedEndDate);
+      return dateTimeFormat(calculatedEndDate);
     } catch (error) {
       console.error('Error calculating end date:', error);
       return '';
