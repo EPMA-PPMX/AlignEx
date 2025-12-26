@@ -117,14 +117,25 @@ export default function ResourceAllocationHeatMap() {
           return;
         }
 
-        const taskStartDate = new Date(task.start_date.split(' ')[0]);
-        const taskEndDate = new Date(task.end_date.split(' ')[0]);
+        // Parse dates manually to avoid timezone issues
+        const parseDate = (dateStr: string): Date => {
+          const [datePart] = dateStr.split(' ');
+          const [year, month, day] = datePart.split('-').map(Number);
+          return new Date(year, month - 1, day);
+        };
+
+        const taskStartDate = parseDate(task.start_date);
+        const taskEndDate = parseDate(task.end_date);
+
+        console.log(`Task: ${task.text}, Start: ${taskStartDate.toDateString()}, End: ${taskEndDate.toDateString()}`);
 
         task.resource_ids.forEach((resourceId, index) => {
           const resourceName = task.resource_names?.[index] || 'Unknown';
           const workHours = task.resource_work_hours?.[resourceId] || 0;
 
           if (workHours === 0) return;
+
+          console.log(`  Resource: ${resourceName}, Work Hours: ${workHours}`);
 
           if (!resourceAllocationsMap.has(resourceId)) {
             resourceAllocationsMap.set(resourceId, {
@@ -137,6 +148,8 @@ export default function ResourceAllocationHeatMap() {
 
           const allocation = resourceAllocationsMap.get(resourceId)!;
           const weeklyHours = distributeHoursAcrossWeeks(taskStartDate, taskEndDate, workHours);
+
+          console.log(`  Weekly distribution:`, Array.from(weeklyHours.entries()).map(([week, hours]) => `${week}: ${hours.toFixed(2)}h`).join(', '));
 
           weeklyHours.forEach((hours, weekKey) => {
             const currentHours = allocation.weeklyAllocations.get(weekKey) || 0;
@@ -165,8 +178,11 @@ export default function ResourceAllocationHeatMap() {
 
     const hoursPerDay = totalHours / workingDays;
 
-    const currentDate = new Date(startDate);
-    while (currentDate <= endDate) {
+    // Create a new date object to avoid mutating the original
+    const currentDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    const endDateTime = endDate.getTime();
+
+    while (currentDate.getTime() <= endDateTime) {
       const dayOfWeek = currentDate.getDay();
 
       if (dayOfWeek !== 0 && dayOfWeek !== 6) {
@@ -183,10 +199,10 @@ export default function ResourceAllocationHeatMap() {
 
   const calculateWorkingDays = (startDate: Date, endDate: Date): number => {
     let days = 0;
-    const current = new Date(startDate);
-    const end = new Date(endDate);
+    const current = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    const endDateTime = endDate.getTime();
 
-    while (current <= end) {
+    while (current.getTime() <= endDateTime) {
       const dayOfWeek = current.getDay();
       if (dayOfWeek !== 0 && dayOfWeek !== 6) {
         days++;
@@ -198,13 +214,16 @@ export default function ResourceAllocationHeatMap() {
   };
 
   const getWeekKey = (date: Date): string => {
-    const startOfWeek = new Date(date);
+    const startOfWeek = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const day = startOfWeek.getDay();
     const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
     startOfWeek.setDate(diff);
-    startOfWeek.setHours(0, 0, 0, 0);
 
-    return startOfWeek.toISOString().split('T')[0];
+    const year = startOfWeek.getFullYear();
+    const month = String(startOfWeek.getMonth() + 1).padStart(2, '0');
+    const dayOfMonth = String(startOfWeek.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${dayOfMonth}`;
   };
 
   const weekColumns = useMemo(() => {
