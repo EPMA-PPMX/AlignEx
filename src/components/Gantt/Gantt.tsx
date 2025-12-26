@@ -142,9 +142,10 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       const startDateStr = dateTimeFormat(startDate);
       const endDateStr = dateTimeFormat(endDate);
 
-      // Store baseline fields directly in task data with the naming convention: baseline{N}_StartDate and baseline{N}_EndDate
+      // Store baseline fields directly in task data with the naming convention: baseline{N}_StartDate, baseline{N}_EndDate, and baseline{N}_Duration
       task[`baseline${baselineNum}_StartDate`] = startDateStr;
       task[`baseline${baselineNum}_EndDate`] = endDateStr;
+      task[`baseline${baselineNum}_Duration`] = task.duration;
 
       // Also store as Date objects for rendering baseline bars
       task[`planned_start_${baselineNum}`] = startDate;
@@ -161,14 +162,15 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         task_id: task.id,
         baseline_number: baselineNum,
         [`baseline${baselineNum}_StartDate`]: startDateStr,
-        [`baseline${baselineNum}_EndDate`]: endDateStr
+        [`baseline${baselineNum}_EndDate`]: endDateStr,
+        [`baseline${baselineNum}_Duration`]: task.duration
       });
 
       // Update the task in gantt
       gantt.updateTask(task.id);
     });
 
-    console.log(`Setting baseline ${baselineNum} with fields: baseline${baselineNum}_StartDate, baseline${baselineNum}_EndDate`);
+    console.log(`Setting baseline ${baselineNum} with fields: baseline${baselineNum}_StartDate, baseline${baselineNum}_EndDate, baseline${baselineNum}_Duration`);
     console.log('Baseline data:', baselineData);
     gantt.render();
 
