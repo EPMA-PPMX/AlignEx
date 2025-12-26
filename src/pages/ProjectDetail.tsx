@@ -1082,12 +1082,22 @@ const ProjectDetail: React.FC = () => {
 
             console.log(`Task ${taskId}: duration=${task.duration} (type: ${typeof task.duration}), cleaned duration=${duration}`);
 
-            // Format end_date if it exists
+            // Calculate end_date from start_date and duration
             let endDate = task.end_date;
-            if (endDate) {
-              // Convert Date object to string if needed
+            if (task.start_date && duration) {
+              // Use Gantt's calculateEndDate to properly calculate end_date
+              const startDate = typeof task.start_date === 'string'
+                ? ganttInstance.date.parseDate(task.start_date, "xml_date")
+                : task.start_date;
+              const calculatedEndDate = ganttInstance.calculateEndDate(startDate, duration);
+              // Format as YYYY-MM-DD HH:mm for storage
+              const dateTimeFormat = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i");
+              endDate = dateTimeFormat(calculatedEndDate);
+            } else if (endDate) {
+              // If end_date exists but we couldn't calculate it, format it properly
               if (endDate instanceof Date) {
-                endDate = endDate.toISOString().split('T')[0] + ' 00:00';
+                const dateTimeFormat = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i");
+                endDate = dateTimeFormat(endDate);
               } else if (typeof endDate === 'string' && !endDate.includes(' ')) {
                 endDate = endDate + ' 00:00';
               }
@@ -2441,6 +2451,27 @@ const ProjectDetail: React.FC = () => {
     };
   };
 
+  // Helper function to calculate end_date from start_date and duration
+  const calculateEndDate = (startDate: string, duration: number): string => {
+    const ganttInstance = (window as any).gantt;
+    if (!ganttInstance || !startDate || duration === undefined) {
+      return '';
+    }
+
+    try {
+      // Parse the start date
+      const parsedStartDate = ganttInstance.date.parseDate(startDate, "xml_date");
+      // Calculate end date using Gantt's method (respects weekends/work time)
+      const calculatedEndDate = ganttInstance.calculateEndDate(parsedStartDate, duration);
+      // Format as YYYY-MM-DD HH:mm for storage
+      const dateTimeFormat = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i");
+      return dateTimeFormat(calculatedEndDate);
+    } catch (error) {
+      console.error('Error calculating end date:', error);
+      return '';
+    }
+  };
+
   const handleTaskSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -2486,9 +2517,6 @@ const ProjectDetail: React.FC = () => {
             if (task.id === editingTaskId) {
               const duration = taskForm.type === 'milestone' ? 0 : taskForm.duration;
 
-              // Don't calculate end_date here - let DHTMLX Gantt calculate it based on work_time config
-              // DHTMLX will automatically calculate end_date from start_date + duration, respecting weekends
-
               const updatedTask: any = {
                 ...task,
                 text: taskForm.description,
@@ -2509,14 +2537,20 @@ const ProjectDetail: React.FC = () => {
                 console.log('No start date provided, using project creation date:', startDateStr);
               }
 
-              // Remove end_date so DHTMLX Gantt calculates it from duration
-              delete updatedTask.end_date;
+              // Calculate and set end_date based on start_date and duration
+              if (updatedTask.start_date && duration > 0) {
+                updatedTask.end_date = calculateEndDate(updatedTask.start_date, duration);
+                console.log('Calculated end_date:', updatedTask.end_date);
+              } else if (taskForm.type === 'milestone') {
+                // For milestones, end_date equals start_date
+                updatedTask.end_date = updatedTask.start_date;
+              }
 
               console.log('Updated task values:', {
                 id: editingTaskId,
-                start_date: adjustedStartDate ? `${adjustedStartDate} 00:00` : 'not set',
+                start_date: updatedTask.start_date,
                 duration: duration,
-                note: 'end_date will be calculated by DHTMLX Gantt'
+                end_date: updatedTask.end_date
               });
 
               // Update resources if selected
@@ -2567,9 +2601,6 @@ const ProjectDetail: React.FC = () => {
 
         const duration = taskForm.type === 'milestone' ? 0 : taskForm.duration;
 
-        // Don't calculate end_date here - let DHTMLX Gantt calculate it based on work_time config
-        // DHTMLX will automatically calculate end_date from start_date + duration, respecting weekends
-
         const newTask: any = {
           id: newTaskId,
           text: taskForm.description,
@@ -2588,6 +2619,15 @@ const ProjectDetail: React.FC = () => {
           const startDateStr = `${projectDate} 00:00`;
           newTask.start_date = startDateStr;
           console.log('No start date provided, using project creation date:', startDateStr);
+        }
+
+        // Calculate and set end_date based on start_date and duration
+        if (newTask.start_date && duration > 0) {
+          newTask.end_date = calculateEndDate(newTask.start_date, duration);
+          console.log('Calculated end_date for new task:', newTask.end_date);
+        } else if (taskForm.type === 'milestone') {
+          // For milestones, end_date equals start_date
+          newTask.end_date = newTask.start_date;
         }
 
         // Set parent - MUST be 0 for root tasks, not undefined
