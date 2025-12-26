@@ -84,7 +84,11 @@ export default function ResourceAllocationHeatMap() {
       return;
     }
 
+    console.log('=== HEAT MAP: Found In Progress projects ===', projects?.length || 0);
+    console.log('Projects:', projects);
+
     if (!projects || projects.length === 0) {
+      console.log('No In Progress projects found');
       setAllocations([]);
       return;
     }
@@ -101,12 +105,16 @@ export default function ResourceAllocationHeatMap() {
       return;
     }
 
+    console.log('=== HEAT MAP: Project Tasks Retrieved ===', projectTasks?.length || 0);
+    console.log('Project Tasks:', JSON.stringify(projectTasks, null, 2));
+
     const projectTasksData: ProjectTaskData[] = (projectTasks || []).map(pt => ({
       project_id: pt.project_id,
       project_name: projects.find(p => p.id === pt.project_id)?.name || 'Unknown',
       task_data: pt.task_data
     }));
 
+    console.log('=== HEAT MAP: Starting Resource Allocation Calculation ===');
     const resourceAllocationsMap = new Map<string, ResourceAllocation>();
 
     projectTasksData.forEach(project => {
@@ -161,9 +169,19 @@ export default function ResourceAllocationHeatMap() {
       });
     });
 
-    setAllocations(Array.from(resourceAllocationsMap.values()).sort((a, b) =>
+    const finalAllocations = Array.from(resourceAllocationsMap.values()).sort((a, b) =>
       a.resourceName.localeCompare(b.resourceName)
-    ));
+    );
+
+    console.log('=== HEAT MAP: Final Allocations ===', finalAllocations.length);
+    finalAllocations.forEach(allocation => {
+      console.log(`Resource: ${allocation.resourceName}, Total Hours: ${allocation.totalHours}`);
+      console.log('  Weekly breakdown:', Array.from(allocation.weeklyAllocations.entries())
+        .map(([week, hours]) => `${week}: ${hours.toFixed(2)}h`)
+        .join(', '));
+    });
+
+    setAllocations(finalAllocations);
   };
 
   const distributeHoursAcrossWeeks = (
@@ -199,6 +217,7 @@ export default function ResourceAllocationHeatMap() {
 
   const calculateWorkingDays = (startDate: Date, endDate: Date): number => {
     let days = 0;
+    const workingDaysList: string[] = [];
     const current = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
     const endDateTime = endDate.getTime();
 
@@ -206,10 +225,12 @@ export default function ResourceAllocationHeatMap() {
       const dayOfWeek = current.getDay();
       if (dayOfWeek !== 0 && dayOfWeek !== 6) {
         days++;
+        workingDaysList.push(current.toDateString());
       }
       current.setDate(current.getDate() + 1);
     }
 
+    console.log(`    Working days (${days}):`, workingDaysList.join(', '));
     return days;
   };
 
