@@ -246,6 +246,7 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
       // Get today's date to calculate week offsets
       const today = new Date();
       today.setHours(0, 0, 0, 0);
+      console.log('=== TEAMS HEATMAP: Today is', today.toDateString());
 
       // Fetch all project tasks
       const { data: projectTasksData, error } = await supabase
@@ -257,6 +258,9 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
         setAllocations(allocationMap);
         return;
       }
+
+      console.log('=== TEAMS HEATMAP: Found project tasks:', projectTasksData?.length || 0);
+      console.log('Project tasks data:', JSON.stringify(projectTasksData, null, 2));
 
       // Fetch all project team members with allocation percentages
       const { data: projectTeamData, error: teamError } = await supabase
@@ -282,11 +286,21 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
 
         const tasks = projectRecord.task_data.data;
         const projectId = projectRecord.project_id;
+        console.log(`\n=== Processing project: ${projectRecord.projects?.name || projectId} ===`);
 
         // Process each task
         for (const task of tasks) {
           // Skip tasks without resources or work hours
-          if (!task.resource_ids || task.resource_ids.length === 0 || !task.work_hours) continue;
+          if (!task.resource_ids || task.resource_ids.length === 0 || !task.work_hours) {
+            console.log(`  Skipping task "${task.text || 'unnamed'}": no resources or work hours`);
+            continue;
+          }
+
+          console.log(`\n  Task: ${task.text}`);
+          console.log(`    Start: ${task.start_date}, End: ${task.end_date}, Duration: ${task.duration}`);
+          console.log(`    Resources:`, task.resource_ids);
+          console.log(`    Total work_hours: ${task.work_hours}`);
+          console.log(`    resource_work_hours:`, task.resource_work_hours);
 
           // Parse task dates
           let taskStartDate: Date | null = null;
@@ -317,20 +331,32 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
             }
           }
 
-          if (!taskStartDate || !taskEndDate) continue;
+          if (!taskStartDate || !taskEndDate) {
+            console.log(`    Skipping: invalid dates`);
+            continue;
+          }
+
+          console.log(`    Parsed dates: ${taskStartDate.toDateString()} to ${taskEndDate.toDateString()}`);
 
           // Calculate work days in the task duration
           let workDays = 0;
+          const workDaysList: string[] = [];
           const currentDate = new Date(taskStartDate);
           while (currentDate <= taskEndDate) {
             const dayOfWeek = currentDate.getDay();
             if (dayOfWeek !== 0 && dayOfWeek !== 6) {
               workDays++;
+              workDaysList.push(currentDate.toDateString());
             }
             currentDate.setDate(currentDate.getDate() + 1);
           }
 
-          if (workDays === 0) continue;
+          console.log(`    Work days (${workDays}):`, workDaysList.join(', '));
+
+          if (workDays === 0) {
+            console.log(`    Skipping: no work days`);
+            continue;
+          }
 
           // Use resource_work_hours if available (new format), otherwise calculate from allocation
           const resourceWorkHours = task.resource_work_hours || {};
@@ -338,7 +364,10 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
           // Distribute work hours for each resource
           for (const resourceId of task.resource_ids) {
             const resourceWeekMap = allocationMap.get(resourceId);
-            if (!resourceWeekMap) continue;
+            if (!resourceWeekMap) {
+              console.log(`    Resource ${resourceId} not in allocation map, skipping`);
+              continue;
+            }
 
             // Get resource's total work hours for this task
             let resourceTotalHours = 0;
@@ -346,19 +375,24 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
             if (resourceWorkHours[resourceId]) {
               // Use pre-calculated resource-specific hours from the task
               resourceTotalHours = resourceWorkHours[resourceId];
+              console.log(`    Resource ${resourceId}: using resource_work_hours = ${resourceTotalHours}h`);
             } else {
               // Fallback: calculate from allocation percentage (for old tasks)
               const key = `${projectId}_${resourceId}`;
               const allocationPercentage = allocationPercentageMap.get(key) || 100;
               const taskDuration = task.duration || workDays;
               resourceTotalHours = taskDuration * 8 * (allocationPercentage / 100);
+              console.log(`    Resource ${resourceId}: calculated from allocation (${allocationPercentage}%) = ${resourceTotalHours}h`);
             }
 
             // Calculate hours per day for this resource
             const hoursPerDay = resourceTotalHours / workDays;
+            console.log(`    Resource ${resourceId}: ${resourceTotalHours}h ÷ ${workDays} work days = ${hoursPerDay.toFixed(2)}h per day`);
 
             // Iterate through each day of the task
             const iterDate = new Date(taskStartDate);
+            const weeklyDistribution: { [key: string]: number } = {};
+
             while (iterDate <= taskEndDate) {
               const dayOfWeek = iterDate.getDay();
 
@@ -373,14 +407,32 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
                   const weekKey = `week-${weekIndex}`;
                   const currentHours = resourceWeekMap.get(weekKey) || 0;
                   resourceWeekMap.set(weekKey, currentHours + hoursPerDay);
+
+                  weeklyDistribution[weekKey] = (weeklyDistribution[weekKey] || 0) + hoursPerDay;
+                } else {
+                  console.log(`      ${iterDate.toDateString()}: weekIndex=${weekIndex} (outside 0-${weeks-1} range)`);
                 }
               }
 
               iterDate.setDate(iterDate.getDate() + 1);
             }
+
+            console.log(`    Weekly distribution for resource ${resourceId}:`,
+              Object.entries(weeklyDistribution).map(([week, hrs]) => `${week}=${hrs.toFixed(2)}h`).join(', '));
           }
         }
       }
+
+      console.log('\n=== FINAL ALLOCATIONS ===');
+      allocationMap.forEach((weekMap, resourceId) => {
+        const totalHours = Array.from(weekMap.values()).reduce((sum, h) => sum + h, 0);
+        console.log(`Resource ${resourceId}: ${totalHours.toFixed(2)}h total`);
+        weekMap.forEach((hours, week) => {
+          if (hours > 0) {
+            console.log(`  ${week}: ${hours.toFixed(2)}h`);
+          }
+        });
+      });
 
       setAllocations(allocationMap);
     } catch (error) {
