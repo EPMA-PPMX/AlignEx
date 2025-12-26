@@ -214,7 +214,10 @@ export default function Scheduler({ projectId }: SchedulerProps = {}) {
             };
 
             const newStartDate = formatDate(event.start_date);
-            const newEndDate = formatDate(event.end_date);
+            // Subtract 1 day from end_date to match Gantt's display of the actual last working day
+            const adjustedEndDate = new Date(event.end_date);
+            adjustedEndDate.setDate(adjustedEndDate.getDate() - 1);
+            const newEndDate = formatDate(adjustedEndDate);
             const newDuration = calculateWorkingDays(event.start_date, event.end_date);
 
             // Update the task
