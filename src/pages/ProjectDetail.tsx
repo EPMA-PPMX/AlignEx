@@ -1064,10 +1064,11 @@ const ProjectDetail: React.FC = () => {
           const taskId = task.$original_id || task.id;
           // Only add if not already in map (handles duplicates from grouping)
           if (!taskMap.has(taskId)) {
-            // Collect custom fields and baseline fields (string format only, not Date objects)
+            // Collect custom fields, baseline fields, and resource fields (string format only, not Date objects)
             const extraFields: any = {};
             Object.keys(task).forEach(key => {
-              if (key.startsWith('custom_') || key.startsWith('baseline')) {
+              if (key.startsWith('custom_') || key.startsWith('baseline') ||
+                  key === 'work_hours' || key === 'resource_work_hours' || key === 'resource_allocations') {
                 extraFields[key] = task[key];
               }
             });
