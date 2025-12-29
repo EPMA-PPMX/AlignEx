@@ -283,7 +283,9 @@ export default function ResourceAllocationHeatMap() {
     if (hours <= 20) return 'bg-yellow-100 text-yellow-800';
     if (hours <= 30) return 'bg-orange-100 text-orange-800';
     if (hours <= 40) return 'bg-red-100 text-red-800';
-    return 'bg-red-200 text-red-900 font-bold';
+    if (hours <= 60) return 'bg-red-200 text-red-900 font-bold';
+    if (hours <= 80) return 'bg-red-300 text-red-950 font-bold';
+    return 'bg-red-400 text-white font-bold';
   };
 
   const getCapacityIndicator = (hours: number): string => {
@@ -294,7 +296,9 @@ export default function ResourceAllocationHeatMap() {
     if (percentage <= 50) return '🟢';
     if (percentage <= 80) return '🟡';
     if (percentage <= 100) return '🟠';
-    return '🔴';
+    if (percentage <= 150) return '🔴';
+    if (percentage <= 200) return '🔴🔴';
+    return '⚠️';
   };
 
   const navigateWeeks = (offset: number) => {
@@ -442,27 +446,34 @@ export default function ResourceAllocationHeatMap() {
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <h3 className="text-sm font-medium text-gray-900 mb-3">Legend</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="flex items-center gap-2">
             <span>🟢</span>
-            <span className="text-sm text-gray-600">0-50% (0-20 hrs/week)</span>
+            <span className="text-sm text-gray-600">0-20 hrs/week</span>
           </div>
           <div className="flex items-center gap-2">
             <span>🟡</span>
-            <span className="text-sm text-gray-600">50-80% (20-32 hrs/week)</span>
+            <span className="text-sm text-gray-600">20-32 hrs/week</span>
           </div>
           <div className="flex items-center gap-2">
             <span>🟠</span>
-            <span className="text-sm text-gray-600">80-100% (32-40 hrs/week)</span>
+            <span className="text-sm text-gray-600">32-40 hrs/week</span>
           </div>
           <div className="flex items-center gap-2">
             <span>🔴</span>
-            <span className="text-sm text-gray-600">Over 100% (40+ hrs/week)</span>
+            <span className="text-sm text-gray-600">40-60 hrs/week</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span>🔴🔴 / ⚠️</span>
+            <span className="text-sm text-gray-600">60+ hrs/week</span>
           </div>
         </div>
         <div className="space-y-2 mt-3">
+          <p className="text-xs text-gray-700 font-medium bg-blue-50 p-2 rounded border border-blue-200">
+            All hours shown are actual calculated allocations from task assignments. There is NO restriction or cap - if a resource is allocated 80, 100, or more hours in a week, the exact number will be displayed.
+          </p>
           <p className="text-xs text-gray-500">
-            Weekly capacity assumed at 40 hours. Hours are distributed across working days (Mon-Fri) within the task date range.
+            Hours are distributed evenly across working days (Mon-Fri) within each task's date range. Standard capacity reference: 40 hrs/week.
           </p>
           <p className="text-xs text-blue-600 font-medium">
             Note: Only hours within the visible date range are displayed. Use Previous/Next buttons or adjust the weeks dropdown to view allocations in other time periods.
