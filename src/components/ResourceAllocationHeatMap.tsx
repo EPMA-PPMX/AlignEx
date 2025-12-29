@@ -378,7 +378,10 @@ export default function ResourceAllocationHeatMap() {
                   Resource
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200 min-w-[100px]">
-                  Total Hours
+                  <div className="flex flex-col">
+                    <span>Total Hours</span>
+                    <span className="text-[10px] normal-case">(visible weeks)</span>
+                  </div>
                 </th>
                 {weekColumns.map((week, index) => (
                   <th
@@ -401,7 +404,11 @@ export default function ResourceAllocationHeatMap() {
                   </td>
                   <td className="px-4 py-3 text-center text-sm text-gray-900 border-r border-gray-200">
                     <div className="flex flex-col items-center">
-                      <span className="font-semibold">{allocation.totalHours.toFixed(1)}</span>
+                      <span className="font-semibold">
+                        {weekColumns.reduce((sum, week) => {
+                          return sum + (allocation.weeklyAllocations.get(week.key) || 0);
+                        }, 0).toFixed(1)}
+                      </span>
                       <span className="text-xs text-gray-500">hrs</span>
                     </div>
                   </td>
@@ -453,9 +460,14 @@ export default function ResourceAllocationHeatMap() {
             <span className="text-sm text-gray-600">Over 100% (40+ hrs/week)</span>
           </div>
         </div>
-        <p className="text-xs text-gray-500 mt-3">
-          Weekly capacity assumed at 40 hours. Hours are distributed across working days (Mon-Fri) within the task date range.
-        </p>
+        <div className="space-y-2 mt-3">
+          <p className="text-xs text-gray-500">
+            Weekly capacity assumed at 40 hours. Hours are distributed across working days (Mon-Fri) within the task date range.
+          </p>
+          <p className="text-xs text-blue-600 font-medium">
+            Note: Only hours within the visible date range are displayed. Use Previous/Next buttons or adjust the weeks dropdown to view allocations in other time periods.
+          </p>
+        </div>
       </div>
     </div>
   );
