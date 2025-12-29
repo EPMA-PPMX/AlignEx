@@ -77,18 +77,18 @@ export default function ResourceAllocationHeatMap() {
     const { data: projects, error: projectsError } = await supabase
       .from('projects')
       .select('id, name, status')
-      .eq('status', 'In Progress');
+      .eq('status', 'In-Progress');
 
     if (projectsError) {
       console.error('Error fetching projects:', projectsError);
       return;
     }
 
-    console.log('=== HEAT MAP: Found In Progress projects ===', projects?.length || 0);
+    console.log('=== HEAT MAP: Found In-Progress projects ===', projects?.length || 0);
     console.log('Projects:', projects);
 
     if (!projects || projects.length === 0) {
-      console.log('No In Progress projects found');
+      console.log('No In-Progress projects found');
       setAllocations([]);
       return;
     }
