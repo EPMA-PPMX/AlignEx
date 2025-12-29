@@ -258,7 +258,11 @@ export default function ResourceAllocationHeatMap() {
 
     for (let i = 0; i < weeksToShow; i++) {
       const weekDate = new Date(current);
-      const weekKey = weekDate.toISOString().split('T')[0];
+      // Use same formatting method as getWeekKey to ensure consistency
+      const year = weekDate.getFullYear();
+      const month = String(weekDate.getMonth() + 1).padStart(2, '0');
+      const dayOfMonth = String(weekDate.getDate()).padStart(2, '0');
+      const weekKey = `${year}-${month}-${dayOfMonth}`;
       const monthDay = `${weekDate.getMonth() + 1}/${weekDate.getDate()}`;
 
       weeks.push({
