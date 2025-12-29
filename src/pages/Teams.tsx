@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { UsersRound, Plus, Search, Trash2, Calendar, User } from 'lucide-react';
+import { UsersRound, Plus, Search, Trash2, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNotification } from '../lib/useNotification';
+import ResourceAllocationHeatMap from '../components/ResourceAllocationHeatMap';
 
 interface Resource {
   id: string;
@@ -17,13 +18,6 @@ interface TeamMember {
   resource_id: string;
   added_at: string;
   resource: Resource;
-}
-
-interface ProjectAllocation {
-  project_id: string;
-  project_name: string;
-  week_start: string;
-  allocated_hours: number;
 }
 
 export default function Teams() {
@@ -119,7 +113,7 @@ export default function Teams() {
         </button>
       </div>
 
-      <ResourceAllocationHeatmap teamMembers={teamMembers} />
+      <ResourceAllocationHeatMap />
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="p-6 border-b border-gray-200">
@@ -223,119 +217,6 @@ export default function Teams() {
           existingMemberIds={teamMembers.map(m => m.resource_id)}
         />
       )}
-    </div>
-  );
-}
-
-function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] }) {
-  const weeks = 12;
-  const [allocations, setAllocations] = useState<Map<string, Map<string, number>>>(new Map());
-
-  useEffect(() => {
-    fetchAllocations();
-  }, [teamMembers]);
-
-  const fetchAllocations = async () => {
-    const allocationMap = new Map<string, Map<string, number>>();
-
-    for (const member of teamMembers) {
-      const weekMap = new Map<string, number>();
-      for (let i = 0; i < weeks; i++) {
-        const hours = Math.floor(Math.random() * 41);
-        weekMap.set(`week-${i}`, hours);
-      }
-      allocationMap.set(member.resource_id, weekMap);
-    }
-
-    setAllocations(allocationMap);
-  };
-
-  const getColorClass = (hours: number) => {
-    if (hours === 0) return 'bg-gray-100';
-    if (hours <= 10) return 'bg-green-200';
-    if (hours <= 20) return 'bg-yellow-200';
-    if (hours <= 30) return 'bg-orange-300';
-    return 'bg-red-400';
-  };
-
-  if (teamMembers.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-          <Calendar className="w-5 h-5" />
-          Resource Allocation Heatmap
-        </h2>
-        <div className="flex items-center gap-4 text-xs">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-gray-100 border border-gray-300"></div>
-            <span className="text-gray-600">0h</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-green-200"></div>
-            <span className="text-gray-600">1-10h</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-yellow-200"></div>
-            <span className="text-gray-600">11-20h</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-orange-300"></div>
-            <span className="text-gray-600">21-30h</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-red-400"></div>
-            <span className="text-gray-600">31-40h</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="overflow-x-auto">
-        <div className="inline-block min-w-full">
-          <div className="flex">
-            <div className="w-48 flex-shrink-0">
-              <div className="h-10 border-b border-gray-200 flex items-center px-4 font-medium text-sm text-gray-900">
-                Resource
-              </div>
-              {teamMembers.map((member) => (
-                <div
-                  key={member.id}
-                  className="h-12 border-b border-gray-200 flex items-center px-4 text-sm text-gray-700"
-                >
-                  {member.resource.display_name}
-                </div>
-              ))}
-            </div>
-
-            <div className="flex-1 overflow-x-auto">
-              <div className="flex">
-                {Array.from({ length: weeks }).map((_, weekIndex) => (
-                  <div key={weekIndex} className="flex-1 min-w-20">
-                    <div className="h-10 border-b border-l border-gray-200 flex items-center justify-center text-xs font-medium text-gray-600">
-                      Week {weekIndex + 1}
-                    </div>
-                    {teamMembers.map((member) => {
-                      const hours = allocations.get(member.resource_id)?.get(`week-${weekIndex}`) || 0;
-                      return (
-                        <div
-                          key={`${member.id}-${weekIndex}`}
-                          className={`h-12 border-b border-l border-gray-200 flex items-center justify-center text-sm font-medium ${getColorClass(hours)}`}
-                          title={`${member.resource.display_name} - Week ${weekIndex + 1}: ${hours}h`}
-                        >
-                          {hours > 0 ? `${hours}h` : ''}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
