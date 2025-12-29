@@ -127,7 +127,8 @@ export default function ResourceAllocationHeatMap() {
 
         // Parse dates manually to avoid timezone issues
         const parseDate = (dateStr: string): Date => {
-          const [datePart] = dateStr.split(' ');
+          // Handle both ISO format (2026-01-05T18:30:00.000Z) and space format (2026-01-08 00:00)
+          const datePart = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr.split(' ')[0];
           const [year, month, day] = datePart.split('-').map(Number);
           return new Date(year, month - 1, day);
         };
