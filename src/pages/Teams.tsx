@@ -519,13 +519,23 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
             <div className="flex-1 overflow-x-auto">
               <div className="flex">
                 {Array.from({ length: weeks }).map((_, weekIndex) => {
-                  // Calculate the date range for this week
+                  // Calculate the date range for this week (Monday to Friday)
                   const today = new Date();
                   today.setHours(0, 0, 0, 0);
-                  const weekStartDate = new Date(today);
-                  weekStartDate.setDate(today.getDate() + (weekIndex * 7));
+
+                  // Find the Monday of the current week
+                  const currentDayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+                  const daysFromMonday = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek; // If Sunday, go back 6 days
+                  const currentMonday = new Date(today);
+                  currentMonday.setDate(today.getDate() + daysFromMonday);
+
+                  // Calculate the Monday for this specific week index
+                  const weekStartDate = new Date(currentMonday);
+                  weekStartDate.setDate(currentMonday.getDate() + (weekIndex * 7));
+
+                  // Calculate Friday (4 days after Monday)
                   const weekEndDate = new Date(weekStartDate);
-                  weekEndDate.setDate(weekStartDate.getDate() + 6);
+                  weekEndDate.setDate(weekStartDate.getDate() + 4);
 
                   // Format the date range
                   const formatDate = (date: Date) => {
