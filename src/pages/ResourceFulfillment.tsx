@@ -325,7 +325,7 @@ export default function ResourceFulfillment() {
 
         if (genericCount > 0) {
           const project = (projectTask as any).projects;
-          if (project && (project.status === 'In Progress' || !project.status)) {
+          if (project && project.status !== 'Completed' && project.status !== 'Archived') {
             if (!projectMap.has(project.id)) {
               projectMap.set(project.id, { name: project.name, count: 0, status: project.status });
             }
