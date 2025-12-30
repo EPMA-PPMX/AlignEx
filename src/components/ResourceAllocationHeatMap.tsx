@@ -201,7 +201,7 @@ export default function ResourceAllocationHeatMap() {
     const currentDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
     const endDateTime = endDate.getTime();
 
-    while (currentDate.getTime() <= endDateTime) {
+    while (currentDate.getTime() < endDateTime) {
       const dayOfWeek = currentDate.getDay();
 
       if (dayOfWeek !== 0 && dayOfWeek !== 6) {
@@ -222,7 +222,7 @@ export default function ResourceAllocationHeatMap() {
     const current = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
     const endDateTime = endDate.getTime();
 
-    while (current.getTime() <= endDateTime) {
+    while (current.getTime() < endDateTime) {
       const dayOfWeek = current.getDay();
       if (dayOfWeek !== 0 && dayOfWeek !== 6) {
         days++;
