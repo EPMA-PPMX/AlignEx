@@ -1040,28 +1040,6 @@ const ProjectDetail: React.FC = () => {
     }
   };
 
-  // Helper function to format Date objects to Gantt's standard format: "YYYY-MM-DD HH:mm"
-  // This ensures all dates in the database follow a consistent format
-  const formatDateForStorage = (date: Date | string): string => {
-    const ganttInstance = (window as any).gantt;
-    if (!ganttInstance || !date) {
-      return '';
-    }
-
-    try {
-      const dateObj = typeof date === 'string'
-        ? ganttInstance.date.parseDate(date, "xml_date")
-        : date;
-
-      // Format using Gantt's standard format: "%Y-%m-%d %H:%i" (YYYY-MM-DD HH:mm)
-      const formatter = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i");
-      return formatter(dateObj);
-    } catch (error) {
-      console.error('Error formatting date:', error);
-      return '';
-    }
-  };
-
   const saveProjectTasks = async () => {
     if (!id) return;
 
@@ -1086,19 +1064,12 @@ const ProjectDetail: React.FC = () => {
           const taskId = task.$original_id || task.id;
           // Only add if not already in map (handles duplicates from grouping)
           if (!taskMap.has(taskId)) {
-            // Collect custom fields, baseline fields, and resource fields
-            // Format any date fields to standard "YYYY-MM-DD HH:mm" format
+            // Collect custom fields, baseline fields, and resource fields (string format only, not Date objects)
             const extraFields: any = {};
             Object.keys(task).forEach(key => {
               if (key.startsWith('custom_') || key.startsWith('baseline') ||
                   key === 'work_hours' || key === 'resource_work_hours' || key === 'resource_allocations') {
-                const value = task[key];
-                // Format baseline dates to standard format
-                if ((key === 'baseline_start' || key === 'baseline_end' || key === 'planned_start' || key === 'planned_end') && value) {
-                  extraFields[key] = formatDateForStorage(value);
-                } else {
-                  extraFields[key] = value;
-                }
+                extraFields[key] = task[key];
               }
             });
 
@@ -1112,7 +1083,7 @@ const ProjectDetail: React.FC = () => {
 
             console.log(`Task ${taskId}: duration=${task.duration} (type: ${typeof task.duration}), cleaned duration=${duration}`);
 
-            // Calculate and format end_date using the same method as Gantt component
+            // Calculate end_date using the same method as Gantt component
             // Use DHTMLX's calculateEndDate which handles calendar days correctly
             let endDate = task.end_date;
             if (task.start_date && duration) {
@@ -1120,24 +1091,15 @@ const ProjectDetail: React.FC = () => {
                 ? ganttInstance.date.parseDate(task.start_date, "xml_date")
                 : task.start_date;
               // Use the same calculation as in Gantt.tsx line 1216 - no adjustments
-              const calculatedEndDate = ganttInstance.calculateEndDate(startDate, duration);
-              // Format to standard "YYYY-MM-DD HH:mm" format for consistent storage
-              endDate = formatDateForStorage(calculatedEndDate);
+              endDate = ganttInstance.calculateEndDate(startDate, duration);
               console.log(`Calculated end_date for task ${taskId}:`, endDate);
-            } else if (endDate) {
-              // If end_date exists but wasn't calculated, ensure it's in the standard format
-              endDate = formatDateForStorage(endDate);
             }
 
-            // Ensure start_date is also in the standard format
-            const startDate = task.start_date ? formatDateForStorage(task.start_date) : task.start_date;
-
             // Build the task object for storage
-            // All dates stored in standard format: "YYYY-MM-DD HH:mm"
             const taskToSave: any = {
               id: taskId,
               text: task.text,
-              start_date: startDate,
+              start_date: task.start_date,
               duration: duration,
               end_date: endDate,
               progress: task.progress || 0,
@@ -2486,7 +2448,7 @@ const ProjectDetail: React.FC = () => {
 
   // Helper function to calculate end_date from start_date and duration
   // Uses the same method as Gantt.tsx line 1216 - no adjustments
-  const calculateEndDate = (startDate: string, duration: number): string => {
+  const calculateEndDate = (startDate: string, duration: number): Date | string => {
     const ganttInstance = (window as any).gantt;
     if (!ganttInstance || !startDate || duration === undefined) {
       return '';
@@ -2498,8 +2460,8 @@ const ProjectDetail: React.FC = () => {
       // Calculate end date using Gantt's method - same as in Gantt.tsx
       // This returns the exclusive end date (day after last working day)
       const calculatedEndDate = ganttInstance.calculateEndDate(parsedStartDate, duration);
-      // Format to standard "YYYY-MM-DD HH:mm" format for storage
-      return formatDateForStorage(calculatedEndDate);
+      // Return the Date object directly, just like in Gantt.tsx
+      return calculatedEndDate;
     } catch (error) {
       console.error('Error calculating end date:', error);
       return '';
