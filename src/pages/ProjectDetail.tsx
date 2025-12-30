@@ -2523,14 +2523,15 @@ const ProjectDetail: React.FC = () => {
 
               // Set start_date: use provided date or default to project creation date or keep existing
               if (adjustedStartDate) {
-                const startDateStr = `${adjustedStartDate} 00:00`;
-                updatedTask.start_date = startDateStr;
+                // Convert to ISO 8601 format to match end_date format
+                const startDate = new Date(adjustedStartDate + 'T00:00:00.000Z');
+                updatedTask.start_date = startDate.toISOString();
               } else if (!task.start_date && project?.created_at) {
                 // If task has no start date and no new date provided, default to project creation date
                 const projectDate = new Date(project.created_at).toISOString().split('T')[0];
-                const startDateStr = `${projectDate} 00:00`;
-                updatedTask.start_date = startDateStr;
-                console.log('No start date provided, using project creation date:', startDateStr);
+                const startDate = new Date(projectDate + 'T00:00:00.000Z');
+                updatedTask.start_date = startDate.toISOString();
+                console.log('No start date provided, using project creation date:', updatedTask.start_date);
               }
 
               // Calculate end_date using the same method as Gantt component (line 1216)
@@ -2607,14 +2608,15 @@ const ProjectDetail: React.FC = () => {
 
         // Set start_date: use provided date or default to project creation date
         if (adjustedStartDate) {
-          const startDateStr = `${adjustedStartDate} 00:00`;
-          newTask.start_date = startDateStr;
+          // Convert to ISO 8601 format to match end_date format
+          const startDate = new Date(adjustedStartDate + 'T00:00:00.000Z');
+          newTask.start_date = startDate.toISOString();
         } else if (project?.created_at) {
           // Default to project creation date if no start date provided
           const projectDate = new Date(project.created_at).toISOString().split('T')[0];
-          const startDateStr = `${projectDate} 00:00`;
-          newTask.start_date = startDateStr;
-          console.log('No start date provided, using project creation date:', startDateStr);
+          const startDate = new Date(projectDate + 'T00:00:00.000Z');
+          newTask.start_date = startDate.toISOString();
+          console.log('No start date provided, using project creation date:', newTask.start_date);
         }
 
         // Calculate end_date using the same method as Gantt component (line 1216)
