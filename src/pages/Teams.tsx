@@ -518,26 +518,45 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
 
             <div className="flex-1 overflow-x-auto">
               <div className="flex">
-                {Array.from({ length: weeks }).map((_, weekIndex) => (
-                  <div key={weekIndex} className="flex-1 min-w-20">
-                    <div className="h-10 border-b border-l border-gray-200 flex items-center justify-center text-xs font-medium text-gray-600">
-                      Week {weekIndex + 1}
+                {Array.from({ length: weeks }).map((_, weekIndex) => {
+                  // Calculate the date range for this week
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const weekStartDate = new Date(today);
+                  weekStartDate.setDate(today.getDate() + (weekIndex * 7));
+                  const weekEndDate = new Date(weekStartDate);
+                  weekEndDate.setDate(weekStartDate.getDate() + 6);
+
+                  // Format the date range
+                  const formatDate = (date: Date) => {
+                    const month = date.toLocaleDateString('en-US', { month: 'short' });
+                    const day = date.getDate();
+                    return `${month} ${day}`;
+                  };
+
+                  const dateRange = `${formatDate(weekStartDate)} - ${formatDate(weekEndDate)}`;
+
+                  return (
+                    <div key={weekIndex} className="flex-1 min-w-20">
+                      <div className="h-10 border-b border-l border-gray-200 flex items-center justify-center text-xs font-medium text-gray-600">
+                        {dateRange}
+                      </div>
+                      {teamMembers.map((member) => {
+                        const hours = allocations.get(member.resource_id)?.get(`week-${weekIndex}`) || 0;
+                        const roundedHours = Math.round(hours);
+                        return (
+                          <div
+                            key={`${member.id}-${weekIndex}`}
+                            className={`h-12 border-b border-l border-gray-200 flex items-center justify-center text-sm font-medium ${getColorClass(roundedHours)}`}
+                            title={`${member.resource.display_name} - ${dateRange}: ${hours.toFixed(1)}h`}
+                          >
+                            {roundedHours > 0 ? `${roundedHours}h` : ''}
+                          </div>
+                        );
+                      })}
                     </div>
-                    {teamMembers.map((member) => {
-                      const hours = allocations.get(member.resource_id)?.get(`week-${weekIndex}`) || 0;
-                      const roundedHours = Math.round(hours);
-                      return (
-                        <div
-                          key={`${member.id}-${weekIndex}`}
-                          className={`h-12 border-b border-l border-gray-200 flex items-center justify-center text-sm font-medium ${getColorClass(roundedHours)}`}
-                          title={`${member.resource.display_name} - Week ${weekIndex + 1}: ${hours.toFixed(1)}h`}
-                        >
-                          {roundedHours > 0 ? `${roundedHours}h` : ''}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
