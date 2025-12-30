@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Date Format Test</title>
+  <style>
+    body { font-family: monospace; padding: 20px; }
+    .error { color: red; font-weight: bold; }
+    .success { color: green; }
+    .info { color: blue; }
+  </style>
+</head>
+<body>
+  <h1>Date Format & Hour Calculation Test</h1>
+  <div id="output"></div>
+
+  <script>
+    const output = document.getElementById('output');
+
+    function log(msg, type = 'info') {
+      const div = document.createElement('div');
+      div.className = type;
+      div.textContent = msg;
+      output.appendChild(div);
+    }
+
+    // Simulate the parseDate function from ResourceAllocationHeatMap
+    function parseDate(dateStr) {
+      const datePart = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr.split(' ')[0];
+      const [year, month, day] = datePart.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    }
+
+    // Simulate getWeekKey
+    function getWeekKey(date) {
+      const startOfWeek = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const day = startOfWeek.getDay();
+      const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
+      startOfWeek.setDate(diff);
+
+      const year = startOfWeek.getFullYear();
+      const month = String(startOfWeek.getMonth() + 1).padStart(2, '0');
+      const dayOfMonth = String(startOfWeek.getDate()).padStart(2, '0');
+
+      return `${year}-${month}-${dayOfMonth}`;
+    }
+
+    // Simulate calculateWorkingDays
+    function calculateWorkingDays(startDate, endDate) {
+      let days = 0;
+      const workingDaysList = [];
+      const current = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+      const endDateTime = endDate.getTime();
+
+      while (current.getTime() <= endDateTime) {
+        const dayOfWeek = current.getDay();
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+          days++;
+          workingDaysList.push(current.toDateString());
+        }
+        current.setDate(current.getDate() + 1);
+      }
+
+      return { days, list: workingDaysList };
+    }
+
+    // Simulate distributeHoursAcrossWeeks
+    function distributeHoursAcrossWeeks(startDate, endDate, totalHours) {
+      const weeklyHours = new Map();
+
+      const workingDaysResult = calculateWorkingDays(startDate, endDate);
+      const workingDays = workingDaysResult.days;
+
+      log(`Working Days: ${workingDays}`, 'info');
+      log(`Days List: ${workingDaysResult.list.join(', ')}`, 'info');
+
+      if (workingDays === 0) return weeklyHours;
+
+      const hoursPerDay = totalHours / workingDays;
+      log(`Hours Per Day: ${hoursPerDay.toFixed(2)}`, 'info');
+
+      const currentDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+      const endDateTime = endDate.getTime();
+
+      while (currentDate.getTime() <= endDateTime) {
+        const dayOfWeek = currentDate.getDay();
+
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+          const weekKey = getWeekKey(currentDate);
+          const currentWeekHours = weeklyHours.get(weekKey) || 0;
+          weeklyHours.set(weekKey, currentWeekHours + hoursPerDay);
+          log(`  ${currentDate.toDateString()} → Week ${weekKey}: +${hoursPerDay.toFixed(2)}h = ${(currentWeekHours + hoursPerDay).toFixed(2)}h`);
+        }
+
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      return weeklyHours;
+    }
+
+    // Test cases
+    log('=== TEST CASE 1: Task spanning 2 weeks ===', 'success');
+    log('Start: 2026-01-05 00:00 (Monday)');
+    log('End: 2026-01-16 00:00 (Friday)');
+    log('Total Hours: 80');
+    log('');
+
+    const start1 = parseDate('2026-01-05 00:00');
+    const end1 = parseDate('2026-01-16 00:00');
+    const hours1 = distributeHoursAcrossWeeks(start1, end1, 80);
+
+    log('');
+    log('RESULT:', 'success');
+    hours1.forEach((hours, week) => {
+      log(`  Week ${week}: ${hours.toFixed(2)} hours`, 'success');
+    });
+
+    log('');
+    log('=== TEST CASE 2: What if end date is EXCLUSIVE? ===', 'error');
+    log('Start: 2026-01-05 00:00 (Monday)');
+    log('End: 2026-01-16 00:00 (Friday) - but treated as end of Jan 15');
+    log('Total Hours: 80');
+    log('');
+
+    const start2 = parseDate('2026-01-05 00:00');
+    const end2 = parseDate('2026-01-15 00:00'); // One day earlier
+    const hours2 = distributeHoursAcrossWeeks(start2, end2, 80);
+
+    log('');
+    log('RESULT:', 'error');
+    hours2.forEach((hours, week) => {
+      log(`  Week ${week}: ${hours.toFixed(2)} hours`, 'error');
+    });
+
+    log('');
+    log('=== TEST CASE 3: Single week task ===', 'info');
+    log('Start: 2026-01-05 00:00 (Monday)');
+    log('End: 2026-01-09 00:00 (Friday)');
+    log('Total Hours: 40');
+    log('');
+
+    const start3 = parseDate('2026-01-05 00:00');
+    const end3 = parseDate('2026-01-09 00:00');
+    const hours3 = distributeHoursAcrossWeeks(start3, end3, 40);
+
+    log('');
+    log('RESULT:', 'info');
+    hours3.forEach((hours, week) => {
+      log(`  Week ${week}: ${hours.toFixed(2)} hours`, 'info');
+    });
+
+    log('');
+    log('=== DIAGNOSIS ===', 'error');
+    log('If your Gantt is storing end_date as the EXCLUSIVE end (i.e., the day AFTER the task ends),');
+    log('then the calculation will include an extra day and throw off the distribution!');
+    log('');
+    log('Check your browser console logs when viewing the heat map to see the actual dates being used.');
+  </script>
+</body>
+</html>
