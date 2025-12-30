@@ -1083,16 +1083,25 @@ const ProjectDetail: React.FC = () => {
 
             console.log(`Task ${taskId}: duration=${task.duration} (type: ${typeof task.duration}), cleaned duration=${duration}`);
 
+            // Calculate end_date using the same method as Gantt component
+            // Use DHTMLX's calculateEndDate which handles calendar days correctly
+            let endDate = task.end_date;
+            if (task.start_date && duration) {
+              const startDate = typeof task.start_date === 'string'
+                ? ganttInstance.date.parseDate(task.start_date, "xml_date")
+                : task.start_date;
+              // Use the same calculation as in Gantt.tsx line 1216 - no adjustments
+              endDate = ganttInstance.calculateEndDate(startDate, duration);
+              console.log(`Calculated end_date for task ${taskId}:`, endDate);
+            }
+
             // Build the task object for storage
-            // IMPORTANT: We do NOT store end_date in the database
-            // The Gantt will calculate it automatically from start_date + duration when loading
-            // This ensures consistency and avoids date calculation mismatches
             const taskToSave: any = {
               id: taskId,
               text: task.text,
               start_date: task.start_date,
               duration: duration,
-              // Do NOT include end_date - let Gantt calculate it from start_date + duration
+              end_date: endDate,
               progress: task.progress || 0,
               type: task.type || 'task',
               parent: task.$original_parent !== undefined ? task.$original_parent : (task.parent || 0),
@@ -2438,7 +2447,8 @@ const ProjectDetail: React.FC = () => {
   };
 
   // Helper function to calculate end_date from start_date and duration
-  const calculateEndDate = (startDate: string, duration: number): string => {
+  // Uses the same method as Gantt.tsx line 1216 - no adjustments
+  const calculateEndDate = (startDate: string, duration: number): Date | string => {
     const ganttInstance = (window as any).gantt;
     if (!ganttInstance || !startDate || duration === undefined) {
       return '';
@@ -2447,13 +2457,11 @@ const ProjectDetail: React.FC = () => {
     try {
       // Parse the start date
       const parsedStartDate = ganttInstance.date.parseDate(startDate, "xml_date");
-      // Calculate end date using Gantt's method (respects weekends/work time)
+      // Calculate end date using Gantt's method - same as in Gantt.tsx
+      // This returns the exclusive end date (day after last working day)
       const calculatedEndDate = ganttInstance.calculateEndDate(parsedStartDate, duration);
-      // Subtract 1 day to get the actual last working day (not the day after)
-      const adjustedEndDate = ganttInstance.date.add(calculatedEndDate, -1, "day");
-      // Format as YYYY-MM-DD HH:mm for storage
-      const dateTimeFormat = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i");
-      return dateTimeFormat(adjustedEndDate);
+      // Return the Date object directly, just like in Gantt.tsx
+      return calculatedEndDate;
     } catch (error) {
       console.error('Error calculating end date:', error);
       return '';
@@ -2525,15 +2533,20 @@ const ProjectDetail: React.FC = () => {
                 console.log('No start date provided, using project creation date:', startDateStr);
               }
 
-              // Do NOT set end_date - let Gantt calculate it from start_date + duration
-              // This ensures consistency and avoids date calculation issues
-              // The Gantt will automatically calculate end_date when the task is loaded
+              // Calculate end_date using the same method as Gantt component (line 1216)
+              if (updatedTask.start_date && duration > 0) {
+                updatedTask.end_date = calculateEndDate(updatedTask.start_date, duration);
+                console.log('Calculated end_date:', updatedTask.end_date);
+              } else if (taskForm.type === 'milestone') {
+                // For milestones, end_date equals start_date
+                updatedTask.end_date = updatedTask.start_date;
+              }
 
               console.log('Updated task values:', {
                 id: editingTaskId,
                 start_date: updatedTask.start_date,
-                duration: duration
-                // end_date will be calculated by Gantt from start_date + duration
+                duration: duration,
+                end_date: updatedTask.end_date
               });
 
               // Update resources if selected
@@ -2604,10 +2617,14 @@ const ProjectDetail: React.FC = () => {
           console.log('No start date provided, using project creation date:', startDateStr);
         }
 
-        // Do NOT set end_date - let Gantt calculate it from start_date + duration
-        // This ensures consistency and avoids date calculation issues
-        // The Gantt will automatically calculate end_date when the task is loaded
-        console.log('New task - end_date will be calculated by Gantt from start_date + duration');
+        // Calculate end_date using the same method as Gantt component (line 1216)
+        if (newTask.start_date && duration > 0) {
+          newTask.end_date = calculateEndDate(newTask.start_date, duration);
+          console.log('Calculated end_date for new task:', newTask.end_date);
+        } else if (taskForm.type === 'milestone') {
+          // For milestones, end_date equals start_date
+          newTask.end_date = newTask.start_date;
+        }
 
         // Set parent - MUST be 0 for root tasks, not undefined
         console.log('Checking parent_id:', taskForm.parent_id);
