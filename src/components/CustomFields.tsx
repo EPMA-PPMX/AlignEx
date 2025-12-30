@@ -1,22 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, CreditCard as Edit2, Trash2, Save, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useNotification } from '../lib/useNotification';
 
 interface CustomField {
   id: string;
   field_name: string;
   field_type: string;
   field_label: string;
-  field_description?: string;
+  description?: string;
   is_required: boolean;
   default_value?: string;
   options?: string[];
-  entity_type: 'project' | 'resource';
+  entity_type: 'project' | 'resource' | 'task';
   created_at: string;
   updated_at: string;
 }
 
 const CustomFields: React.FC = () => {
+  const { showConfirm } = useNotification();
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -25,10 +27,12 @@ const CustomFields: React.FC = () => {
     field_name: '',
     field_type: 'text',
     field_label: '',
-    field_description: '',
+    description: '',
     is_required: false,
     default_value: '',
-    entity_type: 'project' as 'project' | 'resource',
+    entity_type: 'project' as 'project' | 'resource' | 'task',
+    //entity_type: 'project' as 'project' | 'resource',
+    track_history: false,
     options: []
   });
 
@@ -41,7 +45,8 @@ const CustomFields: React.FC = () => {
     { value: 'textarea', label: 'Multiline Text' },
     { value: 'dropdown', label: 'Dropdown' },
     { value: 'radio', label: 'Radio Button' },
-    { value: 'checkbox', label: 'Checkbox' }
+    { value: 'checkbox', label: 'Checkbox' },
+    { value: 'people_picker', label: 'People Picker' }
   ];
 
   useEffect(() => {
@@ -128,18 +133,22 @@ const CustomFields: React.FC = () => {
       field_name: field.field_name,
       field_type: field.field_type,
       field_label: field.field_label,
-      field_description: field.field_description || '',
+      description: field.description || '',
       is_required: field.is_required,
       default_value: field.default_value || '',
       entity_type: field.entity_type,
+      track_history: field.track_history || false,
       options: fieldOptions
     });
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this custom field?')) {
-      return;
-    }
+    const confirmed = await showConfirm({
+      title: 'Delete Custom Field',
+      message: 'Are you sure you want to delete this custom field?',
+      confirmText: 'Delete'
+    });
+    if (!confirmed) return;
 
     try {
       setLoading(true);
@@ -168,10 +177,11 @@ const CustomFields: React.FC = () => {
       field_name: '',
       field_type: 'text',
       field_label: '',
-      field_description: '',
+      description: '',
       is_required: false,
       default_value: '',
       entity_type: 'project',
+      track_history: false,
       options: []
     });
     setEditingField(null);
@@ -251,12 +261,13 @@ const CustomFields: React.FC = () => {
               </label>
               <select
                 value={formData.entity_type}
-                onChange={(e) => setFormData({ ...formData, entity_type: e.target.value as 'project' | 'resource' })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                onChange={(e) => setFormData({ ...formData, entity_type: e.target.value as 'project' | 'resource' | 'task' })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               >
                 <option value="project">Project Fields</option>
                 <option value="resource">Resource Fields</option>
+                <option value="task">Task Fields</option>
               </select>
             </div>
           </div>
@@ -281,9 +292,9 @@ const CustomFields: React.FC = () => {
             </label>
             <input
               type="text"
-              value={formData.field_description}
-              onChange={(e) => setFormData({ ...formData, field_description: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Additional guidance for users filling this field"
             />
           </div>
@@ -341,17 +352,34 @@ const CustomFields: React.FC = () => {
             )}
           </div>
 
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="is_required"
-              checked={formData.is_required}
-              onChange={(e) => setFormData({ ...formData, is_required: e.target.checked })}
-              className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-            />
-            <label htmlFor="is_required" className="ml-2 block text-sm text-gray-700">
-              Required field
-            </label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="is_required"
+                checked={formData.is_required}
+                onChange={(e) => setFormData({ ...formData, is_required: e.target.checked })}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label htmlFor="is_required" className="ml-2 block text-sm text-gray-700">
+                Required field
+              </label>
+            </div>
+
+            {formData.entity_type === 'project' && (
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="track_history"
+                  checked={formData.track_history}
+                  onChange={(e) => setFormData({ ...formData, track_history: e.target.checked })}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="track_history" className="ml-2 block text-sm text-gray-700">
+                  Track historical values
+                </label>
+              </div>
+            )}
           </div>
 
           <div className="flex space-x-4">
@@ -440,9 +468,11 @@ const CustomFields: React.FC = () => {
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                         field.entity_type === 'project'
                           ? 'bg-blue-100 text-blue-800'
-                          : 'bg-green-100 text-green-800'
+                          : field.entity_type === 'resource'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-orange-100 text-orange-800'
                       }`}>
-                        {field.entity_type === 'project' ? 'Project' : 'Resource'}
+                        {field.entity_type === 'project' ? 'Project' : field.entity_type === 'resource' ? 'Resource' : 'Task'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

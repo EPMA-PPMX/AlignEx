@@ -1,31 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FolderKanban, Settings, Target, TrendingUp, FileText, Award, Users, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, Settings, Target, TrendingUp, FileText, Award, Users, CheckSquare, Clock, ChevronLeft, ChevronRight, BarChart3, Lock, ClipboardCheck } from 'lucide-react';
+import { usePermissions } from '../lib/usePermissions';
+import { ModuleKey } from '../lib/permissionService';
+
+interface NavItem {
+  name: string;
+  path: string;
+  icon: React.ElementType;
+  requiredModule?: ModuleKey;
+  requiresManagePermission?: boolean;
+}
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const { availableModules, can, loading } = usePermissions();
 
-  const navItems = [
+  const allNavItems: NavItem[] = [
     {
-      name: 'Dashboard',
+      name: 'My Hub',
       path: '/',
       icon: LayoutDashboard,
     },
     {
-      name: 'Project Initiation',
+      name: 'Project Request',
       path: '/initiation',
       icon: FileText,
     },
     {
-      name: 'Projects',
+      name: 'Project Center',
       path: '/projects',
       icon: FolderKanban,
     },
     {
-      name: 'Organizational Priorities',
+      name: 'Strategic Priorities',
       path: '/priorities',
       icon: TrendingUp,
+      requiresManagePermission: true,
     },
     {
       name: 'Resources',
@@ -33,9 +45,25 @@ const Sidebar: React.FC = () => {
       icon: Users,
     },
     {
-      name: 'Skills',
+      name: 'My Skills',
       path: '/skills',
       icon: Award,
+      requiredModule: 'skills',
+    },
+    {
+      name: 'Timesheet',
+      path: '/timesheet',
+      icon: Clock,
+    },
+    {
+      name: 'Timesheet Approvals',
+      path: '/timesheet-approval',
+      icon: ClipboardCheck,
+    },
+    {
+      name: 'Status Report',
+      path: '/status-report',
+      icon: BarChart3,
     },
     {
       name: 'Timesheet',
@@ -46,14 +74,33 @@ const Sidebar: React.FC = () => {
       name: 'Settings',
       path: '/settings',
       icon: Settings,
+      requiresManagePermission: true,
     },
   ];
+
+  const navItems = useMemo(() => {
+    if (loading) return allNavItems; // Show all while loading
+
+    return allNavItems.filter((item) => {
+      // Check if module is required and available
+      if (item.requiredModule && !availableModules.includes(item.requiredModule)) {
+        return false;
+      }
+
+      // Check if management permission is required
+      if (item.requiresManagePermission && !can.manage) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [availableModules, can.manage, loading]);
 
   return (
     <div className={`${isCollapsed ? 'w-20' : 'w-64'} bg-gradient-dark shadow-lg border-r border-primary-700/30 transition-all duration-300 flex flex-col`}>
       <div className="flex items-center justify-center py-8 px-4 border-b border-primary-700/30 relative">
         <img
-          src={isCollapsed ? "/Just Logo - AlignEX.png" : "/Full Logo.png"}
+          src={isCollapsed ? "/PPMX.gif" : "/PPMX.gif"}
           alt="AlignEx"
           className={`${isCollapsed ? 'h-16 w-16' : 'w-full h-auto'} transition-all duration-300`}
         />

@@ -1,26 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, CreditCard as Edit2, Trash2, Save, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useNotification } from '../lib/useNotification';
 
 interface ProjectTemplate {
   id: string;
   template_name: string;
   template_description?: string;
+  start_date?: string | null;
+  schedule_template_id?: string | null;
   created_at: string;
   updated_at: string;
 }
 
+interface ScheduleTemplate {
+  id: string;
+  template_name: string;
+  template_description?: string;
+}
+
 const ProjectTemplates: React.FC = () => {
+  const { showConfirm } = useNotification();
   const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
+  const [scheduleTemplates, setScheduleTemplates] = useState<ScheduleTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     template_name: '',
-    template_description: ''
+    template_description: '',
+    start_date: '',
+    schedule_template_id: ''
   });
 
   useEffect(() => {
     fetchTemplates();
+    fetchScheduleTemplates();
   }, []);
 
   const fetchTemplates = async () => {
@@ -32,16 +46,33 @@ const ProjectTemplates: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching project templates:', error);
-        alert('Error loading project templates: ' + error.message);
+        console.error('Error fetching project types:', error);
+        alert('Error loading project types: ' + error.message);
       } else {
         setTemplates(data || []);
       }
     } catch (error) {
-      console.error('Error fetching project templates:', error);
-      alert('Error loading project templates. Please try again.');
+      console.error('Error fetching project types:', error);
+      alert('Error loading project types. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchScheduleTemplates = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('schedule_templates')
+        .select('id, template_name, template_description')
+        .order('template_name', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching schedule templates:', error);
+      } else {
+        setScheduleTemplates(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching schedule templates:', error);
     }
   };
 
@@ -58,7 +89,9 @@ const ProjectTemplates: React.FC = () => {
 
       const payload = {
         template_name: formData.template_name.trim(),
-        template_description: formData.template_description.trim() || null
+        template_description: formData.template_description.trim() || null,
+        start_date: formData.start_date || null,
+        schedule_template_id: formData.schedule_template_id || null
       };
 
       if (editingTemplate) {
@@ -72,7 +105,7 @@ const ProjectTemplates: React.FC = () => {
         } else {
           await fetchTemplates();
           resetForm();
-          alert('Project template updated successfully!');
+          alert('Project type updated successfully!');
         }
       } else {
         const { error } = await supabase
@@ -84,12 +117,12 @@ const ProjectTemplates: React.FC = () => {
         } else {
           await fetchTemplates();
           resetForm();
-          alert('Project template created successfully!');
+          alert('Project type created successfully!');
         }
       }
     } catch (error) {
-      console.error('Error saving project template:', error);
-      alert('Error saving project template. Please try again.');
+      console.error('Error saving project type:', error);
+      alert('Error saving project type. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -99,14 +132,19 @@ const ProjectTemplates: React.FC = () => {
     setEditingTemplate(template.id);
     setFormData({
       template_name: template.template_name,
-      template_description: template.template_description || ''
+      template_description: template.template_description || '',
+      start_date: template.start_date || '',
+      schedule_template_id: template.schedule_template_id || ''
     });
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this project template?')) {
-      return;
-    }
+    const confirmed = await showConfirm({
+      title: 'Delete Project Type',
+      message: 'Are you sure you want to delete this project type?',
+      confirmText: 'Delete'
+    });
+    if (!confirmed) return;
 
     try {
       setLoading(true);
@@ -119,11 +157,11 @@ const ProjectTemplates: React.FC = () => {
         alert(`Error: ${error.message}`);
       } else {
         await fetchTemplates();
-        alert('Project template deleted successfully!');
+        alert('Project type deleted successfully!');
       }
     } catch (error) {
-      console.error('Error deleting project template:', error);
-      alert('Error deleting project template');
+      console.error('Error deleting project type:', error);
+      alert('Error deleting project type');
     } finally {
       setLoading(false);
     }
@@ -132,7 +170,9 @@ const ProjectTemplates: React.FC = () => {
   const resetForm = () => {
     setFormData({
       template_name: '',
-      template_description: ''
+      template_description: '',
+      start_date: '',
+      schedule_template_id: ''
     });
     setEditingTemplate(null);
   };
@@ -149,7 +189,7 @@ const ProjectTemplates: React.FC = () => {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold text-gray-900 mb-6">Project Templates</h2>
+      <h2 className="text-xl font-semibold text-gray-900 mb-6">Project Types</h2>
       
       {/* Form */}
       <div className="bg-gray-50 rounded-lg p-6 mb-8">
@@ -157,28 +197,64 @@ const ProjectTemplates: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Template Name <span className="text-red-500">*</span>
+                Project Type <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={formData.template_name}
                 onChange={(e) => setFormData({ ...formData, template_name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="e.g., Website Development Template"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="e.g., Website Development"
                 required
                 disabled={loading}
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Template Description
+                Default Start Date
+              </label>
+              <input
+                type="date"
+                value={formData.start_date}
+                onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={loading}
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Schedule Template
+              </label>
+              <select
+                value={formData.schedule_template_id}
+                onChange={(e) => setFormData({ ...formData, schedule_template_id: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={loading}
+              >
+                <option value="">No schedule template</option>
+                {scheduleTemplates.map((scheduleTemplate) => (
+                  <option key={scheduleTemplate.id} value={scheduleTemplate.id}>
+                    {scheduleTemplate.template_name}
+                    {scheduleTemplate.template_description && ` - ${scheduleTemplate.template_description}`}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-sm text-gray-500">
+                Select a schedule template to automatically create tasks when projects are created from this type
+              </p>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Project Type Description
               </label>
               <textarea
                 value={formData.template_description}
                 onChange={(e) => setFormData({ ...formData, template_description: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-vertical"
-                placeholder="Describe what this template is for..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
+                placeholder="Describe what this project type is for..."
                 rows={3}
                 disabled={loading}
               />
@@ -192,7 +268,7 @@ const ProjectTemplates: React.FC = () => {
               className="flex items-center space-x-2 px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="w-4 h-4" />
-              <span>{editingTemplate ? 'Update Template' : 'Create Template'}</span>
+              <span>{editingTemplate ? 'Update Project Type' : 'Create Project Type'}</span>
             </button>
             
             {editingTemplate && (
@@ -213,7 +289,7 @@ const ProjectTemplates: React.FC = () => {
       {/* Templates List */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Existing Project Templates</h3>
+          <h3 className="text-lg font-medium text-gray-900">Existing Project Types</h3>
         </div>
         
         {loading ? (
@@ -223,7 +299,7 @@ const ProjectTemplates: React.FC = () => {
           </div>
         ) : templates.length === 0 ? (
           <div className="p-6 text-center text-gray-500">
-            No project templates created yet. Create your first template above.
+            No project types created yet. Create your first project type above.
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -231,10 +307,16 @@ const ProjectTemplates: React.FC = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Template Name
+                    Project Type
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Description
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Schedule Template
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Default Start Date
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Created
@@ -254,6 +336,20 @@ const ProjectTemplates: React.FC = () => {
                       <div className="truncate">
                         {template.template_description || '-'}
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {template.schedule_template_id
+                        ? scheduleTemplates.find(st => st.id === template.schedule_template_id)?.template_name || 'Unknown'
+                        : '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {template.start_date
+                        ? new Date(template.start_date).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                          })
+                        : '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatDate(template.created_at)}

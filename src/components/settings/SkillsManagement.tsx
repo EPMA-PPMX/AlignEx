@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Save, X, Award, TrendingUp, Star } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useNotification } from '../../lib/useNotification';
 
 interface SkillCategory {
   id: string;
@@ -20,6 +21,7 @@ interface Skill {
 }
 
 export default function SkillsManagement() {
+  const { showConfirm } = useNotification();
   const [categories, setCategories] = useState<SkillCategory[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -147,9 +149,12 @@ export default function SkillsManagement() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this skill? All user ratings for this skill will also be deleted.')) {
-      return;
-    }
+    const confirmed = await showConfirm({
+      title: 'Delete Skill',
+      message: 'Are you sure you want to delete this skill? All user ratings for this skill will also be deleted.',
+      confirmText: 'Delete'
+    });
+    if (!confirmed) return;
 
     try {
       const { error } = await supabase.from('skills').delete().eq('id', id);

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Save, Send, Loader } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { parseCurrencyInput } from '../../lib/utils';
+import { formatCurrencyInput, extractNumericValue, formatCurrency } from '../../lib/utils';
+import { useNotification } from '../../lib/useNotification';
 
 interface ProjectRequest {
   id: string;
@@ -10,8 +11,8 @@ interface ProjectRequest {
   project_type: string;
   problem_statement: string;
   estimated_start_date: string | null;
-  estimated_duration: string | null;
-  initial_estimated_cost: string | null;
+  estimated_duration: number | null;
+  initial_estimated_cost: number | null;
   expected_benefits: string;
   consequences_of_inaction: string;
   comments: string | null;
@@ -24,17 +25,29 @@ interface OrganizationalPriority {
   target_value: string;
 }
 
+interface ProjectTemplate {
+  id: string;
+  template_name: string;
+  template_description?: string;
+}
+
 interface Props {
   request: ProjectRequest | null;
   onClose: () => void;
 }
 
 export default function ProjectRequestForm({ request, onClose }: Props) {
+  const { showNotification } = useNotification();
   const [loading, setLoading] = useState(false);
   const [priorities, setPriorities] = useState<OrganizationalPriority[]>([]);
   const [prioritiesLoading, setPrioritiesLoading] = useState(true);
+  const [projectTypes, setProjectTypes] = useState<ProjectTemplate[]>([]);
+  const [projectTypesLoading, setProjectTypesLoading] = useState(true);
   const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
   const [priorityContributions, setPriorityContributions] = useState<{ [key: string]: string }>({});
+  const [formattedCost, setFormattedCost] = useState<string>(
+    request?.initial_estimated_cost ? formatCurrencyInput(request.initial_estimated_cost.toString()) : ''
+  );
 
   const [formData, setFormData] = useState({
     project_name: request?.project_name || '',
@@ -42,8 +55,8 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
     project_type: request?.project_type || '',
     problem_statement: request?.problem_statement || '',
     estimated_start_date: request?.estimated_start_date || '',
-    estimated_duration: request?.estimated_duration || '',
-    initial_estimated_cost: request?.initial_estimated_cost || '',
+    estimated_duration: request?.estimated_duration ?? null,
+    initial_estimated_cost: request?.initial_estimated_cost ?? null,
     expected_benefits: request?.expected_benefits || '',
     consequences_of_inaction: request?.consequences_of_inaction || '',
     comments: request?.comments || '',
@@ -51,6 +64,7 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
 
   useEffect(() => {
     fetchPriorities();
+    fetchProjectTypes();
     if (request) {
       fetchRequestPriorities(request.id);
     }
@@ -71,6 +85,23 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
       console.error('Error fetching priorities:', error);
     } finally {
       setPrioritiesLoading(false);
+    }
+  };
+
+  const fetchProjectTypes = async () => {
+    try {
+      setProjectTypesLoading(true);
+      const { data, error } = await supabase
+        .from('project_templates')
+        .select('*')
+        .order('template_name');
+
+      if (error) throw error;
+      setProjectTypes(data || []);
+    } catch (error) {
+      console.error('Error fetching project types:', error);
+    } finally {
+      setProjectTypesLoading(false);
     }
   };
 
@@ -101,9 +132,14 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
 
-    if (name === 'initial_estimated_cost') {
-      const formatted = parseCurrencyInput(value);
-      setFormData((prev) => ({ ...prev, [name]: formatted }));
+    if (name === 'estimated_duration') {
+      const numValue = value === '' ? null : parseFloat(value);
+      setFormData((prev) => ({ ...prev, [name]: numValue }));
+    } else if (name === 'initial_estimated_cost') {
+      const formatted = formatCurrencyInput(value);
+      setFormattedCost(formatted);
+      const numValue = formatted ? extractNumericValue(formatted) : null;
+      setFormData((prev) => ({ ...prev, [name]: numValue }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
@@ -124,37 +160,38 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
   };
 
   const handleContributionChange = (priorityId: string, value: string) => {
+    const formatted = formatCurrencyInput(value);
     setPriorityContributions((prev) => ({
       ...prev,
-      [priorityId]: value,
+      [priorityId]: formatted,
     }));
   };
 
   const validateForm = () => {
     if (!formData.project_name.trim()) {
-      alert('Project name is required');
+      showNotification('Project name is required', 'error');
       return false;
     }
     if (!formData.project_type.trim()) {
-      alert('Project type is required');
+      showNotification('Project type is required', 'error');
       return false;
     }
     if (!formData.problem_statement.trim()) {
-      alert('Problem statement is required');
+      showNotification('Problem statement is required', 'error');
       return false;
     }
     if (!formData.expected_benefits.trim()) {
-      alert('Expected benefits is required');
+      showNotification('Expected benefits is required', 'error');
       return false;
     }
     if (!formData.consequences_of_inaction.trim()) {
-      alert('Consequences of inaction is required');
+      showNotification('Consequences of inaction is required', 'error');
       return false;
     }
 
     for (const priorityId of selectedPriorities) {
       if (!priorityContributions[priorityId]?.trim()) {
-        alert('Please provide expected contribution for all selected priorities');
+        showNotification('Please provide expected contribution for all selected priorities', 'error');
         return false;
       }
     }
@@ -169,7 +206,16 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
       setLoading(true);
 
       const requestData = {
-        ...formData,
+        project_name: formData.project_name.trim(),
+        description: formData.description.trim() || null,
+        project_type: formData.project_type.trim(),
+        problem_statement: formData.problem_statement.trim(),
+        estimated_start_date: formData.estimated_start_date || null,
+        estimated_duration: formData.estimated_duration,
+        initial_estimated_cost: formData.initial_estimated_cost,
+        expected_benefits: formData.expected_benefits.trim(),
+        consequences_of_inaction: formData.consequences_of_inaction.trim(),
+        comments: formData.comments.trim() || null,
         status: isDraft ? 'Draft' : 'Pending Approval',
         submitted_at: isDraft ? null : new Date().toISOString(),
       };
@@ -214,29 +260,21 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
         if (priorityError) throw priorityError;
       }
 
-      alert(
+      showNotification(
         isDraft
           ? 'Request saved as draft successfully!'
-          : 'Request submitted for approval successfully!'
+          : 'Request submitted for approval successfully!',
+        'success'
       );
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving request:', error);
-      alert('Error saving request. Please try again.');
+      const errorMessage = error?.message || 'Error saving request. Please try again.';
+      showNotification(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
   };
-
-  const projectTypes = [
-    'Infrastructure',
-    'Software Development',
-    'Process Improvement',
-    'Research & Development',
-    'Training & Development',
-    'Marketing & Sales',
-    'Other',
-  ];
 
   return (
     <div className="space-y-6">
@@ -294,20 +332,32 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
               <label className="block text-sm font-medium text-slate-700 mb-1">
                 Project Type <span className="text-red-500">*</span>
               </label>
-              <select
-                name="project_type"
-                value={formData.project_type}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                required
-              >
-                <option value="">Select type</option>
-                {projectTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
+              {projectTypesLoading ? (
+                <div className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 flex items-center">
+                  <Loader className="w-4 h-4 animate-spin mr-2" />
+                  <span className="text-slate-500">Loading project types...</span>
+                </div>
+              ) : (
+                <select
+                  name="project_type"
+                  value={formData.project_type}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                >
+                  <option value="">Select project type</option>
+                  {projectTypes.map((type) => (
+                    <option key={type.id} value={type.template_name}>
+                      {type.template_name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {projectTypes.length === 0 && !projectTypesLoading && (
+                <p className="text-sm text-red-500 mt-1">
+                  No project types available. Please create project types in Settings first.
+                </p>
+              )}
             </div>
 
             <div>
@@ -325,15 +375,17 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                Estimated Duration
+                Estimated Duration (Months)
               </label>
               <input
-                type="text"
+                type="number"
                 name="estimated_duration"
-                value={formData.estimated_duration}
+                value={formData.estimated_duration || ''}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="e.g., 3 months, 6 weeks"
+                min="0"
+                step="1"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="e.g., 3"
               />
             </div>
 
@@ -344,10 +396,10 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
               <input
                 type="text"
                 name="initial_estimated_cost"
-                value={formData.initial_estimated_cost}
+                value={formattedCost}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="e.g., 50000"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="e.g., $50,000"
               />
             </div>
           </div>
@@ -430,19 +482,19 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
                           {priority.title}
                         </label>
                         <p className="text-sm text-slate-600 mt-1">
-                          Target: {priority.target_value}
+                          Target: {formatCurrency(priority.target_value)}
                         </p>
                         {selectedPriorities.includes(priority.id) && (
                           <div className="mt-3">
                             <label className="block text-sm font-medium text-slate-700 mb-1">
-                              Expected Contribution <span className="text-red-500">*</span>
+                              Expected Contribution ($) <span className="text-red-500">*</span>
                             </label>
                             <input
                               type="text"
                               value={priorityContributions[priority.id] || ''}
                               onChange={(e) => handleContributionChange(priority.id, e.target.value)}
-                              placeholder="e.g., 10% reduction, $100K savings"
-                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                              placeholder="e.g., $100,000"
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             />
                           </div>
                         )}

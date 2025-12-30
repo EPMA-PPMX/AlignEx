@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Save, X, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useNotification } from '../../lib/useNotification';
 
 interface Role {
   id: string;
@@ -32,6 +33,7 @@ interface RoleSkillRequirement {
 const PROFICIENCY_LEVELS = ['None', 'Basic', 'Intermediate', 'Expert'];
 
 export default function RoleManagement() {
+  const { showConfirm } = useNotification();
   const [roles, setRoles] = useState<Role[]>([]);
   const [categories, setCategories] = useState<SkillCategory[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -158,13 +160,12 @@ export default function RoleManagement() {
   };
 
   const handleDelete = async (id: string) => {
-    if (
-      !confirm(
-        'Are you sure you want to delete this role? All skill requirements for this role will also be deleted.'
-      )
-    ) {
-      return;
-    }
+    const confirmed = await showConfirm({
+      title: 'Delete Role',
+      message: 'Are you sure you want to delete this role? All skill requirements for this role will also be deleted.',
+      confirmText: 'Delete'
+    });
+    if (!confirmed) return;
 
     try {
       const { error } = await supabase.from('roles').delete().eq('id', id);
@@ -200,7 +201,10 @@ export default function RoleManagement() {
         .delete()
         .eq('role_id', managingSkillsFor);
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error('Delete error:', deleteError);
+        throw deleteError;
+      }
 
       const requirementsToInsert = Object.entries(selectedSkills)
         .filter(([_, level]) => level !== 'None')
@@ -210,20 +214,25 @@ export default function RoleManagement() {
           required_level: level,
         }));
 
+      console.log('Requirements to insert:', requirementsToInsert);
+
       if (requirementsToInsert.length > 0) {
         const { error: insertError } = await supabase
           .from('role_skill_requirements')
           .insert(requirementsToInsert);
 
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error('Insert error:', insertError);
+          throw insertError;
+        }
       }
 
       await fetchRoleRequirements(managingSkillsFor);
       setManagingSkillsFor(null);
       setSelectedSkills({});
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving skill requirements:', error);
-      alert('Failed to save skill requirements');
+      alert(`Failed to save skill requirements: ${error.message || 'Unknown error'}`);
     }
   };
 

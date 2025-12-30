@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye, Edit2, Trash2, Calendar, DollarSign } from 'lucide-react';
+import { Plus, Search, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye, Edit2, Trash2, Calendar, DollarSign, TrendingUp, BarChart3 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { formatCurrency } from '../lib/utils';
+import { formatCurrency, formatDate as utilFormatDate, formatCurrencyWithK } from '../lib/utils';
+import { useNotification } from '../lib/useNotification';
 import ProjectRequestForm from '../components/initiation/ProjectRequestForm';
+import RequestAnalytics from '../components/initiation/RequestAnalytics';
 
 interface ProjectRequest {
   id: string;
@@ -11,8 +13,8 @@ interface ProjectRequest {
   project_type: string;
   problem_statement: string;
   estimated_start_date: string | null;
-  estimated_duration: string | null;
-  initial_estimated_cost: string | null;
+  estimated_duration: number | null;
+  initial_estimated_cost: number | null;
   expected_benefits: string;
   consequences_of_inaction: string;
   comments: string | null;
@@ -27,22 +29,13 @@ interface ProjectRequest {
 }
 
 export default function ProjectInitiation() {
+  const { showConfirm, showNotification } = useNotification();
   const [requests, setRequests] = useState<ProjectRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [viewingRequest, setViewingRequest] = useState<ProjectRequest | null>(null);
   const [editingRequest, setEditingRequest] = useState<ProjectRequest | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<string>('all');
-
-  const statuses = [
-    { value: 'all', label: 'All Requests', icon: FileText, color: 'slate' },
-    { value: 'Draft', label: 'Draft', icon: FileText, color: 'slate' },
-    { value: 'Pending Approval', label: 'Pending Approval', icon: Clock, color: 'amber' },
-    { value: 'Approved', label: 'Approved', icon: CheckCircle, color: 'green' },
-    { value: 'Rejected', label: 'Rejected', icon: XCircle, color: 'red' },
-    { value: 'More Information Needed', label: 'More Info Needed', icon: AlertCircle, color: 'blue' },
-  ];
 
   useEffect(() => {
     fetchRequests();
@@ -82,7 +75,14 @@ export default function ProjectInitiation() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this request?')) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Request',
+      message: 'Are you sure you want to delete this request? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel'
+    });
+
+    if (!confirmed) return;
 
     try {
       const { error } = await supabase
@@ -93,8 +93,10 @@ export default function ProjectInitiation() {
       if (error) throw error;
       setViewingRequest(null);
       fetchRequests();
+      showNotification('Request deleted successfully', 'success');
     } catch (error) {
       console.error('Error deleting request:', error);
+      showNotification('Error deleting request. Please try again.', 'error');
     }
   };
 
@@ -120,6 +122,11 @@ export default function ProjectInitiation() {
         .eq('id', id);
 
       if (error) throw error;
+
+      if (newStatus === 'Approved') {
+        await createProjectFromRequest(id);
+      }
+
       fetchRequests();
 
       const updatedRequest = requests.find(r => r.id === id);
@@ -128,6 +135,68 @@ export default function ProjectInitiation() {
       }
     } catch (error) {
       console.error('Error updating status:', error);
+      showNotification('Error updating status. Please try again.', 'error');
+    }
+  };
+
+  const createProjectFromRequest = async (requestId: string) => {
+    try {
+      const request = requests.find(r => r.id === requestId);
+      if (!request) {
+        throw new Error('Request not found');
+      }
+
+      const { data: templateData } = await supabase
+        .from('project_templates')
+        .select('id')
+        .eq('template_name', request.project_type)
+        .maybeSingle();
+
+      const { data: projectData, error: projectError } = await supabase
+        .from('projects')
+        .insert([{
+          name: request.project_name,
+          description: request.description || null,
+          template_id: templateData?.id || null,
+          status: 'Planning',
+          state: 'Active',
+          project_status: 'On Track'
+        }])
+        .select();
+
+      if (projectError) throw projectError;
+
+      if (projectData && projectData[0]) {
+        const projectId = projectData[0].id;
+
+        const { data: prioritiesData } = await supabase
+          .from('project_request_priorities')
+          .select('priority_id, expected_contribution')
+          .eq('request_id', requestId);
+
+        if (prioritiesData && prioritiesData.length > 0) {
+          const impactRecords = prioritiesData.map(p => ({
+            project_id: projectId,
+            priority_id: p.priority_id,
+            planned_impact: p.expected_contribution,
+            actual_impact: null,
+            notes: null
+          }));
+
+          const { error: impactError } = await supabase
+            .from('project_priority_impacts')
+            .insert(impactRecords);
+
+          if (impactError) {
+            console.error('Error linking priorities to project:', impactError);
+          }
+        }
+
+        showNotification(`Project "${request.project_name}" created successfully!`, 'success');
+      }
+    } catch (error) {
+      console.error('Error creating project from request:', error);
+      showNotification('Error creating project. Please try again or create it manually.', 'error');
     }
   };
 
@@ -137,15 +206,8 @@ export default function ProjectInitiation() {
       request.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       request.project_type.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesStatus = selectedStatus === 'all' || request.status === selectedStatus;
-
-    return matchesSearch && matchesStatus;
+    return matchesSearch;
   });
-
-  const getStatusCount = (status: string) => {
-    if (status === 'all') return requests.length;
-    return requests.filter((req) => req.status === status).length;
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -164,14 +226,7 @@ export default function ProjectInitiation() {
     }
   };
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Not specified';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
+  const formatDate = utilFormatDate;
 
   if (loading) {
     return <div className="text-center py-12 text-slate-600">Loading project requests...</div>;
@@ -194,9 +249,9 @@ export default function ProjectInitiation() {
     <div className="p-8 space-y-6">
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Project Initiation</h1>
+          <h1 className="text-3xl font-bold text-slate-900">Project Request</h1>
           <p className="text-slate-600 mt-2">
-            Submit and manage project initiation requests
+            Submit and manage project requests
           </p>
         </div>
         <button
@@ -210,6 +265,9 @@ export default function ProjectInitiation() {
           New Request
         </button>
       </div>
+
+      {/* Analytics Dashboard */}
+      <RequestAnalytics requests={requests} />
 
       <div className="bg-white border border-slate-200 rounded-lg p-4">
         <div className="flex gap-4 items-center">
@@ -226,38 +284,6 @@ export default function ProjectInitiation() {
         </div>
       </div>
 
-      <div className="grid grid-cols-6 gap-3">
-        {statuses.map((status) => {
-          const Icon = status.icon;
-          const isActive = selectedStatus === status.value;
-          const count = getStatusCount(status.value);
-
-          return (
-            <button
-              key={status.value}
-              onClick={() => setSelectedStatus(status.value)}
-              className={`
-                p-3 rounded-lg border-2 transition-all text-left
-                ${
-                  isActive
-                    ? `border-${status.color}-500 bg-${status.color}-50`
-                    : 'border-slate-200 bg-white hover:border-slate-300'
-                }
-              `}
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <Icon className={`w-4 h-4 ${isActive ? `text-${status.color}-600` : 'text-slate-400'}`} />
-                <span className={`text-xs font-medium ${isActive ? `text-${status.color}-900` : 'text-slate-600'}`}>
-                  {status.label}
-                </span>
-              </div>
-              <p className={`text-2xl font-bold ${isActive ? `text-${status.color}-700` : 'text-slate-700'}`}>
-                {count}
-              </p>
-            </button>
-          );
-        })}
-      </div>
 
       {filteredRequests.length === 0 ? (
         <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
@@ -363,14 +389,7 @@ function RequestDetailsView({ request, onClose, onEdit, onDelete, onStatusChange
     }
   };
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Not specified';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
+  const formatDate = utilFormatDate;
 
   const handleReviewSubmit = () => {
     if (reviewAction) {
@@ -439,7 +458,7 @@ function RequestDetailsView({ request, onClose, onEdit, onDelete, onStatusChange
               <label className="text-sm font-medium text-slate-500">Estimated Duration</label>
               <p className="text-slate-900 mt-1 flex items-center gap-2">
                 <Clock className="w-4 h-4 text-slate-400" />
-                {request.estimated_duration || 'Not specified'}
+                {request.estimated_duration ? `${request.estimated_duration} months` : 'Not specified'}
               </p>
             </div>
           </div>
@@ -448,7 +467,7 @@ function RequestDetailsView({ request, onClose, onEdit, onDelete, onStatusChange
             <label className="text-sm font-medium text-slate-500">Initial Estimated Cost</label>
             <p className="text-slate-900 mt-1 flex items-center gap-2">
               <DollarSign className="w-4 h-4 text-slate-400" />
-              {request.initial_estimated_cost ? formatCurrency(request.initial_estimated_cost) : 'Not specified'}
+              {request.initial_estimated_cost ? formatCurrencyWithK(request.initial_estimated_cost) : 'Not specified'}
             </p>
           </div>
 

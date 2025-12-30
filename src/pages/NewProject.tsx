@@ -2,11 +2,15 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, ArrowLeft, Loader } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { formatCurrencyInput, formatCurrency } from '../lib/utils';
+import { useNotification } from '../lib/useNotification';
 
 interface ProjectTemplate {
   id: string;
   template_name: string;
   template_description?: string;
+  start_date?: string | null;
+  schedule_template_id?: string | null;
 }
 
 interface OrganizationalPriority {
@@ -17,6 +21,7 @@ interface OrganizationalPriority {
 
 const NewProject: React.FC = () => {
   const navigate = useNavigate();
+  const { showNotification } = useNotification();
   const [loading, setLoading] = useState(false);
   const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
@@ -27,7 +32,8 @@ const NewProject: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    template_id: ''
+    template_id: '',
+    start_date: ''
   });
 
   React.useEffect(() => {
@@ -44,7 +50,7 @@ const NewProject: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching project templates:', error);
+        console.error('Error fetching project types:', error);
       } else {
         setTemplates(data || []);
       }
@@ -80,13 +86,13 @@ const NewProject: React.FC = () => {
     e.preventDefault();
 
     if (!formData.name.trim() || !formData.template_id) {
-      alert('Project name and template are required');
+      showNotification('Project name and project type are required', 'error');
       return;
     }
 
     for (const priorityId of selectedPriorities) {
       if (!priorityImpacts[priorityId]?.trim()) {
-        alert('Please provide planned impact for all selected priorities');
+        showNotification('Please provide planned impact for all selected priorities', 'error');
         return;
       }
     }
@@ -100,39 +106,86 @@ const NewProject: React.FC = () => {
           name: formData.name.trim(),
           description: formData.description.trim() || null,
           template_id: formData.template_id || null,
+          schedule_start_date: formData.start_date || null,
           status: 'In-Progress'
         }])
         .select();
 
       if (projectError) {
-        alert(`Error: ${projectError.message}`);
+        showNotification(`Error: ${projectError.message}`, 'error');
         return;
       }
 
-      if (projectData && projectData[0] && selectedPriorities.length > 0) {
+      if (projectData && projectData[0]) {
         const projectId = projectData[0].id;
-        const impactRecords = selectedPriorities.map(priorityId => ({
-          project_id: projectId,
-          priority_id: priorityId,
-          planned_impact: priorityImpacts[priorityId].trim(),
-          actual_impact: null,
-          notes: null
-        }));
 
-        const { error: impactError } = await supabase
-          .from('project_priority_impacts')
-          .insert(impactRecords);
+        // Link selected priorities
+        if (selectedPriorities.length > 0) {
+          const impactRecords = selectedPriorities.map(priorityId => ({
+            project_id: projectId,
+            priority_id: priorityId,
+            planned_impact: priorityImpacts[priorityId].trim(),
+            actual_impact: null,
+            notes: null
+          }));
 
-        if (impactError) {
-          console.error('Error linking priorities:', impactError);
+          const { error: impactError } = await supabase
+            .from('project_priority_impacts')
+            .insert(impactRecords);
+
+          if (impactError) {
+            console.error('Error linking priorities:', impactError);
+          }
+        }
+
+        // Apply schedule template if one is linked to the project type
+        if (formData.template_id) {
+          const selectedTemplate = templates.find(t => t.id === formData.template_id);
+          if (selectedTemplate && selectedTemplate.schedule_template_id) {
+            try {
+              // Fetch the schedule template
+              const { data: scheduleTemplate, error: scheduleTemplateError } = await supabase
+                .from('schedule_templates')
+                .select('*')
+                .eq('id', selectedTemplate.schedule_template_id)
+                .maybeSingle();
+
+              if (scheduleTemplateError) {
+                console.error('Error fetching schedule template:', scheduleTemplateError);
+              } else if (scheduleTemplate) {
+                // Create project tasks from the schedule template
+                const taskData = {
+                  data: scheduleTemplate.tasks_data || [],
+                  links: scheduleTemplate.links_data || [],
+                  resources: scheduleTemplate.resources_data || [],
+                  resourceAssignments: scheduleTemplate.resource_assignments_data || []
+                };
+
+                const { error: tasksError } = await supabase
+                  .from('project_tasks')
+                  .insert({
+                    project_id: projectId,
+                    task_data: taskData
+                  });
+
+                if (tasksError) {
+                  console.error('Error creating project tasks from template:', tasksError);
+                } else {
+                  console.log('Schedule template applied successfully');
+                }
+              }
+            } catch (error) {
+              console.error('Error applying schedule template:', error);
+            }
+          }
         }
       }
 
-      alert('Project created successfully!');
+      showNotification('Project created successfully!', 'success');
       navigate('/projects');
     } catch (error) {
       console.error('Error creating project:', error);
-      alert('Error creating project. Please try again.');
+      showNotification('Error creating project. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -148,10 +201,20 @@ const NewProject: React.FC = () => {
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+
+    if (name === 'template_id') {
+      const selectedTemplate = templates.find(t => t.id === value);
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        start_date: selectedTemplate?.start_date || ''
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   const handlePriorityToggle = (priorityId: string) => {
@@ -169,9 +232,10 @@ const NewProject: React.FC = () => {
   };
 
   const handleImpactChange = (priorityId: string, value: string) => {
+    const formatted = formatCurrencyInput(value);
     setPriorityImpacts(prev => ({
       ...prev,
-      [priorityId]: value
+      [priorityId]: formatted
     }));
   };
 
@@ -196,12 +260,12 @@ const NewProject: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label htmlFor="template_id" className="block text-sm font-medium text-gray-700 mb-2">
-                Project Template <span className="text-red-500">*</span>
+                Project Type <span className="text-red-500">*</span>
               </label>
               {templatesLoading ? (
                 <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 flex items-center">
                   <Loader className="w-4 h-4 animate-spin mr-2" />
-                  <span className="text-gray-500">Loading templates...</span>
+                  <span className="text-gray-500">Loading project types...</span>
                 </div>
               ) : (
                 <select
@@ -213,7 +277,7 @@ const NewProject: React.FC = () => {
                   disabled={loading}
                   required
                 >
-                  <option value="">Select a template</option>
+                  <option value="">Select a project type</option>
                   {templates.map((template) => (
                     <option key={template.id} value={template.id}>
                       {template.template_name}
@@ -223,7 +287,7 @@ const NewProject: React.FC = () => {
               )}
               {templates.length === 0 && !templatesLoading && (
                 <p className="text-sm text-red-500 mt-1">
-                  No templates available. Please create templates in Settings first.
+                  No project types available. Please create project types in Settings first.
                 </p>
               )}
             </div>
@@ -261,6 +325,30 @@ const NewProject: React.FC = () => {
               />
             </div>
 
+            <div>
+              <label htmlFor="start_date" className="block text-sm font-medium text-gray-700 mb-2">
+                Project Start Date
+              </label>
+              <input
+                type="date"
+                id="start_date"
+                name="start_date"
+                value={formData.start_date}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                disabled={loading}
+              />
+              {formData.template_id && templates.find(t => t.id === formData.template_id)?.start_date && (
+                <p className="text-sm text-gray-500 mt-1">
+                  Default start date from template: {new Date(templates.find(t => t.id === formData.template_id)!.start_date!).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                  })}
+                </p>
+              )}
+            </div>
+
             <div className="border-t border-gray-200 pt-6">
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Link to Organizational Priorities (Optional)
@@ -295,19 +383,19 @@ const NewProject: React.FC = () => {
                             {priority.title}
                           </label>
                           <p className="text-sm text-gray-600 mt-1">
-                            Target: {priority.target_value}
+                            Target: {formatCurrency(priority.target_value)}
                           </p>
                           {selectedPriorities.includes(priority.id) && (
                             <div className="mt-3">
                               <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Planned Impact <span className="text-red-500">*</span>
+                                Planned Impact ($) <span className="text-red-500">*</span>
                               </label>
                               <input
                                 type="text"
                                 value={priorityImpacts[priority.id] || ''}
                                 onChange={(e) => handleImpactChange(priority.id, e.target.value)}
-                                placeholder="e.g., 5% cost reduction, 2 days faster response"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                placeholder="e.g., $50,000"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 disabled={loading}
                               />
                             </div>

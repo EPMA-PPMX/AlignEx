@@ -1,10 +1,280 @@
 .gantt-container {
   height: 100%;
   width: 100%;
-  overflow: auto;
   position: relative;
 }
 
 .gantt_container {
-  overflow: auto !important;
+  height: 100%;
+  width: 100%;
+}
+
+/* Grid resizer styling - the vertical line between grid and timeline */
+.gantt_grid_resize_wrap {
+  cursor: col-resize !important;
+  background-color: #64748b;
+  width: 8px !important;
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  z-index: 100;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.15);
+}
+
+.gantt_grid_resize_wrap:hover {
+  background-color: #3b82f6 !important;
+  width: 10px !important;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+}
+
+/* Arrow indicator on hover */
+.gantt_grid_resize_wrap::before,
+.gantt_grid_resize_wrap::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-style: solid;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.gantt_grid_resize_wrap:hover::before,
+.gantt_grid_resize_wrap:hover::after {
+  opacity: 1;
+}
+
+/* Left arrow */
+.gantt_grid_resize_wrap::before {
+  left: -10px;
+  border-width: 8px 10px 8px 0;
+  border-color: transparent #3b82f6 transparent transparent;
+}
+
+/* Right arrow */
+.gantt_grid_resize_wrap::after {
+  right: -10px;
+  border-width: 8px 0 8px 10px;
+  border-color: transparent transparent transparent #3b82f6;
+}
+
+.gantt_grid_head_cell {
+  position: relative;
+}
+
+.gantt_grid_head_cell .gantt_resize_wrap {
+  cursor: col-resize;
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 10px;
+  height: 100%;
+  z-index: 10;
+}
+
+.gantt_grid_column_resize_wrap {
+  cursor: col-resize !important;
+}
+
+.group-header-row {
+  background-color: #f3f4f6 !important;
+  font-weight: 600 !important;
+  border-bottom: 2px solid #d1d5db !important;
+}
+
+.group-header-row .gantt_cell {
+  background-color: #f3f4f6 !important;
+  font-weight: 600 !important;
+  color: #374151 !important;
+}
+
+.group-header-task {
+  background-color: #e5e7eb !important;
+  border: 1px solid #9ca3af !important;
+}
+
+.gantt_task_line.group-header-task {
+  background-color: #e5e7eb !important;
+  opacity: 0.3 !important;
+}
+
+.owner-badges-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.owner-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: default;
+  user-select: none;
+}
+
+/* Milestone text displayed to the right */
+.gantt_side_content.gantt_right {
+  color: #374151;
+  font-weight: 600;
+  padding-left: 10px;
+}
+
+/* Ensure milestone text is visible and styled */
+.gantt_task_line.gantt_milestone + .gantt_side_content.gantt_right,
+.gantt_task_line.gantt_task.gantt_milestone + .gantt_side_content.gantt_right {
+  color: #92400e;
+  font-weight: 700;
+  padding-left: 15px;
+}
+
+/* Regular task bar styling - purple gradient theme */
+.gantt_task_line {
+  background: linear-gradient(135deg, #e9d5ff 0%, #7c3aed 100%) !important;
+  border: 1px solid #6b21a8 !important;
+}
+
+/* Task progress bar - darker purple gradient */
+.gantt_task_progress {
+  background: linear-gradient(135deg, #a855f7 0%, #581c87 100%) !important;
+}
+
+/* Project/Summary task styling - sky blue theme */
+.gantt_task_line.gantt_project {
+  background: #7dd3fc !important;
+  border: 2px solid #0284c7 !important;
+}
+
+.gantt_task_line.gantt_project_task {
+  background: #7dd3fc !important;
+  border: 2px solid #0284c7 !important;
+}
+
+.gantt_task_line.gantt_project .gantt_task_progress,
+.gantt_task_line.gantt_project_task .gantt_task_progress {
+  background: #0284c7 !important;
+}
+
+/* Milestone styling - diamond shape in yellow - MUST COME AFTER regular task styling */
+.gantt_task_line.gantt_milestone,
+.gantt_task_line.gantt_task.gantt_milestone {
+  width: 16px !important;
+  height: 16px !important;
+  background: #fbbf24 !important;
+  border: 2px solid #f59e0b !important;
+  transform: rotate(45deg) !important;
+  margin-top: 8px !important;
+  border-radius: 2px !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+  /* Override gradient from regular tasks */
+  background-image: none !important;
+}
+
+.gantt_task_line.gantt_milestone .gantt_task_content,
+.gantt_task_line.gantt_task.gantt_milestone .gantt_task_content {
+  display: none !important;
+}
+
+.gantt_task_line.gantt_milestone .gantt_task_progress,
+.gantt_task_line.gantt_task.gantt_milestone .gantt_task_progress {
+  display: none !important;
+}
+
+.gantt_task_line.gantt_milestone::before,
+.gantt_task_line.gantt_task.gantt_milestone::before {
+  display: none !important;
+}
+
+.gantt_task_line.gantt_milestone::after,
+.gantt_task_line.gantt_task.gantt_milestone::after {
+  display: none !important;
+}
+
+/* Edit button styling */
+.gantt_edit_btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer !important;
+  color: #3b82f6 !important;
+  padding: 6px !important;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  pointer-events: auto !important;
+  z-index: 1000 !important;
+  position: relative;
+  min-width: 32px;
+  min-height: 32px;
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+
+.gantt_edit_btn:hover {
+  background-color: #dbeafe !important;
+  color: #1e40af !important;
+  transform: scale(1.15);
+  border-color: #3b82f6;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+}
+
+.gantt_edit_btn:active {
+  transform: scale(0.95) !important;
+  background-color: #3b82f6 !important;
+  color: white !important;
+}
+
+.gantt_edit_btn svg {
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+}
+
+.gantt_edit_btn svg path {
+  pointer-events: none;
+}
+
+/* Ensure edit column is always visible and clickable */
+.gantt_cell[data-column-name="edit"] {
+  pointer-events: auto !important;
+  overflow: visible !important;
+  z-index: 100;
+  background-color: #fafafa;
+}
+
+/* Progress column styling */
+.gantt_cell[data-column-name="progress"] {
+  padding: 4px !important;
+  overflow: visible !important;
+}
+
+.gantt_cell[data-column-name="progress"] svg {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+/* Baseline styling */
+.gantt_task_line.baseline {
+  background: #cbd5e1 !important;
+  border: 1px solid #94a3b8 !important;
+  opacity: 0.6;
+  height: 8px !important;
+  margin-top: -6px;
+}
+
+.gantt_task_line.baseline .gantt_task_content {
+  display: none;
+}
+
+.gantt_task_line.baseline .gantt_task_progress {
+  display: none;
 }
