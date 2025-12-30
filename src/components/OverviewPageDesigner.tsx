@@ -328,7 +328,7 @@ const OverviewPageDesigner: React.FC = () => {
 
   const renderFieldControl = (field: SectionField) => {
     const { customField } = field;
-    const baseClasses = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent";
+    const baseClasses = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent";
 
     switch (customField.field_type) {
       case 'text':
@@ -385,7 +385,7 @@ const OverviewPageDesigner: React.FC = () => {
                   type="radio"
                   name={`radio-${field.id}`}
                   value={option}
-                  className="text-blue-600 focus:ring-blue-500"
+                  className="text-primary-600 focus:ring-primary-500"
                   disabled
                 />
                 <span className="text-sm text-gray-700">{option}</span>
@@ -398,7 +398,7 @@ const OverviewPageDesigner: React.FC = () => {
           <label className="flex items-center space-x-2">
             <input
               type="checkbox"
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
               disabled
             />
             <span className="text-sm text-gray-700">{customField.field_label}</span>
@@ -431,7 +431,7 @@ const OverviewPageDesigner: React.FC = () => {
           <select
             value={selectedTemplate}
             onChange={(e) => setSelectedTemplate(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           >
             <option value="">Select a template...</option>
             {projectTemplates.map((template) => (
@@ -441,14 +441,14 @@ const OverviewPageDesigner: React.FC = () => {
             ))}
           </select>
           {selectedTemplate && (
-            <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+            <div className="mt-3 p-3 bg-primary-50 rounded-lg">
               {(() => {
                 const template = projectTemplates.find(t => t.id === selectedTemplate);
                 return template ? (
                   <div>
                     <p className="text-sm font-medium text-blue-900">{template.template_name}</p>
                     {template.template_description && (
-                      <p className="text-sm text-blue-700 mt-1">{template.template_description}</p>
+                      <p className="text-sm text-primary-700 mt-1">{template.template_description}</p>
                     )}
                   </div>
                 ) : null;
@@ -462,7 +462,7 @@ const OverviewPageDesigner: React.FC = () => {
       <div className="mb-8">
         <button
           onClick={addSection}
-          className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center space-x-2 px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
         >
           <Plus className="w-5 h-5" />
           <span>Add Section</span>
@@ -512,7 +512,7 @@ const OverviewPageDesigner: React.FC = () => {
                         type="text"
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                         placeholder="Enter section name"
                         autoFocus
                         onKeyPress={(e) => {
@@ -558,7 +558,7 @@ const OverviewPageDesigner: React.FC = () => {
                     </button>
                     <button
                       onClick={() => startEditing(section)}
-                      className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg"
+                      className="p-2 text-primary-600 hover:text-blue-800 hover:bg-primary-50 rounded-lg"
                       title="Edit section name"
                     >
                       <Edit2 className="w-4 h-4" />
@@ -586,7 +586,7 @@ const OverviewPageDesigner: React.FC = () => {
                             e.target.value = '';
                           }
                         }}
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                         disabled={loading || customFields.length === 0}
                       >
                         <option value="">Add field to section...</option>
@@ -678,9 +678,9 @@ const OverviewPageDesigner: React.FC = () => {
       {/* Save Configuration */}
       {sections.length > 0 && (
         <div className="mt-8 pt-6 border-t border-gray-200">
-          <div className="bg-blue-50 rounded-lg p-4 mb-4">
+          <div className="bg-primary-50 rounded-lg p-4 mb-4">
             <h4 className="font-medium text-blue-900 mb-2">Save Configuration</h4>
-            <p className="text-sm text-blue-700">
+            <p className="text-sm text-primary-700">
               Save this overview page design for the selected project template. 
               This configuration will be used when creating projects with this template.
             </p>
@@ -696,7 +696,7 @@ const OverviewPageDesigner: React.FC = () => {
             <button 
               onClick={saveConfiguration}
               disabled={saving || !selectedTemplate}
-              className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center space-x-2 px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? (
                 <>

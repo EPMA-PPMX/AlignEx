@@ -488,6 +488,76 @@ const ProjectDetail: React.FC = () => {
     }
   };
 
+  const fetchTasks = async () => {
+    if (!id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('project_tasks')
+        .select('*')
+        .eq('project_id', id)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching tasks:', error);
+      } else if (data?.task_data) {
+        setProjectTasks(data.task_data);
+      } else {
+        setProjectTasks({ data: [], links: [] });
+      }
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+    }
+  };
+
+  const saveTasks = async (taskData: { data: any[]; links: any[] }) => {
+    if (!id) return;
+
+    try {
+      const { data: existingTask, error: fetchError } = await supabase
+        .from('project_tasks')
+        .select('id')
+        .eq('project_id', id)
+        .maybeSingle();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error('Error checking existing tasks:', fetchError);
+        return;
+      }
+
+      if (existingTask) {
+        const { error } = await supabase
+          .from('project_tasks')
+          .update({
+            task_data: taskData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('project_id', id);
+
+        if (error) {
+          console.error('Error updating tasks:', error);
+        } else {
+          setProjectTasks(taskData);
+        }
+      } else {
+        const { error } = await supabase
+          .from('project_tasks')
+          .insert({
+            project_id: id,
+            task_data: taskData
+          });
+
+        if (error) {
+          console.error('Error creating tasks:', error);
+        } else {
+          setProjectTasks(taskData);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving tasks:', error);
+    }
+  };
+
   const fetchOverviewConfiguration = async () => {
     if (!project?.template_id) return;
 
@@ -1513,7 +1583,7 @@ const ProjectDetail: React.FC = () => {
   const renderFieldControl = (field: SectionField) => {
     const { customField } = field;
     const value = fieldValues[customField.id] || customField.default_value || '';
-    const baseClasses = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent";
+    const baseClasses = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent";
 
     switch (customField.field_type) {
       case 'text':
@@ -1598,7 +1668,7 @@ const ProjectDetail: React.FC = () => {
                   value={option}
                   checked={value === option}
                   onChange={(e) => handleFieldValueChange(customField.id, e.target.value)}
-                  className="text-blue-600 focus:ring-blue-500"
+                  className="text-primary-600 focus:ring-primary-500"
                   required={customField.is_required}
                 />
                 <span className="text-sm text-gray-700">{option}</span>
@@ -1613,7 +1683,7 @@ const ProjectDetail: React.FC = () => {
               type="checkbox"
               checked={value === true || value === 'true'}
               onChange={(e) => handleFieldValueChange(customField.id, e.target.checked)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
               required={customField.is_required}
             />
             <span className="text-sm text-gray-700">{customField.field_label}</span>
@@ -2879,7 +2949,7 @@ const ProjectDetail: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Project Not Found</h1>
           <button
             onClick={() => navigate('/projects')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
           >
             Back to Projects
           </button>
@@ -2909,7 +2979,7 @@ const ProjectDetail: React.FC = () => {
                     type="text"
                     value={projectForm.name}
                     onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })}
-                    className="w-full max-w-2xl px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full max-w-2xl px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="Enter project name"
                   />
                 </div>
@@ -2919,7 +2989,7 @@ const ProjectDetail: React.FC = () => {
                     value={projectForm.description}
                     onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
                     rows={3}
-                    className="w-full max-w-2xl px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
+                    className="w-full max-w-2xl px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-vertical"
                     placeholder="Enter project description"
                   />
                 </div>
@@ -2936,7 +3006,7 @@ const ProjectDetail: React.FC = () => {
                   <button
                     onClick={handleProjectUpdate}
                     disabled={saving}
-                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50"
                   >
                     <Save className="w-4 h-4" />
                     <span>{saving ? 'Saving...' : 'Save'}</span>
@@ -3024,7 +3094,7 @@ const ProjectDetail: React.FC = () => {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
+                    ? 'border-primary-500 text-primary-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
@@ -3081,7 +3151,7 @@ const ProjectDetail: React.FC = () => {
                   <button
                     onClick={saveFieldValues}
                     disabled={saving}
-                    className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    className="flex items-center space-x-2 px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50"
                   >
                     {saving ? (
                       <>
@@ -3106,7 +3176,7 @@ const ProjectDetail: React.FC = () => {
                 </p>
                 <button
                   onClick={() => navigate('/settings')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                 >
                   Configure Overview Page
                 </button>
@@ -3590,7 +3660,7 @@ const ProjectDetail: React.FC = () => {
                               <div className="flex space-x-2">
                                 <button
                                   onClick={() => handleEditRisk(risk)}
-                                  className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                                  className="text-primary-600 hover:text-blue-900 p-1 rounded hover:bg-primary-50"
                                 >
                                   <Edit2 className="w-4 h-4" />
                                 </button>
@@ -3680,7 +3750,7 @@ const ProjectDetail: React.FC = () => {
                               <div className="flex space-x-2">
                                 <button
                                   onClick={() => handleEditIssue(issue)}
-                                  className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                                  className="text-primary-600 hover:text-blue-900 p-1 rounded hover:bg-primary-50"
                                 >
                                   <Edit2 className="w-4 h-4" />
                                 </button>
@@ -3712,7 +3782,7 @@ const ProjectDetail: React.FC = () => {
                   resetChangeRequestForm();
                   setShowChangeRequestModal(true);
                 }}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 <span>Add Change Request</span>
@@ -3789,7 +3859,7 @@ const ProjectDetail: React.FC = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {getAttachmentCount(changeRequest.attachments) > 0 ? (
                               <div className="flex items-center space-x-2">
-                                <File className="w-4 h-4 text-blue-600" />
+                                <File className="w-4 h-4 text-primary-600" />
                                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                   {getAttachmentCount(changeRequest.attachments)} file{getAttachmentCount(changeRequest.attachments) !== 1 ? 's' : ''}
                                 </span>
@@ -3810,7 +3880,7 @@ const ProjectDetail: React.FC = () => {
                               </button>
                               <button
                                 onClick={() => handleEditChangeRequest(changeRequest)}
-                                className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                                className="text-primary-600 hover:text-blue-900 p-1 rounded hover:bg-primary-50"
                                 title="Edit"
                               >
                                 <Edit2 className="w-4 h-4" />
@@ -3837,7 +3907,7 @@ const ProjectDetail: React.FC = () => {
                   <p className="text-gray-600 mb-6">Add budget categories to start tracking your annual forecast.</p>
                   <button
                     onClick={handleAddBudget}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                     Add Budget Categories
@@ -3851,7 +3921,7 @@ const ProjectDetail: React.FC = () => {
                   <div className="flex items-center gap-4">
                     <button
                       onClick={handleAddBudget}
-                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700 transition-colors"
                     >
                       <Plus className="w-4 h-4" />
                       Manage Categories
@@ -3862,7 +3932,7 @@ const ProjectDetail: React.FC = () => {
                       <select
                         value={budgetViewFilter}
                         onChange={(e) => setBudgetViewFilter(e.target.value as 'monthly' | 'yearly')}
-                        className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                       >
                         <option value="yearly">Yearly</option>
                         <option value="monthly">Monthly</option>
@@ -3874,7 +3944,7 @@ const ProjectDetail: React.FC = () => {
                         <select
                           value={selectedMonth}
                           onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                          className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                         >
                           {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((month, index) => (
                             <option key={index} value={index}>
@@ -3889,7 +3959,7 @@ const ProjectDetail: React.FC = () => {
                       <select
                         value={selectedYear}
                         onChange={(e) => setSelectedYear(Number(e.target.value))}
-                        className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                       >
                         {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
                           <option key={year} value={year}>
@@ -3907,7 +3977,7 @@ const ProjectDetail: React.FC = () => {
                   selectedMonth={selectedMonth}
                 />
 
-                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="mb-4 p-3 bg-primary-50 border border-blue-200 rounded-lg">
                   <p className="text-sm text-blue-800">
                     <strong>How to use:</strong> Enter your forecasted amounts for each month, then record actual spending.
                     The system automatically calculates variance percentages.
@@ -3942,7 +4012,7 @@ const ProjectDetail: React.FC = () => {
                   />
                   <button
                     type="button"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                     onClick={(e) => {
                       e.preventDefault();
                       (e.currentTarget.previousElementSibling as HTMLInputElement)?.click();
@@ -3968,7 +4038,7 @@ const ProjectDetail: React.FC = () => {
                       className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                     >
                       <div className="flex items-center gap-3 flex-1">
-                        <File className="w-8 h-8 text-blue-600" />
+                        <File className="w-8 h-8 text-primary-600" />
                         <div className="flex-1 min-w-0">
                           <h4 className="text-sm font-medium text-gray-900 truncate">
                             {doc.file_name}
@@ -3981,7 +4051,7 @@ const ProjectDetail: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleDownloadDocument(doc)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                           title="Download"
                         >
                           <Download className="w-5 h-5" />
@@ -4114,7 +4184,7 @@ const ProjectDetail: React.FC = () => {
                 <textarea
                   value={riskForm.description}
                   onChange={(e) => setRiskForm({ ...riskForm, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   rows={3}
                   required
                 />
@@ -4171,7 +4241,7 @@ const ProjectDetail: React.FC = () => {
                   type="text"
                   value={issueForm.title}
                   onChange={(e) => setIssueForm({ ...issueForm, title: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   required
                 />
               </div>
@@ -4203,7 +4273,7 @@ const ProjectDetail: React.FC = () => {
                   <select
                     value={issueForm.status}
                     onChange={(e) => setIssueForm({ ...issueForm, status: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
                     <option value="Active">Active</option>
                     <option value="Closed">Closed</option>
@@ -4355,7 +4425,7 @@ const ProjectDetail: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleSaveBudget}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                 >
                   {editingBudget ? 'Update Budget' : 'Add Budget'}
                 </button>
@@ -4379,7 +4449,7 @@ const ProjectDetail: React.FC = () => {
                   type="text"
                   value={changeRequestForm.title}
                   onChange={(e) => setChangeRequestForm({ ...changeRequestForm, title: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   required
                 />
               </div>
@@ -4388,7 +4458,7 @@ const ProjectDetail: React.FC = () => {
                 <select
                   value={changeRequestForm.type}
                   onChange={(e) => setChangeRequestForm({ ...changeRequestForm, type: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   <option value="Scope Change">Scope Change</option>
                   <option value="Schedule Change">Schedule Change</option>
@@ -4402,7 +4472,7 @@ const ProjectDetail: React.FC = () => {
                 <textarea
                   value={changeRequestForm.description}
                   onChange={(e) => setChangeRequestForm({ ...changeRequestForm, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   rows={3}
                   required
                 />
@@ -4412,7 +4482,7 @@ const ProjectDetail: React.FC = () => {
                 <textarea
                   value={changeRequestForm.justification}
                   onChange={(e) => setChangeRequestForm({ ...changeRequestForm, justification: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   rows={3}
                   required
                 />
@@ -4423,7 +4493,7 @@ const ProjectDetail: React.FC = () => {
                   <select
                     value={changeRequestForm.scope_impact}
                     onChange={(e) => setChangeRequestForm({ ...changeRequestForm, scope_impact: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -4435,7 +4505,7 @@ const ProjectDetail: React.FC = () => {
                   <select
                     value={changeRequestForm.risk_impact}
                     onChange={(e) => setChangeRequestForm({ ...changeRequestForm, risk_impact: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -4447,7 +4517,7 @@ const ProjectDetail: React.FC = () => {
                   <select
                     value={changeRequestForm.resource_impact}
                     onChange={(e) => setChangeRequestForm({ ...changeRequestForm, resource_impact: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -4461,7 +4531,7 @@ const ProjectDetail: React.FC = () => {
                   type="text"
                   value={changeRequestForm.cost_impact}
                   onChange={(e) => setChangeRequestForm({ ...changeRequestForm, cost_impact: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   placeholder="Describe cost impact (optional)"
                 />
               </div>
@@ -4500,7 +4570,7 @@ const ProjectDetail: React.FC = () => {
                         className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
                       >
                         <div className="flex items-center space-x-3">
-                          <File className="w-5 h-5 text-blue-600" />
+                          <File className="w-5 h-5 text-primary-600" />
                           <div>
                             <p className="text-sm font-medium text-gray-900">{file.fileName}</p>
                             <p className="text-xs text-gray-500">
@@ -4512,7 +4582,7 @@ const ProjectDetail: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleDownloadAttachment(file.path, file.fileName)}
-                            className="p-1 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded transition-colors"
+                            className="p-1 text-primary-600 hover:text-blue-900 hover:bg-primary-50 rounded transition-colors"
                             title="Download"
                           >
                             <Download className="w-4 h-4" />
@@ -4549,7 +4619,7 @@ const ProjectDetail: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                 >
                   {editingChangeRequest ? 'Update Change Request' : 'Add Change Request'}
                 </button>
@@ -4654,7 +4724,7 @@ const ProjectDetail: React.FC = () => {
                             className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
                           >
                             <div className="flex items-center space-x-3">
-                              <File className="w-5 h-5 text-blue-600" />
+                              <File className="w-5 h-5 text-primary-600" />
                               <div>
                                 <p className="text-sm font-medium text-gray-900">{file.fileName}</p>
                                 <p className="text-xs text-gray-500">
@@ -4664,7 +4734,7 @@ const ProjectDetail: React.FC = () => {
                             </div>
                             <button
                               onClick={() => handleDownloadFile(file.path, file.fileName)}
-                              className="flex items-center space-x-1 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded transition-colors"
+                              className="flex items-center space-x-1 px-3 py-1.5 text-sm text-primary-600 hover:text-blue-900 hover:bg-primary-50 rounded transition-colors"
                             >
                               <Download className="w-4 h-4" />
                               <span>Download</span>
@@ -4697,7 +4767,7 @@ const ProjectDetail: React.FC = () => {
                     setShowChangeRequestPreview(false);
                     handleEditChangeRequest(viewingChangeRequest);
                   }}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
+                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center justify-center space-x-2"
                 >
                   <Edit2 className="w-4 h-4" />
                   <span>Edit</span>

@@ -504,7 +504,7 @@ const Projects: React.FC = () => {
         </div>
         <button
           onClick={() => window.location.href = '/projects/new'}
-          className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
         >
           <Plus className="w-5 h-5" />
           <span>New Project</span>
@@ -551,7 +551,7 @@ const Projects: React.FC = () => {
             placeholder="Search projects..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           />
         </div>
         <div className="flex items-center space-x-4">
@@ -606,7 +606,7 @@ const Projects: React.FC = () => {
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           >
             <option value="all">All Status</option>
             <option value="planning">Planning</option>
@@ -946,7 +946,7 @@ const Projects: React.FC = () => {
               {projects.length === 0 && (
                 <button 
                   onClick={() => navigate('/projects/new')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                 >
                   Create Your First Project
                 </button>
@@ -985,14 +985,14 @@ const Projects: React.FC = () => {
                       type="checkbox"
                       checked={col.enabled}
                       onChange={() => toggleColumn(col.key)}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
                     />
                   </div>
                   <span className="text-sm font-medium text-gray-700 flex-1">
                     {col.label}
                   </span>
                   {col.enabled && (
-                    <Check className="w-4 h-4 text-blue-600" />
+                    <Check className="w-4 h-4 text-primary-600" />
                   )}
                 </label>
               ))}
@@ -1001,7 +1001,7 @@ const Projects: React.FC = () => {
             <div className="mt-6 flex justify-end">
               <button
                 onClick={() => setShowColumnCustomizer(false)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
               >
                 Done
               </button>
