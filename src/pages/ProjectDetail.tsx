@@ -2447,7 +2447,7 @@ const ProjectDetail: React.FC = () => {
   };
 
   // Helper function to calculate end_date from start_date and duration
-  // Uses the same method as Gantt.tsx line 1216 - no adjustments
+  // Uses the EXACT same logic as Gantt.tsx Task Pane display (lines 539-543)
   const calculateEndDate = (startDate: string, duration: number): string => {
     const ganttInstance = (window as any).gantt;
     if (!ganttInstance || !startDate || duration === undefined) {
@@ -2460,9 +2460,11 @@ const ProjectDetail: React.FC = () => {
       // Calculate end date using Gantt's method - same as in Gantt.tsx
       // This returns the exclusive end date (day after last working day)
       const calculatedEndDate = ganttInstance.calculateEndDate(parsedStartDate, duration);
+      // Subtract 1 day from end date to show the actual last working day (same as Task Pane display)
+      const adjustedEndDate = ganttInstance.date.add(calculatedEndDate, -1, "day");
       // Format to YYYY-MM-DD HH:MM to match start_date format
       const dateTimeFormat = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i");
-      return dateTimeFormat(calculatedEndDate);
+      return dateTimeFormat(adjustedEndDate);
     } catch (error) {
       console.error('Error calculating end date:', error);
       return '';
