@@ -10,9 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/utilities": "^3.2.2",
     "@supabase/supabase-js": "^2.57.4",
     "@types/react-router-dom": "^5.3.3",
-     "dhtmlx-gantt": "^9.1.0",
+    "dhtmlx-gantt": "^9.1.0",
     "exceljs": "^4.4.0",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
