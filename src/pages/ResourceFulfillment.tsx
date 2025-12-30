@@ -300,6 +300,15 @@ export default function ResourceFulfillment() {
 
   const fetchProjectsWithPendingFulfillments = async () => {
     try {
+      const { data: genericResourcesData, error: resourceError } = await supabase
+        .from('resources')
+        .select('id')
+        .eq('resource_type', 'generic');
+
+      if (resourceError) throw resourceError;
+
+      const genericResourceIds = new Set(genericResourcesData?.map(r => r.id) || []);
+
       const { data: tasksData, error: tasksError } = await supabase
         .from('project_tasks')
         .select('id, project_id, task_data, projects(id, name, status)');
@@ -314,10 +323,10 @@ export default function ResourceFulfillment() {
 
         let genericCount = 0;
         tasksArray.forEach((individualTask: any) => {
-          const resourceNames = individualTask.resource_names || [];
+          const resourceIds = individualTask.resource_ids || [];
 
-          resourceNames.forEach((resourceName: string) => {
-            if (resourceName && (resourceName.toLowerCase().includes('generic'))) {
+          resourceIds.forEach((resourceId: string) => {
+            if (resourceId && genericResourceIds.has(resourceId)) {
               genericCount++;
             }
           });
@@ -356,6 +365,17 @@ export default function ResourceFulfillment() {
 
   const fetchTasksForProject = async (projectId: string) => {
     try {
+      const { data: genericResourcesData, error: resourceError } = await supabase
+        .from('resources')
+        .select('id, display_name, roles')
+        .eq('resource_type', 'generic');
+
+      if (resourceError) throw resourceError;
+
+      const genericResourcesMap = new Map(
+        genericResourcesData?.map(r => [r.id, { name: r.display_name, roles: r.roles }]) || []
+      );
+
       const { data: projectTasksData, error } = await supabase
         .from('project_tasks')
         .select('id, task_name, start_date, end_date, task_data, project_id, projects(name)')
@@ -379,18 +399,13 @@ export default function ResourceFulfillment() {
             const resourceId = resourceIds[i];
             const resourceName = resourceNames[i];
 
-            if (resourceName && resourceName.toLowerCase().includes('generic')) {
-              const { data: resourceData } = await supabase
-                .from('resources')
-                .select('roles')
-                .eq('id', resourceId)
-                .maybeSingle();
-
+            if (resourceId && genericResourcesMap.has(resourceId)) {
+              const resourceInfo = genericResourcesMap.get(resourceId);
               genericResources.push({
                 resource_id: resourceId,
-                resource_name: resourceName,
+                resource_name: resourceName || resourceInfo?.name || 'Unknown Resource',
                 allocated_hours: 100,
-                roles: resourceData?.roles || [],
+                roles: resourceInfo?.roles || [],
               });
             }
           }
