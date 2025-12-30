@@ -308,29 +308,29 @@ export default function ResourceFulfillment() {
 
       const projectMap = new Map<string, { name: string; count: number; status?: string }>();
 
-      tasksData?.forEach((task) => {
-        const taskData = task.task_data || {};
-        const resourceIds = taskData.resource_ids || [];
-        const resourceNames = taskData.resource_names || [];
+      tasksData?.forEach((projectTask) => {
+        const taskData = projectTask.task_data || {};
+        const tasksArray = taskData.data || [];
 
-        const genericResources = [];
-        for (let i = 0; i < resourceIds.length; i++) {
-          const resourceId = resourceIds[i];
-          const resourceName = resourceNames[i];
+        let genericCount = 0;
+        tasksArray.forEach((individualTask: any) => {
+          const resourceNames = individualTask.resource_names || [];
 
-          if (resourceName && (resourceName.includes('Generic') || resourceName.includes('generic'))) {
-            genericResources.push({ resourceId, resourceName });
-          }
-        }
+          resourceNames.forEach((resourceName: string) => {
+            if (resourceName && (resourceName.toLowerCase().includes('generic'))) {
+              genericCount++;
+            }
+          });
+        });
 
-        if (genericResources.length > 0) {
-          const project = (task as any).projects;
+        if (genericCount > 0) {
+          const project = (projectTask as any).projects;
           if (project && (project.status === 'In Progress' || !project.status)) {
             if (!projectMap.has(project.id)) {
               projectMap.set(project.id, { name: project.name, count: 0, status: project.status });
             }
             const projectData = projectMap.get(project.id)!;
-            projectData.count += genericResources.length;
+            projectData.count += genericCount;
           }
         }
       });
@@ -356,7 +356,7 @@ export default function ResourceFulfillment() {
 
   const fetchTasksForProject = async (projectId: string) => {
     try {
-      const { data: tasksData, error } = await supabase
+      const { data: projectTasksData, error } = await supabase
         .from('project_tasks')
         .select('id, task_name, start_date, end_date, task_data, project_id, projects(name)')
         .eq('project_id', projectId);
@@ -365,45 +365,53 @@ export default function ResourceFulfillment() {
 
       const tasksWithGeneric: TaskWithGenericResources[] = [];
 
-      for (const task of tasksData || []) {
-        const taskData = task.task_data || {};
-        const resourceIds = taskData.resource_ids || [];
-        const resourceNames = taskData.resource_names || [];
+      for (const projectTask of projectTasksData || []) {
+        const taskData = projectTask.task_data || {};
+        const tasksArray = taskData.data || [];
 
-        const genericResources: GenericResourceAssignment[] = [];
+        for (const individualTask of tasksArray) {
+          const resourceIds = individualTask.resource_ids || [];
+          const resourceNames = individualTask.resource_names || [];
 
-        for (let i = 0; i < resourceIds.length; i++) {
-          const resourceId = resourceIds[i];
-          const resourceName = resourceNames[i];
+          const genericResources: GenericResourceAssignment[] = [];
 
-          if (resourceName && (resourceName.includes('Generic') || resourceName.includes('generic'))) {
-            const { data: resourceData } = await supabase
-              .from('resources')
-              .select('roles')
-              .eq('id', resourceId)
-              .single();
+          for (let i = 0; i < resourceIds.length; i++) {
+            const resourceId = resourceIds[i];
+            const resourceName = resourceNames[i];
 
-            genericResources.push({
-              resource_id: resourceId,
-              resource_name: resourceName,
-              allocated_hours: 100,
-              roles: resourceData?.roles || [],
+            if (resourceName && resourceName.toLowerCase().includes('generic')) {
+              const { data: resourceData } = await supabase
+                .from('resources')
+                .select('roles')
+                .eq('id', resourceId)
+                .maybeSingle();
+
+              genericResources.push({
+                resource_id: resourceId,
+                resource_name: resourceName,
+                allocated_hours: 100,
+                roles: resourceData?.roles || [],
+              });
+            }
+          }
+
+          if (genericResources.length > 0) {
+            tasksWithGeneric.push({
+              id: `${projectTask.id}_${individualTask.id}`,
+              task_name: individualTask.text || 'Untitled Task',
+              start_date: individualTask.start_date,
+              end_date: individualTask.end_date,
+              task_data: {
+                projectTaskId: projectTask.id,
+                individualTaskId: individualTask.id,
+                fullTaskData: taskData,
+              },
+              project_id: projectTask.project_id,
+              project_name: (projectTask as any).projects?.name || 'Unknown Project',
+              generic_resources: genericResources,
+              is_fulfilled: false,
             });
           }
-        }
-
-        if (genericResources.length > 0) {
-          tasksWithGeneric.push({
-            id: task.id,
-            task_name: task.task_name || 'Untitled Task',
-            start_date: task.start_date,
-            end_date: task.end_date,
-            task_data: taskData,
-            project_id: task.project_id,
-            project_name: (task as any).projects?.name || 'Unknown Project',
-            generic_resources: genericResources,
-            is_fulfilled: false,
-          });
         }
       }
 
@@ -474,31 +482,49 @@ export default function ResourceFulfillment() {
     if (!selectedResource || !selectedTask || !selectedGenericResource) return;
 
     try {
-      const taskData = { ...selectedTask.task_data };
-      const resourceIds = [...(taskData.resource_ids || [])];
-      const resourceNames = [...(taskData.resource_names || [])];
+      const projectTaskId = selectedTask.task_data.projectTaskId;
+      const individualTaskId = selectedTask.task_data.individualTaskId;
+      const fullTaskData = { ...selectedTask.task_data.fullTaskData };
 
-      const genericIndex = resourceIds.findIndex(id => id === selectedGenericResource.resource_id);
+      const tasksArray = fullTaskData.data || [];
+      const taskToUpdate = tasksArray.find((t: any) => t.id === individualTaskId);
+
+      if (!taskToUpdate) {
+        throw new Error('Task not found in data array');
+      }
+
+      const resourceIds = [...(taskToUpdate.resource_ids || [])];
+      const resourceNames = [...(taskToUpdate.resource_names || [])];
+
+      const genericIndex = resourceIds.findIndex((id: string) => id === selectedGenericResource.resource_id);
 
       if (genericIndex !== -1) {
         resourceIds[genericIndex] = selectedResource.id;
         resourceNames[genericIndex] = selectedResource.display_name;
+      } else {
+        const nameIndex = resourceNames.findIndex((name: string) =>
+          name.toLowerCase().includes('generic') && name === selectedGenericResource.resource_name
+        );
+        if (nameIndex !== -1) {
+          resourceIds[nameIndex] = selectedResource.id;
+          resourceNames[nameIndex] = selectedResource.display_name;
+        }
       }
 
-      taskData.resource_ids = resourceIds;
-      taskData.resource_names = resourceNames;
+      taskToUpdate.resource_ids = resourceIds;
+      taskToUpdate.resource_names = resourceNames;
 
       const { error: updateError } = await supabase
         .from('project_tasks')
-        .update({ task_data: taskData })
-        .eq('id', selectedTask.id);
+        .update({ task_data: fullTaskData })
+        .eq('id', projectTaskId);
 
       if (updateError) throw updateError;
 
       const { error: historyError } = await supabase
         .from('resource_fulfillment_history')
         .insert({
-          task_id: selectedTask.id,
+          task_id: projectTaskId,
           generic_resource_id: selectedGenericResource.resource_id,
           generic_resource_name: selectedGenericResource.resource_name,
           named_resource_id: selectedResource.id,
