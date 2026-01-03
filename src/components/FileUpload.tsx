@@ -21,7 +21,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
   uploading,
   onFileUpload,
   onRemoveFile,
-  downloadBaseUrl = 'http://localhost:5000/api/download/change-request-attachment'
+  downloadBaseUrl = 'https://ppmx-dev-backend-api.azurewebsites.net/api/download/change-request-attachment'
 }) => {
   return (
     <div>
