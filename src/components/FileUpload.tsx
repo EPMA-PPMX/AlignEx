@@ -21,7 +21,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
   uploading,
   onFileUpload,
   onRemoveFile,
-  downloadBaseUrl = 'https://ppmx-dev-backend-api.azurewebsites.net/api/download/change-request-attachment'
+  const downloadBaseUrl = `${import.meta.env.VITE_API_BASE_URL}/api/download/change-request-attachment`;
 }) => {
   return (
     <div>
