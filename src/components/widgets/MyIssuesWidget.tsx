@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AlertCircle, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { useCurrentUser } from '../../lib/useCurrentUser';
+import { DEMO_USER_ID } from '../../lib/useCurrentUser';
 import { Link } from 'react-router-dom';
 
 interface Issue {
@@ -15,23 +15,29 @@ interface Issue {
 }
 
 export default function MyIssuesWidget() {
-  const { user } = useCurrentUser();
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      fetchIssues();
-    }
-  }, [user]);
+    fetchIssues();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchIssues = async () => {
     try {
       setLoading(true);
 
-      if (!user?.resource_id) {
+      // Get user's resource_id
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('resource_id')
+        .eq('id', DEMO_USER_ID)
+        .maybeSingle();
+
+      if (userError || !userData?.resource_id) {
         console.log('MyIssuesWidget: User has no resource_id, cannot fetch issues');
         setIssues([]);
+        setLoading(false);
         return;
       }
 
@@ -51,7 +57,7 @@ export default function MyIssuesWidget() {
           .from('project_field_values')
           .select('project_id')
           .eq('field_id', pmField.id)
-          .eq('value', user.resource_id);
+          .eq('value', userData.resource_id);
 
         if (pfvError) throw pfvError;
 
@@ -61,7 +67,7 @@ export default function MyIssuesWidget() {
       const { data: teamData, error: teamError } = await supabase
         .from('project_team_members')
         .select('project_id')
-        .eq('resource_id', user.resource_id);
+        .eq('resource_id', userData.resource_id);
 
       if (teamError) throw teamError;
 

@@ -21,18 +21,22 @@ interface TeamMember {
 }
 
 export default function Teams() {
+  console.log('=== TEAMS PAGE COMPONENT RENDERING ===');
+
   const { showConfirm, showNotification } = useNotification();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddMember, setShowAddMember] = useState(false);
 
   useEffect(() => {
+    console.log('=== TEAMS PAGE useEffect - fetching team members ===');
     fetchTeamMembers();
   }, []);
 
   const fetchTeamMembers = async () => {
     try {
       setLoading(true);
+      console.log('=== Fetching team members from database ===');
       const { data, error } = await supabase
         .from('organization_team_members')
         .select(`
@@ -59,6 +63,7 @@ export default function Teams() {
         resource: item.resources as any
       })) || [];
 
+      console.log('=== Team members fetched:', formattedData.length, '===');
       setTeamMembers(formattedData);
     } catch (error) {
       console.error('Error fetching team members:', error);
