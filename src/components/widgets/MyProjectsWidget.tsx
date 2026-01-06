@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FolderKanban, AlertTriangle, ChevronRight, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { useCurrentUser } from '../../lib/useCurrentUser';
+import { DEMO_USER_ID } from '../../lib/useCurrentUser';
 import { Link } from 'react-router-dom';
 
 interface Project {
@@ -14,23 +14,29 @@ interface Project {
 }
 
 export default function MyProjectsWidget() {
-  const { user } = useCurrentUser();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      fetchProjects();
-    }
-  }, [user]);
+    fetchProjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchProjects = async () => {
     try {
       setLoading(true);
 
-      if (!user?.resource_id) {
+      // Get user's resource_id
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('resource_id')
+        .eq('id', DEMO_USER_ID)
+        .maybeSingle();
+
+      if (userError || !userData?.resource_id) {
         console.log('MyProjectsWidget: User has no resource_id, cannot fetch projects');
         setProjects([]);
+        setLoading(false);
         return;
       }
 
@@ -58,7 +64,7 @@ export default function MyProjectsWidget() {
         .from('project_field_values')
         .select('project_id')
         .eq('field_id', pmField.id)
-        .eq('value', user.resource_id);
+        .eq('value', userData.resource_id);
 
       if (pfvError) {
         console.error('Error fetching project field values:', pfvError);

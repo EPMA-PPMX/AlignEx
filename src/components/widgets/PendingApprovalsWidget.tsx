@@ -23,6 +23,7 @@ export default function PendingApprovalsWidget() {
 
   useEffect(() => {
     fetchPendingApprovals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchPendingApprovals = async () => {

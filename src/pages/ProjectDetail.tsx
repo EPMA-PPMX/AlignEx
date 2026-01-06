@@ -7,12 +7,14 @@ import { trackFieldHistory, shouldTrackFieldHistory } from '../lib/fieldHistoryT
 import { MonthlyBudgetGrid } from '../components/MonthlyBudgetGrid';
 import { BudgetSummaryTiles } from '../components/BudgetSummaryTiles';
 import Gantt from "../components/Gantt/Gantt";
+import Scheduler from "../components/Scheduler/Scheduler";
 import ProjectStatusDropdown from '../components/ProjectStatusDropdown';
 import ProjectHealthStatus from '../components/ProjectHealthStatus';
 import BenefitTracking from '../components/BenefitTracking';
 import ProjectTeams from '../components/ProjectTeams';
 import PeoplePicker from '../components/PeoplePicker';
 import CustomFieldsRenderer from '../components/CustomFieldsRenderer';
+import DocumentUpload from '../components/DocumentUpload';
 import { loadCustomFieldValues, saveCustomFieldValues } from '../lib/customFieldHelpers';
 
 interface Project {
@@ -99,6 +101,16 @@ interface Issue {
   updated_at: string;
 }
 
+interface ProjectTeamMember {
+  id: string;
+  resource_id: string;
+  allocation_percentage: number;
+  resources?: {
+    id: string;
+    display_name: string;
+  };
+}
+
 interface ChangeRequest {
   id: string;
   project_id: string;
@@ -155,6 +167,7 @@ const ProjectDetail: React.FC = () => {
   const navigate = useNavigate();
   const { showConfirm, showNotification } = useNotification();
   const [activeTab, setActiveTab] = useState('overview');
+  const [timelineView, setTimelineView] = useState<'gantt' | 'scheduler'>('gantt');
 
   // Utility function to adjust date to skip weekends
   const adjustToWorkday = (dateString: string): string => {
@@ -289,8 +302,9 @@ const ProjectDetail: React.FC = () => {
     progress: 0
   });
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const [resourceAllocations, setResourceAllocations] = useState<Record<string, number>>({});
 
-  const [projectTeamMembers, setProjectTeamMembers] = useState<any[]>([]);
+  const [projectTeamMembers, setProjectTeamMembers] = useState<ProjectTeamMember[]>([]);
 
   const [uploadedFiles, setUploadedFiles] = useState<Array<{
     fileName: string;
@@ -312,6 +326,8 @@ const ProjectDetail: React.FC = () => {
 
   const [taskSearchQuery, setTaskSearchQuery] = useState('');
   const ganttRef = useRef<any>(null);
+  const msProjectFileInputRef = useRef<HTMLInputElement>(null);
+  const [importingMSProject, setImportingMSProject] = useState(false);
 
   const tabs = [
     { id: 'overview', name: 'Overview', icon: Target },
@@ -386,19 +402,27 @@ const ProjectDetail: React.FC = () => {
 
   // Initialize new custom fields in all tasks when fields are added
   useEffect(() => {
-    const initializeNewFieldsInTasks = async () => {
-      if (!id || !project || projectTasks.data.length === 0 || taskCustomFields.length === 0) return;
+    // Debounce to prevent rapid re-runs during task loading
+    const timeoutId = setTimeout(() => {
+      initializeNewFieldsInTasks();
+    }, 500);
 
-      // Find newly added fields
-      const previousFields = prevSelectedTaskFieldsRef.current;
-      const newFieldIds = selectedTaskFields.filter(fieldId => !previousFields.includes(fieldId));
+    return () => clearTimeout(timeoutId);
+  }, [selectedTaskFields, id, project]);
 
-      if (newFieldIds.length === 0) {
-        prevSelectedTaskFieldsRef.current = selectedTaskFields;
-        return;
-      }
+  const initializeNewFieldsInTasks = async () => {
+    if (!id || !project || projectTasks.data.length === 0 || taskCustomFields.length === 0) return;
 
-      console.log('Initializing new fields in tasks:', newFieldIds);
+    // Find newly added fields
+    const previousFields = prevSelectedTaskFieldsRef.current;
+    const newFieldIds = selectedTaskFields.filter(fieldId => !previousFields.includes(fieldId));
+
+    if (newFieldIds.length === 0) {
+      prevSelectedTaskFieldsRef.current = selectedTaskFields;
+      return;
+    }
+
+    console.log('Initializing new fields in tasks:', newFieldIds);
 
       // Create a copy of tasks and add new fields with null values
       const updatedTasks = projectTasks.data.map((task: any) => {
@@ -446,12 +470,9 @@ const ProjectDetail: React.FC = () => {
         console.error('Error saving initialized fields:', error);
       }
 
-      // Update the ref for next comparison
-      prevSelectedTaskFieldsRef.current = selectedTaskFields;
-    };
-
-    initializeNewFieldsInTasks();
-  }, [selectedTaskFields, id, project]);
+    // Update the ref for next comparison
+    prevSelectedTaskFieldsRef.current = selectedTaskFields;
+  };
 
   const fetchProject = async () => {
     try {
@@ -785,8 +806,6 @@ const ProjectDetail: React.FC = () => {
             // Use stored duration - let Gantt calculate end_date from start_date + duration
             // This ensures working days logic is applied correctly
             const duration = task.duration || 1;
-            console.log(`Task ${task.id} (${task.text}): Raw duration from DB = ${task.duration}, Using duration = ${duration}`);
-            console.log(`Task ${task.id}: Will let Gantt calculate end_date from start_date + duration`);
 
             const taskObject = {
               id: task.id,
@@ -802,15 +821,11 @@ const ProjectDetail: React.FC = () => {
               owner_name: task.owner_name,
               resource_ids: task.resource_ids || [],
               resource_names: task.resource_names || [],
+              work_hours: task.work_hours || 0,
+              resource_work_hours: task.resource_work_hours || {},
+              resource_allocations: task.resource_allocations || {},
               ...customFields  // Spread all custom fields
             };
-
-            console.log(`Task ${task.id} final object being returned:`, {
-              id: taskObject.id,
-              text: taskObject.text,
-              start_date: taskObject.start_date,
-              duration: taskObject.duration
-            });
 
             return taskObject;
           });
@@ -821,15 +836,18 @@ const ProjectDetail: React.FC = () => {
         const resourcesData = await fetchResourcesForGantt();
         const assignmentsData = await fetchResourceAssignments();
 
-        setProjectTasks({
-          data: taskData.data || [],
-          links: taskData.links || [],
-          baseline: taskData.baseline || [],
-          resources: resourcesData,
-          resourceAssignments: assignmentsData
-        });
-        // Reset grouping state when new data is loaded
-        setIsGroupedByOwner(false);
+        // Use setTimeout to allow UI thread to breathe
+        setTimeout(() => {
+          setProjectTasks({
+            data: taskData.data || [],
+            links: taskData.links || [],
+            baseline: taskData.baseline || [],
+            resources: resourcesData,
+            resourceAssignments: assignmentsData
+          });
+          // Reset grouping state when new data is loaded
+          setIsGroupedByOwner(false);
+        }, 0);
       } else {
         console.log('No task data found for project, setting empty array');
         setProjectTasks({ data: [], links: [], resources: [], resourceAssignments: [] });
@@ -900,32 +918,23 @@ const ProjectDetail: React.FC = () => {
       if (!taskError && taskData?.task_data) {
         const tasks = taskData.task_data.data || [];
 
-        // Fetch resource assignments
-        const taskIds = tasks.map((t: any) => t.id);
-        if (taskIds.length > 0) {
-          const { data: assignments } = await supabase
-            .from('task_resource_assignments')
-            .select('task_id, resource_id')
-            .in('task_id', taskIds);
+        // Calculate total hours per resource using resource_ids from task data
+        const resourceHours: { [key: string]: number } = {};
 
-          // Calculate total hours per resource
-          const resourceHours: { [key: string]: number } = {};
+        tasks.forEach((task: any) => {
+          if (task.resource_ids && Array.isArray(task.resource_ids) && task.duration) {
+            // Convert days to hours (assuming 8 hours per day)
+            const hours = task.duration * 8;
+            task.resource_ids.forEach((resourceId: string) => {
+              resourceHours[resourceId] = (resourceHours[resourceId] || 0) + hours;
+            });
+          }
+        });
 
-          (assignments || []).forEach((assignment: any) => {
-            const task = tasks.find((t: any) => t.id === assignment.task_id);
-            if (task && task.duration) {
-              // Convert days to hours (assuming 8 hours per day)
-              const hours = task.duration * 8;
-              resourceHours[assignment.resource_id] =
-                (resourceHours[assignment.resource_id] || 0) + hours;
-            }
-          });
-
-          // Add hours to resource objects
-          uniqueResources.forEach((resource: any) => {
-            resource.hours = resourceHours[resource.id] || 0;
-          });
-        }
+        // Add hours to resource objects
+        uniqueResources.forEach((resource: any) => {
+          resource.hours = resourceHours[resource.id] || 0;
+        });
       }
 
       return uniqueResources;
@@ -951,31 +960,24 @@ const ProjectDetail: React.FC = () => {
         return [];
       }
 
-      // Extract task IDs from task_data
-      const taskIds = (tasks.task_data.data || []).map((t: any) => t.id);
+      // Build assignments from resource_ids in task data
+      const assignments: any[] = [];
+      let assignmentId = 1;
 
-      if (taskIds.length === 0) {
-        return [];
-      }
+      (tasks.task_data.data || []).forEach((task: any) => {
+        if (task.resource_ids && Array.isArray(task.resource_ids)) {
+          task.resource_ids.forEach((resourceId: string) => {
+            assignments.push({
+              id: assignmentId++,
+              task_id: task.id,
+              resource_id: resourceId,
+              value: 1
+            });
+          });
+        }
+      });
 
-      // Fetch assignments for these tasks
-      const { data, error } = await supabase
-        .from('task_resource_assignments')
-        .select('id, task_id, resource_id')
-        .in('task_id', taskIds);
-
-      if (error) {
-        console.error('Error fetching resource assignments:', error);
-        return [];
-      }
-
-      // Transform to Gantt assignment format
-      return (data || []).map(assignment => ({
-        id: assignment.id,
-        task_id: assignment.task_id,
-        resource_id: assignment.resource_id,
-        value: 1
-      }));
+      return assignments;
     } catch (error) {
       console.error('Error fetching resource assignments:', error);
       return [];
@@ -991,6 +993,7 @@ const ProjectDetail: React.FC = () => {
         .select(`
           id,
           resource_id,
+          allocation_percentage,
           resources (
             id,
             display_name
@@ -1001,6 +1004,7 @@ const ProjectDetail: React.FC = () => {
       if (error) {
         console.error('Error fetching project team members:', error);
       } else {
+        console.log('Fetched project team members with allocations:', data);
         setProjectTeamMembers(data || []);
 
         // Refresh Gantt resources when team members change
@@ -1060,10 +1064,11 @@ const ProjectDetail: React.FC = () => {
           const taskId = task.$original_id || task.id;
           // Only add if not already in map (handles duplicates from grouping)
           if (!taskMap.has(taskId)) {
-            // Collect custom fields and baseline fields (string format only, not Date objects)
+            // Collect custom fields, baseline fields, and resource fields (string format only, not Date objects)
             const extraFields: any = {};
             Object.keys(task).forEach(key => {
-              if (key.startsWith('custom_') || key.startsWith('baseline')) {
+              if (key.startsWith('custom_') || key.startsWith('baseline') ||
+                  key === 'work_hours' || key === 'resource_work_hours' || key === 'resource_allocations') {
                 extraFields[key] = task[key];
               }
             });
@@ -1078,18 +1083,20 @@ const ProjectDetail: React.FC = () => {
 
             console.log(`Task ${taskId}: duration=${task.duration} (type: ${typeof task.duration}), cleaned duration=${duration}`);
 
-            // Format end_date if it exists
+            // Calculate end_date using the same method as Gantt component
+            // Use DHTMLX's calculateEndDate which handles calendar days correctly
             let endDate = task.end_date;
-            if (endDate) {
-              // Convert Date object to string if needed
-              if (endDate instanceof Date) {
-                endDate = endDate.toISOString().split('T')[0] + ' 00:00';
-              } else if (typeof endDate === 'string' && !endDate.includes(' ')) {
-                endDate = endDate + ' 00:00';
-              }
+            if (task.start_date && duration) {
+              const startDate = typeof task.start_date === 'string'
+                ? ganttInstance.date.parseDate(task.start_date, "xml_date")
+                : task.start_date;
+              // Use the same calculation as in Gantt.tsx line 1216 - no adjustments
+              endDate = ganttInstance.calculateEndDate(startDate, duration);
+              console.log(`Calculated end_date for task ${taskId}:`, endDate);
             }
 
-            taskMap.set(taskId, {
+            // Build the task object for storage
+            const taskToSave: any = {
               id: taskId,
               text: task.text,
               start_date: task.start_date,
@@ -1103,7 +1110,9 @@ const ProjectDetail: React.FC = () => {
               resource_ids: task.resource_ids || [],
               resource_names: task.resource_names || [],
               ...extraFields // Include custom fields and baseline fields
-            });
+            };
+
+            taskMap.set(taskId, taskToSave);
           }
         });
 
@@ -1142,8 +1151,8 @@ const ProjectDetail: React.FC = () => {
           console.error('Error updating tasks:', error);
         } else {
           console.log("Tasks updated successfully");
-          // Refresh data from database to ensure UI shows latest values
-          await fetchProjectTasks();
+          // Don't fetch - this causes infinite loop
+          // The Gantt already has the updated data
         }
       } else {
         // Insert new record only if none exists
@@ -1159,8 +1168,8 @@ const ProjectDetail: React.FC = () => {
           console.error('Error inserting tasks:', error);
         } else {
           console.log("Tasks inserted successfully");
-          // Refresh data from database to ensure UI shows latest values
-          await fetchProjectTasks();
+          // Don't fetch - this causes infinite loop
+          // The Gantt already has the updated data
         }
       }
     } catch (error) {
@@ -1946,49 +1955,6 @@ const ProjectDetail: React.FC = () => {
     }
   };
 
-  const handleDocumentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !id) return;
-
-    try {
-      const timestamp = Date.now();
-      const fileName = `${timestamp}-${file.name}`;
-      const filePath = `${id}/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('project-documents')
-        .upload(filePath, file);
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      const { error: insertError } = await supabase
-        .from('project_documents')
-        .insert([{
-          project_id: id,
-          file_name: file.name,
-          file_path: filePath,
-          file_size: file.size,
-          mime_type: file.type
-        }]);
-
-      if (insertError) {
-        await supabase.storage
-          .from('project-documents')
-          .remove([filePath]);
-        throw insertError;
-      }
-
-      await fetchDocuments();
-      showNotification('Document uploaded successfully!', 'success');
-      event.target.value = '';
-    } catch (error: any) {
-      console.error('Error uploading document:', error);
-      showNotification(`Error uploading document: ${error.message}`, 'error');
-    }
-  };
-
   const handleDownloadDocument = async (doc: ProjectDocument) => {
     try {
       const { data, error } = await supabase.storage
@@ -2053,6 +2019,375 @@ const ProjectDetail: React.FC = () => {
     }
   };
 
+  const handleMSProjectImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !id || !ganttRef.current) {
+      event.target.value = '';
+      return;
+    }
+
+    try {
+      setImportingMSProject(true);
+
+      if (projectTeamMembers.length === 0) {
+        console.error('⚠️  No team members found. Resources will not be assigned.');
+      }
+
+      showNotification('Importing MS Project file...', 'info');
+
+      // Pre-build resource lookup maps for O(1) lookups instead of O(n) searches
+      const resourceNameToId = new Map<string, string>();
+      const resourceNameToIdLower = new Map<string, string>();
+      projectTeamMembers.forEach(member => {
+        if (member.resources?.display_name && member.resource_id) {
+          const name = member.resources.display_name;
+          resourceNameToId.set(name, member.resource_id);
+          resourceNameToIdLower.set(name.toLowerCase().trim(), member.resource_id);
+        }
+      });
+
+      ganttRef.current.importFromMSProject(file, async (success: boolean, data?: any, error?: string) => {
+        if (!success || !data) {
+          setImportingMSProject(false);
+          showNotification(`Failed to import MS Project file: ${error || 'Unknown error'}`, 'error');
+          event.target.value = '';
+          return;
+        }
+
+        try {
+          const importedTasks = data.data || [];
+          const importedLinks = data.links || [];
+          const importedResources = data.resources || [];
+          const importedResourceAssignments = data.resourceAssignments || [];
+
+          console.log(`\n📥 IMPORTING: ${importedTasks.length} tasks, ${importedResources.length} resources, ${importedResourceAssignments.length} assignments`);
+
+          // Get existing tasks
+          const existingTasks = projectTasks.data || [];
+          const existingLinks = projectTasks.links || [];
+
+          // Find the next available task ID
+          let nextTaskId = Math.max(0, ...existingTasks.map((t: any) => t.id || 0)) + 1;
+          let nextLinkId = Math.max(0, ...existingLinks.map((l: any) => l.id || 0)) + 1;
+
+          // Create a map to convert imported task IDs to new IDs
+          const taskIdMap = new Map<string | number, number>();
+
+          // Create a resource map from imported resources
+          const resourceMap = new Map<string | number, string>();
+          if (importedResources && Array.isArray(importedResources)) {
+            importedResources.forEach((resource: any) => {
+              if (resource.id && resource.name && typeof resource.name === 'string') {
+                resourceMap.set(resource.id, String(resource.name).trim());
+              }
+            });
+          }
+
+          // Create a task-to-resources map from resource assignments
+          const taskResourcesMap = new Map<string | number, string[]>();
+          if (importedResourceAssignments && Array.isArray(importedResourceAssignments)) {
+            importedResourceAssignments.forEach((assignment: any) => {
+              const taskId = assignment.task_id;
+              const resourceId = assignment.resource_id;
+              const resourceName = resourceMap.get(resourceId);
+
+              if (taskId && resourceName && typeof resourceName === 'string') {
+                if (!taskResourcesMap.has(taskId)) {
+                  taskResourcesMap.set(taskId, []);
+                }
+                taskResourcesMap.get(taskId)!.push(resourceName);
+              }
+            });
+          }
+
+          // Process imported tasks and assign new IDs
+          const newTasks = importedTasks.map((importedTask: any) => {
+            const originalId = importedTask.id;
+            const newTaskId = nextTaskId++;
+            taskIdMap.set(originalId, newTaskId);
+
+            // Format start_date to match expected format
+            let formattedStartDate = '';
+            if (importedTask.start_date) {
+              const dateObj = typeof importedTask.start_date === 'string'
+                ? new Date(importedTask.start_date)
+                : importedTask.start_date;
+              if (!isNaN(dateObj.getTime())) {
+                const year = dateObj.getFullYear();
+                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                const hours = String(dateObj.getHours()).padStart(2, '0');
+                const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+                formattedStartDate = `${year}-${month}-${day} ${hours}:${minutes}`;
+              }
+            }
+
+            // Map parent ID to new ID
+            const parentId = importedTask.parent && importedTask.parent !== 0
+              ? (taskIdMap.get(importedTask.parent) || 0)
+              : 0;
+
+            // Extract resource/owner information
+            let ownerName: string | string[] | null = null;
+            let resourceIds: string[] = [];
+            let resourceNames: string[] = [];
+
+            // First, check resource assignments map (most reliable)
+            const assignedResources = taskResourcesMap.get(originalId);
+
+            if (projectTeamMembers.length === 0) {
+              console.error('❌ NO TEAM MEMBERS! Add resources to Project Team tab first.');
+            }
+
+            if (assignedResources && assignedResources.length > 0) {
+              const validResources = assignedResources.filter(r => r && typeof r === 'string');
+              if (validResources.length > 0) {
+                ownerName = validResources.length === 1 ? validResources[0] : validResources;
+                resourceNames = validResources;
+                const unmatched: string[] = [];
+
+                resourceIds = validResources
+                  .map(resName => {
+                    const id = resourceNameToId.get(resName) || resourceNameToIdLower.get(resName.toLowerCase().trim());
+                    if (!id) unmatched.push(resName);
+                    return id;
+                  })
+                  .filter((id): id is string => id !== undefined);
+
+                if (unmatched.length > 0) {
+                  console.error(`❌ "${importedTask.text}": Unmatched resources [${unmatched.join(', ')}]`);
+                } else if (resourceIds.length > 0) {
+                  console.log(`✅ "${importedTask.text}": Matched ${resourceIds.length} resource(s)`);
+                }
+              }
+            }
+            // Check for comma-separated resource names in text fields
+            else {
+              const resourceTextField =
+                importedTask.resource_names ||
+                importedTask.resource_name ||
+                importedTask.resources ||
+                importedTask.owner_name ||
+                importedTask.$raw?.resources ||
+                importedTask.$raw?.resource ||
+                importedTask.$custom_data?.resources;
+
+              if (resourceTextField && typeof resourceTextField === 'string') {
+                const namesFromText = resourceTextField
+                  .split(',')
+                  .map(name => name.trim())
+                  .filter(name => name.length > 0);
+
+                if (namesFromText.length > 0) {
+                  console.log(`📝 "${importedTask.text}": Found text resources "${resourceTextField}"`);
+                  ownerName = namesFromText.length === 1 ? namesFromText[0] : namesFromText;
+                  resourceNames = namesFromText;
+                  const unmatched: string[] = [];
+
+                  resourceIds = namesFromText
+                    .map(resName => {
+                      const id = resourceNameToId.get(resName) || resourceNameToIdLower.get(resName.toLowerCase().trim());
+                      if (!id) unmatched.push(resName);
+                      return id;
+                    })
+                    .filter((id): id is string => id !== undefined);
+
+                  if (unmatched.length > 0) {
+                    console.error(`❌ "${importedTask.text}": Unmatched resources [${unmatched.join(', ')}]`);
+                  } else if (resourceIds.length > 0) {
+                    console.log(`✅ "${importedTask.text}": Matched ${resourceIds.length} resource(s)`);
+                  }
+                }
+              }
+            }
+
+            // Fallback: check for resource assignments in different possible formats
+            if (resourceIds.length === 0 && importedTask.owner_id) {
+              // Single resource assignment
+              const resourceName = resourceMap.get(importedTask.owner_id);
+              if (resourceName && typeof resourceName === 'string') {
+                ownerName = resourceName;
+                resourceNames = [resourceName];
+                const id = resourceNameToId.get(resourceName) || resourceNameToIdLower.get(resourceName.toLowerCase().trim());
+                if (id) {
+                  resourceIds = [id];
+                }
+              }
+            }
+
+            if (resourceIds.length === 0 && importedTask.resource_id) {
+              // Alternative single resource field
+              const resourceName = resourceMap.get(importedTask.resource_id);
+              if (resourceName && typeof resourceName === 'string') {
+                ownerName = resourceName;
+                resourceNames = [resourceName];
+                const id = resourceNameToId.get(resourceName) || resourceNameToIdLower.get(resourceName.toLowerCase().trim());
+                if (id) {
+                  resourceIds = [id];
+                }
+              }
+            }
+
+            if (resourceIds.length === 0 && importedTask.resources) {
+              // Multiple resources
+              if (Array.isArray(importedTask.resources)) {
+                const tempResourceIds = importedTask.resources.map((r: any) => r.resource_id || r.id || r);
+                const tempResourceNames = tempResourceIds
+                  .map((rid: any) => resourceMap.get(rid))
+                  .filter((n: any) => n && typeof n === 'string' && n !== 'Unknown');
+                if (tempResourceNames.length > 0) {
+                  ownerName = tempResourceNames.length === 1 ? tempResourceNames[0] : tempResourceNames;
+                  resourceNames = tempResourceNames;
+                  resourceIds = tempResourceNames
+                    .map((resName: string) => resourceNameToId.get(resName) || resourceNameToIdLower.get(resName.toLowerCase().trim()))
+                    .filter((id): id is string => id !== undefined);
+                }
+              }
+            } else if (importedTask.owner || importedTask.resource) {
+              // Direct resource name
+              const directName = importedTask.owner || importedTask.resource;
+              if (directName && typeof directName === 'string') {
+                ownerName = directName;
+                resourceNames = [directName];
+                const id = resourceNameToId.get(directName) || resourceNameToIdLower.get(directName.toLowerCase().trim());
+                if (id) {
+                  resourceIds = [id];
+                }
+              }
+            }
+
+            // Calculate work hours based on duration and assigned resources
+            const taskDuration = importedTask.duration || 1;
+            let workHours = 0;
+            let resourceWorkHours = {};
+
+            if (resourceIds && resourceIds.length > 0) {
+              // For MS Project import, default to 100% allocation for each resource
+              const workHoursData = calculateWorkHours(taskDuration, resourceIds, {});
+              workHours = workHoursData.total;
+              resourceWorkHours = workHoursData.byResource;
+            }
+
+            return {
+              id: newTaskId,
+              text: importedTask.text || 'Untitled Task',
+              start_date: formattedStartDate || null,
+              duration: taskDuration,
+              progress: importedTask.progress || 0,
+              parent: parentId,
+              type: importedTask.type || 'task',
+              owner_id: resourceIds.length > 0 ? resourceIds[0] : null,
+              owner_name: ownerName,
+              resource_ids: resourceIds,
+              resource_names: resourceNames,
+              work_hours: workHours,
+              resource_work_hours: resourceWorkHours,
+            };
+          });
+
+          // Process imported links with new task IDs
+          const newLinks = importedLinks
+            .map((link: any) => ({
+              id: nextLinkId++,
+              source: taskIdMap.get(link.source),
+              target: taskIdMap.get(link.target),
+              type: link.type || '0'
+            }))
+            .filter((link: any) => link.source && link.target);
+
+          // Combine existing and new tasks/links
+          const mergedTasks = [...existingTasks, ...newTasks];
+          const mergedLinks = [...existingLinks, ...newLinks];
+
+          // Update the project_tasks record with merged data
+          const updatedTaskData = {
+            data: mergedTasks,
+            links: mergedLinks
+          };
+
+
+          // Show progress notification
+          showNotification(`Processing ${newTasks.length} tasks...`, 'info');
+
+          // Check if record exists for this project
+          const { data: existingRecord } = await supabase
+            .from('project_tasks')
+            .select('id')
+            .eq('project_id', id)
+            .maybeSingle();
+
+          let updateError;
+          if (existingRecord) {
+            // Update existing record
+            const { error } = await supabase
+              .from('project_tasks')
+              .update({
+                task_data: updatedTaskData,
+                updated_at: new Date().toISOString()
+              })
+              .eq('project_id', id);
+            updateError = error;
+          } else {
+            // Insert new record
+            const { error } = await supabase
+              .from('project_tasks')
+              .insert({
+                project_id: id,
+                task_data: updatedTaskData
+              });
+            updateError = error;
+          }
+
+          if (updateError) {
+            throw updateError;
+          }
+
+          // Resource matching summary
+          const tasksWithResources = newTasks.filter(t => t.resource_ids && t.resource_ids.length > 0).length;
+          const tasksWithoutResources = newTasks.length - tasksWithResources;
+
+          console.log(`\n✅ IMPORT COMPLETE: ${newTasks.length} tasks`);
+          console.log(`   Resources matched: ${tasksWithResources}/${newTasks.length}`);
+          if (tasksWithoutResources > 0 && projectTeamMembers.length === 0) {
+            console.error('   ⚠️  Add team members in Team tab to assign resources!');
+          }
+
+          // Use setTimeout to allow UI to update before heavy re-render
+          setTimeout(async () => {
+            try {
+              showNotification('Loading tasks...', 'info');
+              await fetchProjectTasks();
+
+              let message = `Successfully imported ${newTasks.length} tasks from MS Project!`;
+              if (tasksWithoutResources > 0 && projectTeamMembers.length === 0) {
+                message += ' Note: No resources assigned - add team members in the Team tab first.';
+              } else if (tasksWithoutResources > 0) {
+                message += ` Warning: ${tasksWithoutResources} tasks have unassigned resources. Check console for details.`;
+              }
+              showNotification(message, tasksWithoutResources > 0 ? 'warning' : 'success');
+            } catch (fetchError: any) {
+              console.error('Error refreshing tasks:', fetchError);
+              showNotification('Tasks imported but failed to refresh view. Please reload the page.', 'warning');
+            } finally {
+              setImportingMSProject(false);
+              event.target.value = '';
+            }
+          }, 100);
+        } catch (error: any) {
+          console.error('Error saving imported tasks:', error);
+          setImportingMSProject(false);
+          showNotification(`Error saving imported tasks: ${error.message}`, 'error');
+          event.target.value = '';
+        }
+      });
+    } catch (error: any) {
+      console.error('Error importing MS Project file:', error);
+      setImportingMSProject(false);
+      showNotification(`Error importing MS Project file: ${error.message}`, 'error');
+      event.target.value = '';
+    }
+  };
+
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -2082,12 +2417,65 @@ const ProjectDetail: React.FC = () => {
     return tasksWithWBS;
   };
 
+  const calculateWorkHours = (
+    duration: number,
+    resourceIds: string[],
+    taskAllocations: Record<string, number> = {}
+  ): { total: number; byResource: { [key: string]: number } } => {
+    if (!resourceIds || resourceIds.length === 0) {
+      return { total: 0, byResource: {} };
+    }
+
+    let totalWorkHours = 0;
+    const resourceWorkHours: { [key: string]: number } = {};
+
+    // Calculate work for each resource based on their task-specific allocation percentage
+    resourceIds.forEach(resourceId => {
+      // Use task-specific allocation percentage, default to 100% if not specified
+      const allocationPercentage = taskAllocations[resourceId] || 100;
+
+      // Formula: Duration (days) × 8 hours/day × (Allocation % / 100)
+      const workHours = duration * 8 * (allocationPercentage / 100);
+      totalWorkHours += workHours;
+      resourceWorkHours[resourceId] = Math.round(workHours * 100) / 100;
+    });
+
+    return {
+      total: Math.round(totalWorkHours * 100) / 100,
+      byResource: resourceWorkHours
+    };
+  };
+
+  // Helper function to calculate end_date from start_date and duration
+  // Uses the EXACT same logic as Gantt.tsx Task Pane display (lines 539-543)
+  const calculateEndDate = (startDate: string, duration: number): string => {
+    const ganttInstance = (window as any).gantt;
+    if (!ganttInstance || !startDate || duration === undefined) {
+      return '';
+    }
+
+    try {
+      // Parse the start date
+      const parsedStartDate = ganttInstance.date.parseDate(startDate, "xml_date");
+      // Calculate end date using Gantt's method - same as in Gantt.tsx
+      // This returns the exclusive end date (day after last working day)
+      const calculatedEndDate = ganttInstance.calculateEndDate(parsedStartDate, duration);
+      // Subtract 1 day from end date to show the actual last working day (same as Task Pane display)
+      const adjustedEndDate = ganttInstance.date.add(calculatedEndDate, -1, "day");
+      // Format to YYYY-MM-DD HH:MM to match start_date format
+      const dateTimeFormat = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i");
+      return dateTimeFormat(adjustedEndDate);
+    } catch (error) {
+      console.error('Error calculating end date:', error);
+      return '';
+    }
+  };
+
   const handleTaskSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    console.log('=== Task Submit Started ===');
-    console.log('taskForm:', taskForm);
-    console.log('editingTaskId:', editingTaskId);
+    console.log('🎯 SUBMIT - Form submitted with resourceAllocations:', resourceAllocations);
+    console.log('🎯 SUBMIT - taskForm.resource_ids:', taskForm.resource_ids);
 
     if (!taskForm.description || !taskForm.start_date || !taskForm.duration) {
       showNotification('Please fill in all required fields', 'error');
@@ -2096,16 +2484,19 @@ const ProjectDetail: React.FC = () => {
 
     try {
       let updatedTaskData;
-      let currentTaskId = editingTaskId; // Track the task ID being worked with
-
-      // Adjust start date to skip weekends if provided
+      let currentTaskId = editingTaskId;
       let adjustedStartDate = null;
       if (taskForm.start_date && taskForm.start_date.trim() !== '') {
         adjustedStartDate = adjustToWorkday(taskForm.start_date);
-        console.log('Adjusted start date:', adjustedStartDate);
       }
 
       if (editingTaskId) {
+        // Get the original task to compare
+        const originalTask = projectTasks.data.find((t: any) => t.id === editingTaskId);
+        console.log('🔍 UPDATE TASK - Original resources:', originalTask?.resource_ids);
+        console.log('🔍 UPDATE TASK - Form resources:', taskForm.resource_ids);
+        console.log('🔍 UPDATE TASK - Original work hours:', originalTask?.resource_work_hours);
+
         // Update existing task
         const existingLinks = projectTasks.links || [];
 
@@ -2124,9 +2515,6 @@ const ProjectDetail: React.FC = () => {
           data: projectTasks.data.map((task: any) => {
             if (task.id === editingTaskId) {
               const duration = taskForm.type === 'milestone' ? 0 : taskForm.duration;
-
-              // Don't calculate end_date here - let DHTMLX Gantt calculate it based on work_time config
-              // DHTMLX will automatically calculate end_date from start_date + duration, respecting weekends
 
               const updatedTask: any = {
                 ...task,
@@ -2148,32 +2536,54 @@ const ProjectDetail: React.FC = () => {
                 console.log('No start date provided, using project creation date:', startDateStr);
               }
 
-              // Remove end_date so DHTMLX Gantt calculates it from duration
-              delete updatedTask.end_date;
+              // Calculate end_date using the same method as Gantt component (line 1216)
+              if (updatedTask.start_date && duration > 0) {
+                updatedTask.end_date = calculateEndDate(updatedTask.start_date, duration);
+                console.log('Calculated end_date:', updatedTask.end_date);
+              } else if (taskForm.type === 'milestone') {
+                // For milestones, end_date equals start_date
+                updatedTask.end_date = updatedTask.start_date;
+              }
 
               console.log('Updated task values:', {
                 id: editingTaskId,
-                start_date: adjustedStartDate ? `${adjustedStartDate} 00:00` : 'not set',
+                start_date: updatedTask.start_date,
                 duration: duration,
-                note: 'end_date will be calculated by DHTMLX Gantt'
+                end_date: updatedTask.end_date
               });
 
               // Update resources if selected
               if (taskForm.resource_ids.length > 0) {
                 updatedTask.resource_ids = taskForm.resource_ids;
                 const resourceNames = taskForm.resource_ids.map(resId => {
-                  const member = projectTeamMembers.find((m: any) => m.resource_id === resId);
+                  const member = projectTeamMembers.find(m => m.resource_id === resId);
                   return member?.resources?.display_name || 'Unknown';
                 });
                 updatedTask.resource_names = resourceNames;
                 // Backward compatibility: set first resource as owner
                 updatedTask.owner_id = taskForm.resource_ids[0];
                 updatedTask.owner_name = resourceNames[0];
+
+                // Store allocation percentages
+                updatedTask.resource_allocations = resourceAllocations;
+
+                // Calculate and store work hours (both total and per-resource)
+                const workHoursData = calculateWorkHours(duration, taskForm.resource_ids, resourceAllocations);
+                updatedTask.work_hours = workHoursData.total;
+                updatedTask.resource_work_hours = workHoursData.byResource;
+
+                console.log('🔍 CALCULATED - New work hours:', workHoursData);
+                console.log('🔍 CALCULATED - Resources being saved:', taskForm.resource_ids);
+                console.log('🔍 CALCULATED - Resource names:', resourceNames);
+                console.log('🔍 CALCULATED - Resource allocations:', resourceAllocations);
               } else {
                 updatedTask.resource_ids = [];
                 updatedTask.resource_names = [];
                 updatedTask.owner_id = undefined;
                 updatedTask.owner_name = undefined;
+                updatedTask.work_hours = 0;
+                updatedTask.resource_work_hours = {};
+                updatedTask.resource_allocations = {};
               }
 
               return updatedTask;
@@ -2189,9 +2599,6 @@ const ProjectDetail: React.FC = () => {
           : 1;
 
         const duration = taskForm.type === 'milestone' ? 0 : taskForm.duration;
-
-        // Don't calculate end_date here - let DHTMLX Gantt calculate it based on work_time config
-        // DHTMLX will automatically calculate end_date from start_date + duration, respecting weekends
 
         const newTask: any = {
           id: newTaskId,
@@ -2213,6 +2620,15 @@ const ProjectDetail: React.FC = () => {
           console.log('No start date provided, using project creation date:', startDateStr);
         }
 
+        // Calculate end_date using the same method as Gantt component (line 1216)
+        if (newTask.start_date && duration > 0) {
+          newTask.end_date = calculateEndDate(newTask.start_date, duration);
+          console.log('Calculated end_date for new task:', newTask.end_date);
+        } else if (taskForm.type === 'milestone') {
+          // For milestones, end_date equals start_date
+          newTask.end_date = newTask.start_date;
+        }
+
         // Set parent - MUST be 0 for root tasks, not undefined
         console.log('Checking parent_id:', taskForm.parent_id);
         console.log('parent_id type:', typeof taskForm.parent_id);
@@ -2229,13 +2645,28 @@ const ProjectDetail: React.FC = () => {
         if (taskForm.resource_ids.length > 0) {
           newTask.resource_ids = taskForm.resource_ids;
           const resourceNames = taskForm.resource_ids.map(resId => {
-            const member = projectTeamMembers.find((m: any) => m.resource_id === resId);
+            const member = projectTeamMembers.find(m => m.resource_id === resId);
             return member?.resources?.display_name || 'Unknown';
           });
           newTask.resource_names = resourceNames;
           // Backward compatibility: set first resource as owner
           newTask.owner_id = taskForm.resource_ids[0];
           newTask.owner_name = resourceNames[0];
+
+          // Store allocation percentages
+          newTask.resource_allocations = resourceAllocations;
+
+          // Calculate and store work hours (both total and per-resource)
+          const workHoursData = calculateWorkHours(duration, taskForm.resource_ids, resourceAllocations);
+          newTask.work_hours = workHoursData.total;
+          newTask.resource_work_hours = workHoursData.byResource;
+          console.log(`New task work hours: ${newTask.work_hours}`);
+          console.log(`Resource work hours breakdown:`, newTask.resource_work_hours);
+          console.log('Resource allocations:', resourceAllocations);
+        } else {
+          newTask.work_hours = 0;
+          newTask.resource_work_hours = {};
+          newTask.resource_allocations = {};
         }
 
         // Add to existing tasks
@@ -2258,6 +2689,11 @@ const ProjectDetail: React.FC = () => {
         currentTaskId = newTask.id;
       }
 
+      // Log the task data before saving to verify allocations are included
+      console.log('💾 SAVING TASK DATA - Full updatedTaskData:', JSON.stringify(updatedTaskData, null, 2));
+      const taskBeingSaved = updatedTaskData.data.find((t: any) => t.id === currentTaskId);
+      console.log('💾 SAVING TASK DATA - Current task resource_allocations:', taskBeingSaved?.resource_allocations);
+
       // Check if project_tasks record exists (get the most recent one)
       const { data: existingData, error: fetchError } = await supabase
         .from('project_tasks')
@@ -2277,6 +2713,7 @@ const ProjectDetail: React.FC = () => {
           .eq('id', existingData[0].id);
 
         if (error) throw error;
+        console.log('💾 SAVED - Task data updated in database');
       } else {
         // Insert new record only if none exists
         const { error } = await supabase
@@ -2289,37 +2726,8 @@ const ProjectDetail: React.FC = () => {
         if (error) throw error;
       }
 
-      // Save resource assignments to junction table
-      if (taskForm.resource_ids.length > 0 && currentTaskId) {
-        // First, get the actual database task ID by finding it in task_data
-        const { data: taskRecord } = await supabase
-          .from('project_tasks')
-          .select('id, task_data')
-          .eq('project_id', id)
-          .maybeSingle();
-
-        if (taskRecord?.id) {
-          // Delete existing assignments for this task
-          await supabase
-            .from('task_resource_assignments')
-            .delete()
-            .eq('task_id', taskRecord.id);
-
-          // Insert new assignments
-          const assignments = taskForm.resource_ids.map(resourceId => ({
-            task_id: taskRecord.id,
-            resource_id: resourceId
-          }));
-
-          const { error: assignmentError } = await supabase
-            .from('task_resource_assignments')
-            .insert(assignments);
-
-          if (assignmentError) {
-            console.error('Error saving resource assignments:', assignmentError);
-          }
-        }
-      }
+      // Resource assignments are stored in the task_data JSON directly
+      // No need for separate junction table for Gantt tasks
 
       // Update local state
       setProjectTasks(updatedTaskData);
@@ -2383,6 +2791,7 @@ const ProjectDetail: React.FC = () => {
         type: 'task',
         progress: 0
       });
+      setResourceAllocations({});
     } catch (error: any) {
       console.error('Error creating task:', error);
       showNotification(`Error creating task: ${error.message}`, 'error');
@@ -2667,7 +3076,22 @@ const ProjectDetail: React.FC = () => {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-8 relative">
+      {/* Loading Overlay for MS Project Import */}
+      {importingMSProject && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 shadow-2xl max-w-md">
+            <div className="flex flex-col items-center space-y-4">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600"></div>
+              <h3 className="text-xl font-semibold text-gray-900">Importing MS Project File</h3>
+              <p className="text-gray-600 text-center">
+                Please wait while we process your tasks. This may take a moment...
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-8">
         <button
@@ -2896,56 +3320,98 @@ const ProjectDetail: React.FC = () => {
         {activeTab === 'timeline' && (
           <div className={isGanttFullscreen ? "fixed inset-0 z-50 bg-white p-6" : "bg-white rounded-lg shadow-sm border border-gray-200 p-6"}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
+              <div className="flex items-center gap-4">
+                <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
+                <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setTimelineView('gantt')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      timelineView === 'gantt'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Gantt View
+                  </button>
+                  <button
+                    onClick={() => setTimelineView('scheduler')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      timelineView === 'scheduler'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Calendar View
+                  </button>
+                </div>
+              </div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    if (ganttRef.current) {
-                      ganttRef.current.zoomIn();
-                    }
-                  }}
-                  className="inline-flex items-center justify-center w-9 h-9 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                  title="Zoom In"
-                >
-                  <ZoomIn className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => {
-                    if (ganttRef.current) {
-                      ganttRef.current.zoomOut();
-                    }
-                  }}
-                  className="inline-flex items-center justify-center w-9 h-9 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                  title="Zoom Out"
-                >
-                  <ZoomOut className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setIsGanttFullscreen(!isGanttFullscreen)}
-                  className="inline-flex items-center justify-center w-9 h-9 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                  title={isGanttFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-                >
-                  {isGanttFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                </button>
-                <button
-                  onClick={() => {
-                    if (ganttRef.current) {
-                      ganttRef.current.toggleGroupByOwner();
-                      setIsGroupedByOwner(!isGroupedByOwner);
-                    }
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                >
-                  <Group className="w-4 h-4" />
-                  {isGroupedByOwner ? 'Show All Tasks' : 'Group by Owner'}
-                </button>
-                <button
-                  onClick={() => setShowResourcePanel(!showResourcePanel)}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  <Users className="w-4 h-4" />
-                  {showResourcePanel ? 'Hide Resources' : 'Show Resources'}
-                </button>
+                {timelineView === 'gantt' && (
+                  <>
+                    <button
+                      onClick={() => {
+                        if (ganttRef.current) {
+                          ganttRef.current.zoomIn();
+                        }
+                      }}
+                      className="inline-flex items-center justify-center w-9 h-9 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                      title="Zoom In"
+                    >
+                      <ZoomIn className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (ganttRef.current) {
+                          ganttRef.current.zoomOut();
+                        }
+                      }}
+                      className="inline-flex items-center justify-center w-9 h-9 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                      title="Zoom Out"
+                    >
+                      <ZoomOut className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setIsGanttFullscreen(!isGanttFullscreen)}
+                      className="inline-flex items-center justify-center w-9 h-9 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                      title={isGanttFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+                    >
+                      {isGanttFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (ganttRef.current) {
+                          ganttRef.current.toggleGroupByOwner();
+                          setIsGroupedByOwner(!isGroupedByOwner);
+                        }
+                      }}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                    >
+                      <Group className="w-4 h-4" />
+                      {isGroupedByOwner ? 'Show All Tasks' : 'Group by Owner'}
+                    </button>
+                    <input
+                      ref={msProjectFileInputRef}
+                      type="file"
+                      accept=".mpp,.xml"
+                      onChange={handleMSProjectImport}
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => msProjectFileInputRef.current?.click()}
+                      disabled={importingMSProject}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:bg-orange-400 disabled:cursor-not-allowed"
+                      title="Import tasks from MS Project file (.mpp or .xml)"
+                    >
+                      <Upload className="w-4 h-4" />
+                      {importingMSProject ? 'Importing...' : 'Upload MS Project'}
+                    </button>
+                    <button
+                      onClick={() => setShowResourcePanel(!showResourcePanel)}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      <Users className="w-4 h-4" />
+                      {showResourcePanel ? 'Hide Resources' : 'Show Resources'}
+                    </button>
 
                 {/* Task Fields Selector */}
                 <div className="relative">
@@ -3109,44 +3575,50 @@ const ProjectDetail: React.FC = () => {
                     </div>
                   )}
                 </div>
-                <button
-                  onClick={() => {
-                    setEditingTaskId(null);
-                    setTaskForm({
-                      description: '',
-                      start_date: '',
-                      duration: 1,
-                      owner_id: '',
-                      resource_ids: [],
-                      parent_id: undefined,
-                      parent_wbs: '',
-                      predecessor_ids: [],
-                      type: 'task',
-                      progress: 0
-                    });
-                    setShowTaskModal(true);
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  Create Task
-                </button>
+                    <button
+                      onClick={() => {
+                        setEditingTaskId(null);
+                        setTaskForm({
+                          description: '',
+                          start_date: '',
+                          duration: 1,
+                          owner_id: '',
+                          resource_ids: [],
+                          parent_id: undefined,
+                          parent_wbs: '',
+                          predecessor_ids: [],
+                          type: 'task',
+                          progress: 0
+                        });
+                        setResourceAllocations({});
+                        setShowTaskModal(true);
+                      }}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Create Task
+                    </button>
+                  </>
+                )}
               </div>
             </div>
-            <div className="mb-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search tasks by name..."
-                  value={taskSearchQuery}
-                  onChange={(e) => setTaskSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-            <div style={{ width: "100%", height: isGanttFullscreen ? "calc(100vh - 150px)" : "600px", overflow: "auto" }}>
-              <Gantt
+
+            {timelineView === 'gantt' && (
+              <>
+                <div className="mb-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search tasks by name..."
+                      value={taskSearchQuery}
+                      onChange={(e) => setTaskSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+                <div style={{ width: "100%", height: isGanttFullscreen ? "calc(100vh - 150px)" : "600px", overflow: "auto" }}>
+                  <Gantt
                 ref={ganttRef}
                 projecttasks={projectTasks}
                 onTaskUpdate={saveProjectTasks}
@@ -3190,6 +3662,7 @@ const ProjectDetail: React.FC = () => {
                     progress: 0
                   });
                   console.log('Task form after setting - parent_wbs:', parentWbs);
+                  setResourceAllocations({});
                   setEditingTaskId(null);
                   setShowTaskModal(true);
                 }}
@@ -3237,25 +3710,36 @@ const ProjectDetail: React.FC = () => {
                       const ownerNames = Array.isArray(task.owner_name) ? task.owner_name : [task.owner_name];
                       resourceIds = ownerNames
                         .map(name => {
-                          const member = projectTeamMembers.find((m: any) =>
+                          const member = projectTeamMembers.find(m =>
                             m.resources?.display_name === name
                           );
                           return member?.resource_id;
                         })
                         .filter(Boolean); // Remove undefined values
-                      console.log("Mapped owner_name to resource_ids:", ownerNames, "->", resourceIds);
                     }
 
-                    console.log("Setting task form with:", {
-                      description: task.text,
-                      start_date: startDate,
-                      duration: task.duration,
-                      owner_id: task.owner_id || '',
-                      resource_ids: resourceIds,
-                      parent_id: task.parent || undefined,
-                      parent_wbs: parentWbs,
-                      predecessor_ids: predecessorIds
-                    });
+                    console.log("🔍 EDIT TASK - Loading task:", task.text);
+                    console.log("🔍 EDIT TASK - Task resource_ids:", task.resource_ids);
+                    console.log("🔍 EDIT TASK - Task resource_names:", task.resource_names);
+                    console.log("🔍 EDIT TASK - Task work hours:", task.resource_work_hours);
+                    console.log("🔍 EDIT TASK - Task resource_allocations (RAW):", task.resource_allocations);
+                    console.log("🔍 EDIT TASK - Type of resource_allocations:", typeof task.resource_allocations);
+                    console.log("🔍 EDIT TASK - Full task object:", JSON.stringify(task, null, 2));
+                    console.log("🔍 EDIT TASK - Setting form resource_ids:", resourceIds);
+
+                    // Load resource allocations
+                    const allocations: Record<string, number> = {};
+                    if (task.resource_allocations && typeof task.resource_allocations === 'object' && Object.keys(task.resource_allocations).length > 0) {
+                      console.log("🔍 EDIT TASK - Loading allocations from task.resource_allocations");
+                      Object.assign(allocations, task.resource_allocations);
+                    } else {
+                      console.log("🔍 EDIT TASK - No allocations found (or empty object), defaulting to 100%");
+                      // Default to 100% for existing resources without allocation data
+                      resourceIds.forEach(resId => {
+                        allocations[resId] = 100;
+                      });
+                    }
+
                     setTaskForm({
                       description: task.text,
                       start_date: startDate,
@@ -3268,15 +3752,25 @@ const ProjectDetail: React.FC = () => {
                       type: task.type || 'task',
                       progress: Math.round((task.progress || 0) * 100)
                     });
+                    setResourceAllocations(allocations);
                     setEditingTaskId(taskId);
                     console.log("Opening modal with editingTaskId:", taskId);
+                    console.log("🔍 EDIT TASK - Loaded allocations:", allocations);
                     setShowTaskModal(true);
                   } else {
                     console.error("Task not found for ID:", taskId);
                   }
                 }}
               />
-            </div>
+                </div>
+              </>
+            )}
+
+            {timelineView === 'scheduler' && id && (
+              <div style={{ width: "100%", height: "700px" }}>
+                <Scheduler key={`scheduler-${timelineView}`} projectId={id} />
+              </div>
+            )}
           </div>
         )}
 
@@ -3702,24 +4196,18 @@ const ProjectDetail: React.FC = () => {
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">Project Documents</h3>
-                <label className="cursor-pointer">
-                  <input
-                    type="file"
-                    className="hidden"
-                    onChange={handleDocumentUpload}
-                  />
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      (e.currentTarget.previousElementSibling as HTMLInputElement)?.click();
-                    }}
-                  >
-                    <Upload className="w-4 h-4" />
-                    Upload Document
-                  </button>
-                </label>
+                <DocumentUpload
+                  projectId={id!}
+                  onUploadSuccess={() => {
+                    console.log('[ProjectDetail] Upload successful, refreshing documents');
+                    fetchDocuments();
+                    showNotification('Document uploaded successfully!', 'success');
+                  }}
+                  onUploadError={(message) => {
+                    console.error('[ProjectDetail] Upload error:', message);
+                    showNotification(`Error uploading document: ${message}`, 'error');
+                  }}
+                />
               </div>
 
               {documents.length === 0 ? (
@@ -4630,34 +5118,61 @@ const ProjectDetail: React.FC = () => {
                       </p>
                     ) : (
                       <div className="space-y-2">
-                        {projectTeamMembers.map((member: any) => (
-                          <label
-                            key={member.id}
-                            className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={taskForm.resource_ids.includes(member.resource_id)}
-                              onChange={(e) => {
-                                const resourceId = member.resource_id;
-                                if (e.target.checked) {
-                                  setTaskForm({
-                                    ...taskForm,
-                                    resource_ids: [...taskForm.resource_ids, resourceId]
-                                  });
-                                } else {
-                                  setTaskForm({
-                                    ...taskForm,
-                                    resource_ids: taskForm.resource_ids.filter(id => id !== resourceId)
-                                  });
-                                }
-                              }}
-                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                            />
-                            <span className="text-sm text-gray-700">
-                              {member.resources?.display_name || 'Unknown'}
-                            </span>
-                          </label>
+                        {projectTeamMembers.map(member => (
+                          <div key={member.id} className="space-y-1">
+                            <label className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                              <input
+                                type="checkbox"
+                                checked={taskForm.resource_ids.includes(member.resource_id)}
+                                onChange={(e) => {
+                                  const resourceId = member.resource_id;
+                                  if (e.target.checked) {
+                                    setTaskForm({
+                                      ...taskForm,
+                                      resource_ids: [...taskForm.resource_ids, resourceId]
+                                    });
+                                    setResourceAllocations({
+                                      ...resourceAllocations,
+                                      [resourceId]: 100
+                                    });
+                                  } else {
+                                    setTaskForm({
+                                      ...taskForm,
+                                      resource_ids: taskForm.resource_ids.filter(id => id !== resourceId)
+                                    });
+                                    const newAllocations = { ...resourceAllocations };
+                                    delete newAllocations[resourceId];
+                                    setResourceAllocations(newAllocations);
+                                  }
+                                }}
+                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                              <span className="text-sm text-gray-700 flex-1">
+                                {member.resources?.display_name || 'Unknown'}
+                              </span>
+                            </label>
+                            {taskForm.resource_ids.includes(member.resource_id) && (
+                              <div className="ml-6 flex items-center gap-2">
+                                <label className="text-xs text-gray-600 w-20">Allocation:</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="1"
+                                  value={resourceAllocations[member.resource_id] || 100}
+                                  onChange={(e) => {
+                                    const value = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                                    setResourceAllocations({
+                                      ...resourceAllocations,
+                                      [member.resource_id]: value
+                                    });
+                                  }}
+                                  className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                                <span className="text-xs text-gray-600">%</span>
+                              </div>
+                            )}
+                          </div>
                         ))}
                       </div>
                     )}

@@ -19,6 +19,7 @@ export default function DeadlinesWidget() {
 
   useEffect(() => {
     fetchDeadlines();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchDeadlines = async () => {

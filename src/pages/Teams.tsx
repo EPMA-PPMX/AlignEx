@@ -27,18 +27,22 @@ interface ProjectAllocation {
 }
 
 export default function Teams() {
+  console.log('=== TEAMS PAGE COMPONENT RENDERING ===');
+
   const { showConfirm, showNotification } = useNotification();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddMember, setShowAddMember] = useState(false);
 
   useEffect(() => {
+    console.log('=== TEAMS PAGE useEffect - fetching team members ===');
     fetchTeamMembers();
   }, []);
 
   const fetchTeamMembers = async () => {
     try {
       setLoading(true);
+      console.log('=== Fetching team members from database ===');
       const { data, error } = await supabase
         .from('organization_team_members')
         .select(`
@@ -65,6 +69,7 @@ export default function Teams() {
         resource: item.resources as any
       })) || [];
 
+      console.log('=== Team members fetched:', formattedData.length, '===');
       setTeamMembers(formattedData);
     } catch (error) {
       console.error('Error fetching team members:', error);
@@ -228,26 +233,227 @@ export default function Teams() {
 }
 
 function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] }) {
+  console.log('=== HEATMAP COMPONENT RENDERING ===');
+  console.log('Team members count:', teamMembers.length);
+
   const weeks = 12;
   const [allocations, setAllocations] = useState<Map<string, Map<string, number>>>(new Map());
 
   useEffect(() => {
+    console.log('=== HEATMAP useEffect TRIGGERED ===');
+    console.log('Team members in useEffect:', teamMembers.length);
     fetchAllocations();
   }, [teamMembers]);
 
   const fetchAllocations = async () => {
-    const allocationMap = new Map<string, Map<string, number>>();
-
-    for (const member of teamMembers) {
-      const weekMap = new Map<string, number>();
-      for (let i = 0; i < weeks; i++) {
-        const hours = Math.floor(Math.random() * 41);
-        weekMap.set(`week-${i}`, hours);
+    try {
+      // Initialize allocation map for all team members
+      const allocationMap = new Map<string, Map<string, number>>();
+      for (const member of teamMembers) {
+        allocationMap.set(member.resource_id, new Map<string, number>());
       }
-      allocationMap.set(member.resource_id, weekMap);
-    }
 
-    setAllocations(allocationMap);
+      // Get today's date to calculate week offsets
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      console.log('=== TEAMS HEATMAP: Today is', today.toDateString());
+
+      // Fetch all project tasks
+      const { data: projectTasksData, error } = await supabase
+        .from('project_tasks')
+        .select('task_data, project_id, projects(name)');
+
+      if (error) {
+        console.error('Error fetching project tasks:', error);
+        setAllocations(allocationMap);
+        return;
+      }
+
+      console.log('=== TEAMS HEATMAP: Found project tasks:', projectTasksData?.length || 0);
+      console.log('Project tasks data:', JSON.stringify(projectTasksData, null, 2));
+
+      // Fetch all project team members with allocation percentages
+      const { data: projectTeamData, error: teamError } = await supabase
+        .from('project_team_members')
+        .select('project_id, resource_id, allocation_percentage');
+
+      if (teamError) {
+        console.error('Error fetching project team members:', teamError);
+      }
+
+      // Create a map of project_id + resource_id -> allocation_percentage
+      const allocationPercentageMap = new Map<string, number>();
+      if (projectTeamData) {
+        for (const teamMember of projectTeamData) {
+          const key = `${teamMember.project_id}_${teamMember.resource_id}`;
+          allocationPercentageMap.set(key, teamMember.allocation_percentage || 100);
+        }
+      }
+
+      // Process each project's tasks
+      for (const projectRecord of projectTasksData || []) {
+        if (!projectRecord.task_data?.data) continue;
+
+        const tasks = projectRecord.task_data.data;
+        const projectId = projectRecord.project_id;
+        console.log(`\n=== Processing project: ${projectRecord.projects?.name || projectId} ===`);
+
+        // Process each task
+        for (const task of tasks) {
+          // Skip tasks without resources or work hours
+          if (!task.resource_ids || task.resource_ids.length === 0 || !task.work_hours) {
+            console.log(`  Skipping task "${task.text || 'unnamed'}": no resources or work hours`);
+            continue;
+          }
+
+          console.log(`\n  Task: ${task.text}`);
+          console.log(`    Start: ${task.start_date}, End: ${task.end_date}, Duration: ${task.duration}`);
+          console.log(`    Resources:`, task.resource_ids);
+          console.log(`    Total work_hours: ${task.work_hours}`);
+          console.log(`    resource_work_hours:`, task.resource_work_hours);
+
+          // Parse task dates
+          let taskStartDate: Date | null = null;
+          let taskEndDate: Date | null = null;
+
+          if (task.start_date) {
+            const startStr = String(task.start_date);
+            taskStartDate = new Date(startStr.split(' ')[0]);
+            taskStartDate.setHours(0, 0, 0, 0);
+          }
+
+          if (task.end_date) {
+            const endStr = String(task.end_date);
+            taskEndDate = new Date(endStr.split(' ')[0]);
+            taskEndDate.setHours(0, 0, 0, 0);
+          } else if (taskStartDate && task.duration) {
+            // Calculate end date if not provided
+            taskEndDate = new Date(taskStartDate);
+            // Simple calculation: add duration days (accounting for weekends would be more complex)
+            let daysToAdd = task.duration;
+            while (daysToAdd > 0) {
+              taskEndDate.setDate(taskEndDate.getDate() + 1);
+              const dayOfWeek = taskEndDate.getDay();
+              // Skip weekends
+              if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                daysToAdd--;
+              }
+            }
+          }
+
+          if (!taskStartDate || !taskEndDate) {
+            console.log(`    Skipping: invalid dates`);
+            continue;
+          }
+
+          console.log(`    Parsed dates: ${taskStartDate.toDateString()} to ${taskEndDate.toDateString()}`);
+
+          // Calculate work days in the task duration
+          let workDays = 0;
+          const workDaysList: string[] = [];
+          const currentDate = new Date(taskStartDate);
+          while (currentDate <= taskEndDate) {
+            const dayOfWeek = currentDate.getDay();
+            if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+              workDays++;
+              workDaysList.push(currentDate.toDateString());
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+          }
+
+          console.log(`    Work days (${workDays}):`, workDaysList.join(', '));
+
+          if (workDays === 0) {
+            console.log(`    Skipping: no work days`);
+            continue;
+          }
+
+          // Use resource_work_hours if available (new format), otherwise calculate from allocation
+          const resourceWorkHours = task.resource_work_hours || {};
+
+          // Distribute work hours for each resource
+          for (const resourceId of task.resource_ids) {
+            const resourceWeekMap = allocationMap.get(resourceId);
+            if (!resourceWeekMap) {
+              console.log(`    Resource ${resourceId} not in allocation map, skipping`);
+              continue;
+            }
+
+            // Get resource's total work hours for this task
+            let resourceTotalHours = 0;
+
+            if (resourceWorkHours[resourceId]) {
+              // Use pre-calculated resource-specific hours from the task
+              resourceTotalHours = resourceWorkHours[resourceId];
+              console.log(`    Resource ${resourceId}: using resource_work_hours = ${resourceTotalHours}h`);
+            } else {
+              // Fallback: calculate from allocation percentage (for old tasks)
+              const key = `${projectId}_${resourceId}`;
+              const allocationPercentage = allocationPercentageMap.get(key) || 100;
+              const taskDuration = task.duration || workDays;
+              resourceTotalHours = taskDuration * 8 * (allocationPercentage / 100);
+              console.log(`    Resource ${resourceId}: calculated from allocation (${allocationPercentage}%) = ${resourceTotalHours}h`);
+            }
+
+            // Calculate hours per day for this resource
+            const hoursPerDay = resourceTotalHours / workDays;
+            console.log(`    Resource ${resourceId}: ${resourceTotalHours}h ÷ ${workDays} work days = ${hoursPerDay.toFixed(2)}h per day`);
+
+            // Iterate through each day of the task
+            const iterDate = new Date(taskStartDate);
+            const weeklyDistribution: { [key: string]: number } = {};
+
+            while (iterDate <= taskEndDate) {
+              const dayOfWeek = iterDate.getDay();
+
+              // Only count weekdays
+              if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                // Calculate which week this date falls into (relative to today)
+                const daysDiff = Math.floor((iterDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                const weekIndex = Math.floor(daysDiff / 7);
+
+                // Only count if it's within our 12-week window
+                if (weekIndex >= 0 && weekIndex < weeks) {
+                  const weekKey = `week-${weekIndex}`;
+                  const currentHours = resourceWeekMap.get(weekKey) || 0;
+                  resourceWeekMap.set(weekKey, currentHours + hoursPerDay);
+
+                  weeklyDistribution[weekKey] = (weeklyDistribution[weekKey] || 0) + hoursPerDay;
+                } else {
+                  console.log(`      ${iterDate.toDateString()}: weekIndex=${weekIndex} (outside 0-${weeks-1} range)`);
+                }
+              }
+
+              iterDate.setDate(iterDate.getDate() + 1);
+            }
+
+            console.log(`    Weekly distribution for resource ${resourceId}:`,
+              Object.entries(weeklyDistribution).map(([week, hrs]) => `${week}=${hrs.toFixed(2)}h`).join(', '));
+          }
+        }
+      }
+
+      console.log('\n=== FINAL ALLOCATIONS ===');
+      allocationMap.forEach((weekMap, resourceId) => {
+        const totalHours = Array.from(weekMap.values()).reduce((sum, h) => sum + h, 0);
+        console.log(`Resource ${resourceId}: ${totalHours.toFixed(2)}h total`);
+        weekMap.forEach((hours, week) => {
+          if (hours > 0) {
+            console.log(`  ${week}: ${hours.toFixed(2)}h`);
+          }
+        });
+      });
+
+      setAllocations(allocationMap);
+    } catch (error) {
+      console.error('Error calculating allocations:', error);
+      // Set empty allocations on error
+      const allocationMap = new Map<string, Map<string, number>>();
+      for (const member of teamMembers) {
+        allocationMap.set(member.resource_id, new Map<string, number>());
+      }
+      setAllocations(allocationMap);
+    }
   };
 
   const getColorClass = (hours: number) => {
@@ -312,25 +518,55 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
 
             <div className="flex-1 overflow-x-auto">
               <div className="flex">
-                {Array.from({ length: weeks }).map((_, weekIndex) => (
-                  <div key={weekIndex} className="flex-1 min-w-20">
-                    <div className="h-10 border-b border-l border-gray-200 flex items-center justify-center text-xs font-medium text-gray-600">
-                      Week {weekIndex + 1}
+                {Array.from({ length: weeks }).map((_, weekIndex) => {
+                  // Calculate the date range for this week (Monday to Friday)
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+
+                  // Find the Monday of the current week
+                  const currentDayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+                  const daysFromMonday = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek; // If Sunday, go back 6 days
+                  const currentMonday = new Date(today);
+                  currentMonday.setDate(today.getDate() + daysFromMonday);
+
+                  // Calculate the Monday for this specific week index
+                  const weekStartDate = new Date(currentMonday);
+                  weekStartDate.setDate(currentMonday.getDate() + (weekIndex * 7));
+
+                  // Calculate Friday (4 days after Monday)
+                  const weekEndDate = new Date(weekStartDate);
+                  weekEndDate.setDate(weekStartDate.getDate() + 4);
+
+                  // Format the date range
+                  const formatDate = (date: Date) => {
+                    const month = date.toLocaleDateString('en-US', { month: 'short' });
+                    const day = date.getDate();
+                    return `${month} ${day}`;
+                  };
+
+                  const dateRange = `${formatDate(weekStartDate)} - ${formatDate(weekEndDate)}`;
+
+                  return (
+                    <div key={weekIndex} className="flex-1 min-w-20">
+                      <div className="h-10 border-b border-l border-gray-200 flex items-center justify-center text-xs font-medium text-gray-600">
+                        {dateRange}
+                      </div>
+                      {teamMembers.map((member) => {
+                        const hours = allocations.get(member.resource_id)?.get(`week-${weekIndex}`) || 0;
+                        const roundedHours = Math.round(hours);
+                        return (
+                          <div
+                            key={`${member.id}-${weekIndex}`}
+                            className={`h-12 border-b border-l border-gray-200 flex items-center justify-center text-sm font-medium ${getColorClass(roundedHours)}`}
+                            title={`${member.resource.display_name} - ${dateRange}: ${hours.toFixed(1)}h`}
+                          >
+                            {roundedHours > 0 ? `${roundedHours}h` : ''}
+                          </div>
+                        );
+                      })}
                     </div>
-                    {teamMembers.map((member) => {
-                      const hours = allocations.get(member.resource_id)?.get(`week-${weekIndex}`) || 0;
-                      return (
-                        <div
-                          key={`${member.id}-${weekIndex}`}
-                          className={`h-12 border-b border-l border-gray-200 flex items-center justify-center text-sm font-medium ${getColorClass(hours)}`}
-                          title={`${member.resource.display_name} - Week ${weekIndex + 1}: ${hours}h`}
-                        >
-                          {hours > 0 ? `${hours}h` : ''}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>

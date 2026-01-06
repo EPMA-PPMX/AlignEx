@@ -3,6 +3,7 @@ import { Users, Plus, Search, Filter, Download, Upload, Edit2, Trash2, UserPlus,
 import { supabase } from '../lib/supabase';
 import { useNotification } from '../lib/useNotification';
 import ResourceImportModal from '../components/ResourceImportModal';
+import ResourceAllocationHeatMap from '../components/ResourceAllocationHeatMap';
 
 interface Resource {
   id: string;
@@ -155,6 +156,11 @@ export default function Resources() {
             Add Resource
           </button>
         </div>
+      </div>
+
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Resource Allocation Heat Map</h2>
+        <ResourceAllocationHeatMap />
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">

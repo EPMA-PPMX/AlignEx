@@ -13,15 +13,13 @@ interface ActivityItem {
 }
 
 export default function RecentActivityWidget() {
-  const { user } = useCurrentUser();
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      fetchRecentActivity();
-    }
-  }, [user]);
+    fetchRecentActivity();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchRecentActivity = async () => {
     try {
