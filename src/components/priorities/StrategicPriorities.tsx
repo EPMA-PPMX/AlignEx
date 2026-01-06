@@ -121,7 +121,7 @@ export default function StrategicPriorities() {
       case 'Active':
         return <Circle className="w-5 h-5 text-green-600" />;
       case 'Completed':
-        return <CheckCircle className="w-5 h-5 text-blue-600" />;
+        return <CheckCircle className="w-5 h-5 text-primary-600" />;
       case 'On Hold':
         return <Pause className="w-5 h-5 text-amber-600" />;
       case 'Cancelled':
@@ -136,7 +136,7 @@ export default function StrategicPriorities() {
       case 'Active':
         return 'bg-green-50 text-green-700 border-green-200';
       case 'Completed':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
+        return 'bg-primary-50 text-primary-700 border-blue-200';
       case 'On Hold':
         return 'bg-amber-50 text-amber-700 border-amber-200';
       case 'Cancelled':
@@ -168,7 +168,7 @@ export default function StrategicPriorities() {
               status: 'Active',
             });
           }}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
         >
           <Plus className="w-5 h-5" />
           Add Priority
@@ -190,7 +190,7 @@ export default function StrategicPriorities() {
                 required
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="e.g., Reduce Operational Cost"
               />
             </div>
@@ -203,7 +203,7 @@ export default function StrategicPriorities() {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={3}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Detailed description of this strategic priority..."
               />
             </div>
@@ -242,7 +242,7 @@ export default function StrategicPriorities() {
                   required
                   value={formData.owner}
                   onChange={(e) => setFormData({ ...formData, owner: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   placeholder="Owner name"
                 />
               </div>
@@ -255,7 +255,7 @@ export default function StrategicPriorities() {
               <select
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value as Priority['status'] })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
                 <option value="Active">Active</option>
                 <option value="On Hold">On Hold</option>
@@ -267,7 +267,7 @@ export default function StrategicPriorities() {
             <div className="flex gap-3 pt-2">
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
               >
                 {editingId ? 'Update Priority' : 'Create Priority'}
               </button>
@@ -327,7 +327,7 @@ export default function StrategicPriorities() {
                 <div className="flex gap-2 ml-4">
                   <button
                     onClick={() => handleEdit(priority)}
-                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                     title="Edit priority"
                   >
                     <Edit2 className="w-4 h-4" />

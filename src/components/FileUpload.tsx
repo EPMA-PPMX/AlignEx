@@ -59,7 +59,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
               className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
             >
               <div className="flex items-center space-x-3">
-                <File className="w-5 h-5 text-blue-600" />
+                <File className="w-5 h-5 text-primary-600" />
                 <div>
                   <p className="text-sm font-medium text-gray-900">{file.fileName}</p>
                   <p className="text-xs text-gray-500">
@@ -71,7 +71,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
                 <a
                   href={`${downloadBaseUrl}/${file.path}`}
                   download
-                  className="p-1 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded transition-colors"
+                  className="p-1 text-primary-600 hover:text-blue-900 hover:bg-primary-50 rounded transition-colors"
                   title="Download"
                 >
                   <Download className="w-4 h-4" />

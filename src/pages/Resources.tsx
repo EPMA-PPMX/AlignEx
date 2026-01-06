@@ -150,7 +150,7 @@ export default function Resources() {
               setEditingResource(null);
               setShowModal(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
           >
             <Plus className="w-4 h-4" />
             Add Resource
@@ -173,7 +173,7 @@ export default function Resources() {
                 placeholder="Search resources..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
             </div>
           </div>
@@ -182,7 +182,7 @@ export default function Resources() {
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value as any)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
               <option value="all">All Types</option>
               <option value="person">People</option>
@@ -192,7 +192,7 @@ export default function Resources() {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value as any)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
               <option value="all">All Status</option>
               <option value="active">Active</option>
@@ -245,7 +245,7 @@ export default function Resources() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">
                       {resource.resource_type === 'person' ? (
-                        <Users className="w-4 h-4 text-blue-600" />
+                        <Users className="w-4 h-4 text-primary-600" />
                       ) : (
                         <Package className="w-4 h-4 text-green-600" />
                       )}
@@ -257,7 +257,7 @@ export default function Resources() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{resource.display_name}</div>
                     {resource.ad_synced && (
-                      <div className="text-xs text-blue-600">AD Synced</div>
+                      <div className="text-xs text-primary-600">AD Synced</div>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -302,7 +302,7 @@ export default function Resources() {
                         setEditingResource(resource);
                         setShowModal(true);
                       }}
-                      className="text-blue-600 hover:text-blue-900 mr-3"
+                      className="text-primary-600 hover:text-blue-900 mr-3"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
@@ -513,7 +513,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
             type={field.field_type}
             value={value}
             onChange={(e) => setCustomFieldValues({ ...customFieldValues, [field.id]: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             required={field.is_required}
           />
         );
@@ -526,7 +526,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
             step={field.field_type === 'cost' ? '0.01' : 'any'}
             value={value}
             onChange={(e) => setCustomFieldValues({ ...customFieldValues, [field.id]: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             required={field.is_required}
           />
         );
@@ -537,7 +537,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
             type="date"
             value={value}
             onChange={(e) => setCustomFieldValues({ ...customFieldValues, [field.id]: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             required={field.is_required}
           />
         );
@@ -548,7 +548,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
             value={value}
             onChange={(e) => setCustomFieldValues({ ...customFieldValues, [field.id]: e.target.value })}
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             required={field.is_required}
           />
         );
@@ -558,7 +558,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
           <select
             value={value}
             onChange={(e) => setCustomFieldValues({ ...customFieldValues, [field.id]: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             required={field.is_required}
           >
             <option value="">Select an option</option>
@@ -623,7 +623,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
             <select
               value={formData.resource_type}
               onChange={(e) => setFormData({ ...formData, resource_type: e.target.value as any })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               required
             >
               <option value="person">Person</option>
@@ -642,7 +642,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
                     type="text"
                     value={formData.first_name}
                     onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     required
                   />
                 </div>
@@ -654,7 +654,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
                     type="text"
                     value={formData.last_name}
                     onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     required
                   />
                 </div>
@@ -668,7 +668,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
               </div>
             </>
@@ -682,7 +682,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
                 value={formData.resource_name}
                 onChange={(e) => setFormData({ ...formData, resource_name: e.target.value })}
                 placeholder="e.g., Conference Room A, Projector, Laptop"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 required
               />
             </div>
@@ -697,7 +697,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
               value={formData.roles}
               onChange={(e) => setFormData({ ...formData, roles: e.target.value })}
               placeholder="e.g., Project Manager, Developer (comma-separated)"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
             <p className="text-xs text-gray-500 mt-1">Separate multiple roles with commas</p>
           </div>
@@ -713,7 +713,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
                 value={formData.cost_rate}
                 onChange={(e) => setFormData({ ...formData, cost_rate: e.target.value })}
                 placeholder="0.00"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
             </div>
             <div>
@@ -723,7 +723,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
               <select
                 value={formData.rate_type}
                 onChange={(e) => setFormData({ ...formData, rate_type: e.target.value as any })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
                 <option value="hourly">Hourly</option>
                 <option value="daily">Daily</option>
@@ -741,7 +741,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
                 type="text"
                 value={formData.department}
                 onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
             </div>
             <div>
@@ -752,7 +752,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
                 type="text"
                 value={formData.location}
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
             </div>
           </div>
@@ -764,7 +764,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
             <select
               value={formData.status}
               onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               required
             >
               <option value="active">Active</option>
@@ -780,7 +780,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               placeholder="Additional information about this resource..."
             />
           </div>
@@ -815,7 +815,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
             <button
               type="submit"
               disabled={saving}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50"
             >
               {saving ? 'Saving...' : resource ? 'Update Resource' : 'Create Resource'}
             </button>

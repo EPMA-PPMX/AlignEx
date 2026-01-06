@@ -259,7 +259,7 @@ export default function ProjectInitiation() {
             setEditingRequest(null);
             setShowForm(true);
           }}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
         >
           <Plus className="w-5 h-5" />
           New Request
@@ -278,7 +278,7 @@ export default function ProjectInitiation() {
               placeholder="Search by project name, description, or type..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
           </div>
         </div>
@@ -345,7 +345,7 @@ export default function ProjectInitiation() {
                         e.stopPropagation();
                         handleView(request);
                       }}
-                      className="inline-flex items-center gap-1 px-3 py-1 text-blue-600 hover:bg-blue-50 rounded transition-colors text-sm"
+                      className="inline-flex items-center gap-1 px-3 py-1 text-primary-600 hover:bg-primary-50 rounded transition-colors text-sm"
                     >
                       <Eye className="w-4 h-4" />
                       View
@@ -502,11 +502,11 @@ function RequestDetailsView({ request, onClose, onEdit, onDelete, onStatusChange
           )}
 
           {request.review_comments && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-primary-50 border border-blue-200 rounded-lg p-4">
               <label className="text-sm font-medium text-blue-900">Review Comments</label>
               <p className="text-blue-800 mt-1">{request.review_comments}</p>
               {request.reviewed_at && (
-                <p className="text-xs text-blue-600 mt-2">
+                <p className="text-xs text-primary-600 mt-2">
                   Reviewed on {formatDate(request.reviewed_at)}
                 </p>
               )}
@@ -539,7 +539,7 @@ function RequestDetailsView({ request, onClose, onEdit, onDelete, onStatusChange
             </button>
             <button
               onClick={() => openReviewDialog('More Information Needed')}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
             >
               <AlertCircle className="w-4 h-4" />
               Request More Info
@@ -565,7 +565,7 @@ function RequestDetailsView({ request, onClose, onEdit, onDelete, onStatusChange
                 value={reviewComments}
                 onChange={(e) => setReviewComments(e.target.value)}
                 rows={4}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Enter your comments..."
               />
             </div>
@@ -584,7 +584,7 @@ function RequestDetailsView({ request, onClose, onEdit, onDelete, onStatusChange
               <button
                 onClick={handleReviewSubmit}
                 disabled={reviewAction !== 'Approved' && !reviewComments.trim()}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Submit
               </button>
