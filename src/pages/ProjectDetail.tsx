@@ -7,7 +7,6 @@ import { trackFieldHistory, shouldTrackFieldHistory } from '../lib/fieldHistoryT
 import { MonthlyBudgetGrid } from '../components/MonthlyBudgetGrid';
 import { BudgetSummaryTiles } from '../components/BudgetSummaryTiles';
 import Gantt from "../components/Gantt/Gantt";
-import Scheduler from "../components/Scheduler/Scheduler";
 import ProjectStatusDropdown from '../components/ProjectStatusDropdown';
 import ProjectHealthStatus from '../components/ProjectHealthStatus';
 import BenefitTracking from '../components/BenefitTracking';
@@ -167,7 +166,6 @@ const ProjectDetail: React.FC = () => {
   const navigate = useNavigate();
   const { showConfirm, showNotification } = useNotification();
   const [activeTab, setActiveTab] = useState('overview');
-  const [timelineView, setTimelineView] = useState<'gantt' | 'scheduler'>('gantt');
 
   // Utility function to adjust date to skip weekends
   const adjustToWorkday = (dateString: string): string => {
@@ -2460,11 +2458,10 @@ const ProjectDetail: React.FC = () => {
       // Calculate end date using Gantt's method - same as in Gantt.tsx
       // This returns the exclusive end date (day after last working day)
       const calculatedEndDate = ganttInstance.calculateEndDate(parsedStartDate, duration);
-      // Subtract 1 day from end date to show the actual last working day (same as Task Pane display)
-      const adjustedEndDate = ganttInstance.date.add(calculatedEndDate, -1, "day");
       // Format to YYYY-MM-DD HH:MM to match start_date format
+      // Keep the exclusive end date format to match DHTMLX Gantt's expectations
       const dateTimeFormat = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i");
-      return dateTimeFormat(adjustedEndDate);
+      return dateTimeFormat(calculatedEndDate);
     } catch (error) {
       console.error('Error calculating end date:', error);
       return '';
@@ -2477,7 +2474,7 @@ const ProjectDetail: React.FC = () => {
     console.log('🎯 SUBMIT - Form submitted with resourceAllocations:', resourceAllocations);
     console.log('🎯 SUBMIT - taskForm.resource_ids:', taskForm.resource_ids);
 
-    if (!taskForm.description || !taskForm.start_date || !taskForm.duration) {
+    if (!taskForm.description || !taskForm.duration) {
       showNotification('Please fill in all required fields', 'error');
       return;
     }
@@ -2524,16 +2521,20 @@ const ProjectDetail: React.FC = () => {
                 progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
               };
 
-              // Set start_date: use provided date or default to project creation date or keep existing
+              // Set start_date: use provided date or default to project start date or keep existing
               if (adjustedStartDate) {
                 const startDateStr = `${adjustedStartDate} 00:00`;
                 updatedTask.start_date = startDateStr;
-              } else if (!task.start_date && project?.created_at) {
-                // If task has no start date and no new date provided, default to project creation date
-                const projectDate = new Date(project.created_at).toISOString().split('T')[0];
+              } else if (!task.start_date && project?.start_date) {
+                // If task has no start date and no new date provided, default to project start date
+                const startDate = new Date(project.start_date);
+                const year = startDate.getFullYear();
+                const month = String(startDate.getMonth() + 1).padStart(2, '0');
+                const day = String(startDate.getDate()).padStart(2, '0');
+                const projectDate = `${year}-${month}-${day}`;
                 const startDateStr = `${projectDate} 00:00`;
                 updatedTask.start_date = startDateStr;
-                console.log('No start date provided, using project creation date:', startDateStr);
+                console.log('No start date provided, using project start date:', startDateStr);
               }
 
               // Calculate end_date using the same method as Gantt component (line 1216)
@@ -2608,16 +2609,20 @@ const ProjectDetail: React.FC = () => {
           progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
         };
 
-        // Set start_date: use provided date or default to project creation date
+        // Set start_date: use provided date or default to project start date
         if (adjustedStartDate) {
           const startDateStr = `${adjustedStartDate} 00:00`;
           newTask.start_date = startDateStr;
-        } else if (project?.created_at) {
-          // Default to project creation date if no start date provided
-          const projectDate = new Date(project.created_at).toISOString().split('T')[0];
+        } else if (project?.start_date) {
+          // Default to project start date if no start date provided
+          const startDate = new Date(project.start_date);
+          const year = startDate.getFullYear();
+          const month = String(startDate.getMonth() + 1).padStart(2, '0');
+          const day = String(startDate.getDate()).padStart(2, '0');
+          const projectDate = `${year}-${month}-${day}`;
           const startDateStr = `${projectDate} 00:00`;
           newTask.start_date = startDateStr;
-          console.log('No start date provided, using project creation date:', startDateStr);
+          console.log('No start date provided, using project start date:', startDateStr);
         }
 
         // Calculate end_date using the same method as Gantt component (line 1216)
@@ -3322,33 +3327,9 @@ const ProjectDetail: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-4">
                 <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
-                <div className="flex items-center bg-gray-100 rounded-lg p-1">
-                  <button
-                    onClick={() => setTimelineView('gantt')}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                      timelineView === 'gantt'
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Gantt View
-                  </button>
-                  <button
-                    onClick={() => setTimelineView('scheduler')}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                      timelineView === 'scheduler'
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Calendar View
-                  </button>
-                </div>
               </div>
               <div className="flex items-center gap-2">
-                {timelineView === 'gantt' && (
-                  <>
-                    <button
+                <button
                       onClick={() => {
                         if (ganttRef.current) {
                           ganttRef.current.zoomIn();
@@ -3598,14 +3579,10 @@ const ProjectDetail: React.FC = () => {
                       <Plus className="w-4 h-4" />
                       Create Task
                     </button>
-                  </>
-                )}
               </div>
             </div>
 
-            {timelineView === 'gantt' && (
-              <>
-                <div className="mb-4">
+            <div className="mb-4">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
@@ -3763,14 +3740,6 @@ const ProjectDetail: React.FC = () => {
                 }}
               />
                 </div>
-              </>
-            )}
-
-            {timelineView === 'scheduler' && id && (
-              <div style={{ width: "100%", height: "700px" }}>
-                <Scheduler key={`scheduler-${timelineView}`} projectId={id} />
-              </div>
-            )}
           </div>
         )}
 
@@ -5155,13 +5124,10 @@ const ProjectDetail: React.FC = () => {
                               <div className="ml-6 flex items-center gap-2">
                                 <label className="text-xs text-gray-600 w-20">Allocation:</label>
                                 <input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  step="1"
+                                  type="text"
                                   value={resourceAllocations[member.resource_id] || 100}
                                   onChange={(e) => {
-                                    const value = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                                    const value = Math.max(0, parseInt(e.target.value) || 0);
                                     setResourceAllocations({
                                       ...resourceAllocations,
                                       [member.resource_id]: value
