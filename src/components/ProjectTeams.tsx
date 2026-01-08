@@ -35,14 +35,8 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
   const [showAddMember, setShowAddMember] = useState(false);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<{
-    allocation_percentage: number;
-    start_date: string;
-    end_date: string;
     role: string;
   }>({
-    allocation_percentage: 0,
-    start_date: '',
-    end_date: '',
     role: ''
   });
 
@@ -116,9 +110,6 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
   const handleStartEdit = (member: TeamMember) => {
     setEditingMemberId(member.id);
     setEditValues({
-      allocation_percentage: member.allocation_percentage,
-      start_date: member.start_date,
-      end_date: member.end_date || '',
       role: member.role
     });
   };
@@ -126,9 +117,6 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
   const handleCancelEdit = () => {
     setEditingMemberId(null);
     setEditValues({
-      allocation_percentage: 0,
-      start_date: '',
-      end_date: '',
       role: ''
     });
   };
@@ -138,9 +126,6 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
       const { error } = await supabase
         .from('project_team_members')
         .update({
-          allocation_percentage: editValues.allocation_percentage,
-          start_date: editValues.start_date,
-          end_date: editValues.end_date || null,
           role: editValues.role
         })
         .eq('id', memberId);
@@ -202,15 +187,6 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Project Role
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Allocation
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Start Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    End Date
-                  </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
@@ -243,52 +219,6 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
                           />
                         ) : (
                           <div className="text-sm text-gray-900">{member.role}</div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {isEditing ? (
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="5"
-                              value={editValues.allocation_percentage}
-                              onChange={(e) => setEditValues({ ...editValues, allocation_percentage: parseInt(e.target.value) || 0 })}
-                              className="w-20 px-2 py-1 text-sm border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
-                            <span className="text-sm text-gray-600">%</span>
-                          </div>
-                        ) : (
-                          <div className="text-sm text-gray-900">{member.allocation_percentage}%</div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {isEditing ? (
-                          <input
-                            type="date"
-                            value={editValues.start_date}
-                            onChange={(e) => setEditValues({ ...editValues, start_date: e.target.value })}
-                            className="px-2 py-1 text-sm border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        ) : (
-                          <div className="text-sm text-gray-500">
-                            {new Date(member.start_date).toLocaleDateString()}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {isEditing ? (
-                          <input
-                            type="date"
-                            value={editValues.end_date}
-                            onChange={(e) => setEditValues({ ...editValues, end_date: e.target.value })}
-                            className="px-2 py-1 text-sm border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        ) : (
-                          <div className="text-sm text-gray-500">
-                            {member.end_date ? new Date(member.end_date).toLocaleDateString() : '-'}
-                          </div>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
@@ -361,6 +291,8 @@ interface Task {
   owner_id?: string;
   owner_name?: string;
   parent?: number;
+  resource_ids?: string[];
+  resource_allocations?: Record<string, number>;
 }
 
 function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] }) {
@@ -380,6 +312,40 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
       fetchAllocations();
     }
   }, [teamMembers, projectId]);
+
+  // Helper function to count business days (excluding weekends) between two dates
+  const countBusinessDays = (startDate: Date, endDate: Date): number => {
+    let count = 0;
+    const current = new Date(startDate);
+
+    while (current < endDate) {
+      const dayOfWeek = current.getDay();
+      // Count only weekdays (Monday=1 to Friday=5)
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        count++;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+
+    return count;
+  };
+
+  // Helper function to add business days to a date (for calculating task end date)
+  const addBusinessDays = (startDate: Date, businessDays: number): Date => {
+    const result = new Date(startDate);
+    let daysAdded = 0;
+
+    while (daysAdded < businessDays) {
+      result.setDate(result.getDate() + 1);
+      const dayOfWeek = result.getDay();
+      // Only count weekdays
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        daysAdded++;
+      }
+    }
+
+    return result;
+  };
 
   const fetchAllocations = async () => {
     const allocationMap = new Map<string, Map<string, number>>();
@@ -422,7 +388,11 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
       for (const member of teamMembers) {
         const weekMap = new Map<string, number>();
         // Filter tasks across ALL projects for this resource
-        const memberTasks = allTasks.filter(task => task.owner_id === member.resource_id);
+        // Include tasks where the member is in resource_ids array OR is the owner_id
+        const memberTasks = allTasks.filter(task =>
+          task.resource_ids?.includes(member.resource_id) ||
+          task.owner_id === member.resource_id
+        );
 
         for (let i = 0; i < weeks; i++) {
           const weekStart = weekStarts[i]; // Monday
@@ -433,21 +403,26 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
 
           for (const task of memberTasks) {
             const taskStart = new Date(task.start_date);
-            const taskEnd = new Date(taskStart);
-            taskEnd.setDate(taskEnd.getDate() + task.duration);
+            // Task duration in Gantt represents working days, not calendar days
+            const taskEnd = addBusinessDays(taskStart, task.duration);
 
             const overlapStart = taskStart > weekStart ? taskStart : weekStart;
             const overlapEnd = taskEnd < weekEnd ? taskEnd : weekEnd;
 
             if (overlapStart < overlapEnd) {
-              const overlapDays = Math.ceil((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24));
+              // Count only business days (weekdays) in the overlap period
+              const overlapBusinessDays = countBusinessDays(overlapStart, overlapEnd);
               const hoursPerDay = 8; // 8 hours per work day
-              const taskHours = overlapDays * hoursPerDay;
+
+              // Get allocation percentage from task's resource_allocations attribute
+              const allocationPercentage = task.resource_allocations?.[member.resource_id] || 100;
+              const allocationMultiplier = allocationPercentage / 100;
+              const taskHours = overlapBusinessDays * hoursPerDay * allocationMultiplier;
               totalHours += taskHours;
             }
           }
 
-          weekMap.set(`week-${i}`, Math.min(Math.round(totalHours), 40));
+          weekMap.set(`week-${i}`, Math.round(totalHours));
         }
 
         allocationMap.set(member.id, weekMap);
@@ -475,9 +450,9 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
 
   const getColorClass = (hours: number) => {
     if (hours === 0) return 'bg-gray-100';
-    if (hours <= 10) return 'bg-green-200';
-    if (hours <= 30) return 'bg-yellow-200';
-    return 'bg-red-400';
+    if (hours < 30) return 'bg-green-200';
+    if (hours <= 40) return 'bg-yellow-200';
+    return 'bg-red-500';
   };
 
   if (teamMembers.length === 0) {
@@ -494,19 +469,19 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
         <div className="flex items-center gap-4 text-xs">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-gray-100 border border-gray-300"></div>
-            <span className="text-gray-600">0h - No allocation</span>
+            <span className="text-gray-600">0h</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-green-200"></div>
-            <span className="text-gray-600">1-10h - Available</span>
+            <span className="text-gray-600">1-30h</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-yellow-200"></div>
-            <span className="text-gray-600">11-30h - Moderate Load</span>
+            <span className="text-gray-600">30-40h</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-red-400"></div>
-            <span className="text-gray-600">31-40h - Overloaded</span>
+            <div className="w-3 h-3 bg-red-500"></div>
+            <span className="text-gray-600">40h+</span>
           </div>
         </div>
       </div>
@@ -576,7 +551,6 @@ function AddTeamMemberModal({ projectId, onClose, onSave, existingMemberResource
   const [selectedResources, setSelectedResources] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [defaultAllocation, setDefaultAllocation] = useState(50);
   const [defaultStartDate, setDefaultStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [defaultRole, setDefaultRole] = useState('Team Member');
 
@@ -636,7 +610,7 @@ function AddTeamMemberModal({ projectId, onClose, onSave, existingMemberResource
         project_id: projectId,
         resource_id: resourceId,
         role: defaultRole,
-        allocation_percentage: defaultAllocation,
+        allocation_percentage: 100,
         start_date: defaultStartDate,
         end_date: null
       }));
@@ -661,53 +635,6 @@ function AddTeamMemberModal({ projectId, onClose, onSave, existingMemberResource
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-900">Add Team Members</h2>
           <p className="text-sm text-gray-500 mt-1">Select resources to add to the project team</p>
-        </div>
-
-        <div className="p-6 border-b border-gray-200 bg-gray-50">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Default Settings for New Members</h3>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Project Role
-              </label>
-              <input
-                type="text"
-                value={defaultRole}
-                onChange={(e) => setDefaultRole(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="e.g., Team Member"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Allocation %
-              </label>
-              <div className="flex items-center gap-1">
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="5"
-                  value={defaultAllocation}
-                  onChange={(e) => setDefaultAllocation(parseInt(e.target.value) || 0)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <span className="text-sm text-gray-600">%</span>
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Start Date
-              </label>
-              <input
-                type="date"
-                value={defaultStartDate}
-                onChange={(e) => setDefaultStartDate(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-          <p className="text-xs text-gray-500 mt-2">These settings will be applied to all selected members. You can edit them individually after adding.</p>
         </div>
 
         <div className="p-6 border-b border-gray-200">

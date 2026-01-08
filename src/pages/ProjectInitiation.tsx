@@ -160,7 +160,8 @@ export default function ProjectInitiation() {
           template_id: templateData?.id || null,
           status: 'Planning',
           state: 'Active',
-          project_status: 'On Track'
+          project_status: 'On Track',
+          start_date: request.estimated_start_date || null
         }])
         .select();
 
