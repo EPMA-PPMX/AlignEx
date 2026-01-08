@@ -32,6 +32,9 @@ export default {
         cyan: {
           400: '#22d3ee',
           500: '#06b6d4',
+        },
+        widget: {
+          bg: '#F9F7FC',
         }
       },
       backgroundImage: {
