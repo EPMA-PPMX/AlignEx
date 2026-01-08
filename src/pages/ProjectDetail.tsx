@@ -13,6 +13,7 @@ import BenefitTracking from '../components/BenefitTracking';
 import ProjectTeams from '../components/ProjectTeams';
 import PeoplePicker from '../components/PeoplePicker';
 import CustomFieldsRenderer from '../components/CustomFieldsRenderer';
+import SearchableMultiSelect from '../components/SearchableMultiSelect';
 import DocumentUpload from '../components/DocumentUpload';
 import { loadCustomFieldValues, saveCustomFieldValues } from '../lib/customFieldHelpers';
 
@@ -217,6 +218,9 @@ const ProjectDetail: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [templateDescription, setTemplateDescription] = useState('');
   const [historyFieldId, setHistoryFieldId] = useState<string | null>(null);
   const [historyFieldName, setHistoryFieldName] = useState<string>('');
   const [fieldHistory, setFieldHistory] = useState<any[]>([]);
@@ -500,6 +504,76 @@ const ProjectDetail: React.FC = () => {
       console.error('Error fetching project:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTasks = async () => {
+    if (!id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('project_tasks')
+        .select('*')
+        .eq('project_id', id)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching tasks:', error);
+      } else if (data?.task_data) {
+        setProjectTasks(data.task_data);
+      } else {
+        setProjectTasks({ data: [], links: [] });
+      }
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+    }
+  };
+
+  const saveTasks = async (taskData: { data: any[]; links: any[] }) => {
+    if (!id) return;
+
+    try {
+      const { data: existingTask, error: fetchError } = await supabase
+        .from('project_tasks')
+        .select('id')
+        .eq('project_id', id)
+        .maybeSingle();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error('Error checking existing tasks:', fetchError);
+        return;
+      }
+
+      if (existingTask) {
+        const { error } = await supabase
+          .from('project_tasks')
+          .update({
+            task_data: taskData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('project_id', id);
+
+        if (error) {
+          console.error('Error updating tasks:', error);
+        } else {
+          setProjectTasks(taskData);
+        }
+      } else {
+        const { error } = await supabase
+          .from('project_tasks')
+          .insert({
+            project_id: id,
+            task_data: taskData
+          });
+
+        if (error) {
+          console.error('Error creating tasks:', error);
+        } else {
+          setProjectTasks(taskData);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving tasks:', error);
     }
   };
 
@@ -1038,6 +1112,118 @@ const ProjectDetail: React.FC = () => {
     }
   };
 
+  // Helper function to add working days (skip weekends)
+  const addWorkingDays = (startDate: Date, days: number): Date => {
+    const result = new Date(startDate);
+    let remainingDays = days;
+
+    while (remainingDays > 0) {
+      result.setDate(result.getDate() + 1);
+      const dayOfWeek = result.getDay();
+      // Skip weekends (0 = Sunday, 6 = Saturday)
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        remainingDays--;
+      }
+    }
+
+    return result;
+  };
+
+  const updateProjectScheduleDates = async () => {
+    if (!id) return;
+
+    try {
+      // Query task_data from the database
+      const { data: projectTasksData, error: tasksError } = await supabase
+        .from('project_tasks')
+        .select('task_data')
+        .eq('project_id', id)
+        .maybeSingle();
+
+      if (tasksError) {
+        console.error('Error fetching tasks:', tasksError);
+        return;
+      }
+
+      if (!projectTasksData?.task_data?.data || projectTasksData.task_data.data.length === 0) {
+        console.log('No tasks found for project');
+        return;
+      }
+
+      const tasks = projectTasksData.task_data.data;
+      let earliestStart: Date | null = null;
+      let latestFinish: Date | null = null;
+
+      const ganttInstance = (window as any).gantt;
+
+      tasks.forEach((task: any) => {
+        // Skip group headers or summary tasks
+        if (task.type === 'project' || task.$group_header) return;
+
+        // Check start_date
+        if (task.start_date) {
+          const startDate = new Date(task.start_date);
+          if (!isNaN(startDate.getTime())) {
+            if (!earliestStart || startDate < earliestStart) {
+              earliestStart = startDate;
+            }
+          }
+        }
+
+        // Check end_date (calculated by Gantt)
+        if (task.end_date) {
+          const endDate = new Date(task.end_date);
+          if (!isNaN(endDate.getTime())) {
+            if (!latestFinish || endDate > latestFinish) {
+              latestFinish = endDate;
+            }
+          }
+        } else if (task.start_date && task.duration) {
+          // Calculate end date if not present
+          const startDate = new Date(task.start_date);
+          let endDate: Date;
+
+          if (ganttInstance && ganttInstance.calculateEndDate) {
+            // Use Gantt's calculation if available (more accurate)
+            endDate = ganttInstance.calculateEndDate(startDate, task.duration);
+          } else {
+            // Fallback: calculate working days manually
+            endDate = addWorkingDays(startDate, task.duration);
+          }
+
+          if (!isNaN(endDate.getTime())) {
+            if (!latestFinish || endDate > latestFinish) {
+              latestFinish = endDate;
+            }
+          }
+        }
+      });
+
+      // Update project with calculated dates
+      if (earliestStart || latestFinish) {
+        const { error } = await supabase
+          .from('projects')
+          .update({
+            schedule_start_date: earliestStart?.toISOString() || null,
+            schedule_finish_date: latestFinish?.toISOString() || null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', id);
+
+        if (error) {
+          console.error('Error updating project schedule dates:', error);
+        } else {
+          console.log('Project schedule dates updated:', {
+            start: earliestStart?.toISOString(),
+            finish: latestFinish?.toISOString()
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error updating project schedule dates:', error);
+    }
+  };
+
   const saveProjectTasks = async () => {
     if (!id) return;
 
@@ -1149,8 +1335,10 @@ const ProjectDetail: React.FC = () => {
           console.error('Error updating tasks:', error);
         } else {
           console.log("Tasks updated successfully");
-          // Don't fetch - this causes infinite loop
-          // The Gantt already has the updated data
+          // Update project schedule dates based on tasks
+          await updateProjectScheduleDates();
+          // Refresh data from database to ensure UI shows latest values
+          await fetchProjectTasks();
         }
       } else {
         // Insert new record only if none exists
@@ -1166,12 +1354,115 @@ const ProjectDetail: React.FC = () => {
           console.error('Error inserting tasks:', error);
         } else {
           console.log("Tasks inserted successfully");
-          // Don't fetch - this causes infinite loop
-          // The Gantt already has the updated data
+          // Update project schedule dates based on tasks
+          await updateProjectScheduleDates();
+          // Refresh data from database to ensure UI shows latest values
+          await fetchProjectTasks();
         }
       }
     } catch (error) {
       console.error('Error saving project tasks:', error);
+    }
+  };
+
+  const saveScheduleAsTemplate = async () => {
+    if (!templateName.trim()) {
+      showNotification('Please enter a template name', 'error');
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      // Get current data from Gantt chart
+      const ganttInstance = (window as any).gantt;
+      if (!ganttInstance) {
+        showNotification('Gantt chart not initialized', 'error');
+        setSaving(false);
+        return;
+      }
+
+      const currentTasks = ganttInstance.serialize();
+
+      // Clean and prepare tasks data - reset progress to 0% and remove baselines
+      const taskMap = new Map();
+      currentTasks.data
+        .filter((task: any) => !task.$group_header)
+        .forEach((task: any) => {
+          const taskId = task.$original_id || task.id;
+          if (!taskMap.has(taskId)) {
+            // Collect custom fields (but not baseline fields)
+            const extraFields: any = {};
+            Object.keys(task).forEach(key => {
+              if (key.startsWith('custom_') && !key.startsWith('baseline')) {
+                extraFields[key] = task[key];
+              }
+            });
+
+            let duration = task.duration;
+            if (typeof duration !== 'number' || isNaN(duration)) {
+              duration = parseFloat(duration) || 1;
+            }
+            duration = Math.max(1, duration);
+
+            taskMap.set(taskId, {
+              id: taskId,
+              text: task.text,
+              start_date: task.start_date,
+              duration: duration,
+              progress: 0, // Reset progress to 0%
+              type: task.type || 'task',
+              parent: task.$original_parent !== undefined ? task.$original_parent : (task.parent || 0),
+              owner_id: task.owner_id,
+              owner_name: task.owner_name,
+              resource_ids: task.resource_ids || [],
+              resource_names: task.resource_names || [],
+              ...extraFields
+            });
+          }
+        });
+
+      const tasksData = Array.from(taskMap.values());
+      const linksData = (currentTasks.links || []).map((link: any) => ({
+        id: link.id,
+        source: link.source,
+        target: link.target,
+        type: link.type
+      }));
+
+      // Prepare resources and resource assignments
+      const resourcesData = projectTasks.resources || [];
+      const resourceAssignmentsData = projectTasks.resourceAssignments || [];
+
+      // Save to database
+      const { data, error } = await supabase
+        .from('schedule_templates')
+        .insert({
+          template_name: templateName.trim(),
+          template_description: templateDescription.trim() || null,
+          tasks_data: tasksData,
+          links_data: linksData,
+          resources_data: resourcesData,
+          resource_assignments_data: resourceAssignmentsData
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error saving schedule template:', error);
+        showNotification('Failed to save schedule template', 'error');
+      } else {
+        console.log('Schedule template saved:', data);
+        showNotification('Schedule template saved successfully', 'success');
+        setShowSaveTemplateModal(false);
+        setTemplateName('');
+        setTemplateDescription('');
+      }
+    } catch (error) {
+      console.error('Error saving schedule template:', error);
+      showNotification('Failed to save schedule template', 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -1298,7 +1589,7 @@ const ProjectDetail: React.FC = () => {
   const renderFieldControl = (field: SectionField) => {
     const { customField } = field;
     const value = fieldValues[customField.id] || customField.default_value || '';
-    const baseClasses = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent";
+    const baseClasses = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent";
 
     switch (customField.field_type) {
       case 'text':
@@ -1383,7 +1674,7 @@ const ProjectDetail: React.FC = () => {
                   value={option}
                   checked={value === option}
                   onChange={(e) => handleFieldValueChange(customField.id, e.target.value)}
-                  className="text-blue-600 focus:ring-blue-500"
+                  className="text-primary-600 focus:ring-primary-500"
                   required={customField.is_required}
                 />
                 <span className="text-sm text-gray-700">{option}</span>
@@ -1398,7 +1689,7 @@ const ProjectDetail: React.FC = () => {
               type="checkbox"
               checked={value === true || value === 'true'}
               onChange={(e) => handleFieldValueChange(customField.id, e.target.checked)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
               required={customField.is_required}
             />
             <span className="text-sm text-gray-700">{customField.field_label}</span>
@@ -3071,7 +3362,7 @@ const ProjectDetail: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Project Not Found</h1>
           <button
             onClick={() => navigate('/projects')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
           >
             Back to Projects
           </button>
@@ -3116,7 +3407,7 @@ const ProjectDetail: React.FC = () => {
                     type="text"
                     value={projectForm.name}
                     onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })}
-                    className="w-full max-w-2xl px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full max-w-2xl px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="Enter project name"
                   />
                 </div>
@@ -3126,7 +3417,7 @@ const ProjectDetail: React.FC = () => {
                     value={projectForm.description}
                     onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
                     rows={3}
-                    className="w-full max-w-2xl px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
+                    className="w-full max-w-2xl px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-vertical"
                     placeholder="Enter project description"
                   />
                 </div>
@@ -3143,7 +3434,7 @@ const ProjectDetail: React.FC = () => {
                   <button
                     onClick={handleProjectUpdate}
                     disabled={saving}
-                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50"
                   >
                     <Save className="w-4 h-4" />
                     <span>{saving ? 'Saving...' : 'Save'}</span>
@@ -3231,7 +3522,7 @@ const ProjectDetail: React.FC = () => {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
+                    ? 'border-primary-500 text-primary-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
@@ -3288,7 +3579,7 @@ const ProjectDetail: React.FC = () => {
                   <button
                     onClick={saveFieldValues}
                     disabled={saving}
-                    className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    className="flex items-center space-x-2 px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50"
                   >
                     {saving ? (
                       <>
@@ -3313,7 +3604,7 @@ const ProjectDetail: React.FC = () => {
                 </p>
                 <button
                   onClick={() => navigate('/settings')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                 >
                   Configure Overview Page
                 </button>
@@ -3393,6 +3684,15 @@ const ProjectDetail: React.FC = () => {
                       <Users className="w-4 h-4" />
                       {showResourcePanel ? 'Hide Resources' : 'Show Resources'}
                     </button>
+
+                <button
+                  onClick={() => setShowSaveTemplateModal(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                  title="Save current schedule as a template"
+                >
+                  <Save className="w-4 h-4" />
+                  Save as Template
+                </button>
 
                 {/* Task Fields Selector */}
                 <div className="relative">
@@ -3597,6 +3897,7 @@ const ProjectDetail: React.FC = () => {
                 <div style={{ width: "100%", height: isGanttFullscreen ? "calc(100vh - 150px)" : "600px", overflow: "auto" }}>
                   <Gantt
                 ref={ganttRef}
+                projectId={id}
                 projecttasks={projectTasks}
                 onTaskUpdate={saveProjectTasks}
                 searchQuery={taskSearchQuery}
@@ -3821,7 +4122,7 @@ const ProjectDetail: React.FC = () => {
                               <div className="flex space-x-2">
                                 <button
                                   onClick={() => handleEditRisk(risk)}
-                                  className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                                  className="text-primary-600 hover:text-blue-900 p-1 rounded hover:bg-primary-50"
                                 >
                                   <Edit2 className="w-4 h-4" />
                                 </button>
@@ -3911,7 +4212,7 @@ const ProjectDetail: React.FC = () => {
                               <div className="flex space-x-2">
                                 <button
                                   onClick={() => handleEditIssue(issue)}
-                                  className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                                  className="text-primary-600 hover:text-blue-900 p-1 rounded hover:bg-primary-50"
                                 >
                                   <Edit2 className="w-4 h-4" />
                                 </button>
@@ -3943,7 +4244,7 @@ const ProjectDetail: React.FC = () => {
                   resetChangeRequestForm();
                   setShowChangeRequestModal(true);
                 }}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 <span>Add Change Request</span>
@@ -4020,7 +4321,7 @@ const ProjectDetail: React.FC = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {getAttachmentCount(changeRequest.attachments) > 0 ? (
                               <div className="flex items-center space-x-2">
-                                <File className="w-4 h-4 text-blue-600" />
+                                <File className="w-4 h-4 text-primary-600" />
                                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                   {getAttachmentCount(changeRequest.attachments)} file{getAttachmentCount(changeRequest.attachments) !== 1 ? 's' : ''}
                                 </span>
@@ -4041,7 +4342,7 @@ const ProjectDetail: React.FC = () => {
                               </button>
                               <button
                                 onClick={() => handleEditChangeRequest(changeRequest)}
-                                className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                                className="text-primary-600 hover:text-blue-900 p-1 rounded hover:bg-primary-50"
                                 title="Edit"
                               >
                                 <Edit2 className="w-4 h-4" />
@@ -4068,7 +4369,7 @@ const ProjectDetail: React.FC = () => {
                   <p className="text-gray-600 mb-6">Add budget categories to start tracking your annual forecast.</p>
                   <button
                     onClick={handleAddBudget}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                     Add Budget Categories
@@ -4082,7 +4383,7 @@ const ProjectDetail: React.FC = () => {
                   <div className="flex items-center gap-4">
                     <button
                       onClick={handleAddBudget}
-                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700 transition-colors"
                     >
                       <Plus className="w-4 h-4" />
                       Manage Categories
@@ -4093,7 +4394,7 @@ const ProjectDetail: React.FC = () => {
                       <select
                         value={budgetViewFilter}
                         onChange={(e) => setBudgetViewFilter(e.target.value as 'monthly' | 'yearly')}
-                        className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                       >
                         <option value="yearly">Yearly</option>
                         <option value="monthly">Monthly</option>
@@ -4105,7 +4406,7 @@ const ProjectDetail: React.FC = () => {
                         <select
                           value={selectedMonth}
                           onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                          className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                         >
                           {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((month, index) => (
                             <option key={index} value={index}>
@@ -4120,7 +4421,7 @@ const ProjectDetail: React.FC = () => {
                       <select
                         value={selectedYear}
                         onChange={(e) => setSelectedYear(Number(e.target.value))}
-                        className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                       >
                         {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
                           <option key={year} value={year}>
@@ -4138,7 +4439,7 @@ const ProjectDetail: React.FC = () => {
                   selectedMonth={selectedMonth}
                 />
 
-                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="mb-4 p-3 bg-primary-50 border border-blue-200 rounded-lg">
                   <p className="text-sm text-blue-800">
                     <strong>How to use:</strong> Enter your forecasted amounts for each month, then record actual spending.
                     The system automatically calculates variance percentages.
@@ -4165,6 +4466,24 @@ const ProjectDetail: React.FC = () => {
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">Project Documents</h3>
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={handleDocumentUpload}
+                  />
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      (e.currentTarget.previousElementSibling as HTMLInputElement)?.click();
+                    }}
+                  >
+                    <Upload className="w-4 h-4" />
+                    Upload Document
+                  </button>
+                </label>
                 <DocumentUpload
                   projectId={id!}
                   onUploadSuccess={() => {
@@ -4193,7 +4512,7 @@ const ProjectDetail: React.FC = () => {
                       className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                     >
                       <div className="flex items-center gap-3 flex-1">
-                        <File className="w-8 h-8 text-blue-600" />
+                        <File className="w-8 h-8 text-primary-600" />
                         <div className="flex-1 min-w-0">
                           <h4 className="text-sm font-medium text-gray-900 truncate">
                             {doc.file_name}
@@ -4206,7 +4525,7 @@ const ProjectDetail: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleDownloadDocument(doc)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                           title="Download"
                         >
                           <Download className="w-5 h-5" />
@@ -4339,7 +4658,7 @@ const ProjectDetail: React.FC = () => {
                 <textarea
                   value={riskForm.description}
                   onChange={(e) => setRiskForm({ ...riskForm, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   rows={3}
                   required
                 />
@@ -4396,7 +4715,7 @@ const ProjectDetail: React.FC = () => {
                   type="text"
                   value={issueForm.title}
                   onChange={(e) => setIssueForm({ ...issueForm, title: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   required
                 />
               </div>
@@ -4428,7 +4747,7 @@ const ProjectDetail: React.FC = () => {
                   <select
                     value={issueForm.status}
                     onChange={(e) => setIssueForm({ ...issueForm, status: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
                     <option value="Active">Active</option>
                     <option value="Closed">Closed</option>
@@ -4580,7 +4899,7 @@ const ProjectDetail: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleSaveBudget}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                 >
                   {editingBudget ? 'Update Budget' : 'Add Budget'}
                 </button>
@@ -4604,7 +4923,7 @@ const ProjectDetail: React.FC = () => {
                   type="text"
                   value={changeRequestForm.title}
                   onChange={(e) => setChangeRequestForm({ ...changeRequestForm, title: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   required
                 />
               </div>
@@ -4613,7 +4932,7 @@ const ProjectDetail: React.FC = () => {
                 <select
                   value={changeRequestForm.type}
                   onChange={(e) => setChangeRequestForm({ ...changeRequestForm, type: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   <option value="Scope Change">Scope Change</option>
                   <option value="Schedule Change">Schedule Change</option>
@@ -4627,7 +4946,7 @@ const ProjectDetail: React.FC = () => {
                 <textarea
                   value={changeRequestForm.description}
                   onChange={(e) => setChangeRequestForm({ ...changeRequestForm, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   rows={3}
                   required
                 />
@@ -4637,7 +4956,7 @@ const ProjectDetail: React.FC = () => {
                 <textarea
                   value={changeRequestForm.justification}
                   onChange={(e) => setChangeRequestForm({ ...changeRequestForm, justification: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   rows={3}
                   required
                 />
@@ -4648,7 +4967,7 @@ const ProjectDetail: React.FC = () => {
                   <select
                     value={changeRequestForm.scope_impact}
                     onChange={(e) => setChangeRequestForm({ ...changeRequestForm, scope_impact: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -4660,7 +4979,7 @@ const ProjectDetail: React.FC = () => {
                   <select
                     value={changeRequestForm.risk_impact}
                     onChange={(e) => setChangeRequestForm({ ...changeRequestForm, risk_impact: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -4672,7 +4991,7 @@ const ProjectDetail: React.FC = () => {
                   <select
                     value={changeRequestForm.resource_impact}
                     onChange={(e) => setChangeRequestForm({ ...changeRequestForm, resource_impact: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -4686,7 +5005,7 @@ const ProjectDetail: React.FC = () => {
                   type="text"
                   value={changeRequestForm.cost_impact}
                   onChange={(e) => setChangeRequestForm({ ...changeRequestForm, cost_impact: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   placeholder="Describe cost impact (optional)"
                 />
               </div>
@@ -4725,7 +5044,7 @@ const ProjectDetail: React.FC = () => {
                         className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
                       >
                         <div className="flex items-center space-x-3">
-                          <File className="w-5 h-5 text-blue-600" />
+                          <File className="w-5 h-5 text-primary-600" />
                           <div>
                             <p className="text-sm font-medium text-gray-900">{file.fileName}</p>
                             <p className="text-xs text-gray-500">
@@ -4737,7 +5056,7 @@ const ProjectDetail: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleDownloadAttachment(file.path, file.fileName)}
-                            className="p-1 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded transition-colors"
+                            className="p-1 text-primary-600 hover:text-blue-900 hover:bg-primary-50 rounded transition-colors"
                             title="Download"
                           >
                             <Download className="w-4 h-4" />
@@ -4774,7 +5093,7 @@ const ProjectDetail: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                 >
                   {editingChangeRequest ? 'Update Change Request' : 'Add Change Request'}
                 </button>
@@ -4879,7 +5198,7 @@ const ProjectDetail: React.FC = () => {
                             className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
                           >
                             <div className="flex items-center space-x-3">
-                              <File className="w-5 h-5 text-blue-600" />
+                              <File className="w-5 h-5 text-primary-600" />
                               <div>
                                 <p className="text-sm font-medium text-gray-900">{file.fileName}</p>
                                 <p className="text-xs text-gray-500">
@@ -4889,7 +5208,7 @@ const ProjectDetail: React.FC = () => {
                             </div>
                             <button
                               onClick={() => handleDownloadFile(file.path, file.fileName)}
-                              className="flex items-center space-x-1 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded transition-colors"
+                              className="flex items-center space-x-1 px-3 py-1.5 text-sm text-primary-600 hover:text-blue-900 hover:bg-primary-50 rounded transition-colors"
                             >
                               <Download className="w-4 h-4" />
                               <span>Download</span>
@@ -4922,7 +5241,7 @@ const ProjectDetail: React.FC = () => {
                     setShowChangeRequestPreview(false);
                     handleEditChangeRequest(viewingChangeRequest);
                   }}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
+                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center justify-center space-x-2"
                 >
                   <Edit2 className="w-4 h-4" />
                   <span>Edit</span>
@@ -5192,44 +5511,23 @@ const ProjectDetail: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Predecessor Tasks (Multiple Selection)
-                  </label>
                   <p className="text-xs text-gray-500 mb-2">
-                    Select tasks that must be completed before this task can start. Hold Ctrl/Cmd to select multiple.
+                    Select tasks that must be completed before this task can start.
                   </p>
-                  <select
-                    multiple
-                    value={taskForm.predecessor_ids.map(String)}
-                    onChange={(e) => {
-                      const selectedOptions = Array.from(e.target.selectedOptions).map(option => parseInt(option.value));
-                      setTaskForm({
-                        ...taskForm,
-                        predecessor_ids: selectedOptions
-                      });
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    size={6}
-                  >
-                    {getAllTasksWithWBS()
+                  <SearchableMultiSelect
+                    label="Predecessor Tasks"
+                    placeholder="Search and select predecessor tasks..."
+                    options={getAllTasksWithWBS()
                       .filter(task => editingTaskId ? task.id !== editingTaskId : true)
-                      .length === 0 ? (
-                      <option disabled>No tasks available. Create the task first, then edit it to add predecessors.</option>
-                    ) : (
-                      getAllTasksWithWBS()
-                        .filter(task => editingTaskId ? task.id !== editingTaskId : true)
-                        .map((task) => (
-                          <option key={task.id} value={task.id}>
-                            {task.wbs ? `${task.wbs} - ` : ''}{task.text}
-                          </option>
-                        ))
-                    )}
-                  </select>
-                  {taskForm.predecessor_ids.length > 0 && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {taskForm.predecessor_ids.length} predecessor task(s) selected
-                    </p>
-                  )}
+                      .map((task) => ({
+                        value: task.id,
+                        label: task.wbs ? `${task.wbs} - ${task.text}` : task.text
+                      }))}
+                    selectedValues={taskForm.predecessor_ids}
+                    onChange={(values) => setTaskForm({ ...taskForm, predecessor_ids: values as number[] })}
+                    emptyMessage="No tasks available. Create the task first, then edit it to add predecessors."
+                    disabled={getAllTasksWithWBS().filter(task => editingTaskId ? task.id !== editingTaskId : true).length === 0}
+                  />
                 </div>
 
                 <div className="flex space-x-3 pt-4">
@@ -5255,6 +5553,81 @@ const ProjectDetail: React.FC = () => {
       )}
 
       {/* Field History Modal */}
+      {showSaveTemplateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Save Schedule as Template</h3>
+                <p className="text-sm text-gray-600 mt-1">Create a reusable schedule template</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowSaveTemplateModal(false);
+                  setTemplateName('');
+                  setTemplateDescription('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Template Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={templateName}
+                    onChange={(e) => setTemplateName(e.target.value)}
+                    placeholder="Enter template name"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description (Optional)
+                  </label>
+                  <textarea
+                    value={templateDescription}
+                    onChange={(e) => setTemplateDescription(e.target.value)}
+                    placeholder="Enter template description"
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-sm text-blue-800">
+                    <strong>Note:</strong> All tasks will be saved with 0% progress and baselines will be cleared.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowSaveTemplateModal(false);
+                  setTemplateName('');
+                  setTemplateDescription('');
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveScheduleAsTemplate}
+                disabled={saving || !templateName.trim()}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saving ? 'Saving...' : 'Save Template'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showHistoryModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
