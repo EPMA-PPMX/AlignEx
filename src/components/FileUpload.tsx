@@ -21,7 +21,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
   uploading,
   onFileUpload,
   onRemoveFile,
-  const downloadBaseUrl = `${import.meta.env.VITE_API_BASE_URL}/api/download/change-request-attachment`;
+  downloadBaseUrl = 'http://localhost:5000/api/download/change-request-attachment'
 }) => {
   return (
     <div>
