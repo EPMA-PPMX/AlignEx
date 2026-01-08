@@ -86,7 +86,7 @@ export default function ProjectHealthWidget() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 h-full">
+      <div className="bg-widget-bg rounded-lg shadow-sm p-4 border border-gray-200 h-full">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
             <Activity className="w-4 h-4" />
@@ -110,7 +110,7 @@ export default function ProjectHealthWidget() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 h-full flex flex-col">
+    <div className="bg-widget-bg rounded-lg shadow-sm p-4 border border-gray-200 h-full flex flex-col">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
           <Activity className="w-4 h-4 text-blue-600" />
