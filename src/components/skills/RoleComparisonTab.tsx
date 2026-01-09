@@ -243,7 +243,7 @@ export default function RoleComparisonTab() {
         );
       case 'exceeds':
         return (
-          <div className="flex items-center gap-1 text-primary-600">
+          <div className="flex items-center gap-1 text-blue-600">
             <Star className="w-5 h-5" />
             <span className="font-medium">Exceeds</span>
           </div>
@@ -297,7 +297,7 @@ export default function RoleComparisonTab() {
           <select
             value={selectedRole}
             onChange={(e) => setSelectedRole(e.target.value)}
-            className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             {roles.map((role) => (
               <option key={role.id} value={role.id}>
