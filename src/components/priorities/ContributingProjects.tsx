@@ -202,7 +202,7 @@ export default function ContributingProjects() {
           <select
             value={selectedPriority}
             onChange={(e) => setSelectedPriority(e.target.value)}
-            className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="all">All Priorities</option>
             {priorities.map((priority) => (
@@ -232,7 +232,7 @@ export default function ContributingProjects() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-slate-600">Contributing Projects</p>
-                    <p className="text-2xl font-bold text-primary-600">{priority.impacts.length}</p>
+                    <p className="text-2xl font-bold text-blue-600">{priority.impacts.length}</p>
                   </div>
                 </div>
               </div>
@@ -337,9 +337,9 @@ export default function ContributingProjects() {
               {priority.impacts.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-slate-200">
                   <div className="grid grid-cols-4 gap-4 text-sm">
-                    <div className="bg-primary-50 rounded-lg p-3">
+                    <div className="bg-blue-50 rounded-lg p-3">
                       <p className="text-slate-600 mb-1">Total Contributing</p>
-                      <p className="text-lg font-semibold text-primary-700">
+                      <p className="text-lg font-semibold text-blue-700">
                         {priority.impacts.length} {priority.impacts.length === 1 ? 'item' : 'items'}
                       </p>
                     </div>
