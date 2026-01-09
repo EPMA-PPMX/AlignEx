@@ -86,7 +86,6 @@ export default function MyProjectsWidget() {
         .select('id, name, state, status, health_status, description')
         .in('id', projectIds)
         .in('state', ['Active', 'Planning'])
-        .neq('health_status', 'Completed')
         .order('name');
 
       if (error) {
@@ -104,42 +103,34 @@ export default function MyProjectsWidget() {
 
   const getHealthColor = (healthStatus: string) => {
     switch (healthStatus?.toLowerCase()) {
-      case 'on track': return 'bg-gradient-to-br from-[#276A6C] to-[#5DB6B8]';
-      case 'at risk': return 'bg-gradient-to-br from-[#C76F21] to-[#FAAF65]';
-      case 'delayed': return 'bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A]';
-      case 'in progress': return 'bg-gradient-to-br from-[#276A6C] to-[#5DB6B8]';
-      case 'not started': return 'bg-gradient-to-br from-[#4D5656] to-[#95A5A6]';
-      case 'completed': return 'bg-gradient-to-br from-[#276A6C] to-[#5DB6B8]';
-      default: return 'bg-gradient-to-br from-[#4D5656] to-[#95A5A6]';
+      case 'on track': return 'bg-green-500';
+      case 'at risk': return 'bg-yellow-500';
+      case 'delayed': return 'bg-red-500';
+      case 'completed': return 'bg-blue-500';
+      default: return 'bg-gray-500';
     }
   };
 
   const getHealthTextColor = (healthStatus: string) => {
     switch (healthStatus?.toLowerCase()) {
-      case 'on track': return 'text-white';
-      case 'at risk': return 'text-white';
-      case 'delayed': return 'text-white';
-      case 'in progress': return 'text-white';
-      case 'not started': return 'text-white';
-      case 'completed': return 'text-white';
-      default: return 'text-white';
+      case 'on track': return 'text-green-700';
+      case 'at risk': return 'text-yellow-700';
+      case 'delayed': return 'text-red-700';
+      case 'completed': return 'text-blue-700';
+      default: return 'text-gray-700';
     }
   };
 
   const getHealthIcon = (healthStatus: string) => {
     switch (healthStatus?.toLowerCase()) {
       case 'on track':
-        return <TrendingUp className="w-4 h-4 text-[#349698]" />;
+        return <TrendingUp className="w-4 h-4 text-green-600" />;
       case 'at risk':
-        return <Minus className="w-4 h-4 text-[#F89D43]" />;
+        return <Minus className="w-4 h-4 text-yellow-600" />;
       case 'delayed':
-        return <TrendingDown className="w-4 h-4 text-[#FD5D5D]" />;
-      case 'in progress':
-        return <TrendingUp className="w-4 h-4 text-[#349698]" />;
-      case 'not started':
-        return <Minus className="w-4 h-4 text-[#7F8C8D]" />;
+        return <TrendingDown className="w-4 h-4 text-red-600" />;
       case 'completed':
-        return <TrendingUp className="w-4 h-4 text-[#349698]" />;
+        return <TrendingUp className="w-4 h-4 text-blue-600" />;
       default:
         return null;
     }
@@ -157,7 +148,7 @@ export default function MyProjectsWidget() {
 
   if (loading) {
     return (
-      <div className="bg-widget-bg rounded-lg shadow-sm p-6 border border-gray-200 h-full">
+      <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 h-full">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
             <FolderKanban className="w-5 h-5" />
@@ -174,10 +165,10 @@ export default function MyProjectsWidget() {
   }
 
   return (
-    <div className="bg-widget-bg rounded-lg shadow-sm p-4 border border-gray-200 h-full flex flex-col">
+    <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 h-full flex flex-col">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-          <FolderKanban className="w-4 h-4 text-[#5B2C91]" />
+          <FolderKanban className="w-4 h-4 text-blue-600" />
           My Projects
         </h3>
         <span className="text-xs text-gray-500">
@@ -188,30 +179,30 @@ export default function MyProjectsWidget() {
       {/* Health Summary KPIs */}
       {projects.length > 0 && (
         <div className="grid grid-cols-3 gap-2 mb-4">
-          <div className="bg-gradient-to-br from-[#276A6C] to-[#5DB6B8] p-3 rounded-lg border border-[#349698]">
+          <div className="bg-green-50 p-3 rounded-lg border border-green-200">
             <div className="flex items-center justify-center gap-1 mb-1">
-              <TrendingUp className="w-4 h-4 text-white" />
-              <span className="text-xs font-medium text-white">On Track</span>
+              <TrendingUp className="w-4 h-4 text-green-600" />
+              <span className="text-xs font-medium text-green-700">On Track</span>
             </div>
-            <p className="text-2xl font-bold text-white text-center">
+            <p className="text-2xl font-bold text-green-700 text-center">
               {healthCounts['on track'] || 0}
             </p>
           </div>
-          <div className="bg-gradient-to-br from-[#C76F21] to-[#FAAF65] p-3 rounded-lg border border-[#F89D43]">
+          <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
             <div className="flex items-center justify-center gap-1 mb-1">
-              <Minus className="w-4 h-4 text-white" />
-              <span className="text-xs font-medium text-white">At Risk</span>
+              <Minus className="w-4 h-4 text-yellow-600" />
+              <span className="text-xs font-medium text-yellow-700">At Risk</span>
             </div>
-            <p className="text-2xl font-bold text-white text-center">
+            <p className="text-2xl font-bold text-yellow-700 text-center">
               {healthCounts['at risk'] || 0}
             </p>
           </div>
-          <div className="bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A] p-3 rounded-lg border border-[#FD5D5D]">
+          <div className="bg-red-50 p-3 rounded-lg border border-red-200">
             <div className="flex items-center justify-center gap-1 mb-1">
-              <TrendingDown className="w-4 h-4 text-white" />
-              <span className="text-xs font-medium text-white">Delayed</span>
+              <TrendingDown className="w-4 h-4 text-red-600" />
+              <span className="text-xs font-medium text-red-700">Delayed</span>
             </div>
-            <p className="text-2xl font-bold text-white text-center">
+            <p className="text-2xl font-bold text-red-700 text-center">
               {healthCounts['delayed'] || 0}
             </p>
           </div>
@@ -232,7 +223,7 @@ export default function MyProjectsWidget() {
             <Link
               key={project.id}
               to={`/projects/${project.id}`}
-              className="block bg-gray-50 p-3 rounded-lg border border-gray-200 hover:border-[#26D0CE] transition-all"
+              className="block bg-gray-50 p-3 rounded-lg border border-gray-200 hover:border-blue-300 transition-all"
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -247,7 +238,7 @@ export default function MyProjectsWidget() {
                   </div>
                 </div>
                 {project.health_status && (
-                  <span className={`px-2 py-1 text-xs rounded-full font-medium whitespace-nowrap ${getHealthColor(project.health_status)} ${getHealthTextColor(project.health_status)}`}>
+                  <span className={`px-2 py-1 text-xs rounded-full font-medium whitespace-nowrap ${getHealthColor(project.health_status)} ${getHealthTextColor(project.health_status).replace('text-', 'bg-').replace('-700', '-100')}`}>
                     {project.health_status}
                   </span>
                 )}
@@ -260,7 +251,7 @@ export default function MyProjectsWidget() {
       {projects.length > 5 && (
         <Link
           to="/projects"
-          className="block text-center text-sm text-[#5B2C91] hover:text-[#4a2377] pt-2 mt-2 border-t border-gray-200"
+          className="block text-center text-sm text-blue-600 hover:text-blue-700 pt-2 mt-2 border-t border-gray-200"
         >
           View all {projects.length} projects
         </Link>

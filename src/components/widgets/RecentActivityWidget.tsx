@@ -137,7 +137,7 @@ export default function RecentActivityWidget() {
 
   if (loading) {
     return (
-      <div className="bg-widget-bg rounded-lg shadow-sm p-6 border border-gray-200 h-full">
+      <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 h-full">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
             <Activity className="w-5 h-5" />
@@ -154,7 +154,7 @@ export default function RecentActivityWidget() {
   }
 
   return (
-    <div className="bg-widget-bg rounded-lg shadow-sm p-6 border border-gray-200 h-full flex flex-col">
+    <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 h-full flex flex-col">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
           <Activity className="w-5 h-5 text-blue-600" />

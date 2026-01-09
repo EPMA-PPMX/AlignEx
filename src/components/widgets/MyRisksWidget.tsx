@@ -11,7 +11,6 @@ interface Risk {
   impact: string;
   probability: number;
   status: string;
-  category: string;
   assigned_to: string;
   project_name: string;
 }
@@ -85,7 +84,7 @@ export default function MyRisksWidget() {
         .from('project_risks')
         .select('*, projects(name)')
         .in('project_id', projectIds)
-        .eq('status', 'Active')
+        .in('status', ['Open', 'Active', 'Monitoring'])
         .order('probability', { ascending: false })
         .limit(5);
 
@@ -106,29 +105,19 @@ export default function MyRisksWidget() {
 
   const getImpactColor = (impact: string) => {
     switch (impact?.toLowerCase()) {
-      case 'critical': return 'bg-[#A93226]';
-      case 'high': return 'bg-[#D43E3E]';
-      case 'medium': return 'bg-[#C76F21]';
-      case 'low': return 'bg-[#4DB8AA]';
-      default: return 'bg-[#7F8C8D]';
+      case 'critical': case 'high': return 'bg-red-500';
+      case 'medium': return 'bg-yellow-500';
+      case 'low': return 'bg-green-500';
+      default: return 'bg-gray-500';
     }
   };
 
   const getImpactTextColor = (impact: string) => {
     switch (impact?.toLowerCase()) {
-      case 'critical': return 'text-[#A93226]';
-      case 'high': return 'text-[#D43E3E]';
-      case 'medium': return 'text-[#C76F21]';
-      case 'low': return 'text-[#4DB8AA]';
-      default: return 'text-[#7F8C8D]';
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'active': return 'bg-[#D43E3E] bg-opacity-20 text-[#D43E3E]';
-      case 'closed': return 'bg-[#276A6C] bg-opacity-20 text-[#276A6C]';
-      default: return 'bg-[#7F8C8D] bg-opacity-20 text-[#7F8C8D]';
+      case 'critical': case 'high': return 'text-red-700';
+      case 'medium': return 'text-yellow-700';
+      case 'low': return 'text-green-700';
+      default: return 'text-gray-700';
     }
   };
 
@@ -138,7 +127,7 @@ export default function MyRisksWidget() {
 
   if (loading) {
     return (
-      <div className="bg-widget-bg rounded-lg shadow-sm p-6 border border-gray-200 h-full">
+      <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 h-full">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
             <AlertTriangle className="w-5 h-5" />
@@ -155,14 +144,14 @@ export default function MyRisksWidget() {
   }
 
   return (
-    <div className="bg-widget-bg rounded-lg shadow-sm p-6 border border-gray-200 h-full flex flex-col">
+    <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 h-full flex flex-col">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-          <AlertTriangle className="w-5 h-5 text-[#C76F21]" />
+          <AlertTriangle className="w-5 h-5 text-orange-600" />
           My Risks
         </h3>
         {highRiskCount > 0 && (
-          <span className="px-2 py-1 bg-[#D43E3E] bg-opacity-20 text-[#D43E3E] text-xs rounded-full flex items-center gap-1 font-medium">
+          <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full flex items-center gap-1 font-medium">
             <AlertTriangle className="w-3 h-3" />
             {highRiskCount} high
           </span>
@@ -183,7 +172,7 @@ export default function MyRisksWidget() {
             <Link
               key={risk.id}
               to={`/projects/${risk.project_id}`}
-              className="block bg-gray-50 p-4 rounded-lg border border-gray-200 hover:border-[#C76F21] transition-all"
+              className="block bg-gray-50 p-4 rounded-lg border border-gray-200 hover:border-orange-300 transition-all"
             >
               <div className="flex items-start justify-between mb-2">
                 <div className="flex-1 min-w-0">
@@ -202,8 +191,8 @@ export default function MyRisksWidget() {
                     {risk.probability}% probability
                   </span>
                 </div>
-                <span className="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700">
-                  {risk.category || 'General'}
+                <span className="px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-700">
+                  {risk.status}
                 </span>
               </div>
             </Link>
@@ -217,7 +206,7 @@ export default function MyRisksWidget() {
             <span className="text-gray-600">{risks.length} active risks</span>
             <Link
               to="/projects"
-              className="text-[#5B2C91] hover:text-[#4a2377] flex items-center gap-1"
+              className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
             >
               View All
               <ChevronRight className="w-4 h-4" />
