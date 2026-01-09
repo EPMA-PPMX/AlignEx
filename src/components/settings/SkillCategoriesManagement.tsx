@@ -141,7 +141,7 @@ export default function SkillCategoriesManagement() {
         </div>
         <button
           onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Plus className="w-4 h-4" />
           Add Category
@@ -149,7 +149,7 @@ export default function SkillCategoriesManagement() {
       </div>
 
       {showAddForm && (
-        <div className="bg-primary-50 border border-blue-200 rounded-lg p-4">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <h3 className="font-medium text-slate-900 mb-4">New Skill Category</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
@@ -160,7 +160,7 @@ export default function SkillCategoriesManagement() {
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="e.g., Project Management"
               />
             </div>
@@ -170,7 +170,7 @@ export default function SkillCategoriesManagement() {
                 type="text"
                 value={formData.manager}
                 onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Manager name"
               />
             </div>
@@ -180,7 +180,7 @@ export default function SkillCategoriesManagement() {
                 type="text"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Brief description"
               />
             </div>
@@ -188,7 +188,7 @@ export default function SkillCategoriesManagement() {
           <div className="flex gap-2">
             <button
               onClick={handleAdd}
-              className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Save className="w-4 h-4" />
               Save
@@ -235,7 +235,7 @@ export default function SkillCategoriesManagement() {
                         type="text"
                         value={category.name}
                         onChange={(e) => handleCategoryChange(category.id, 'name', e.target.value)}
-                        className="w-full px-2 py-1 border border-slate-300 rounded focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        className="w-full px-2 py-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     ) : (
                       <span className="font-medium text-slate-900">{category.name}</span>
@@ -247,7 +247,7 @@ export default function SkillCategoriesManagement() {
                         type="text"
                         value={category.manager}
                         onChange={(e) => handleCategoryChange(category.id, 'manager', e.target.value)}
-                        className="w-full px-2 py-1 border border-slate-300 rounded focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        className="w-full px-2 py-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     ) : (
                       <span className="text-slate-700">{category.manager || '-'}</span>
@@ -261,7 +261,7 @@ export default function SkillCategoriesManagement() {
                         onChange={(e) =>
                           handleCategoryChange(category.id, 'description', e.target.value)
                         }
-                        className="w-full px-2 py-1 border border-slate-300 rounded focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        className="w-full px-2 py-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     ) : (
                       <span className="text-slate-600">{category.description || '-'}</span>
@@ -293,7 +293,7 @@ export default function SkillCategoriesManagement() {
                         <>
                           <button
                             onClick={() => setEditingId(category.id)}
-                            className="p-1 text-primary-600 hover:bg-primary-50 rounded transition-colors"
+                            className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
                             title="Edit"
                           >
                             <Edit2 className="w-4 h-4" />
