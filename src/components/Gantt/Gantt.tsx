@@ -2,7 +2,6 @@ import React, { Component, createRef } from "react";
 import { gantt } from "../../lib/dhtmlxgantt/gantt-wrapper";
 import "../../lib/dhtmlxgantt/dhtmlxgantt.css";
 import "./Gantt.css";
-import { supabase } from "../../lib/supabase";
 
 // Define TypeScript interfaces for props and tasks
 interface Task {
@@ -58,14 +57,11 @@ interface GanttProps {
   onTaskUpdate?: () => void;
   onOpenTaskModal?: (parentId?: number) => void;
   onEditTask?: (taskId: number) => void;
-  onTaskSelect?: (taskId: number | null) => void;
-  onTaskMultiSelect?: (taskIds: number[]) => void;
   searchQuery?: string;
   selectedTaskFields?: string[];
   taskCustomFields?: CustomField[];
   showResourcePanel?: boolean;
   projectCreatedAt?: string;
-  projectId?: string;
 }
 
 interface GanttState {}
@@ -80,123 +76,10 @@ export default class Gantt extends Component<GanttProps, GanttState> {
   private groupHeaderIdStart: number = 999900;
   private resizeObserver: ResizeObserver | null = null;
   private readonly skipWeekends: boolean = true; // Always skip weekends by default
-  private userId: string = 'anonymous'; // Default user ID for preferences
-  private isUndoRedoInProgress = false;
-  private eventHandlersAttached = false;
 
   constructor(props: GanttProps) {
     super(props);
     this.state = {};
-  }
-
-  // Save grid width preference to database
-  private async saveGridWidthPreference(gridWidth: number): Promise<void> {
-    try {
-      const { error } = await supabase
-        .from('user_preferences')
-        .upsert({
-          user_id: this.userId,
-          preference_key: 'gantt_grid_width',
-          preference_value: { width: gridWidth },
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,preference_key'
-        });
-
-      if (error) {
-        console.error('Error saving grid width preference:', error);
-      } else {
-        console.log('Grid width preference saved:', gridWidth);
-      }
-    } catch (error) {
-      console.error('Error saving grid width preference:', error);
-    }
-  }
-
-  // Load grid width preference from database
-  private async loadGridWidthPreference(): Promise<number | null> {
-    try {
-      const { data, error } = await supabase
-        .from('user_preferences')
-        .select('preference_value')
-        .eq('user_id', this.userId)
-        .eq('preference_key', 'gantt_grid_width')
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error loading grid width preference:', error);
-        return null;
-      }
-
-      if (data && data.preference_value && typeof data.preference_value.width === 'number') {
-        console.log('Grid width preference loaded:', data.preference_value.width);
-        return data.preference_value.width;
-      }
-
-      return null;
-    } catch (error) {
-      console.error('Error loading grid width preference:', error);
-      return null;
-    }
-  }
-
-  // Save zoom level preference to database (per project)
-  private async saveZoomLevelPreference(zoomLevel: string): Promise<void> {
-    const { projectId } = this.props;
-    if (!projectId) return;
-
-    try {
-      const preferenceKey = `gantt_zoom_level_${projectId}`;
-      const { error } = await supabase
-        .from('user_preferences')
-        .upsert({
-          user_id: this.userId,
-          preference_key: preferenceKey,
-          preference_value: { zoom_level: zoomLevel },
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,preference_key'
-        });
-
-      if (error) {
-        console.error('Error saving zoom level preference:', error);
-      } else {
-        console.log('Zoom level preference saved:', zoomLevel, 'for project:', projectId);
-      }
-    } catch (error) {
-      console.error('Error saving zoom level preference:', error);
-    }
-  }
-
-  // Load zoom level preference from database (per project)
-  private async loadZoomLevelPreference(): Promise<string | null> {
-    const { projectId } = this.props;
-    if (!projectId) return null;
-
-    try {
-      const preferenceKey = `gantt_zoom_level_${projectId}`;
-      const { data, error } = await supabase
-        .from('user_preferences')
-        .select('preference_value')
-        .eq('user_id', this.userId)
-        .eq('preference_key', preferenceKey)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error loading zoom level preference:', error);
-        return null;
-      }
-
-      if (data && data.preference_value && typeof data.preference_value.zoom_level === 'string') {
-        console.log('Zoom level preference loaded:', data.preference_value.zoom_level, 'for project:', projectId);
-        return data.preference_value.zoom_level;
-      }
-
-      return null;
-    } catch (error) {
-      console.error('Error loading zoom level preference:', error);
-      return null;
-    }
   }
 
   public isGroupedByOwner = (): boolean => {
@@ -303,12 +186,10 @@ export default class Gantt extends Component<GanttProps, GanttState> {
 
   public zoomIn = (): void => {
     gantt.ext.zoom.zoomIn();
-    // Note: onAfterZoom event will handle saving the preference
   };
 
   public zoomOut = (): void => {
     gantt.ext.zoom.zoomOut();
-    // Note: onAfterZoom event will handle saving the preference
   };
 
   public toggleGroupByOwner = (): void => {
@@ -501,38 +382,38 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           el.style.left = sizes.left + 'px';
           el.style.width = sizes.width + 'px';
 
-          // Use the actual task's top position and add actual task height to place baseline below
-          // sizes.top is the top of the row, task bar is centered in the row
-          // sizes.height is the actual height of the rendered task bar
+          // Position baseline directly below the purple task bar
+          // Get the task bar's actual position in the row
           const rowTop = actualTaskSizes.top;
           const rowHeight = actualTaskSizes.rowHeight;
           const taskBarHeight = actualTaskSizes.height;
           const taskBarVerticalOffset = (rowHeight - taskBarHeight) / 2;
           const taskBarTop = rowTop + taskBarVerticalOffset;
           const taskBarBottom = taskBarTop + taskBarHeight;
-          const baselineTop = taskBarBottom + 25;
+          // Place baseline 1px below the task bar with minimal gap
+          const baselineTop = taskBarBottom + 1;
 
           console.log(`Task ${task.id} - calculated: rowTop=${rowTop}, taskBarTop=${taskBarTop}, taskBarBottom=${taskBarBottom}, baselineTop=${baselineTop}`);
 
           el.style.top = baselineTop + 'px';
-          el.style.height = '6px';
+          el.style.height = '2px';
           el.style.background = '#ec4899';
-          el.style.border = '1px solid #db2777';
+          el.style.border = 'none';
           el.style.opacity = '0.8';
           el.style.borderRadius = '3px';
           el.style.pointerEvents = 'none';
           el.style.zIndex = '1';
 
-          // Find the timeline area and append
-          const timelineArea = document.querySelector('.gantt_task');
-          console.log("Timeline area found:", !!timelineArea);
+          // Find the bars area (the scrolling content layer) and append
+          const barsArea = document.querySelector('.gantt_bars_area');
+          console.log("Bars area found:", !!barsArea);
 
-          if (timelineArea) {
-            timelineArea.appendChild(el);
+          if (barsArea) {
+            barsArea.appendChild(el);
             baselineCount++;
             console.log(`Baseline rendered for task ${task.id} at top: ${baselineTop}px`);
           } else {
-            console.warn("Timeline area not found for baseline rendering");
+            console.warn("Bars area not found for baseline rendering");
           }
         } catch (e) {
           console.error('Error rendering baseline for task', task.id, e);
@@ -636,8 +517,8 @@ export default class Gantt extends Component<GanttProps, GanttState> {
             const startDate = typeof task.start_date === 'string'
               ? gantt.date.parseDate(task.start_date, "xml_date")
               : task.start_date;
-            // Format as "Mon 12/01/25"
-            return gantt.date.date_to_str("%D %m/%d/%y")(startDate);
+            // Format with date and time
+            return gantt.date.date_to_str("%Y-%m-%d %H:%i")(startDate);
           }
           return "";
         }
@@ -655,11 +536,11 @@ export default class Gantt extends Component<GanttProps, GanttState> {
             const startDate = typeof task.start_date === 'string'
               ? gantt.date.parseDate(task.start_date, "xml_date")
               : task.start_date;
-            const endDate = gantt.calculateEndDate(startDate, task.duration);
-            // Subtract 1 day from end date to show the actual last working day
-            const adjustedEndDate = gantt.date.add(endDate, -1, "day");
-            // Format as "Mon 12/01/25"
-            return gantt.date.date_to_str("%D %m/%d/%y")(adjustedEndDate);
+            // DHTMLX uses exclusive end dates (end_date = start of day after task completes)
+            // Subtract 1 day to show the inclusive end date (actual last day of the task)
+            const exclusiveEndDate = gantt.calculateEndDate(startDate, task.duration);
+            const inclusiveEndDate = gantt.date.add(exclusiveEndDate, -1, "day");
+            return gantt.date.date_to_str("%Y-%m-%d %H:%i")(inclusiveEndDate);
           }
           return "";
         }
@@ -769,7 +650,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     gantt.config.columns = baseColumns;
   };
 
-  async componentDidMount(): Promise<void> {
+  componentDidMount(): void {
     if (!this.ganttContainer.current) return;
 
     gantt.license = "39548339";
@@ -781,6 +662,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     // Configure work time - always skip weekends by default
     gantt.config.duration_unit = "day";
     gantt.config.skip_off_time = false; // Always show weekends in chart (never hide them)
+    gantt.config.correct_work_time = true; // Ensure duration calculations respect work_time
 
     // Apply work time configuration to skip weekends
     this.updateWorkTimeConfig(this.skipWeekends);
@@ -797,114 +679,9 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       keyboard_navigation: true,
       auto_scheduling: true, // Enable auto-scheduling for automatic task rescheduling based on dependencies
       inline_editors: true,
-      export_api: true, // Enable MS Project import/export functionality
-      undo: true, // Enable undo/redo functionality
-      multiselect: true // Enable multi-task selection
+      export_api: true // Enable MS Project import/export functionality
     });
-
-    // Configure undo plugin
-    gantt.config.undo = true;
-    gantt.config.redo = true;
-    gantt.config.undo_steps = 50; // Number of steps to keep in history
-    gantt.config.undo_types = {
-      update: "update",
-      add: "add",
-      remove: "remove",
-      link: "link"
-    };
-
     gantt.config.keyboard_navigation_cells = true;
-
-    // Configure keyboard shortcuts for inline editing
-    gantt.keys.edit_cancel = 27; // Escape key to cancel inline edit
-
-    // Track inline editor state more reliably
-    let isInlineEditing = false;
-    let editingStartTime = 0;
-
-    gantt.attachEvent("onBeforeLightbox", () => {
-      // Lightbox is opening, not our inline editor
-      return true;
-    });
-
-    gantt.attachEvent("onBeforeInlineEditorStart", () => {
-      isInlineEditing = true;
-      editingStartTime = Date.now();
-      console.log("Inline editor started");
-      return true;
-    });
-
-    gantt.attachEvent("onAfterInlineEditorClose", () => {
-      isInlineEditing = false;
-      console.log("Inline editor closed");
-      return true;
-    });
-
-    // Add keyboard shortcuts for creating new tasks using DOM event
-    const ganttElement = this.ganttContainer.current;
-    if (ganttElement) {
-      ganttElement.addEventListener('keydown', (e: KeyboardEvent) => {
-        const keyCode = e.keyCode || e.which;
-
-        // Only handle Enter keys
-        if (keyCode !== 13) return;
-
-        // Check if we're in an input, textarea, or contenteditable element
-        const target = e.target as HTMLElement;
-        const tagName = target.tagName.toLowerCase();
-        const isEditable = tagName === 'input' ||
-                          tagName === 'textarea' ||
-                          target.isContentEditable ||
-                          target.classList.contains('gantt_cal_light') ||
-                          isInlineEditing;
-
-        if (isEditable) {
-          console.log("In editable field, skipping task creation");
-          return; // Let the default behavior handle it
-        }
-
-        console.log("Enter pressed, isEditable:", isEditable, "isInlineEditing:", isInlineEditing);
-
-        // Ctrl+Enter or Cmd+Enter to create subtask
-        if (e.ctrlKey || e.metaKey) {
-          const selectedTaskId = gantt.getSelectedId();
-          console.log("Ctrl+Enter pressed, selectedTaskId:", selectedTaskId);
-          if (selectedTaskId && onOpenTaskModal) {
-            const task = gantt.getTask(selectedTaskId);
-            if (!task.$group_header) {
-              onOpenTaskModal(selectedTaskId);
-              e.preventDefault();
-              e.stopPropagation();
-            }
-          } else if (onOpenTaskModal) {
-            onOpenTaskModal();
-            e.preventDefault();
-            e.stopPropagation();
-          }
-          return;
-        }
-
-        // Plain Enter to create sibling task
-        if (!e.shiftKey && !e.altKey) {
-          const selectedTaskId = gantt.getSelectedId();
-          console.log("Enter pressed, selectedTaskId:", selectedTaskId);
-          if (selectedTaskId && onOpenTaskModal) {
-            const task = gantt.getTask(selectedTaskId);
-            if (!task.$group_header) {
-              const parentId = task.parent || undefined;
-              console.log("Creating sibling task with parentId:", parentId);
-              onOpenTaskModal(parentId);
-              e.preventDefault();
-              e.stopPropagation();
-            }
-          } else if (onOpenTaskModal) {
-            onOpenTaskModal();
-            e.preventDefault();
-            e.stopPropagation();
-          }
-        }
-      }, true); // Use capture phase to catch it early
-    }
 
     // Configure auto-scheduling behavior
     gantt.config.auto_scheduling = true; // Enable auto-scheduling
@@ -924,7 +701,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           scale_height: 27,
           min_column_width: 80,
           scales: [
-            { unit: "day", step: 1, format: "%D %m/%d/%y" }
+            { unit: "day", step: 1, format: "%d %M" }
           ]
         },
         {
@@ -933,13 +710,13 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           min_column_width: 50,
           scales: [
             { unit: "week", step: 1, format: function (date: Date) {
-                const dateToStr = gantt.date.date_to_str("%m/%d/%y");
+                const dateToStr = gantt.date.date_to_str("%d %M");
                 const endDate = gantt.date.add(date, -6, "day");
                 const weekNum = gantt.date.date_to_str("%W")(date);
                 return "#" + weekNum + ", " + dateToStr(date) + " - " + dateToStr(endDate);
               }
             },
-            { unit: "day", step: 1, format: "%D %m/%d" }
+            { unit: "day", step: 1, format: "%j %D" }
           ]
         },
         {
@@ -957,12 +734,12 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           min_column_width: 90,
           scales: [
             { unit: "quarter", step: 1, format: function (date: Date) {
-                const dateToStr = gantt.date.date_to_str("%m/%d/%y");
+                const dateToStr = gantt.date.date_to_str("%M");
                 const endDate = gantt.date.add(gantt.date.add(date, 3, "month"), -1, "day");
                 return dateToStr(date) + " - " + dateToStr(endDate);
               }
             },
-            { unit: "month", step: 1, format: "%M %y" }
+            { unit: "month", step: 1, format: "%M" }
           ]
         },
         {
@@ -979,34 +756,18 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     // Initialize zoom extension if it exists
     if (gantt.ext && gantt.ext.zoom) {
       gantt.ext.zoom.init(zoomConfig);
-
-      // Load saved zoom level for this project, or use default
-      const savedZoomLevel = await this.loadZoomLevelPreference();
-      const initialZoomLevel = savedZoomLevel || "day";
-      gantt.ext.zoom.setLevel(initialZoomLevel);
-      console.log('Initial zoom level set to:', initialZoomLevel);
+      gantt.ext.zoom.setLevel("day");
     }
 
-    // Set grid width - load from preferences or use default (450px minimum to show task name)
-    const updateGridWidth = async () => {
+    // Set grid width to 40% of container (task pane), leaving 60% for chart
+    const updateGridWidth = () => {
       if (this.ganttContainer.current) {
         const containerWidth = this.ganttContainer.current.offsetWidth;
-
-        // Try to load saved preference
-        const savedWidth = await this.loadGridWidthPreference();
-
-        if (savedWidth !== null) {
-          // Use saved width
-          gantt.config.grid_width = savedWidth;
-        } else {
-          // Use default: 40% of container but at least 450px to show task name column
-          const defaultWidth = Math.floor(containerWidth * 0.4);
-          gantt.config.grid_width = Math.max(450, defaultWidth);
-        }
+        gantt.config.grid_width = Math.floor(containerWidth * 0.4);
       }
     };
 
-    await updateGridWidth();
+    updateGridWidth();
     gantt.config.min_grid_column_width = 50;
 
     gantt.config.duration_step = 1;
@@ -1081,7 +842,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           {
             cols: [
               {
-                width: gantt.config.grid_width || 450,
+                width: 400,
                 min_width: 300,
                 rows: [
                   {
@@ -1151,7 +912,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         css: "gantt_container",
         cols: [
           {
-            width: gantt.config.grid_width || 450,
+            width: 400,
             min_width: 300,
             rows: [
               {
@@ -1290,7 +1051,11 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         // Set default start date to project creation date if no start date provided
         const { projectCreatedAt } = this.props;
         if (!task.start_date && projectCreatedAt) {
-          task.start_date = new Date(projectCreatedAt);
+          const createdDate = new Date(projectCreatedAt);
+          const year = createdDate.getFullYear();
+          const month = String(createdDate.getMonth() + 1).padStart(2, '0');
+          const day = String(createdDate.getDate()).padStart(2, '0');
+          task.start_date = `${year}-${month}-${day} 00:00`;
           console.log("Set default start_date to project creation date:", task.start_date);
         }
 
@@ -1428,8 +1193,14 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     // Recalculate end_date when task is loaded to ensure consistency
     gantt.attachEvent("onTaskLoading", (task: any) => {
       if (task.start_date && task.duration !== undefined && !task.$group_header) {
-        // Use DHTMLX's calculateEndDate which calculates calendar days (including weekends)
-        const calculatedEndDate = gantt.calculateEndDate(task.start_date, task.duration);
+        // Parse start_date if it's a string
+        const startDate = typeof task.start_date === 'string'
+          ? gantt.date.parseDate(task.start_date, "xml_date")
+          : task.start_date;
+
+        // Calculate end date - DHTMLX uses exclusive end dates
+        // For visual rendering to work correctly, we need to ensure proper calculation
+        const calculatedEndDate = gantt.calculateEndDate(startDate, task.duration);
         task.end_date = calculatedEndDate;
       }
       return true;
@@ -1586,51 +1357,13 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     if (this.ganttContainer.current) {
       gantt.init(this.ganttContainer.current);
 
-      // Attach event handlers for undo/redo and auto-save
-      this.attachEventHandlers();
-
-      // Listen for task selection
-      const { onTaskSelect, onTaskMultiSelect } = this.props;
-      if (onTaskSelect) {
-        gantt.attachEvent("onTaskSelected", (id: number) => {
-          onTaskSelect(id);
-          return true;
-        });
-
-        gantt.attachEvent("onTaskUnselected", (id: number) => {
-          onTaskSelect(null);
-          return true;
-        });
-      }
-
-      // Listen for multi-task selection
-      if (onTaskMultiSelect) {
-        gantt.attachEvent("onTaskMultiselect", (id: number, state: boolean, e: Event) => {
-          const selectedTasks = gantt.getSelectedTasks();
-          onTaskMultiSelect(selectedTasks);
-          return true;
-        });
-      }
-
-      // Listen for grid resize events to save the user's preference
-      gantt.attachEvent("onGridResizeEnd", (old_width: number, new_width: number) => {
-        console.log("Grid resized from", old_width, "to", new_width);
-        this.saveGridWidthPreference(new_width);
-        return true;
-      });
-
-      // Listen for zoom level changes to save the user's preference per project
-      if (gantt.ext && gantt.ext.zoom) {
-        gantt.ext.zoom.attachEvent("onAfterZoom", (level: any, config: any) => {
-          console.log("Zoom level changed to:", level);
-          this.saveZoomLevelPreference(level);
-        });
-      }
-
-      // Set up ResizeObserver to handle container resize (but not override user preference)
+      // Set up ResizeObserver to update grid width on container resize
       this.resizeObserver = new ResizeObserver(() => {
-        // Only render, don't change grid_width since user may have set a preference
-        gantt.render();
+        if (this.ganttContainer.current) {
+          const containerWidth = this.ganttContainer.current.offsetWidth;
+          gantt.config.grid_width = Math.floor(containerWidth * 0.4);
+          gantt.render();
+        }
       });
       this.resizeObserver.observe(this.ganttContainer.current);
 
@@ -1859,7 +1592,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
             {
               cols: [
                 {
-                  width: gantt.config.grid_width || 450,
+                  width: 400,
                   min_width: 300,
                   rows: [
                     {
@@ -1929,7 +1662,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           css: "gantt_container",
           cols: [
             {
-              width: gantt.config.grid_width || 450,
+              width: 400,
               min_width: 300,
               rows: [
                 {
@@ -2059,13 +1792,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
                        prevProps.projecttasks.data?.length !== projecttasks.data?.length ||
                        prevProps.projecttasks.links !== projecttasks.links;
 
-    // Skip re-parsing data if undo/redo is in progress to preserve the undo/redo stack
     if (dataChanged) {
-      if (this.isUndoRedoInProgress) {
-        console.log("Skipping data re-parse - undo/redo in progress");
-        return;
-      }
-
       this.allTasks = projecttasks.data || [];
       console.log("=== Gantt parsing tasks ===", projecttasks.data?.length || 0, "tasks");
 
@@ -2297,102 +2024,16 @@ export default class Gantt extends Component<GanttProps, GanttState> {
   }
 
   /**
-   * Remove end_date from tasks to prevent DHTMLX from prioritizing it over duration.
-   * DHTMLX will calculate end_date automatically based on start_date + duration.
-   * This fixes the bug where old end_date from database causes incorrect duration recalculation.
+   * Remove end_date from tasks to ensure DHTMLX uses the stored duration value.
+   * DHTMLX prioritizes end_date over duration, so removing it forces the library
+   * to calculate end_date from start_date + duration, preventing off-by-one errors.
    */
   private prepareTasksForParsing(tasks: any[]): any[] {
     return tasks.map(task => {
+      // Remove end_date to let DHTMLX calculate it from duration
       const { end_date, ...taskWithoutEndDate } = task;
       return taskWithoutEndDate;
     });
-  }
-
-  attachEventHandlers(): void {
-    const { onTaskUpdate } = this.props;
-
-    if (!onTaskUpdate) return;
-
-    // Only attach once to prevent duplicate handlers
-    if (this.eventHandlersAttached) {
-      console.log('Event handlers already attached, skipping');
-      return;
-    }
-
-    console.log('Attaching Gantt event handlers');
-
-    // After any task is added, updated, or deleted
-    gantt.attachEvent("onAfterTaskAdd", () => {
-      if (!this.isUndoRedoInProgress) {
-        onTaskUpdate();
-      }
-    });
-    gantt.attachEvent("onAfterTaskUpdate", () => {
-      if (!this.isUndoRedoInProgress) {
-        onTaskUpdate();
-      }
-    });
-    gantt.attachEvent("onAfterTaskDelete", () => {
-      if (!this.isUndoRedoInProgress) {
-        onTaskUpdate();
-      }
-    });
-
-    // After any link is added or deleted
-    gantt.attachEvent("onAfterLinkAdd", () => {
-      if (!this.isUndoRedoInProgress) {
-        onTaskUpdate();
-      }
-    });
-    gantt.attachEvent("onAfterLinkDelete", () => {
-      if (!this.isUndoRedoInProgress) {
-        onTaskUpdate();
-      }
-    });
-
-    // Listen for undo/redo actions to prevent auto-save during these operations
-    gantt.attachEvent("onBeforeUndo", () => {
-      console.log('onBeforeUndo triggered');
-      this.isUndoRedoInProgress = true;
-      return true;
-    });
-
-    gantt.attachEvent("onAfterUndo", () => {
-      console.log('onAfterUndo triggered');
-      // Save immediately with skipRefresh flag
-      if (onTaskUpdate) {
-        onTaskUpdate(true);
-      }
-      // Keep flag active longer to prevent re-parsing during save
-      setTimeout(() => {
-        console.log('Resetting isUndoRedoInProgress flag after undo');
-        this.isUndoRedoInProgress = false;
-      }, 500);
-      return true;
-    });
-
-    gantt.attachEvent("onBeforeRedo", () => {
-      console.log('onBeforeRedo triggered');
-      this.isUndoRedoInProgress = true;
-      return true;
-    });
-
-    gantt.attachEvent("onAfterRedo", () => {
-      console.log('onAfterRedo triggered');
-      // Save immediately with skipRefresh flag
-      if (onTaskUpdate) {
-        onTaskUpdate(true);
-      }
-      // Keep flag active longer to prevent re-parsing during save
-      setTimeout(() => {
-        console.log('Resetting isUndoRedoInProgress flag after redo');
-        this.isUndoRedoInProgress = false;
-      }, 500);
-      return true;
-    });
-
-    this.eventHandlersAttached = true;
-    console.log('Event handlers attached successfully');
   }
 
   render(): React.ReactNode {

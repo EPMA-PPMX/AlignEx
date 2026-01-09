@@ -12,54 +12,18 @@
 /* Grid resizer styling - the vertical line between grid and timeline */
 .gantt_grid_resize_wrap {
   cursor: col-resize !important;
-  background-color: #64748b;
-  width: 8px !important;
+  background-color: #d1d5db;
+  width: 3px !important;
   position: absolute;
   right: 0;
   top: 0;
   height: 100%;
   z-index: 100;
-  transition: all 0.2s ease;
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.15);
+  transition: background-color 0.2s ease;
 }
 
 .gantt_grid_resize_wrap:hover {
   background-color: #3b82f6 !important;
-  width: 10px !important;
-  box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
-}
-
-/* Arrow indicator on hover */
-.gantt_grid_resize_wrap::before,
-.gantt_grid_resize_wrap::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 0;
-  height: 0;
-  border-style: solid;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.gantt_grid_resize_wrap:hover::before,
-.gantt_grid_resize_wrap:hover::after {
-  opacity: 1;
-}
-
-/* Left arrow */
-.gantt_grid_resize_wrap::before {
-  left: -10px;
-  border-width: 8px 10px 8px 0;
-  border-color: transparent #3b82f6 transparent transparent;
-}
-
-/* Right arrow */
-.gantt_grid_resize_wrap::after {
-  right: -10px;
-  border-width: 8px 0 8px 10px;
-  border-color: transparent transparent transparent #3b82f6;
 }
 
 .gantt_grid_head_cell {
