@@ -77,7 +77,7 @@ const Dashboard: React.FC = () => {
             {getCurrentTime()}, {user?.full_name?.split(' ')[0] || 'User'}!
           </h1>
           <p className="text-gray-600 flex items-center gap-2">
-            <span className="px-3 py-1 bg-[#5B2C91] text-white rounded-full text-sm font-medium">
+            <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
               {user?.system_role}
             </span>
             <span className="text-gray-500">
@@ -91,7 +91,7 @@ const Dashboard: React.FC = () => {
         </div>
         <button
           onClick={() => setShowCustomizeModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#5B2C91] hover:bg-[#4a2377] text-white rounded-lg transition-all shadow-sm"
+          className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg transition-all border border-gray-300 shadow-sm"
           title="Customize Dashboard"
         >
           <Settings className="w-5 h-5" />
@@ -127,7 +127,7 @@ const Dashboard: React.FC = () => {
           <p className="text-gray-600 mb-4">No widgets enabled</p>
           <button
             onClick={() => setShowCustomizeModal(true)}
-            className="px-4 py-2 bg-[#5B2C91] hover:bg-[#4a2377] text-white rounded-lg transition-colors"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
           >
             Add Widgets
           </button>

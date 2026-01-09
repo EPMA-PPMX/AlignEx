@@ -10,7 +10,6 @@ interface ProjectTemplate {
   template_name: string;
   template_description?: string;
   start_date?: string | null;
-  schedule_template_id?: string | null;
 }
 
 interface OrganizationalPriority {
@@ -106,7 +105,7 @@ const NewProject: React.FC = () => {
           name: formData.name.trim(),
           description: formData.description.trim() || null,
           template_id: formData.template_id || null,
-          schedule_start_date: formData.start_date || null,
+          start_date: formData.start_date || null,
           status: 'In-Progress'
         }])
         .select();
@@ -116,68 +115,22 @@ const NewProject: React.FC = () => {
         return;
       }
 
-      if (projectData && projectData[0]) {
+      if (projectData && projectData[0] && selectedPriorities.length > 0) {
         const projectId = projectData[0].id;
+        const impactRecords = selectedPriorities.map(priorityId => ({
+          project_id: projectId,
+          priority_id: priorityId,
+          planned_impact: priorityImpacts[priorityId].trim(),
+          actual_impact: null,
+          notes: null
+        }));
 
-        // Link selected priorities
-        if (selectedPriorities.length > 0) {
-          const impactRecords = selectedPriorities.map(priorityId => ({
-            project_id: projectId,
-            priority_id: priorityId,
-            planned_impact: priorityImpacts[priorityId].trim(),
-            actual_impact: null,
-            notes: null
-          }));
+        const { error: impactError } = await supabase
+          .from('project_priority_impacts')
+          .insert(impactRecords);
 
-          const { error: impactError } = await supabase
-            .from('project_priority_impacts')
-            .insert(impactRecords);
-
-          if (impactError) {
-            console.error('Error linking priorities:', impactError);
-          }
-        }
-
-        // Apply schedule template if one is linked to the project type
-        if (formData.template_id) {
-          const selectedTemplate = templates.find(t => t.id === formData.template_id);
-          if (selectedTemplate && selectedTemplate.schedule_template_id) {
-            try {
-              // Fetch the schedule template
-              const { data: scheduleTemplate, error: scheduleTemplateError } = await supabase
-                .from('schedule_templates')
-                .select('*')
-                .eq('id', selectedTemplate.schedule_template_id)
-                .maybeSingle();
-
-              if (scheduleTemplateError) {
-                console.error('Error fetching schedule template:', scheduleTemplateError);
-              } else if (scheduleTemplate) {
-                // Create project tasks from the schedule template
-                const taskData = {
-                  data: scheduleTemplate.tasks_data || [],
-                  links: scheduleTemplate.links_data || [],
-                  resources: scheduleTemplate.resources_data || [],
-                  resourceAssignments: scheduleTemplate.resource_assignments_data || []
-                };
-
-                const { error: tasksError } = await supabase
-                  .from('project_tasks')
-                  .insert({
-                    project_id: projectId,
-                    task_data: taskData
-                  });
-
-                if (tasksError) {
-                  console.error('Error creating project tasks from template:', tasksError);
-                } else {
-                  console.log('Schedule template applied successfully');
-                }
-              }
-            } catch (error) {
-              console.error('Error applying schedule template:', error);
-            }
-          }
+        if (impactError) {
+          console.error('Error linking priorities:', impactError);
         }
       }
 
@@ -273,7 +226,7 @@ const NewProject: React.FC = () => {
                   name="template_id"
                   value={formData.template_id}
                   onChange={handleSelectChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
                   disabled={loading}
                   required
                 >
@@ -302,7 +255,7 @@ const NewProject: React.FC = () => {
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
                 placeholder="Enter project name"
                 required
                 disabled={loading}
@@ -319,7 +272,7 @@ const NewProject: React.FC = () => {
                 value={formData.description}
                 onChange={handleInputChange}
                 rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors resize-vertical"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-vertical"
                 placeholder="Enter project description (optional)"
                 disabled={loading}
               />
@@ -420,7 +373,7 @@ const NewProject: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading || !formData.name.trim() || !formData.template_id}
-                className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <>

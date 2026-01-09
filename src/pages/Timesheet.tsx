@@ -243,11 +243,8 @@ const Timesheet: React.FC = () => {
 
     const allRows = Array.from(rowsMap.values());
     setRows(allRows);
+    setAddedRows([]);
   }, [currentWeekStart]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
 
   const getWeekDates = () => {
     const dates = [];
