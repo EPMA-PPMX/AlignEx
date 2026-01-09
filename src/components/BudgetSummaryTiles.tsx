@@ -60,7 +60,7 @@ export const BudgetSummaryTiles: React.FC<BudgetSummaryTilesProps> = ({
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-gray-600">Total Budget</span>
             <div className="p-2 bg-blue-100 rounded-lg">
-              <DollarSign className="w-5 h-5 text-primary-600" />
+              <DollarSign className="w-5 h-5 text-blue-600" />
             </div>
           </div>
           <div className="text-2xl font-bold text-gray-900">

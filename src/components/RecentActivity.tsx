@@ -60,14 +60,14 @@ const RecentActivity: React.FC = () => {
             <div key={activity.id} className="flex items-start space-x-3">
               <div className="flex-shrink-0">
                 <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                  <Icon className="w-4 h-4 text-primary-600" />
+                  <Icon className="w-4 h-4 text-blue-600" />
                 </div>
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-gray-900">
                   <span className="font-medium">{activity.user}</span>
                   {' '}{activity.action}{' '}
-                  <span className="font-medium text-primary-600">{activity.target}</span>
+                  <span className="font-medium text-blue-600">{activity.target}</span>
                 </p>
                 <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
               </div>
@@ -76,7 +76,7 @@ const RecentActivity: React.FC = () => {
         })}
       </div>
       <div className="mt-6 pt-4 border-t border-gray-100">
-        <button className="text-sm text-primary-600 hover:text-primary-700 font-medium">
+        <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
           View all activity
         </button>
       </div>

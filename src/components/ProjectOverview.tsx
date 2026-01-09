@@ -26,7 +26,7 @@ const ProjectOverview: React.FC = () => {
           <h3 className="text-lg font-semibold text-gray-900">Project Progress</h3>
           <div className="flex items-center space-x-4 text-sm">
             <div className="flex items-center">
-              <div className="w-3 h-3 bg-primary-500 rounded-full mr-2"></div>
+              <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
               <span className="text-gray-600">Completed</span>
             </div>
             <div className="flex items-center">
@@ -44,7 +44,7 @@ const ProjectOverview: React.FC = () => {
                   <div className="w-full bg-emerald-500 rounded-t-sm" style={{ height: '100%' }}></div>
                 </div>
                 <div className="w-full bg-gray-100" style={{ height: `${(data.completed / 30) * 200}px`, minHeight: '4px' }}>
-                  <div className="w-full bg-primary-500" style={{ height: '100%' }}></div>
+                  <div className="w-full bg-blue-500" style={{ height: '100%' }}></div>
                 </div>
               </div>
               <span className="text-xs text-gray-600 mt-2">{data.month}</span>
