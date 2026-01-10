@@ -90,6 +90,40 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     return gantt;
   };
 
+  public importFromMSProject = (file: File, callback: (success: boolean, data?: any, error?: string) => void): void => {
+    if (!file) {
+      callback(false, null, 'No file provided');
+      return;
+    }
+
+    console.log('=== Importing MS Project file ===');
+    console.log('File name:', file.name);
+    console.log('File size:', file.size);
+    console.log('File type:', file.type);
+
+    gantt.importFromMSProject({
+      data: file,
+      durationUnit: "day",
+      server: file.size > 4 * 1024 * 1024 ? "https://export.dhtmlx.com/gantt/project" : "https://export.dhtmlx.com/gantt",
+      callback: (project: any) => {
+        console.log('=== MS Project Import Response ===');
+        console.log('Full project response:', project);
+        console.log('Project data:', project.data);
+        console.log('Tasks count:', project.data?.data?.length || 0);
+        console.log('Links count:', project.data?.links?.length || 0);
+        console.log('Resources:', project.data?.resources);
+        console.log('Resource assignments:', project.data?.resourceAssignments);
+        console.log('Sample task with resources:', project.data?.data?.[0]);
+
+        if (project && project.data) {
+          callback(true, project.data);
+        } else {
+          callback(false, null, 'Failed to parse MS Project file');
+        }
+      }
+    });
+  };
+
   // Helper function to calculate end date correctly (inclusive)
   public setBaseline = (baselineNum: number = 0): any[] => {
     const baselineData: any[] = [];
@@ -108,9 +142,11 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       const startDateStr = dateTimeFormat(startDate);
       const endDateStr = dateTimeFormat(endDate);
 
-      // Store baseline fields directly in task data with the naming convention: baseline{N}_StartDate and baseline{N}_EndDate
+      // Store baseline fields directly in task data with the naming convention: baseline{N}_StartDate, baseline{N}_EndDate, baseline{N}_Duration, and baseline{N}_Work
       task[`baseline${baselineNum}_StartDate`] = startDateStr;
       task[`baseline${baselineNum}_EndDate`] = endDateStr;
+      task[`baseline${baselineNum}_Duration`] = task.duration;
+      task[`baseline${baselineNum}_Work`] = task.work_hours || 0;
 
       // Also store as Date objects for rendering baseline bars
       task[`planned_start_${baselineNum}`] = startDate;
@@ -127,14 +163,16 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         task_id: task.id,
         baseline_number: baselineNum,
         [`baseline${baselineNum}_StartDate`]: startDateStr,
-        [`baseline${baselineNum}_EndDate`]: endDateStr
+        [`baseline${baselineNum}_EndDate`]: endDateStr,
+        [`baseline${baselineNum}_Duration`]: task.duration,
+        [`baseline${baselineNum}_Work`]: task.work_hours || 0
       });
 
       // Update the task in gantt
       gantt.updateTask(task.id);
     });
 
-    console.log(`Setting baseline ${baselineNum} with fields: baseline${baselineNum}_StartDate, baseline${baselineNum}_EndDate`);
+    console.log(`Setting baseline ${baselineNum} with fields: baseline${baselineNum}_StartDate, baseline${baselineNum}_EndDate, baseline${baselineNum}_Duration, baseline${baselineNum}_Work`);
     console.log('Baseline data:', baselineData);
     gantt.render();
 
@@ -155,6 +193,9 @@ export default class Gantt extends Component<GanttProps, GanttState> {
   };
 
   public toggleGroupByOwner = (): void => {
+    // Save scroll position before toggling
+    const scrollState = gantt.getScrollState();
+
     if (this.isGrouped) {
       // Remove grouping - restore original tasks
       console.log('Ungrouping: restoring original tasks', this.originalTasks);
@@ -167,6 +208,17 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         links: this.originalLinks
       });
       this.isGrouped = false;
+
+      // Restore scroll position
+      if (scrollState) {
+        setTimeout(() => {
+          try {
+            gantt.scrollTo(scrollState.x, scrollState.y);
+          } catch (e) {
+            console.warn('Could not restore scroll position:', e);
+          }
+        }, 50);
+      }
     } else {
       // Save original tasks and links
       this.originalTasks = [];
@@ -287,6 +339,17 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       });
 
       this.isGrouped = true;
+
+      // Restore scroll position
+      if (scrollState) {
+        setTimeout(() => {
+          try {
+            gantt.scrollTo(scrollState.x, scrollState.y);
+          } catch (e) {
+            console.warn('Could not restore scroll position:', e);
+          }
+        }, 50);
+      }
     }
   };
 
@@ -319,38 +382,38 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           el.style.left = sizes.left + 'px';
           el.style.width = sizes.width + 'px';
 
-          // Use the actual task's top position and add actual task height to place baseline below
-          // sizes.top is the top of the row, task bar is centered in the row
-          // sizes.height is the actual height of the rendered task bar
+          // Position baseline directly below the purple task bar
+          // Get the task bar's actual position in the row
           const rowTop = actualTaskSizes.top;
           const rowHeight = actualTaskSizes.rowHeight;
           const taskBarHeight = actualTaskSizes.height;
           const taskBarVerticalOffset = (rowHeight - taskBarHeight) / 2;
           const taskBarTop = rowTop + taskBarVerticalOffset;
           const taskBarBottom = taskBarTop + taskBarHeight;
-          const baselineTop = taskBarBottom + 25;
+          // Place baseline 1px below the task bar with minimal gap
+          const baselineTop = taskBarBottom + 1;
 
           console.log(`Task ${task.id} - calculated: rowTop=${rowTop}, taskBarTop=${taskBarTop}, taskBarBottom=${taskBarBottom}, baselineTop=${baselineTop}`);
 
           el.style.top = baselineTop + 'px';
-          el.style.height = '6px';
+          el.style.height = '2px';
           el.style.background = '#ec4899';
-          el.style.border = '1px solid #db2777';
+          el.style.border = 'none';
           el.style.opacity = '0.8';
           el.style.borderRadius = '3px';
           el.style.pointerEvents = 'none';
           el.style.zIndex = '1';
 
-          // Find the timeline area and append
-          const timelineArea = document.querySelector('.gantt_task');
-          console.log("Timeline area found:", !!timelineArea);
+          // Find the bars area (the scrolling content layer) and append
+          const barsArea = document.querySelector('.gantt_bars_area');
+          console.log("Bars area found:", !!barsArea);
 
-          if (timelineArea) {
-            timelineArea.appendChild(el);
+          if (barsArea) {
+            barsArea.appendChild(el);
             baselineCount++;
             console.log(`Baseline rendered for task ${task.id} at top: ${baselineTop}px`);
           } else {
-            console.warn("Timeline area not found for baseline rendering");
+            console.warn("Bars area not found for baseline rendering");
           }
         } catch (e) {
           console.error('Error rendering baseline for task', task.id, e);
@@ -421,18 +484,24 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           // Handle owner_name as array (multi-owner tasks)
           if (task.owner_name && Array.isArray(task.owner_name) && task.owner_name.length > 0) {
             const owners = task.owner_name;
-            const badges = owners.map((name: string, index: number) => {
-              const initial = name.charAt(0).toUpperCase();
-              const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-              const color = colors[index % colors.length];
-              return `<span class="owner-badge" style="background-color: ${color};" title="${name}">${initial}</span>`;
-            }).join('');
+            const badges = owners
+              .filter((name: any) => name && typeof name === 'string')
+              .map((name: string, index: number) => {
+                const initial = name.charAt(0).toUpperCase();
+                const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+                const color = colors[index % colors.length];
+                return `<span class="owner-badge" style="background-color: ${color};" title="${name}">${initial}</span>`;
+              }).join('');
 
-            return `<div class="owner-badges-container">${badges}</div>`;
+            return badges ? `<div class="owner-badges-container">${badges}</div>` : "Unassigned";
           }
 
           // Handle owner_name as string (legacy single-owner tasks)
-          return task.owner_name || "Unassigned";
+          if (task.owner_name && typeof task.owner_name === 'string') {
+            return task.owner_name;
+          }
+
+          return "Unassigned";
         }
       },
       {
@@ -467,11 +536,11 @@ export default class Gantt extends Component<GanttProps, GanttState> {
             const startDate = typeof task.start_date === 'string'
               ? gantt.date.parseDate(task.start_date, "xml_date")
               : task.start_date;
-            const endDate = gantt.calculateEndDate(startDate, task.duration);
-            // Subtract 1 day from end date to show the actual last working day
-            const adjustedEndDate = gantt.date.add(endDate, -1, "day");
-            // Format with date and time
-            return gantt.date.date_to_str("%Y-%m-%d %H:%i")(adjustedEndDate);
+            // DHTMLX uses exclusive end dates (end_date = start of day after task completes)
+            // Subtract 1 day to show the inclusive end date (actual last day of the task)
+            const exclusiveEndDate = gantt.calculateEndDate(startDate, task.duration);
+            const inclusiveEndDate = gantt.date.add(exclusiveEndDate, -1, "day");
+            return gantt.date.date_to_str("%Y-%m-%d %H:%i")(inclusiveEndDate);
           }
           return "";
         }
@@ -486,6 +555,20 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         template: (task: any) => {
           if (task.$group_header) return "";
           return task.duration || 0;
+        }
+      },
+      {
+        name: "work_hours",
+        label: "Work (hrs)",
+        align: "center",
+        width: 90,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          if (task.work_hours !== undefined && task.work_hours !== null) {
+            return task.work_hours.toFixed(2);
+          }
+          return "-";
         }
       },
       {
@@ -579,6 +662,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     // Configure work time - always skip weekends by default
     gantt.config.duration_unit = "day";
     gantt.config.skip_off_time = false; // Always show weekends in chart (never hide them)
+    gantt.config.correct_work_time = true; // Ensure duration calculations respect work_time
 
     // Apply work time configuration to skip weekends
     this.updateWorkTimeConfig(this.skipWeekends);
@@ -594,7 +678,8 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     gantt.plugins({
       keyboard_navigation: true,
       auto_scheduling: true, // Enable auto-scheduling for automatic task rescheduling based on dependencies
-      inline_editors: true
+      inline_editors: true,
+      export_api: true // Enable MS Project import/export functionality
     });
     gantt.config.keyboard_navigation_cells = true;
 
@@ -966,7 +1051,11 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         // Set default start date to project creation date if no start date provided
         const { projectCreatedAt } = this.props;
         if (!task.start_date && projectCreatedAt) {
-          task.start_date = new Date(projectCreatedAt);
+          const createdDate = new Date(projectCreatedAt);
+          const year = createdDate.getFullYear();
+          const month = String(createdDate.getMonth() + 1).padStart(2, '0');
+          const day = String(createdDate.getDate()).padStart(2, '0');
+          task.start_date = `${year}-${month}-${day} 00:00`;
           console.log("Set default start_date to project creation date:", task.start_date);
         }
 
@@ -1104,37 +1193,21 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     // Recalculate end_date when task is loaded to ensure consistency
     gantt.attachEvent("onTaskLoading", (task: any) => {
       if (task.start_date && task.duration !== undefined && !task.$group_header) {
-        console.log("=== onTaskLoading ===");
-        console.log("Task:", task.text);
-        console.log("Original start_date:", task.start_date);
-        console.log("Original end_date:", task.end_date);
-        console.log("Duration:", task.duration);
+        // Parse start_date if it's a string
+        const startDate = typeof task.start_date === 'string'
+          ? gantt.date.parseDate(task.start_date, "xml_date")
+          : task.start_date;
 
-        // Check if original dates exist
-        if (task.end_date) {
-          const calculatedDurationFromDates = gantt.calculateDuration(task.start_date, task.end_date);
-          console.log("Duration calculated from original dates (calendar days):", calculatedDurationFromDates);
-        }
-
-        // Use DHTMLX's calculateEndDate which calculates calendar days (including weekends)
-        const calculatedEndDate = gantt.calculateEndDate(task.start_date, task.duration);
-        console.log("Calculated end_date using duration:", calculatedEndDate);
-
+        // Calculate end date - DHTMLX uses exclusive end dates
+        // For visual rendering to work correctly, we need to ensure proper calculation
+        const calculatedEndDate = gantt.calculateEndDate(startDate, task.duration);
         task.end_date = calculatedEndDate;
-        console.log("Final end_date set:", task.end_date);
       }
       return true;
     });
 
     // Validate and normalize duration before task is updated
     gantt.attachEvent("onBeforeTaskUpdate", (id: any, task: any) => {
-      console.log("=== onBeforeTaskUpdate ===");
-      console.log("Task ID:", id);
-      console.log("Task:", task.text);
-      console.log("start_date:", task.start_date);
-      console.log("end_date before:", task.end_date);
-      console.log("duration before:", task.duration);
-
       // Ensure duration is a valid positive number
       if (task.duration !== undefined && task.duration !== null) {
         let duration = task.duration;
@@ -1146,16 +1219,13 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         }
         // Store duration exactly as entered (no rounding)
         task.duration = Math.max(1, duration);
-        console.log("duration after validation:", task.duration);
       }
 
       // Recalculate end_date based on start_date and duration
       if (task.start_date && task.duration !== undefined) {
         // Use DHTMLX's calculateEndDate which calculates calendar days (including weekends)
         const calculatedEndDate = gantt.calculateEndDate(task.start_date, task.duration);
-        console.log("Calculated end_date:", calculatedEndDate);
         task.end_date = calculatedEndDate;
-        console.log("end_date after calculation:", task.end_date);
       }
 
       return true;
@@ -1182,46 +1252,26 @@ export default class Gantt extends Component<GanttProps, GanttState> {
 
       // Also listen for inline editor save
       gantt.attachEvent("onAfterInlineEditorSave", (state: any) => {
-        console.log("=== onAfterInlineEditorSave ===");
-        console.log("Column edited:", state.columnName);
-        console.log("Task ID:", state.id);
-        console.log("Old value:", state.oldValue);
-        console.log("New value:", state.newValue);
-
         // If duration was edited, recalculate end_date using DHTMLX's work_time calculation
         if (state.columnName === "duration" && state.id) {
           const task = gantt.getTask(state.id);
-          console.log("Duration edited - Task:", task.text);
-          console.log("start_date:", task.start_date);
-          console.log("duration:", task.duration);
-          console.log("end_date before:", task.end_date);
-
           // Use DHTMLX's calculateEndDate which calculates calendar days (including weekends)
           const calculatedEndDate = gantt.calculateEndDate(task.start_date, task.duration);
-          console.log("Calculated end_date:", calculatedEndDate);
           task.end_date = calculatedEndDate;
-          console.log("end_date after:", task.end_date);
-
-          gantt.updateTask(state.id);
+          // Don't call updateTask here - it triggers another update event
+          // gantt.updateTask will be called by the next onTaskUpdate
         }
 
         // If start_date was edited, recalculate end_date preserving duration
         if (state.columnName === "start_date" && state.id) {
           const task = gantt.getTask(state.id);
-          console.log("Start date edited - Task:", task.text);
-          console.log("start_date:", task.start_date);
-          console.log("duration:", task.duration);
-          console.log("end_date before:", task.end_date);
-
           // Use DHTMLX's calculateEndDate which calculates calendar days (including weekends)
           const calculatedEndDate = gantt.calculateEndDate(task.start_date, task.duration);
-          console.log("Calculated end_date:", calculatedEndDate);
           task.end_date = calculatedEndDate;
-          console.log("end_date after:", task.end_date);
-
-          gantt.updateTask(state.id);
+          // Don't call updateTask here - it triggers another update event
         }
 
+        // Only call onTaskUpdate once, not after every updateTask
         onTaskUpdate();
         return true;
       });
@@ -1274,26 +1324,16 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       });
 
       gantt.attachEvent("onAfterTaskAutoSchedule", (task: any, start: Date, link: any, predecessor: any) => {
-        console.log("=== onAfterTaskAutoSchedule ===");
-        console.log("Task:", task.text);
-        console.log("New start_date:", task.start_date);
-        console.log("end_date before recalc:", task.end_date);
-        console.log("duration before recalc:", task.duration);
-
         // Restore the original duration and recalculate end_date to preserve duration
         if (task.$original_duration) {
           const originalDuration = task.$original_duration;
-          console.log("Original duration:", originalDuration);
 
           // Recalculate end_date based on new start_date and original duration
           // Use DHTMLX's calculateEndDate which calculates calendar days (including weekends)
           const calculatedEndDate = gantt.calculateEndDate(task.start_date, originalDuration);
-          console.log("Calculated end_date:", calculatedEndDate);
 
           task.end_date = calculatedEndDate;
           task.duration = originalDuration;
-          console.log("Final end_date:", task.end_date);
-          console.log("Final duration:", task.duration);
 
           delete task.$original_duration;
           delete task.$original_start_date;
@@ -1747,11 +1787,17 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       gantt.render();
     }
 
-    if (JSON.stringify(prevProps.projecttasks) !== JSON.stringify(projecttasks)) {
+    // Optimized comparison - check data length and reference instead of deep JSON comparison
+    const dataChanged = prevProps.projecttasks.data !== projecttasks.data ||
+                       prevProps.projecttasks.data?.length !== projecttasks.data?.length ||
+                       prevProps.projecttasks.links !== projecttasks.links;
+
+    if (dataChanged) {
       this.allTasks = projecttasks.data || [];
-      console.log("=== Gantt parsing tasks ===");
-      console.log("Tasks data:", projecttasks.data);
-      console.log("Milestone tasks:", projecttasks.data?.filter((t: any) => t.type === 'milestone'));
+      console.log("=== Gantt parsing tasks ===", projecttasks.data?.length || 0, "tasks");
+
+      // Save current scroll position before clearing
+      const scrollState = gantt.getScrollState();
 
       // Reset grouping state when data changes
       this.isGrouped = false;
@@ -1761,52 +1807,75 @@ export default class Gantt extends Component<GanttProps, GanttState> {
 
       // Prepare tasks by removing end_date
       const preparedTasks = this.prepareTasksForParsing(projecttasks.data || []);
-      gantt.parse({
-        data: preparedTasks,
-        links: projecttasks.links || []
-      });
 
-      // Sort tasks to ensure proper parent-child hierarchy display
-      gantt.sort((a: any, b: any) => {
-        // First sort by parent - tasks with no parent (0) come first
-        if (a.parent !== b.parent) {
-          if (a.parent === 0) return -1;
-          if (b.parent === 0) return 1;
-          return a.parent - b.parent;
-        }
-        // Within same parent, sort by ID
-        return a.id - b.id;
-      });
+      // Use requestAnimationFrame to allow UI to update
+      requestAnimationFrame(() => {
+        try {
+          gantt.parse({
+            data: preparedTasks,
+            links: projecttasks.links || []
+          });
 
-      // Open all parent tasks to show subtasks
-      gantt.eachTask((task: any) => {
-        if (gantt.hasChild(task.id)) {
-          gantt.open(task.id);
-        }
-      });
+          // Sort tasks to ensure proper parent-child hierarchy display
+          gantt.sort((a: any, b: any) => {
+            // First sort by parent - tasks with no parent (0) come first
+            if (a.parent !== b.parent) {
+              if (a.parent === 0) return -1;
+              if (b.parent === 0) return 1;
+              return a.parent - b.parent;
+            }
+            // Within same parent, sort by ID
+            return a.id - b.id;
+          });
 
-      // Load baseline data if available and apply to tasks
-      if (projecttasks.baseline && projecttasks.baseline.length > 0) {
-        console.log("Loading baseline data:", projecttasks.baseline);
+          // Open all parent tasks to show subtasks
+          gantt.eachTask((task: any) => {
+            if (gantt.hasChild(task.id)) {
+              gantt.open(task.id);
+            }
+          });
 
-        // Create a map of baseline data by task_id
-        const baselineMap: { [key: number]: any } = {};
-        projecttasks.baseline.forEach((baseline: any) => {
-          baselineMap[baseline.task_id] = baseline;
-        });
+          // Load baseline data if available and apply to tasks
+          if (projecttasks.baseline && projecttasks.baseline.length > 0) {
+            console.log("Loading baseline data:", projecttasks.baseline);
 
-        // Apply baseline data to each task
-        gantt.eachTask((task: any) => {
-          const baseline = baselineMap[task.id];
-          if (baseline) {
-            task.planned_start = gantt.date.parseDate(baseline.planned_start, "xml_date");
-            task.planned_end = gantt.date.parseDate(baseline.planned_end, "xml_date");
-            console.log(`Applied baseline to task ${task.id}:`, task.planned_start, task.planned_end);
+            // Create a map of baseline data by task_id
+            const baselineMap: { [key: number]: any } = {};
+            projecttasks.baseline.forEach((baseline: any) => {
+              baselineMap[baseline.task_id] = baseline;
+            });
+
+            // Apply baseline data to each task
+            gantt.eachTask((task: any) => {
+              const baseline = baselineMap[task.id];
+              if (baseline) {
+                task.planned_start = gantt.date.parseDate(baseline.planned_start, "xml_date");
+                task.planned_end = gantt.date.parseDate(baseline.planned_end, "xml_date");
+              }
+            });
           }
-        });
 
-        gantt.render();
-      }
+          // Restore scroll position after parsing and rendering
+          if (scrollState) {
+            setTimeout(() => {
+              try {
+                gantt.scrollTo(scrollState.x, scrollState.y);
+              } catch (e) {
+                console.warn('Could not restore scroll position:', e);
+              }
+            }, 100);
+          }
+
+          gantt.render();
+        } catch (error) {
+          console.error('Error parsing Gantt data:', error);
+          // Try to recover by clearing and re-initializing
+          gantt.clearAll();
+          if (this.ganttContainer.current) {
+            gantt.init(this.ganttContainer.current);
+          }
+        }
+      });
     }
 
     if (prevProps.searchQuery !== searchQuery) {
@@ -1816,6 +1885,9 @@ export default class Gantt extends Component<GanttProps, GanttState> {
 
   private filterTasks(query: string): void {
     const { projecttasks } = this.props;
+
+    // Save scroll position
+    const scrollState = gantt.getScrollState();
 
     // If no search query, restore to either grouped or ungrouped view
     if (!query.trim()) {
@@ -1837,6 +1909,17 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           data: preparedTasks,
           links: projecttasks.links || []
         });
+      }
+
+      // Restore scroll position
+      if (scrollState) {
+        setTimeout(() => {
+          try {
+            gantt.scrollTo(scrollState.x, scrollState.y);
+          } catch (e) {
+            console.warn('Could not restore scroll position:', e);
+          }
+        }, 50);
       }
       return;
     }
@@ -1899,6 +1982,17 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         links: filteredLinks
       });
     }
+
+    // Restore scroll position after filtering
+    if (scrollState) {
+      setTimeout(() => {
+        try {
+          gantt.scrollTo(scrollState.x, scrollState.y);
+        } catch (e) {
+          console.warn('Could not restore scroll position:', e);
+        }
+      }, 50);
+    }
   }
 
   componentWillUnmount(): void {
@@ -1930,12 +2024,13 @@ export default class Gantt extends Component<GanttProps, GanttState> {
   }
 
   /**
-   * Remove end_date from tasks to prevent DHTMLX from prioritizing it over duration.
-   * DHTMLX will calculate end_date automatically based on start_date + duration.
-   * This fixes the bug where old end_date from database causes incorrect duration recalculation.
+   * Remove end_date from tasks to ensure DHTMLX uses the stored duration value.
+   * DHTMLX prioritizes end_date over duration, so removing it forces the library
+   * to calculate end_date from start_date + duration, preventing off-by-one errors.
    */
   private prepareTasksForParsing(tasks: any[]): any[] {
     return tasks.map(task => {
+      // Remove end_date to let DHTMLX calculate it from duration
       const { end_date, ...taskWithoutEndDate } = task;
       return taskWithoutEndDate;
     });
