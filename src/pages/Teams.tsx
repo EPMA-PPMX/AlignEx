@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { UsersRound, Plus, Search, Trash2, Calendar, User } from 'lucide-react';
+import { UsersRound, Plus, Search, Trash2, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNotification } from '../lib/useNotification';
+import ResourceAllocationHeatMap from '../components/ResourceAllocationHeatMap';
 
 interface Resource {
   id: string;
@@ -17,13 +18,6 @@ interface TeamMember {
   resource_id: string;
   added_at: string;
   resource: Resource;
-}
-
-interface ProjectAllocation {
-  project_id: string;
-  project_name: string;
-  week_start: string;
-  allocated_hours: number;
 }
 
 export default function Teams() {
@@ -124,7 +118,7 @@ export default function Teams() {
         </button>
       </div>
 
-      <ResourceAllocationHeatmap teamMembers={teamMembers} />
+      <ResourceAllocationHeatMap />
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="p-6 border-b border-gray-200">

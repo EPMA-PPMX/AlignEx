@@ -1,18 +1,20 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp, Search, Group, Flag, ZoomIn, ZoomOut, Maximize2, Minimize2, History } from 'lucide-react';
+import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp, Search, Group, Flag, ZoomIn, ZoomOut, Maximize2, Minimize2, History, ChevronRight, ChevronLeft, Undo, Redo, Link2, Unlink } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNotification } from '../lib/useNotification';
 import { trackFieldHistory, shouldTrackFieldHistory } from '../lib/fieldHistoryTracker';
 import { MonthlyBudgetGrid } from '../components/MonthlyBudgetGrid';
 import { BudgetSummaryTiles } from '../components/BudgetSummaryTiles';
 import Gantt from "../components/Gantt/Gantt";
+import Scheduler from "../components/Scheduler/Scheduler";
 import ProjectStatusDropdown from '../components/ProjectStatusDropdown';
 import ProjectHealthStatus from '../components/ProjectHealthStatus';
 import BenefitTracking from '../components/BenefitTracking';
 import ProjectTeams from '../components/ProjectTeams';
 import PeoplePicker from '../components/PeoplePicker';
 import CustomFieldsRenderer from '../components/CustomFieldsRenderer';
+import SearchableMultiSelect from '../components/SearchableMultiSelect';
 import DocumentUpload from '../components/DocumentUpload';
 import { loadCustomFieldValues, saveCustomFieldValues } from '../lib/customFieldHelpers';
 
@@ -166,6 +168,7 @@ const ProjectDetail: React.FC = () => {
   const navigate = useNavigate();
   const { showConfirm, showNotification } = useNotification();
   const [activeTab, setActiveTab] = useState('overview');
+  const [timelineView, setTimelineView] = useState<'gantt' | 'scheduler'>('gantt');
 
   // Utility function to adjust date to skip weekends
   const adjustToWorkday = (dateString: string): string => {
@@ -217,6 +220,9 @@ const ProjectDetail: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [templateDescription, setTemplateDescription] = useState('');
   const [historyFieldId, setHistoryFieldId] = useState<string | null>(null);
   const [historyFieldName, setHistoryFieldName] = useState<string>('');
   const [fieldHistory, setFieldHistory] = useState<any[]>([]);
@@ -323,6 +329,8 @@ const ProjectDetail: React.FC = () => {
   const [showResourcePanel, setShowResourcePanel] = useState(false);
 
   const [taskSearchQuery, setTaskSearchQuery] = useState('');
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<number[]>([]);
   const ganttRef = useRef<any>(null);
   const msProjectFileInputRef = useRef<HTMLInputElement>(null);
   const [importingMSProject, setImportingMSProject] = useState(false);
@@ -500,6 +508,76 @@ const ProjectDetail: React.FC = () => {
       console.error('Error fetching project:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTasks = async () => {
+    if (!id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('project_tasks')
+        .select('*')
+        .eq('project_id', id)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching tasks:', error);
+      } else if (data?.task_data) {
+        setProjectTasks(data.task_data);
+      } else {
+        setProjectTasks({ data: [], links: [] });
+      }
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+    }
+  };
+
+  const saveTasks = async (taskData: { data: any[]; links: any[] }) => {
+    if (!id) return;
+
+    try {
+      const { data: existingTask, error: fetchError } = await supabase
+        .from('project_tasks')
+        .select('id')
+        .eq('project_id', id)
+        .maybeSingle();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error('Error checking existing tasks:', fetchError);
+        return;
+      }
+
+      if (existingTask) {
+        const { error } = await supabase
+          .from('project_tasks')
+          .update({
+            task_data: taskData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('project_id', id);
+
+        if (error) {
+          console.error('Error updating tasks:', error);
+        } else {
+          setProjectTasks(taskData);
+        }
+      } else {
+        const { error } = await supabase
+          .from('project_tasks')
+          .insert({
+            project_id: id,
+            task_data: taskData
+          });
+
+        if (error) {
+          console.error('Error creating tasks:', error);
+        } else {
+          setProjectTasks(taskData);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving tasks:', error);
     }
   };
 
@@ -1038,6 +1116,118 @@ const ProjectDetail: React.FC = () => {
     }
   };
 
+  // Helper function to add working days (skip weekends)
+  const addWorkingDays = (startDate: Date, days: number): Date => {
+    const result = new Date(startDate);
+    let remainingDays = days;
+
+    while (remainingDays > 0) {
+      result.setDate(result.getDate() + 1);
+      const dayOfWeek = result.getDay();
+      // Skip weekends (0 = Sunday, 6 = Saturday)
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        remainingDays--;
+      }
+    }
+
+    return result;
+  };
+
+  const updateProjectScheduleDates = async () => {
+    if (!id) return;
+
+    try {
+      // Query task_data from the database
+      const { data: projectTasksData, error: tasksError } = await supabase
+        .from('project_tasks')
+        .select('task_data')
+        .eq('project_id', id)
+        .maybeSingle();
+
+      if (tasksError) {
+        console.error('Error fetching tasks:', tasksError);
+        return;
+      }
+
+      if (!projectTasksData?.task_data?.data || projectTasksData.task_data.data.length === 0) {
+        console.log('No tasks found for project');
+        return;
+      }
+
+      const tasks = projectTasksData.task_data.data;
+      let earliestStart: Date | null = null;
+      let latestFinish: Date | null = null;
+
+      const ganttInstance = (window as any).gantt;
+
+      tasks.forEach((task: any) => {
+        // Skip group headers or summary tasks
+        if (task.type === 'project' || task.$group_header) return;
+
+        // Check start_date
+        if (task.start_date) {
+          const startDate = new Date(task.start_date);
+          if (!isNaN(startDate.getTime())) {
+            if (!earliestStart || startDate < earliestStart) {
+              earliestStart = startDate;
+            }
+          }
+        }
+
+        // Check end_date (calculated by Gantt)
+        if (task.end_date) {
+          const endDate = new Date(task.end_date);
+          if (!isNaN(endDate.getTime())) {
+            if (!latestFinish || endDate > latestFinish) {
+              latestFinish = endDate;
+            }
+          }
+        } else if (task.start_date && task.duration) {
+          // Calculate end date if not present
+          const startDate = new Date(task.start_date);
+          let endDate: Date;
+
+          if (ganttInstance && ganttInstance.calculateEndDate) {
+            // Use Gantt's calculation if available (more accurate)
+            endDate = ganttInstance.calculateEndDate(startDate, task.duration);
+          } else {
+            // Fallback: calculate working days manually
+            endDate = addWorkingDays(startDate, task.duration);
+          }
+
+          if (!isNaN(endDate.getTime())) {
+            if (!latestFinish || endDate > latestFinish) {
+              latestFinish = endDate;
+            }
+          }
+        }
+      });
+
+      // Update project with calculated dates
+      if (earliestStart || latestFinish) {
+        const { error } = await supabase
+          .from('projects')
+          .update({
+            schedule_start_date: earliestStart?.toISOString() || null,
+            schedule_finish_date: latestFinish?.toISOString() || null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', id);
+
+        if (error) {
+          console.error('Error updating project schedule dates:', error);
+        } else {
+          console.log('Project schedule dates updated:', {
+            start: earliestStart?.toISOString(),
+            finish: latestFinish?.toISOString()
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error updating project schedule dates:', error);
+    }
+  };
+
   const saveProjectTasks = async () => {
     if (!id) return;
 
@@ -1149,6 +1339,496 @@ const ProjectDetail: React.FC = () => {
           console.error('Error updating tasks:', error);
         } else {
           console.log("Tasks updated successfully");
+          // Update project schedule dates based on tasks
+          await updateProjectScheduleDates();
+          // Refresh data from database to ensure UI shows latest values
+          await fetchProjectTasks();
+        }
+      } else {
+        // Insert new record only if none exists
+        console.log("Inserting new record");
+        const { error } = await supabase
+          .from('project_tasks')
+          .insert({
+            project_id: id,
+            task_data: cleanedData
+          });
+
+        if (error) {
+          console.error('Error inserting tasks:', error);
+        } else {
+          console.log("Tasks inserted successfully");
+          // Update project schedule dates based on tasks
+          await updateProjectScheduleDates();
+          // Refresh data from database to ensure UI shows latest values
+          await fetchProjectTasks();
+        }
+      }
+    } catch (error) {
+      console.error('Error saving project tasks:', error);
+    }
+  };
+
+  const updateTaskProgress = async (progressValue: number) => {
+    if (!selectedTaskId || !ganttRef.current) return;
+
+    try {
+      const ganttInstance = ganttRef.current.getGanttInstance();
+      if (!ganttInstance) return;
+
+      // Get the task and update its progress
+      const task = ganttInstance.getTask(selectedTaskId);
+      if (task) {
+        task.progress = progressValue / 100;
+        ganttInstance.updateTask(selectedTaskId);
+
+        // Save to database
+        await saveProjectTasks();
+        showNotification(`Task progress updated to ${progressValue}%`, 'success');
+      }
+    } catch (error) {
+      console.error('Error updating task progress:', error);
+      showNotification('Failed to update task progress', 'error');
+    }
+  };
+
+  const indentTask = async () => {
+    if (!selectedTaskId || !ganttRef.current) return;
+
+    try {
+      const ganttInstance = ganttRef.current.getGanttInstance();
+      if (!ganttInstance) return;
+
+      // Trigger DHTMLX Gantt's built-in indent command (Shift+Right Arrow)
+      const event = new KeyboardEvent('keydown', {
+        key: 'ArrowRight',
+        code: 'ArrowRight',
+        keyCode: 39,
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true
+      });
+
+      // Dispatch the event to the gantt container
+      const ganttContainer = document.querySelector('.gantt_container');
+      if (ganttContainer) {
+        ganttContainer.dispatchEvent(event);
+
+        // Wait a bit for the indent to process, then save
+        setTimeout(async () => {
+          await saveProjectTasks();
+          showNotification('Task indented successfully', 'success');
+        }, 100);
+      }
+    } catch (error) {
+      console.error('Error indenting task:', error);
+      showNotification('Failed to indent task', 'error');
+    }
+  };
+
+  const outdentTask = async () => {
+    if (!selectedTaskId || !ganttRef.current) return;
+
+    try {
+      const ganttInstance = ganttRef.current.getGanttInstance();
+      if (!ganttInstance) return;
+
+      // Trigger DHTMLX Gantt's built-in outdent command (Shift+Left Arrow)
+      const event = new KeyboardEvent('keydown', {
+        key: 'ArrowLeft',
+        code: 'ArrowLeft',
+        keyCode: 37,
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true
+      });
+
+      // Dispatch the event to the gantt container
+      const ganttContainer = document.querySelector('.gantt_container');
+      if (ganttContainer) {
+        ganttContainer.dispatchEvent(event);
+
+        // Wait a bit for the outdent to process, then save
+        setTimeout(async () => {
+          await saveProjectTasks();
+          showNotification('Task outdented successfully', 'success');
+        }, 100);
+      }
+    } catch (error) {
+      console.error('Error outdenting task:', error);
+      showNotification('Failed to outdent task', 'error');
+    }
+  };
+
+  const undoAction = () => {
+    if (!ganttRef.current) return;
+
+    try {
+      const ganttInstance = ganttRef.current.getGanttInstance();
+      if (!ganttInstance) {
+        console.error('Gantt instance not found');
+        return;
+      }
+
+      console.log('Attempting undo...');
+      console.log('Gantt instance:', ganttInstance);
+      console.log('Gantt.ext:', ganttInstance.ext);
+      console.log('Gantt.ext.undo:', ganttInstance.ext ? ganttInstance.ext.undo : 'ext not available');
+
+      // Try to access undo through the ext namespace (DHTMLX Gantt extension pattern)
+      if (ganttInstance.ext && ganttInstance.ext.undo && typeof ganttInstance.ext.undo.undo === 'function') {
+        console.log('Using gantt.ext.undo.undo()');
+        ganttInstance.ext.undo.undo();
+        console.log('Undo executed');
+      } else if (typeof ganttInstance.undo === 'function') {
+        console.log('Using gantt.undo()');
+        ganttInstance.undo();
+        console.log('Undo executed');
+      } else {
+        console.error('Undo function not available');
+        console.error('Available methods:', Object.keys(ganttInstance));
+        showNotification('Undo not available', 'error');
+      }
+    } catch (error) {
+      console.error('Error undoing action:', error);
+      showNotification('Error undoing action', 'error');
+    }
+  };
+
+  const redoAction = () => {
+    if (!ganttRef.current) return;
+
+    try {
+      const ganttInstance = ganttRef.current.getGanttInstance();
+      if (!ganttInstance) {
+        console.error('Gantt instance not found');
+        return;
+      }
+
+      console.log('Attempting redo...');
+      console.log('Gantt.ext.undo:', ganttInstance.ext ? ganttInstance.ext.undo : 'ext not available');
+
+      // Try to access redo through the ext namespace (DHTMLX Gantt extension pattern)
+      if (ganttInstance.ext && ganttInstance.ext.undo && typeof ganttInstance.ext.undo.redo === 'function') {
+        console.log('Using gantt.ext.undo.redo()');
+        ganttInstance.ext.undo.redo();
+        console.log('Redo executed');
+      } else if (typeof ganttInstance.redo === 'function') {
+        console.log('Using gantt.redo()');
+        ganttInstance.redo();
+        console.log('Redo executed');
+      } else {
+        console.error('Redo function not available');
+        showNotification('Redo not available', 'error');
+      }
+    } catch (error) {
+      console.error('Error redoing action:', error);
+      showNotification('Error redoing action', 'error');
+    }
+  };
+
+  const handleTaskMultiSelect = (taskIds: number[]) => {
+    console.log('Multi-select updated:', taskIds);
+    setSelectedTaskIds(taskIds);
+  };
+
+  const linkSelectedTasks = async () => {
+    if (!ganttRef.current || selectedTaskIds.length < 2) {
+      showNotification('Please select at least 2 tasks to link', 'error');
+      return;
+    }
+
+    try {
+      const ganttInstance = ganttRef.current.getGanttInstance();
+      if (!ganttInstance) {
+        showNotification('Gantt instance not found', 'error');
+        return;
+      }
+
+      const sortedTaskIds = [...selectedTaskIds].sort((a, b) => {
+        const taskA = ganttInstance.getTask(a);
+        const taskB = ganttInstance.getTask(b);
+        const wbsA = ganttInstance.getWBSCode?.(taskA) || '';
+        const wbsB = ganttInstance.getWBSCode?.(taskB) || '';
+        return wbsA.localeCompare(wbsB, undefined, { numeric: true });
+      });
+
+      let linksCreated = 0;
+      const existingLinks = ganttInstance.getLinks();
+      const maxLinkId = existingLinks.length > 0
+        ? Math.max(...existingLinks.map((l: any) => l.id))
+        : 0;
+
+      for (let i = 0; i < sortedTaskIds.length - 1; i++) {
+        const sourceId = sortedTaskIds[i];
+        const targetId = sortedTaskIds[i + 1];
+
+        const linkExists = existingLinks.some((link: any) =>
+          link.source === sourceId && link.target === targetId
+        );
+
+        if (!linkExists) {
+          const linkId = maxLinkId + linksCreated + 1;
+          ganttInstance.addLink({
+            id: linkId,
+            source: sourceId,
+            target: targetId,
+            type: '0'
+          });
+          linksCreated++;
+        }
+      }
+
+      if (linksCreated > 0) {
+        await saveProjectTasks();
+        showNotification(`Successfully linked ${selectedTaskIds.length} tasks with ${linksCreated} new links`, 'success');
+      } else {
+        showNotification('All selected tasks are already linked', 'info');
+      }
+    } catch (error) {
+      console.error('Error linking tasks:', error);
+      showNotification('Failed to link tasks', 'error');
+    }
+  };
+
+  const unlinkSelectedTasks = async () => {
+    if (!ganttRef.current || selectedTaskIds.length < 1) {
+      showNotification('Please select at least 1 task to unlink', 'error');
+      return;
+    }
+
+    try {
+      const ganttInstance = ganttRef.current.getGanttInstance();
+      if (!ganttInstance) {
+        showNotification('Gantt instance not found', 'error');
+        return;
+      }
+
+      const linksToRemove: number[] = [];
+      const allLinks = ganttInstance.getLinks();
+
+      allLinks.forEach((link: any) => {
+        const sourceSelected = selectedTaskIds.includes(link.source);
+        const targetSelected = selectedTaskIds.includes(link.target);
+
+        if (sourceSelected && targetSelected) {
+          linksToRemove.push(link.id);
+        }
+      });
+
+      if (linksToRemove.length > 0) {
+        linksToRemove.forEach(linkId => {
+          ganttInstance.deleteLink(linkId);
+        });
+
+        await saveProjectTasks();
+        showNotification(`Removed ${linksToRemove.length} link${linksToRemove.length > 1 ? 's' : ''} between selected tasks`, 'success');
+      } else {
+        showNotification('No links found between selected tasks', 'info');
+      }
+    } catch (error) {
+      console.error('Error unlinking tasks:', error);
+      showNotification('Failed to unlink tasks', 'error');
+    }
+  };
+
+  const insertTask = async (taskType: 'task' | 'milestone' = 'task') => {
+    if (!ganttRef.current) return;
+
+    try {
+      const ganttInstance = ganttRef.current.getGanttInstance();
+      if (!ganttInstance) return;
+
+      // Get all current tasks
+      const allTasks = ganttInstance.serialize().data;
+
+      let parentId = 0;
+      let insertAfterTaskId = null;
+
+      // If a task is selected, insert after it at the same level
+      if (selectedTaskId) {
+        const selectedTask = allTasks.find((t: any) => t.id === selectedTaskId);
+        if (selectedTask) {
+          parentId = selectedTask.parent || 0;
+          insertAfterTaskId = selectedTaskId;
+        }
+      }
+
+      // Determine start date
+      let startDate = new Date();
+      if (project?.created_at) {
+        startDate = new Date(project.created_at);
+      }
+
+      // Adjust to workday if needed
+      const adjustedStartDate = adjustToWorkday(startDate.toISOString().split('T')[0]);
+      const startDateStr = `${adjustedStartDate} 00:00`;
+
+      // Create new task object with unique ID
+      const newTaskId = Date.now();
+      const newTaskData: any = {
+        id: newTaskId,
+        text: taskType === 'milestone' ? 'New Milestone' : 'New Task',
+        start_date: startDateStr,
+        duration: taskType === 'milestone' ? 0 : 1,
+        progress: 0,
+        type: taskType,
+        parent: parentId
+      };
+
+      // Calculate end date
+      if (taskType === 'milestone') {
+        newTaskData.end_date = startDateStr;
+      } else {
+        newTaskData.end_date = calculateEndDate(startDateStr, 1);
+      }
+
+      // Find where to insert the new task
+      let insertIndex = allTasks.length;
+
+      if (insertAfterTaskId) {
+        // Find all siblings (tasks with the same parent)
+        const siblings = allTasks.filter((t: any) => (t.parent || 0) === parentId);
+        const selectedIndex = siblings.findIndex((t: any) => t.id === insertAfterTaskId);
+
+        if (selectedIndex !== -1) {
+          // Find the global index of the task after which we want to insert
+          const selectedTask = siblings[selectedIndex];
+          const globalIndex = allTasks.findIndex((t: any) => t.id === selectedTask.id);
+
+          // Insert right after the selected task
+          insertIndex = globalIndex + 1;
+        }
+      }
+
+      // Insert the new task at the correct position
+      const updatedTasks = [
+        ...allTasks.slice(0, insertIndex),
+        newTaskData,
+        ...allTasks.slice(insertIndex)
+      ];
+
+      // Clear and reload all tasks
+      ganttInstance.clearAll();
+      ganttInstance.parse({ data: updatedTasks, links: ganttInstance.serialize().links });
+
+      // Select the newly created task
+      ganttInstance.selectTask(newTaskId);
+
+      // Save to database
+      await saveProjectTasks();
+
+      const taskTypeLabel = taskType === 'milestone' ? 'Milestone' : 'Task';
+      showNotification(`${taskTypeLabel} inserted successfully`, 'success');
+
+      // Set the newly created task as selected
+      setSelectedTaskId(newTaskId);
+    } catch (error) {
+      console.error('Error inserting task:', error);
+      showNotification('Failed to insert task', 'error');
+    }
+  };
+
+  const insertMilestone = async () => {
+    await insertTask('milestone');
+  };
+
+  const saveScheduleAsTemplate = async () => {
+    if (!templateName.trim()) {
+      showNotification('Please enter a template name', 'error');
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      // Get current data from Gantt chart
+      const ganttInstance = (window as any).gantt;
+      if (!ganttInstance) {
+        showNotification('Gantt chart not initialized', 'error');
+        setSaving(false);
+        return;
+      }
+
+      const currentTasks = ganttInstance.serialize();
+
+      // Clean and prepare tasks data - reset progress to 0% and remove baselines
+      const taskMap = new Map();
+      currentTasks.data
+        .filter((task: any) => !task.$group_header)
+        .forEach((task: any) => {
+          const taskId = task.$original_id || task.id;
+          if (!taskMap.has(taskId)) {
+            // Collect custom fields (but not baseline fields)
+            const extraFields: any = {};
+            Object.keys(task).forEach(key => {
+              if (key.startsWith('custom_') && !key.startsWith('baseline')) {
+                extraFields[key] = task[key];
+              }
+            });
+
+            let duration = task.duration;
+            if (typeof duration !== 'number' || isNaN(duration)) {
+              duration = parseFloat(duration) || 1;
+            }
+            duration = Math.max(1, duration);
+
+            taskMap.set(taskId, {
+              id: taskId,
+              text: task.text,
+              start_date: task.start_date,
+              duration: duration,
+              progress: 0, // Reset progress to 0%
+              type: task.type || 'task',
+              parent: task.$original_parent !== undefined ? task.$original_parent : (task.parent || 0),
+              owner_id: task.owner_id,
+              owner_name: task.owner_name,
+              resource_ids: task.resource_ids || [],
+              resource_names: task.resource_names || [],
+              ...extraFields
+            });
+          }
+        });
+
+      const tasksData = Array.from(taskMap.values());
+      const linksData = (currentTasks.links || []).map((link: any) => ({
+        id: link.id,
+        source: link.source,
+        target: link.target,
+        type: link.type
+      }));
+
+      // Prepare resources and resource assignments
+      const resourcesData = projectTasks.resources || [];
+      const resourceAssignmentsData = projectTasks.resourceAssignments || [];
+
+      // Save to database
+      const { data, error } = await supabase
+        .from('schedule_templates')
+        .insert({
+          template_name: templateName.trim(),
+          template_description: templateDescription.trim() || null,
+          tasks_data: tasksData,
+          links_data: linksData,
+          resources_data: resourcesData,
+          resource_assignments_data: resourceAssignmentsData
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error saving schedule template:', error);
+        showNotification('Failed to save schedule template', 'error');
+      } else {
+        console.log('Schedule template saved:', data);
+        showNotification('Schedule template saved successfully', 'success');
+        setShowSaveTemplateModal(false);
+        setTemplateName('');
+        setTemplateDescription('');
+        if (error) {
+          console.error('Error updating tasks:', error);
+        } else {
+          console.log("Tasks updated successfully");
           // Don't fetch - this causes infinite loop
           // The Gantt already has the updated data
         }
@@ -1171,7 +1851,10 @@ const ProjectDetail: React.FC = () => {
         }
       }
     } catch (error) {
-      console.error('Error saving project tasks:', error);
+      console.error('Error saving schedule template:', error);
+      showNotification('Failed to save schedule template', 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -1298,7 +1981,7 @@ const ProjectDetail: React.FC = () => {
   const renderFieldControl = (field: SectionField) => {
     const { customField } = field;
     const value = fieldValues[customField.id] || customField.default_value || '';
-    const baseClasses = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent";
+    const baseClasses = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent";
 
     switch (customField.field_type) {
       case 'text':
@@ -1383,7 +2066,7 @@ const ProjectDetail: React.FC = () => {
                   value={option}
                   checked={value === option}
                   onChange={(e) => handleFieldValueChange(customField.id, e.target.value)}
-                  className="text-blue-600 focus:ring-blue-500"
+                  className="text-primary-600 focus:ring-primary-500"
                   required={customField.is_required}
                 />
                 <span className="text-sm text-gray-700">{option}</span>
@@ -1398,7 +2081,7 @@ const ProjectDetail: React.FC = () => {
               type="checkbox"
               checked={value === true || value === 'true'}
               onChange={(e) => handleFieldValueChange(customField.id, e.target.checked)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
               required={customField.is_required}
             />
             <span className="text-sm text-gray-700">{customField.field_label}</span>
@@ -2458,6 +3141,11 @@ const ProjectDetail: React.FC = () => {
       // Calculate end date using Gantt's method - same as in Gantt.tsx
       // This returns the exclusive end date (day after last working day)
       const calculatedEndDate = ganttInstance.calculateEndDate(parsedStartDate, duration);
+      // Subtract 1 day from end date to show the actual last working day (same as Task Pane display)
+      const adjustedEndDate = ganttInstance.date.add(calculatedEndDate, -1, "day");
+      // Format to YYYY-MM-DD HH:MM to match start_date format
+      const dateTimeFormat = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i");
+      return dateTimeFormat(adjustedEndDate);
       // Format to YYYY-MM-DD HH:MM to match start_date format
       // Keep the exclusive end date format to match DHTMLX Gantt's expectations
       const dateTimeFormat = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i");
@@ -2623,6 +3311,15 @@ const ProjectDetail: React.FC = () => {
           const startDateStr = `${projectDate} 00:00`;
           newTask.start_date = startDateStr;
           console.log('No start date provided, using project start date:', startDateStr);
+        }
+
+        // Calculate end_date using the same method as Gantt component (line 1216)
+        if (newTask.start_date && duration > 0) {
+          newTask.end_date = calculateEndDate(newTask.start_date, duration);
+          console.log('Calculated end_date for new task:', newTask.end_date);
+        } else if (taskForm.type === 'milestone') {
+          // For milestones, end_date equals start_date
+          newTask.end_date = newTask.start_date;
         }
 
         // Calculate end_date using the same method as Gantt component (line 1216)
@@ -3071,7 +3768,7 @@ const ProjectDetail: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Project Not Found</h1>
           <button
             onClick={() => navigate('/projects')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
           >
             Back to Projects
           </button>
@@ -3116,7 +3813,7 @@ const ProjectDetail: React.FC = () => {
                     type="text"
                     value={projectForm.name}
                     onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })}
-                    className="w-full max-w-2xl px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full max-w-2xl px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="Enter project name"
                   />
                 </div>
@@ -3126,7 +3823,7 @@ const ProjectDetail: React.FC = () => {
                     value={projectForm.description}
                     onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
                     rows={3}
-                    className="w-full max-w-2xl px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
+                    className="w-full max-w-2xl px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-vertical"
                     placeholder="Enter project description"
                   />
                 </div>
@@ -3143,7 +3840,7 @@ const ProjectDetail: React.FC = () => {
                   <button
                     onClick={handleProjectUpdate}
                     disabled={saving}
-                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50"
                   >
                     <Save className="w-4 h-4" />
                     <span>{saving ? 'Saving...' : 'Save'}</span>
@@ -3231,7 +3928,7 @@ const ProjectDetail: React.FC = () => {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
+                    ? 'border-primary-500 text-primary-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
@@ -3288,7 +3985,7 @@ const ProjectDetail: React.FC = () => {
                   <button
                     onClick={saveFieldValues}
                     disabled={saving}
-                    className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    className="flex items-center space-x-2 px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50"
                   >
                     {saving ? (
                       <>
@@ -3313,7 +4010,7 @@ const ProjectDetail: React.FC = () => {
                 </p>
                 <button
                   onClick={() => navigate('/settings')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                 >
                   Configure Overview Page
                 </button>
@@ -3327,9 +4024,33 @@ const ProjectDetail: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-4">
                 <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
+                <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setTimelineView('gantt')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      timelineView === 'gantt'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Gantt View
+                  </button>
+                  <button
+                    onClick={() => setTimelineView('scheduler')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      timelineView === 'scheduler'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Calendar View
+                  </button>
+                </div>
               </div>
               <div className="flex items-center gap-2">
-                <button
+                {timelineView === 'gantt' && (
+                  <>
+                    <button
                       onClick={() => {
                         if (ganttRef.current) {
                           ganttRef.current.zoomIn();
@@ -3358,231 +4079,395 @@ const ProjectDetail: React.FC = () => {
                     >
                       {isGanttFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
                     </button>
-                    <button
-                      onClick={() => {
-                        if (ganttRef.current) {
-                          ganttRef.current.toggleGroupByOwner();
-                          setIsGroupedByOwner(!isGroupedByOwner);
-                        }
-                      }}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                    >
-                      <Group className="w-4 h-4" />
-                      {isGroupedByOwner ? 'Show All Tasks' : 'Group by Owner'}
-                    </button>
-                    <input
-                      ref={msProjectFileInputRef}
-                      type="file"
-                      accept=".mpp,.xml"
-                      onChange={handleMSProjectImport}
-                      className="hidden"
-                    />
-                    <button
-                      onClick={() => msProjectFileInputRef.current?.click()}
-                      disabled={importingMSProject}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:bg-orange-400 disabled:cursor-not-allowed"
-                      title="Import tasks from MS Project file (.mpp or .xml)"
-                    >
-                      <Upload className="w-4 h-4" />
-                      {importingMSProject ? 'Importing...' : 'Upload MS Project'}
-                    </button>
-                    <button
-                      onClick={() => setShowResourcePanel(!showResourcePanel)}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                      <Users className="w-4 h-4" />
-                      {showResourcePanel ? 'Hide Resources' : 'Show Resources'}
-                    </button>
-
-                {/* Task Fields Selector */}
-                <div className="relative">
-                  <button
-                    onClick={() => setShowTaskFieldsDropdown(!showTaskFieldsDropdown)}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Task Fields
-                    {selectedTaskFields.length > 0 && (
-                      <span className="ml-1 px-2 py-0.5 bg-blue-500 rounded-full text-xs">
-                        {selectedTaskFields.length}
-                      </span>
-                    )}
-                  </button>
-
-                  {showTaskFieldsDropdown && (
-                    <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
-                      <div className="p-3 border-b border-gray-200">
-                        <h4 className="font-medium text-gray-900">Select Task Fields</h4>
-                        <p className="text-xs text-gray-500 mt-1">Choose fields to display in task pane</p>
-                      </div>
-                      <div className="max-h-80 overflow-y-auto p-2">
-                        {taskCustomFields.length === 0 ? (
-                          <div className="text-center py-8 text-gray-500">
-                            <p className="text-sm">No task fields available</p>
-                            <p className="text-xs mt-1">Create task fields in Settings</p>
-                          </div>
-                        ) : (
-                          taskCustomFields.map((field) => (
-                            <label
-                              key={field.id}
-                              className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedTaskFields.includes(field.id)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedTaskFields([...selectedTaskFields, field.id]);
-                                  } else {
-                                    setSelectedTaskFields(selectedTaskFields.filter(id => id !== field.id));
-                                  }
-                                }}
-                                className="mt-1 w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                              />
-                              <div className="flex-1">
-                                <div className="text-sm font-medium text-gray-900">{field.field_label}</div>
-                                {field.field_description && (
-                                  <div className="text-xs text-gray-500 mt-0.5">{field.field_description}</div>
-                                )}
-                                <div className="text-xs text-gray-400 mt-0.5">Type: {field.field_type}</div>
-                              </div>
-                            </label>
-                          ))
-                        )}
-                      </div>
-                      <div className="p-3 border-t border-gray-200 flex justify-end gap-2">
-                        <button
-                          onClick={() => setShowTaskFieldsDropdown(false)}
-                          className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                        >
-                          Close
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Baseline Selector */}
-                <div className="relative">
-                  <button
-                    onClick={() => setShowBaselineDropdown(!showBaselineDropdown)}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    <Flag className="w-4 h-4" />
-                    Set Baseline
-                  </button>
-
-                  {showBaselineDropdown && (
-                    <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
-                      <div className="p-3 border-b border-gray-200">
-                        <h4 className="font-medium text-gray-900">Select Baseline</h4>
-                        <p className="text-xs text-gray-500 mt-1">Choose which baseline to set</p>
-                      </div>
-                      <div className="max-h-80 overflow-y-auto p-2">
-                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((baselineNum) => (
-                          <button
-                            key={baselineNum}
-                            onClick={async () => {
-                              setShowBaselineDropdown(false);
-                              if (ganttRef.current && id) {
-                                // Set baseline on Gantt - this updates task data with baseline{N}_StartDate and baseline{N}_EndDate fields
-                                ganttRef.current.setBaseline(baselineNum);
-
-                                // Save baseline fields to database
-                                try {
-                                  const ganttInstance = ganttRef.current.getGanttInstance();
-
-                                  // Instead of using serialize which strips properties,
-                                  // manually collect all tasks with their full data including baseline fields
-                                  const updatedTasks: any[] = [];
-                                  ganttInstance.eachTask((task: any) => {
-                                    // Create a copy of the task with all its properties preserved
-                                    updatedTasks.push({ ...task });
-                                  });
-
-                                  // Get links separately
-                                  const links = ganttInstance.getLinks().map((link: any) => ({ ...link }));
-
-                                  // Verify that baseline fields exist
-                                  const tasksWithBaseline = updatedTasks.filter((task: any) =>
-                                    task[`baseline${baselineNum}_StartDate`] && task[`baseline${baselineNum}_EndDate`]
-                                  );
-                                  console.log(`${tasksWithBaseline.length} tasks have baseline ${baselineNum} fields set`);
-
-                                  // Update the database with the new task data containing baseline fields
-                                  const updatedTaskData = {
-                                    data: updatedTasks,
-                                    links: links
-                                  };
-
-                                  console.log('Saving task data with baseline fields to database:', updatedTaskData);
-
-                                  // Update the record
-                                  const { error: updateError } = await supabase
-                                    .from('project_tasks')
-                                    .update({ task_data: updatedTaskData })
-                                    .eq('project_id', id);
-
-                                  if (updateError) throw updateError;
-
-                                  // Update local state
-                                  setProjectTasks({
-                                    ...projectTasks,
-                                    data: updatedTasks,
-                                    links: links
-                                  });
-
-                                  alert(`Baseline ${baselineNum} set successfully! Fields baseline${baselineNum}_StartDate and baseline${baselineNum}_EndDate added to all tasks.`);
-                                } catch (error) {
-                                  console.error('Error saving baseline:', error);
-                                  alert('Failed to save baseline: ' + (error as Error).message);
-                                }
-                              }
-                            }}
-                            className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded text-sm text-gray-900 transition-colors"
-                          >
-                            Baseline {baselineNum}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="p-3 border-t border-gray-200 flex justify-end gap-2">
-                        <button
-                          onClick={() => setShowBaselineDropdown(false)}
-                          className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                        >
-                          Close
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                    <button
-                      onClick={() => {
-                        setEditingTaskId(null);
-                        setTaskForm({
-                          description: '',
-                          start_date: '',
-                          duration: 1,
-                          owner_id: '',
-                          resource_ids: [],
-                          parent_id: undefined,
-                          parent_wbs: '',
-                          predecessor_ids: [],
-                          type: 'task',
-                          progress: 0
-                        });
-                        setResourceAllocations({});
-                        setShowTaskModal(true);
-                      }}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Create Task
-                    </button>
+                  </>
+                )}
               </div>
             </div>
 
-            <div className="mb-4">
+            {/* Microsoft-style Ribbon */}
+            {timelineView === 'gantt' && (
+              <div className="mb-4 bg-gradient-to-b from-gray-50 to-white border border-gray-200 rounded-lg shadow-sm">
+                <div className="px-4 py-3">
+                  <div className="flex items-start gap-1">
+                    {/* View Group */}
+                    <div className="flex items-center gap-1 pr-4 border-r border-gray-300">
+                      <button
+                        onClick={() => {
+                          if (ganttRef.current) {
+                            ganttRef.current.toggleGroupByOwner();
+                            setIsGroupedByOwner(!isGroupedByOwner);
+                          }
+                        }}
+                        className="flex flex-col items-center justify-center px-3 py-2 hover:bg-blue-50 rounded-md transition-colors group min-w-[70px]"
+                        title={isGroupedByOwner ? 'Show All Tasks' : 'Group by Owner'}
+                      >
+                        <Group className="w-6 h-6 text-blue-600 mb-1" />
+                        <span className="text-xs text-gray-700 text-center leading-tight">
+                          {isGroupedByOwner ? 'Show All' : 'Group by'}<br />Owner
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => setShowResourcePanel(!showResourcePanel)}
+                        className="flex flex-col items-center justify-center px-3 py-2 hover:bg-blue-50 rounded-md transition-colors group min-w-[70px]"
+                        title={showResourcePanel ? 'Hide Resources' : 'Show Resources'}
+                      >
+                        <Users className="w-6 h-6 text-blue-600 mb-1" />
+                        <span className="text-xs text-gray-700 text-center leading-tight">
+                          {showResourcePanel ? 'Hide' : 'Show'}<br />Resources
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Import/Export Group */}
+                    <div className="flex items-center gap-1 px-4 border-r border-gray-300">
+                      <input
+                        ref={msProjectFileInputRef}
+                        type="file"
+                        accept=".mpp,.xml"
+                        onChange={handleMSProjectImport}
+                        className="hidden"
+                      />
+                      <button
+                        onClick={() => msProjectFileInputRef.current?.click()}
+                        disabled={importingMSProject}
+                        className="flex flex-col items-center justify-center px-3 py-2 hover:bg-orange-50 rounded-md transition-colors group min-w-[70px] disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Import tasks from MS Project file (.mpp or .xml)"
+                      >
+                        <Upload className="w-6 h-6 text-orange-600 mb-1" />
+                        <span className="text-xs text-gray-700 text-center leading-tight">
+                          {importingMSProject ? 'Importing...' : <>Upload<br />MS Project</>}
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => setShowSaveTemplateModal(true)}
+                        className="flex flex-col items-center justify-center px-3 py-2 hover:bg-amber-50 rounded-md transition-colors group min-w-[70px]"
+                        title="Save current schedule as a template"
+                      >
+                        <Save className="w-6 h-6 text-amber-600 mb-1" />
+                        <span className="text-xs text-gray-700 text-center leading-tight">
+                          Save as<br />Template
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Configuration Group */}
+                    <div className="flex items-center gap-1 px-4 border-r border-gray-300">
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowTaskFieldsDropdown(!showTaskFieldsDropdown)}
+                          className="flex flex-col items-center justify-center px-3 py-2 hover:bg-emerald-50 rounded-md transition-colors group min-w-[70px]"
+                          title="Add custom fields to tasks"
+                        >
+                          <div className="relative">
+                            <Plus className="w-6 h-6 text-emerald-600 mb-1" />
+                            {selectedTaskFields.length > 0 && (
+                              <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-emerald-600 text-white rounded-full text-[10px] font-medium">
+                                {selectedTaskFields.length}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs text-gray-700 text-center leading-tight">
+                            Add Task<br />Fields
+                          </span>
+                        </button>
+
+                        {showTaskFieldsDropdown && (
+                          <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+                            <div className="p-3 border-b border-gray-200">
+                              <h4 className="font-medium text-gray-900">Select Task Fields</h4>
+                              <p className="text-xs text-gray-500 mt-1">Choose fields to display in task pane</p>
+                            </div>
+                            <div className="max-h-80 overflow-y-auto p-2">
+                              {taskCustomFields.length === 0 ? (
+                                <div className="text-center py-8 text-gray-500">
+                                  <p className="text-sm">No task fields available</p>
+                                  <p className="text-xs mt-1">Create task fields in Settings</p>
+                                </div>
+                              ) : (
+                                taskCustomFields.map((field) => (
+                                  <label
+                                    key={field.id}
+                                    className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedTaskFields.includes(field.id)}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setSelectedTaskFields([...selectedTaskFields, field.id]);
+                                        } else {
+                                          setSelectedTaskFields(selectedTaskFields.filter(id => id !== field.id));
+                                        }
+                                      }}
+                                      className="mt-1 w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+                                    />
+                                    <div className="flex-1">
+                                      <div className="text-sm font-medium text-gray-900">{field.field_label}</div>
+                                      {field.field_description && (
+                                        <div className="text-xs text-gray-500 mt-0.5">{field.field_description}</div>
+                                      )}
+                                      <div className="text-xs text-gray-400 mt-0.5">Type: {field.field_type}</div>
+                                    </div>
+                                  </label>
+                                ))
+                              )}
+                            </div>
+                            <div className="p-3 border-t border-gray-200 flex justify-end gap-2">
+                              <button
+                                onClick={() => setShowTaskFieldsDropdown(false)}
+                                className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                              >
+                                Close
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowBaselineDropdown(!showBaselineDropdown)}
+                          className="flex flex-col items-center justify-center px-3 py-2 hover:bg-teal-50 rounded-md transition-colors group min-w-[70px]"
+                          title="Set a baseline for the project"
+                        >
+                          <Flag className="w-6 h-6 text-teal-600 mb-1" />
+                          <span className="text-xs text-gray-700 text-center leading-tight">
+                            Set<br />Baseline
+                          </span>
+                        </button>
+
+                        {showBaselineDropdown && (
+                          <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+                            <div className="p-3 border-b border-gray-200">
+                              <h4 className="font-medium text-gray-900">Select Baseline</h4>
+                              <p className="text-xs text-gray-500 mt-1">Choose which baseline to set</p>
+                            </div>
+                            <div className="max-h-80 overflow-y-auto p-2">
+                              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((baselineNum) => (
+                                <button
+                                  key={baselineNum}
+                                  onClick={async () => {
+                                    setShowBaselineDropdown(false);
+                                    if (ganttRef.current && id) {
+                                      // Set baseline on Gantt - this updates task data with baseline{N}_StartDate and baseline{N}_EndDate fields
+                                      ganttRef.current.setBaseline(baselineNum);
+
+                                      // Save baseline fields to database
+                                      try {
+                                        const ganttInstance = ganttRef.current.getGanttInstance();
+
+                                        // Instead of using serialize which strips properties,
+                                        // manually collect all tasks with their full data including baseline fields
+                                        const updatedTasks: any[] = [];
+                                        ganttInstance.eachTask((task: any) => {
+                                          // Create a copy of the task with all its properties preserved
+                                          updatedTasks.push({ ...task });
+                                        });
+
+                                        // Get links separately
+                                        const links = ganttInstance.getLinks().map((link: any) => ({ ...link }));
+
+                                        // Verify that baseline fields exist
+                                        const tasksWithBaseline = updatedTasks.filter((task: any) =>
+                                          task[`baseline${baselineNum}_StartDate`] && task[`baseline${baselineNum}_EndDate`]
+                                        );
+                                        console.log(`${tasksWithBaseline.length} tasks have baseline ${baselineNum} fields set`);
+
+                                        // Update the database with the new task data containing baseline fields
+                                        const updatedTaskData = {
+                                          data: updatedTasks,
+                                          links: links
+                                        };
+
+                                        console.log('Saving task data with baseline fields to database:', updatedTaskData);
+
+                                        // Update the record
+                                        const { error: updateError } = await supabase
+                                          .from('project_tasks')
+                                          .update({ task_data: updatedTaskData })
+                                          .eq('project_id', id);
+
+                                        if (updateError) throw updateError;
+
+                                        // Update local state
+                                        setProjectTasks({
+                                          ...projectTasks,
+                                          data: updatedTasks,
+                                          links: links
+                                        });
+
+                                        alert(`Baseline ${baselineNum} set successfully! Fields baseline${baselineNum}_StartDate and baseline${baselineNum}_EndDate added to all tasks.`);
+                                      } catch (error) {
+                                        console.error('Error saving baseline:', error);
+                                        alert('Failed to save baseline: ' + (error as Error).message);
+                                      }
+                                    }
+                                  }}
+                                  className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded text-sm text-gray-900 transition-colors"
+                                >
+                                  Baseline {baselineNum}
+                                </button>
+                              ))}
+                            </div>
+                            <div className="p-3 border-t border-gray-200 flex justify-end gap-2">
+                              <button
+                                onClick={() => setShowBaselineDropdown(false)}
+                                className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                              >
+                                Close
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Progress & Hierarchy Group */}
+                    <div className="flex items-center gap-1 px-4 border-r border-gray-300">
+                      <div className="flex flex-col items-center gap-2">
+                        {/* Progress Row */}
+                        <div className="flex flex-col items-center">
+                          <span className="text-xs text-gray-600 mb-1 font-medium">Progress</span>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => updateTaskProgress(25)}
+                              disabled={!selectedTaskId}
+                              className="px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                              title="Set task progress to 25%"
+                            >
+                              25%
+                            </button>
+                            <button
+                              onClick={() => updateTaskProgress(50)}
+                              disabled={!selectedTaskId}
+                              className="px-2 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                              title="Set task progress to 50%"
+                            >
+                              50%
+                            </button>
+                            <button
+                              onClick={() => updateTaskProgress(75)}
+                              disabled={!selectedTaskId}
+                              className="px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                              title="Set task progress to 75%"
+                            >
+                              75%
+                            </button>
+                            <button
+                              onClick={() => updateTaskProgress(100)}
+                              disabled={!selectedTaskId}
+                              className="px-2 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                              title="Set task progress to 100%"
+                            >
+                              100%
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Hierarchy & Links Row */}
+                        <div className="flex flex-col items-center">
+                          <span className="text-xs text-gray-600 mb-1 font-medium">Hierarchy & Links</span>
+                          <div className="flex gap-1 items-center">
+                            <button
+                              onClick={outdentTask}
+                              disabled={!selectedTaskId}
+                              className="px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                              title="Outdent task (move task out of parent)"
+                            >
+                              <ChevronLeft className="w-3 h-3" />
+                              Outdent
+                            </button>
+                            <button
+                              onClick={indentTask}
+                              disabled={!selectedTaskId}
+                              className="px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                              title="Indent task (move task under parent)"
+                            >
+                              <ChevronRight className="w-3 h-3" />
+                              Indent
+                            </button>
+                            <div className="w-px h-6 bg-gray-300 mx-1"></div>
+                            <button
+                              onClick={linkSelectedTasks}
+                              disabled={selectedTaskIds.length < 2}
+                              className="px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                              title={selectedTaskIds.length < 2 ? "Select at least 2 tasks to link (Ctrl+Click)" : `Link ${selectedTaskIds.length} selected tasks sequentially`}
+                            >
+                              <Link2 className="w-3 h-3" />
+                              Link
+                            </button>
+                            <button
+                              onClick={unlinkSelectedTasks}
+                              disabled={selectedTaskIds.length < 1}
+                              className="px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                              title={selectedTaskIds.length < 1 ? "Select at least 1 task to unlink" : `Remove links between ${selectedTaskIds.length} selected tasks`}
+                            >
+                              <Unlink className="w-3 h-3" />
+                              Unlink
+                            </button>
+                            {selectedTaskIds.length > 0 && (
+                              <span className="text-xs text-gray-600 ml-2 px-2 py-1 bg-blue-50 rounded">
+                                {selectedTaskIds.length} task{selectedTaskIds.length > 1 ? 's' : ''} selected
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* History Group */}
+                    <div className="flex items-center gap-1 px-4 border-r border-gray-300">
+                      <button
+                        onClick={undoAction}
+                        className="px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded transition-colors flex items-center gap-1"
+                        title="Undo last action"
+                      >
+                        <Undo className="w-3 h-3" />
+                        Undo
+                      </button>
+                      <button
+                        onClick={redoAction}
+                        className="px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded transition-colors flex items-center gap-1"
+                        title="Redo last action"
+                      >
+                        <Redo className="w-3 h-3" />
+                        Redo
+                      </button>
+                    </div>
+
+                    {/* Tasks Group */}
+                    <div className="flex items-center gap-1 pl-4">
+                      <button
+                        onClick={() => insertTask('task')}
+                        className="flex flex-col items-center justify-center px-3 py-2 hover:bg-sky-50 rounded-md transition-colors group min-w-[70px]"
+                        title={selectedTaskId ? "Insert a new task after the selected task" : "Insert a new task at the bottom"}
+                      >
+                        <Plus className="w-6 h-6 text-sky-600 mb-1" />
+                        <span className="text-xs text-gray-700 text-center leading-tight">
+                          Insert<br />Task
+                        </span>
+                      </button>
+                      <button
+                        onClick={insertMilestone}
+                        className="flex flex-col items-center justify-center px-3 py-2 hover:bg-amber-50 rounded-md transition-colors group min-w-[70px]"
+                        title={selectedTaskId ? "Insert a new milestone after the selected task" : "Insert a new milestone at the bottom"}
+                      >
+                        <Flag className="w-6 h-6 text-amber-600 mb-1" />
+                        <span className="text-xs text-gray-700 text-center leading-tight">
+                          Insert<br />Milestone
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {timelineView === 'gantt' && (
+              <>
+                <div className="mb-4">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
@@ -3597,8 +4482,11 @@ const ProjectDetail: React.FC = () => {
                 <div style={{ width: "100%", height: isGanttFullscreen ? "calc(100vh - 150px)" : "600px", overflow: "auto" }}>
                   <Gantt
                 ref={ganttRef}
+                projectId={id}
                 projecttasks={projectTasks}
                 onTaskUpdate={saveProjectTasks}
+                onTaskSelect={setSelectedTaskId}
+                onTaskMultiSelect={handleTaskMultiSelect}
                 searchQuery={taskSearchQuery}
                 selectedTaskFields={selectedTaskFields}
                 taskCustomFields={taskCustomFields}
@@ -3740,6 +4628,14 @@ const ProjectDetail: React.FC = () => {
                 }}
               />
                 </div>
+              </>
+            )}
+
+            {timelineView === 'scheduler' && id && (
+              <div style={{ width: "100%", height: "700px" }}>
+                <Scheduler key={`scheduler-${timelineView}`} projectId={id} />
+              </div>
+            )}
           </div>
         )}
 
@@ -3821,7 +4717,7 @@ const ProjectDetail: React.FC = () => {
                               <div className="flex space-x-2">
                                 <button
                                   onClick={() => handleEditRisk(risk)}
-                                  className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                                  className="text-primary-600 hover:text-blue-900 p-1 rounded hover:bg-primary-50"
                                 >
                                   <Edit2 className="w-4 h-4" />
                                 </button>
@@ -3911,7 +4807,7 @@ const ProjectDetail: React.FC = () => {
                               <div className="flex space-x-2">
                                 <button
                                   onClick={() => handleEditIssue(issue)}
-                                  className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                                  className="text-primary-600 hover:text-blue-900 p-1 rounded hover:bg-primary-50"
                                 >
                                   <Edit2 className="w-4 h-4" />
                                 </button>
@@ -3943,7 +4839,7 @@ const ProjectDetail: React.FC = () => {
                   resetChangeRequestForm();
                   setShowChangeRequestModal(true);
                 }}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 <span>Add Change Request</span>
@@ -4020,7 +4916,7 @@ const ProjectDetail: React.FC = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {getAttachmentCount(changeRequest.attachments) > 0 ? (
                               <div className="flex items-center space-x-2">
-                                <File className="w-4 h-4 text-blue-600" />
+                                <File className="w-4 h-4 text-primary-600" />
                                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                   {getAttachmentCount(changeRequest.attachments)} file{getAttachmentCount(changeRequest.attachments) !== 1 ? 's' : ''}
                                 </span>
@@ -4041,7 +4937,7 @@ const ProjectDetail: React.FC = () => {
                               </button>
                               <button
                                 onClick={() => handleEditChangeRequest(changeRequest)}
-                                className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                                className="text-primary-600 hover:text-blue-900 p-1 rounded hover:bg-primary-50"
                                 title="Edit"
                               >
                                 <Edit2 className="w-4 h-4" />
@@ -4068,7 +4964,7 @@ const ProjectDetail: React.FC = () => {
                   <p className="text-gray-600 mb-6">Add budget categories to start tracking your annual forecast.</p>
                   <button
                     onClick={handleAddBudget}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                     Add Budget Categories
@@ -4082,7 +4978,7 @@ const ProjectDetail: React.FC = () => {
                   <div className="flex items-center gap-4">
                     <button
                       onClick={handleAddBudget}
-                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700 transition-colors"
                     >
                       <Plus className="w-4 h-4" />
                       Manage Categories
@@ -4093,7 +4989,7 @@ const ProjectDetail: React.FC = () => {
                       <select
                         value={budgetViewFilter}
                         onChange={(e) => setBudgetViewFilter(e.target.value as 'monthly' | 'yearly')}
-                        className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                       >
                         <option value="yearly">Yearly</option>
                         <option value="monthly">Monthly</option>
@@ -4105,7 +5001,7 @@ const ProjectDetail: React.FC = () => {
                         <select
                           value={selectedMonth}
                           onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                          className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                         >
                           {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((month, index) => (
                             <option key={index} value={index}>
@@ -4120,7 +5016,7 @@ const ProjectDetail: React.FC = () => {
                       <select
                         value={selectedYear}
                         onChange={(e) => setSelectedYear(Number(e.target.value))}
-                        className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                       >
                         {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
                           <option key={year} value={year}>
@@ -4138,7 +5034,7 @@ const ProjectDetail: React.FC = () => {
                   selectedMonth={selectedMonth}
                 />
 
-                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="mb-4 p-3 bg-primary-50 border border-blue-200 rounded-lg">
                   <p className="text-sm text-blue-800">
                     <strong>How to use:</strong> Enter your forecasted amounts for each month, then record actual spending.
                     The system automatically calculates variance percentages.
@@ -4165,6 +5061,24 @@ const ProjectDetail: React.FC = () => {
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">Project Documents</h3>
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={handleDocumentUpload}
+                  />
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      (e.currentTarget.previousElementSibling as HTMLInputElement)?.click();
+                    }}
+                  >
+                    <Upload className="w-4 h-4" />
+                    Upload Document
+                  </button>
+                </label>
                 <DocumentUpload
                   projectId={id!}
                   onUploadSuccess={() => {
@@ -4193,7 +5107,7 @@ const ProjectDetail: React.FC = () => {
                       className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                     >
                       <div className="flex items-center gap-3 flex-1">
-                        <File className="w-8 h-8 text-blue-600" />
+                        <File className="w-8 h-8 text-primary-600" />
                         <div className="flex-1 min-w-0">
                           <h4 className="text-sm font-medium text-gray-900 truncate">
                             {doc.file_name}
@@ -4206,7 +5120,7 @@ const ProjectDetail: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleDownloadDocument(doc)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                           title="Download"
                         >
                           <Download className="w-5 h-5" />
@@ -4339,7 +5253,7 @@ const ProjectDetail: React.FC = () => {
                 <textarea
                   value={riskForm.description}
                   onChange={(e) => setRiskForm({ ...riskForm, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   rows={3}
                   required
                 />
@@ -4396,7 +5310,7 @@ const ProjectDetail: React.FC = () => {
                   type="text"
                   value={issueForm.title}
                   onChange={(e) => setIssueForm({ ...issueForm, title: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   required
                 />
               </div>
@@ -4428,7 +5342,7 @@ const ProjectDetail: React.FC = () => {
                   <select
                     value={issueForm.status}
                     onChange={(e) => setIssueForm({ ...issueForm, status: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
                     <option value="Active">Active</option>
                     <option value="Closed">Closed</option>
@@ -4580,7 +5494,7 @@ const ProjectDetail: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleSaveBudget}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                 >
                   {editingBudget ? 'Update Budget' : 'Add Budget'}
                 </button>
@@ -4604,7 +5518,7 @@ const ProjectDetail: React.FC = () => {
                   type="text"
                   value={changeRequestForm.title}
                   onChange={(e) => setChangeRequestForm({ ...changeRequestForm, title: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   required
                 />
               </div>
@@ -4613,7 +5527,7 @@ const ProjectDetail: React.FC = () => {
                 <select
                   value={changeRequestForm.type}
                   onChange={(e) => setChangeRequestForm({ ...changeRequestForm, type: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   <option value="Scope Change">Scope Change</option>
                   <option value="Schedule Change">Schedule Change</option>
@@ -4627,7 +5541,7 @@ const ProjectDetail: React.FC = () => {
                 <textarea
                   value={changeRequestForm.description}
                   onChange={(e) => setChangeRequestForm({ ...changeRequestForm, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   rows={3}
                   required
                 />
@@ -4637,7 +5551,7 @@ const ProjectDetail: React.FC = () => {
                 <textarea
                   value={changeRequestForm.justification}
                   onChange={(e) => setChangeRequestForm({ ...changeRequestForm, justification: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   rows={3}
                   required
                 />
@@ -4648,7 +5562,7 @@ const ProjectDetail: React.FC = () => {
                   <select
                     value={changeRequestForm.scope_impact}
                     onChange={(e) => setChangeRequestForm({ ...changeRequestForm, scope_impact: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -4660,7 +5574,7 @@ const ProjectDetail: React.FC = () => {
                   <select
                     value={changeRequestForm.risk_impact}
                     onChange={(e) => setChangeRequestForm({ ...changeRequestForm, risk_impact: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -4672,7 +5586,7 @@ const ProjectDetail: React.FC = () => {
                   <select
                     value={changeRequestForm.resource_impact}
                     onChange={(e) => setChangeRequestForm({ ...changeRequestForm, resource_impact: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -4686,7 +5600,7 @@ const ProjectDetail: React.FC = () => {
                   type="text"
                   value={changeRequestForm.cost_impact}
                   onChange={(e) => setChangeRequestForm({ ...changeRequestForm, cost_impact: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   placeholder="Describe cost impact (optional)"
                 />
               </div>
@@ -4725,7 +5639,7 @@ const ProjectDetail: React.FC = () => {
                         className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
                       >
                         <div className="flex items-center space-x-3">
-                          <File className="w-5 h-5 text-blue-600" />
+                          <File className="w-5 h-5 text-primary-600" />
                           <div>
                             <p className="text-sm font-medium text-gray-900">{file.fileName}</p>
                             <p className="text-xs text-gray-500">
@@ -4737,7 +5651,7 @@ const ProjectDetail: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleDownloadAttachment(file.path, file.fileName)}
-                            className="p-1 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded transition-colors"
+                            className="p-1 text-primary-600 hover:text-blue-900 hover:bg-primary-50 rounded transition-colors"
                             title="Download"
                           >
                             <Download className="w-4 h-4" />
@@ -4774,7 +5688,7 @@ const ProjectDetail: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                 >
                   {editingChangeRequest ? 'Update Change Request' : 'Add Change Request'}
                 </button>
@@ -4879,7 +5793,7 @@ const ProjectDetail: React.FC = () => {
                             className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
                           >
                             <div className="flex items-center space-x-3">
-                              <File className="w-5 h-5 text-blue-600" />
+                              <File className="w-5 h-5 text-primary-600" />
                               <div>
                                 <p className="text-sm font-medium text-gray-900">{file.fileName}</p>
                                 <p className="text-xs text-gray-500">
@@ -4889,7 +5803,7 @@ const ProjectDetail: React.FC = () => {
                             </div>
                             <button
                               onClick={() => handleDownloadFile(file.path, file.fileName)}
-                              className="flex items-center space-x-1 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded transition-colors"
+                              className="flex items-center space-x-1 px-3 py-1.5 text-sm text-primary-600 hover:text-blue-900 hover:bg-primary-50 rounded transition-colors"
                             >
                               <Download className="w-4 h-4" />
                               <span>Download</span>
@@ -4922,7 +5836,7 @@ const ProjectDetail: React.FC = () => {
                     setShowChangeRequestPreview(false);
                     handleEditChangeRequest(viewingChangeRequest);
                   }}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
+                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center justify-center space-x-2"
                 >
                   <Edit2 className="w-4 h-4" />
                   <span>Edit</span>
@@ -5124,10 +6038,13 @@ const ProjectDetail: React.FC = () => {
                               <div className="ml-6 flex items-center gap-2">
                                 <label className="text-xs text-gray-600 w-20">Allocation:</label>
                                 <input
-                                  type="text"
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="1"
                                   value={resourceAllocations[member.resource_id] || 100}
                                   onChange={(e) => {
-                                    const value = Math.max(0, parseInt(e.target.value) || 0);
+                                    const value = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
                                     setResourceAllocations({
                                       ...resourceAllocations,
                                       [member.resource_id]: value
@@ -5192,44 +6109,23 @@ const ProjectDetail: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Predecessor Tasks (Multiple Selection)
-                  </label>
                   <p className="text-xs text-gray-500 mb-2">
-                    Select tasks that must be completed before this task can start. Hold Ctrl/Cmd to select multiple.
+                    Select tasks that must be completed before this task can start.
                   </p>
-                  <select
-                    multiple
-                    value={taskForm.predecessor_ids.map(String)}
-                    onChange={(e) => {
-                      const selectedOptions = Array.from(e.target.selectedOptions).map(option => parseInt(option.value));
-                      setTaskForm({
-                        ...taskForm,
-                        predecessor_ids: selectedOptions
-                      });
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    size={6}
-                  >
-                    {getAllTasksWithWBS()
+                  <SearchableMultiSelect
+                    label="Predecessor Tasks"
+                    placeholder="Search and select predecessor tasks..."
+                    options={getAllTasksWithWBS()
                       .filter(task => editingTaskId ? task.id !== editingTaskId : true)
-                      .length === 0 ? (
-                      <option disabled>No tasks available. Create the task first, then edit it to add predecessors.</option>
-                    ) : (
-                      getAllTasksWithWBS()
-                        .filter(task => editingTaskId ? task.id !== editingTaskId : true)
-                        .map((task) => (
-                          <option key={task.id} value={task.id}>
-                            {task.wbs ? `${task.wbs} - ` : ''}{task.text}
-                          </option>
-                        ))
-                    )}
-                  </select>
-                  {taskForm.predecessor_ids.length > 0 && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {taskForm.predecessor_ids.length} predecessor task(s) selected
-                    </p>
-                  )}
+                      .map((task) => ({
+                        value: task.id,
+                        label: task.wbs ? `${task.wbs} - ${task.text}` : task.text
+                      }))}
+                    selectedValues={taskForm.predecessor_ids}
+                    onChange={(values) => setTaskForm({ ...taskForm, predecessor_ids: values as number[] })}
+                    emptyMessage="No tasks available. Create the task first, then edit it to add predecessors."
+                    disabled={getAllTasksWithWBS().filter(task => editingTaskId ? task.id !== editingTaskId : true).length === 0}
+                  />
                 </div>
 
                 <div className="flex space-x-3 pt-4">
@@ -5255,6 +6151,81 @@ const ProjectDetail: React.FC = () => {
       )}
 
       {/* Field History Modal */}
+      {showSaveTemplateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Save Schedule as Template</h3>
+                <p className="text-sm text-gray-600 mt-1">Create a reusable schedule template</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowSaveTemplateModal(false);
+                  setTemplateName('');
+                  setTemplateDescription('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Template Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={templateName}
+                    onChange={(e) => setTemplateName(e.target.value)}
+                    placeholder="Enter template name"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description (Optional)
+                  </label>
+                  <textarea
+                    value={templateDescription}
+                    onChange={(e) => setTemplateDescription(e.target.value)}
+                    placeholder="Enter template description"
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-sm text-blue-800">
+                    <strong>Note:</strong> All tasks will be saved with 0% progress and baselines will be cleared.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowSaveTemplateModal(false);
+                  setTemplateName('');
+                  setTemplateDescription('');
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveScheduleAsTemplate}
+                disabled={saving || !templateName.trim()}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saving ? 'Saving...' : 'Save Template'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showHistoryModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">

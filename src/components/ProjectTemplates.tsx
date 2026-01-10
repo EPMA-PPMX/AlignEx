@@ -8,23 +8,33 @@ interface ProjectTemplate {
   template_name: string;
   template_description?: string;
   start_date?: string | null;
+  schedule_template_id?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+interface ScheduleTemplate {
+  id: string;
+  template_name: string;
+  template_description?: string;
 }
 
 const ProjectTemplates: React.FC = () => {
   const { showConfirm } = useNotification();
   const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
+  const [scheduleTemplates, setScheduleTemplates] = useState<ScheduleTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     template_name: '',
     template_description: '',
-    start_date: ''
+    start_date: '',
+    schedule_template_id: ''
   });
 
   useEffect(() => {
     fetchTemplates();
+    fetchScheduleTemplates();
   }, []);
 
   const fetchTemplates = async () => {
@@ -49,6 +59,23 @@ const ProjectTemplates: React.FC = () => {
     }
   };
 
+  const fetchScheduleTemplates = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('schedule_templates')
+        .select('id, template_name, template_description')
+        .order('template_name', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching schedule templates:', error);
+      } else {
+        setScheduleTemplates(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching schedule templates:', error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -63,7 +90,8 @@ const ProjectTemplates: React.FC = () => {
       const payload = {
         template_name: formData.template_name.trim(),
         template_description: formData.template_description.trim() || null,
-        start_date: formData.start_date || null
+        start_date: formData.start_date || null,
+        schedule_template_id: formData.schedule_template_id || null
       };
 
       if (editingTemplate) {
@@ -105,7 +133,8 @@ const ProjectTemplates: React.FC = () => {
     setFormData({
       template_name: template.template_name,
       template_description: template.template_description || '',
-      start_date: template.start_date || ''
+      start_date: template.start_date || '',
+      schedule_template_id: template.schedule_template_id || ''
     });
   };
 
@@ -142,7 +171,8 @@ const ProjectTemplates: React.FC = () => {
     setFormData({
       template_name: '',
       template_description: '',
-      start_date: ''
+      start_date: '',
+      schedule_template_id: ''
     });
     setEditingTemplate(null);
   };
@@ -195,6 +225,29 @@ const ProjectTemplates: React.FC = () => {
 
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
+                Schedule Template
+              </label>
+              <select
+                value={formData.schedule_template_id}
+                onChange={(e) => setFormData({ ...formData, schedule_template_id: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={loading}
+              >
+                <option value="">No schedule template</option>
+                {scheduleTemplates.map((scheduleTemplate) => (
+                  <option key={scheduleTemplate.id} value={scheduleTemplate.id}>
+                    {scheduleTemplate.template_name}
+                    {scheduleTemplate.template_description && ` - ${scheduleTemplate.template_description}`}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-sm text-gray-500">
+                Select a schedule template to automatically create tasks when projects are created from this type
+              </p>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Project Type Description
               </label>
               <textarea
@@ -212,7 +265,7 @@ const ProjectTemplates: React.FC = () => {
             <button
               type="submit"
               disabled={loading || !formData.template_name.trim()}
-              className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center space-x-2 px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="w-4 h-4" />
               <span>{editingTemplate ? 'Update Project Type' : 'Create Project Type'}</span>
@@ -260,6 +313,9 @@ const ProjectTemplates: React.FC = () => {
                     Description
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Schedule Template
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Default Start Date
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -282,6 +338,11 @@ const ProjectTemplates: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {template.schedule_template_id
+                        ? scheduleTemplates.find(st => st.id === template.schedule_template_id)?.template_name || 'Unknown'
+                        : '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {template.start_date
                         ? new Date(template.start_date).toLocaleDateString('en-US', {
                             year: 'numeric',
@@ -297,7 +358,7 @@ const ProjectTemplates: React.FC = () => {
                       <div className="flex space-x-2">
                         <button
                           onClick={() => handleEdit(template)}
-                          className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                          className="text-primary-600 hover:text-blue-900 p-1 rounded hover:bg-primary-50"
                           title="Edit"
                           disabled={loading}
                         >

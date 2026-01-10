@@ -2,7 +2,47 @@
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        primary: {
+          50: '#faf5ff',
+          100: '#f3e8ff',
+          200: '#e9d5ff',
+          300: '#d8b4fe',
+          400: '#c084fc',
+          500: '#a855f7',
+          600: '#9333ea',
+          700: '#7e22ce',
+          800: '#6b21a8',
+          900: '#581c87',
+          950: '#3b0764',
+        },
+        accent: {
+          50: '#fdf4ff',
+          100: '#fae8ff',
+          200: '#f5d0fe',
+          300: '#f0abfc',
+          400: '#e879f9',
+          500: '#d946ef',
+          600: '#c026d3',
+          700: '#a21caf',
+          800: '#86198f',
+          900: '#701a75',
+        },
+        cyan: {
+          400: '#22d3ee',
+          500: '#06b6d4',
+        },
+        widget: {
+          bg: '#F9F7FC',
+        }
+      },
+      backgroundImage: {
+        'gradient-primary': 'linear-gradient(135deg, #7e22ce 0%, #a855f7 50%, #c026d3 100%)',
+        'gradient-card': 'linear-gradient(135deg, rgba(126, 34, 206, 0.8) 0%, rgba(168, 85, 247, 0.6) 100%)',
+        'gradient-dark': 'linear-gradient(180deg, #3b0764 0%, #581c87 50%, #6b21a8 100%)',
+      }
+    },
   },
   plugins: [],
 };
