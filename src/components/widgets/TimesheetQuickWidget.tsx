@@ -22,6 +22,7 @@ export default function TimesheetQuickWidget() {
 
   useEffect(() => {
     fetchThisWeekHours();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchThisWeekHours = async () => {
