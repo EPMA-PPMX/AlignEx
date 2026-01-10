@@ -1825,6 +1825,30 @@ const ProjectDetail: React.FC = () => {
         setShowSaveTemplateModal(false);
         setTemplateName('');
         setTemplateDescription('');
+        if (error) {
+          console.error('Error updating tasks:', error);
+        } else {
+          console.log("Tasks updated successfully");
+          // Don't fetch - this causes infinite loop
+          // The Gantt already has the updated data
+        }
+      } else {
+        // Insert new record only if none exists
+        console.log("Inserting new record");
+        const { error } = await supabase
+          .from('project_tasks')
+          .insert({
+            project_id: id,
+            task_data: cleanedData
+          });
+
+        if (error) {
+          console.error('Error inserting tasks:', error);
+        } else {
+          console.log("Tasks inserted successfully");
+          // Don't fetch - this causes infinite loop
+          // The Gantt already has the updated data
+        }
       }
     } catch (error) {
       console.error('Error saving schedule template:', error);
@@ -3122,6 +3146,10 @@ const ProjectDetail: React.FC = () => {
       // Format to YYYY-MM-DD HH:MM to match start_date format
       const dateTimeFormat = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i");
       return dateTimeFormat(adjustedEndDate);
+      // Format to YYYY-MM-DD HH:MM to match start_date format
+      // Keep the exclusive end date format to match DHTMLX Gantt's expectations
+      const dateTimeFormat = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i");
+      return dateTimeFormat(calculatedEndDate);
     } catch (error) {
       console.error('Error calculating end date:', error);
       return '';
@@ -3134,7 +3162,7 @@ const ProjectDetail: React.FC = () => {
     console.log('🎯 SUBMIT - Form submitted with resourceAllocations:', resourceAllocations);
     console.log('🎯 SUBMIT - taskForm.resource_ids:', taskForm.resource_ids);
 
-    if (!taskForm.description || !taskForm.start_date || !taskForm.duration) {
+    if (!taskForm.description || !taskForm.duration) {
       showNotification('Please fill in all required fields', 'error');
       return;
     }
@@ -3181,16 +3209,20 @@ const ProjectDetail: React.FC = () => {
                 progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
               };
 
-              // Set start_date: use provided date or default to project creation date or keep existing
+              // Set start_date: use provided date or default to project start date or keep existing
               if (adjustedStartDate) {
                 const startDateStr = `${adjustedStartDate} 00:00`;
                 updatedTask.start_date = startDateStr;
-              } else if (!task.start_date && project?.created_at) {
-                // If task has no start date and no new date provided, default to project creation date
-                const projectDate = new Date(project.created_at).toISOString().split('T')[0];
+              } else if (!task.start_date && project?.start_date) {
+                // If task has no start date and no new date provided, default to project start date
+                const startDate = new Date(project.start_date);
+                const year = startDate.getFullYear();
+                const month = String(startDate.getMonth() + 1).padStart(2, '0');
+                const day = String(startDate.getDate()).padStart(2, '0');
+                const projectDate = `${year}-${month}-${day}`;
                 const startDateStr = `${projectDate} 00:00`;
                 updatedTask.start_date = startDateStr;
-                console.log('No start date provided, using project creation date:', startDateStr);
+                console.log('No start date provided, using project start date:', startDateStr);
               }
 
               // Calculate end_date using the same method as Gantt component (line 1216)
@@ -3265,16 +3297,29 @@ const ProjectDetail: React.FC = () => {
           progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
         };
 
-        // Set start_date: use provided date or default to project creation date
+        // Set start_date: use provided date or default to project start date
         if (adjustedStartDate) {
           const startDateStr = `${adjustedStartDate} 00:00`;
           newTask.start_date = startDateStr;
-        } else if (project?.created_at) {
-          // Default to project creation date if no start date provided
-          const projectDate = new Date(project.created_at).toISOString().split('T')[0];
+        } else if (project?.start_date) {
+          // Default to project start date if no start date provided
+          const startDate = new Date(project.start_date);
+          const year = startDate.getFullYear();
+          const month = String(startDate.getMonth() + 1).padStart(2, '0');
+          const day = String(startDate.getDate()).padStart(2, '0');
+          const projectDate = `${year}-${month}-${day}`;
           const startDateStr = `${projectDate} 00:00`;
           newTask.start_date = startDateStr;
-          console.log('No start date provided, using project creation date:', startDateStr);
+          console.log('No start date provided, using project start date:', startDateStr);
+        }
+
+        // Calculate end_date using the same method as Gantt component (line 1216)
+        if (newTask.start_date && duration > 0) {
+          newTask.end_date = calculateEndDate(newTask.start_date, duration);
+          console.log('Calculated end_date for new task:', newTask.end_date);
+        } else if (taskForm.type === 'milestone') {
+          // For milestones, end_date equals start_date
+          newTask.end_date = newTask.start_date;
         }
 
         // Calculate end_date using the same method as Gantt component (line 1216)

@@ -501,38 +501,38 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           el.style.left = sizes.left + 'px';
           el.style.width = sizes.width + 'px';
 
-          // Use the actual task's top position and add actual task height to place baseline below
-          // sizes.top is the top of the row, task bar is centered in the row
-          // sizes.height is the actual height of the rendered task bar
+          // Position baseline directly below the purple task bar
+          // Get the task bar's actual position in the row
           const rowTop = actualTaskSizes.top;
           const rowHeight = actualTaskSizes.rowHeight;
           const taskBarHeight = actualTaskSizes.height;
           const taskBarVerticalOffset = (rowHeight - taskBarHeight) / 2;
           const taskBarTop = rowTop + taskBarVerticalOffset;
           const taskBarBottom = taskBarTop + taskBarHeight;
-          const baselineTop = taskBarBottom + 25;
+          // Place baseline 1px below the task bar with minimal gap
+          const baselineTop = taskBarBottom + 1;
 
           console.log(`Task ${task.id} - calculated: rowTop=${rowTop}, taskBarTop=${taskBarTop}, taskBarBottom=${taskBarBottom}, baselineTop=${baselineTop}`);
 
           el.style.top = baselineTop + 'px';
-          el.style.height = '6px';
+          el.style.height = '2px';
           el.style.background = '#ec4899';
-          el.style.border = '1px solid #db2777';
+          el.style.border = 'none';
           el.style.opacity = '0.8';
           el.style.borderRadius = '3px';
           el.style.pointerEvents = 'none';
           el.style.zIndex = '1';
 
-          // Find the timeline area and append
-          const timelineArea = document.querySelector('.gantt_task');
-          console.log("Timeline area found:", !!timelineArea);
+          // Find the bars area (the scrolling content layer) and append
+          const barsArea = document.querySelector('.gantt_bars_area');
+          console.log("Bars area found:", !!barsArea);
 
-          if (timelineArea) {
-            timelineArea.appendChild(el);
+          if (barsArea) {
+            barsArea.appendChild(el);
             baselineCount++;
             console.log(`Baseline rendered for task ${task.id} at top: ${baselineTop}px`);
           } else {
-            console.warn("Timeline area not found for baseline rendering");
+            console.warn("Bars area not found for baseline rendering");
           }
         } catch (e) {
           console.error('Error rendering baseline for task', task.id, e);
@@ -655,11 +655,11 @@ export default class Gantt extends Component<GanttProps, GanttState> {
             const startDate = typeof task.start_date === 'string'
               ? gantt.date.parseDate(task.start_date, "xml_date")
               : task.start_date;
-            const endDate = gantt.calculateEndDate(startDate, task.duration);
-            // Subtract 1 day from end date to show the actual last working day
-            const adjustedEndDate = gantt.date.add(endDate, -1, "day");
-            // Format as "Mon 12/01/25"
-            return gantt.date.date_to_str("%D %m/%d/%y")(adjustedEndDate);
+            // DHTMLX uses exclusive end dates (end_date = start of day after task completes)
+            // Subtract 1 day to show the inclusive end date (actual last day of the task)
+            const exclusiveEndDate = gantt.calculateEndDate(startDate, task.duration);
+            const inclusiveEndDate = gantt.date.add(exclusiveEndDate, -1, "day");
+            return gantt.date.date_to_str("%Y-%m-%d %H:%i")(inclusiveEndDate);
           }
           return "";
         }
@@ -781,6 +781,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     // Configure work time - always skip weekends by default
     gantt.config.duration_unit = "day";
     gantt.config.skip_off_time = false; // Always show weekends in chart (never hide them)
+    gantt.config.correct_work_time = true; // Ensure duration calculations respect work_time
 
     // Apply work time configuration to skip weekends
     this.updateWorkTimeConfig(this.skipWeekends);
@@ -797,9 +798,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       keyboard_navigation: true,
       auto_scheduling: true, // Enable auto-scheduling for automatic task rescheduling based on dependencies
       inline_editors: true,
-      export_api: true, // Enable MS Project import/export functionality
-      undo: true, // Enable undo/redo functionality
-      multiselect: true // Enable multi-task selection
+      export_api: true // Enable MS Project import/export functionality
     });
 
     // Configure undo plugin
@@ -1290,7 +1289,11 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         // Set default start date to project creation date if no start date provided
         const { projectCreatedAt } = this.props;
         if (!task.start_date && projectCreatedAt) {
-          task.start_date = new Date(projectCreatedAt);
+          const createdDate = new Date(projectCreatedAt);
+          const year = createdDate.getFullYear();
+          const month = String(createdDate.getMonth() + 1).padStart(2, '0');
+          const day = String(createdDate.getDate()).padStart(2, '0');
+          task.start_date = `${year}-${month}-${day} 00:00`;
           console.log("Set default start_date to project creation date:", task.start_date);
         }
 
@@ -1428,8 +1431,14 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     // Recalculate end_date when task is loaded to ensure consistency
     gantt.attachEvent("onTaskLoading", (task: any) => {
       if (task.start_date && task.duration !== undefined && !task.$group_header) {
-        // Use DHTMLX's calculateEndDate which calculates calendar days (including weekends)
-        const calculatedEndDate = gantt.calculateEndDate(task.start_date, task.duration);
+        // Parse start_date if it's a string
+        const startDate = typeof task.start_date === 'string'
+          ? gantt.date.parseDate(task.start_date, "xml_date")
+          : task.start_date;
+
+        // Calculate end date - DHTMLX uses exclusive end dates
+        // For visual rendering to work correctly, we need to ensure proper calculation
+        const calculatedEndDate = gantt.calculateEndDate(startDate, task.duration);
         task.end_date = calculatedEndDate;
       }
       return true;
@@ -2059,13 +2068,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
                        prevProps.projecttasks.data?.length !== projecttasks.data?.length ||
                        prevProps.projecttasks.links !== projecttasks.links;
 
-    // Skip re-parsing data if undo/redo is in progress to preserve the undo/redo stack
     if (dataChanged) {
-      if (this.isUndoRedoInProgress) {
-        console.log("Skipping data re-parse - undo/redo in progress");
-        return;
-      }
-
       this.allTasks = projecttasks.data || [];
       console.log("=== Gantt parsing tasks ===", projecttasks.data?.length || 0, "tasks");
 
@@ -2297,12 +2300,13 @@ export default class Gantt extends Component<GanttProps, GanttState> {
   }
 
   /**
-   * Remove end_date from tasks to prevent DHTMLX from prioritizing it over duration.
-   * DHTMLX will calculate end_date automatically based on start_date + duration.
-   * This fixes the bug where old end_date from database causes incorrect duration recalculation.
+   * Remove end_date from tasks to ensure DHTMLX uses the stored duration value.
+   * DHTMLX prioritizes end_date over duration, so removing it forces the library
+   * to calculate end_date from start_date + duration, preventing off-by-one errors.
    */
   private prepareTasksForParsing(tasks: any[]): any[] {
     return tasks.map(task => {
+      // Remove end_date to let DHTMLX calculate it from duration
       const { end_date, ...taskWithoutEndDate } = task;
       return taskWithoutEndDate;
     });
