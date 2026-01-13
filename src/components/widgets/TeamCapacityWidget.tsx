@@ -301,7 +301,7 @@ export default function TeamCapacityWidget() {
                     key={member.resource_id}
                     className="h-10 flex items-center text-xs text-gray-700 border-b border-gray-100"
                   >
-                    <span className="truncate">{member.display_name}</span>
+                    <span className="truncate font-bold">{member.display_name}</span>
                   </div>
                 ))}
               </div>
