@@ -8,7 +8,7 @@ interface Project {
   id: string;
   name: string;
   description?: string;
-  status: string;
+  health_status: string;
   archived: boolean;
   archived_at?: string;
   created_at: string;
@@ -128,12 +128,14 @@ const ProjectManagement: React.FC = () => {
                       <p className="text-sm text-gray-600 mt-1 line-clamp-2">{project.description}</p>
                     )}
                     <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        project.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                        project.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${
+                        project.health_status === 'On Track' ? 'bg-gradient-to-br from-[#276A6C] to-[#5DB6B8] text-white border-[#5DB6B8]' :
+                        project.health_status === 'At Risk' ? 'bg-gradient-to-br from-[#C76F21] to-[#FAAF65] text-white border-[#F89D43]' :
+                        project.health_status === 'Delayed' ? 'bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A] text-white border-[#FD5D5D]' :
+                        project.health_status === 'Completed' ? 'bg-gradient-to-br from-[#276A6C] to-[#5DB6B8] text-white border-[#5DB6B8]' :
                         'bg-gray-100 text-gray-800'
                       }`}>
-                        {project.status}
+                        {project.health_status || 'Not Set'}
                       </span>
                       <span>Created: {formatDate(project.created_at)}</span>
                       {project.archived_at && (
@@ -158,7 +160,7 @@ const ProjectManagement: React.FC = () => {
 
       {deleteConfirmProject && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+          <div className="bg-widget-bg rounded-lg shadow-xl max-w-md w-full p-6">
             <div className="flex items-center space-x-3 mb-4">
               <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
                 <AlertTriangle className="w-5 h-5 text-red-600" />
