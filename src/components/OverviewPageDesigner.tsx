@@ -422,7 +422,7 @@ const OverviewPageDesigner: React.FC = () => {
       <p className="text-gray-600 mb-6">Design your overview page by adding and organizing dynamic sections.</p>
       
       {/* Project Template Selection */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+      <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Project Template</h3>
         <div className="max-w-md">
           <label className="block text-sm font-medium text-gray-700 mb-2">

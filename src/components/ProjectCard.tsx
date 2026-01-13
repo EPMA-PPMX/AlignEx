@@ -65,7 +65,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
   };
 
   return (
-    <div className={`bg-white rounded-lg shadow-sm border-l-4 ${getPriorityColor(project.priority)} hover:shadow-md transition-shadow`}>
+    <div className={`bg-widget-bg rounded-lg shadow-sm border-l-4 ${getPriorityColor(project.priority)} hover:shadow-md transition-shadow`}>
       <div className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 truncate">{project.name}</h3>

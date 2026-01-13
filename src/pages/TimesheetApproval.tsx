@@ -293,13 +293,13 @@ const TimesheetApproval: React.FC = () => {
       </div>
 
       {projectTimesheets.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-md p-8 text-center">
+        <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-8 text-center">
           <p className="text-gray-500">No pending timesheet submissions</p>
         </div>
       ) : (
         <div className="space-y-4">
           {projectTimesheets.map(projectTimesheet => (
-            <div key={projectTimesheet.projectId} className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div key={projectTimesheet.projectId} className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 overflow-hidden">
               <div
                 className="p-4 bg-gray-50 border-b cursor-pointer hover:bg-gray-100 flex items-center justify-between"
                 onClick={() => toggleProject(projectTimesheet.projectId)}

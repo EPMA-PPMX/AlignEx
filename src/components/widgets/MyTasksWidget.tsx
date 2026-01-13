@@ -67,9 +67,7 @@ export default function MyTasksWidget() {
             id,
             name
           )
-        `)
-        .order('created_at', { ascending: false })
-        .limit(20);
+        `);
 
       if (error) throw error;
 
@@ -95,6 +93,14 @@ export default function MyTasksWidget() {
           const isRelevantDate = taskStartDate <= nextWeek;
 
           if (isAssignedToMe && isNotCompleted && isRelevantDate) {
+            // Use end_date directly from database (already calculated with weekend-skipping)
+            const endDate = task.end_date;
+
+            // Log warning if end_date is missing for data quality monitoring
+            if (!endDate && task.start_date) {
+              console.warn(`Task "${task.text}" (ID: ${task.id}) is missing end_date in project ${projectTask.project_id}`);
+            }
+
             myTasks.push({
               id: projectTask.id,
               task_id: task.id,
@@ -103,7 +109,7 @@ export default function MyTasksWidget() {
               status: task.status || 'Not Started',
               priority: task.priority || 'Medium',
               start_date: task.start_date,
-              end_date: task.end_date || null,
+              end_date: endDate || null,
               duration: task.duration || 0,
               progress: task.progress || 0,
               assigned_to: task.owner_id,
@@ -220,7 +226,7 @@ export default function MyTasksWidget() {
 
               <div className="space-y-1.5 ml-6">
                 {group.tasks.map((task) => {
-                  const daysFromToday = getDaysFromToday(task.start_date);
+                  const daysFromToday = getDaysFromToday(task.end_date);
                   const isOverdue = daysFromToday !== null && daysFromToday < 0;
                   const isStartingToday = daysFromToday === 0;
                   const isStartingSoon = daysFromToday !== null && daysFromToday > 0 && daysFromToday <= 3;
@@ -252,12 +258,25 @@ export default function MyTasksWidget() {
                               <span>{task.end_date ? new Date(task.end_date).toLocaleDateString() : 'N/A'}</span>
                             </div>
                           </div>
+                          {task.end_date && (
+                            <div className={`flex items-center gap-1 text-xs font-medium ${
+                              isOverdue ? 'text-[#E74C3C]' :
+                              isStartingToday ? 'text-[#F39C12]' :
+                              isStartingSoon ? 'text-[#F39C12]' :
+                              'text-gray-600'
+                            }`}>
+                              <Clock className="w-3 h-3" />
+                              {isOverdue ? `${Math.abs(daysFromToday!)}d overdue` :
+                               isStartingToday ? 'Due today' :
+                               `Due in ${daysFromToday}d`}
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
+                          <div className="flex-1 bg-[#E8E4F1] rounded-full h-2 overflow-hidden">
                             <div
-                              className="bg-[#26D0CE] h-full rounded-full transition-all"
+                              className="bg-gradient-dark h-full rounded-full transition-all"
                               style={{ width: `${(task.progress || 0) * 100}%` }}
                             />
                           </div>

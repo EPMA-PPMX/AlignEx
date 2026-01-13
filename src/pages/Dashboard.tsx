@@ -123,7 +123,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {widgets.filter(w => w.is_enabled).length === 0 && (
-        <div className="text-center py-12 bg-white rounded-lg border border-gray-200 shadow-sm">
+        <div className="text-center py-12 bg-widget-bg rounded-lg border border-gray-200 shadow-sm">
           <p className="text-gray-600 mb-4">No widgets enabled</p>
           <button
             onClick={() => setShowCustomizeModal(true)}

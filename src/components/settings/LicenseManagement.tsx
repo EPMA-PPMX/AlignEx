@@ -286,7 +286,7 @@ export default function LicenseManagement() {
 
       {/* Usage Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div className="bg-white rounded-lg p-4 border border-gray-200">
+        <div className="bg-widget-bg rounded-lg p-4 border border-gray-200">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-gray-600">Total Users</span>
             <Users className="w-5 h-5 text-gray-400" />
@@ -324,7 +324,7 @@ export default function LicenseManagement() {
       </div>
 
       {/* Organization Modules */}
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-widget-bg rounded-lg shadow-md p-6">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-semibold text-gray-900">Organization Modules</h3>
         </div>
@@ -408,7 +408,7 @@ export default function LicenseManagement() {
       </div>
 
       {/* User Licenses */}
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-widget-bg rounded-lg shadow-md p-6">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-semibold text-gray-900">User Licenses</h3>
           <button
@@ -526,7 +526,7 @@ export default function LicenseManagement() {
       {/* Add User Modal */}
       {showAddUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+          <div className="bg-widget-bg rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-xl font-semibold text-gray-900 mb-4">Add User License</h3>
             <form onSubmit={handleAddUser} className="space-y-4">
               <div>
@@ -604,7 +604,7 @@ export default function LicenseManagement() {
       {/* Activate Module Modal */}
       {showActivateModule && selectedModule && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+          <div className="bg-widget-bg rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-xl font-semibold text-gray-900 mb-4">
               Activate {modules.find(m => m.module_key === selectedModule)?.module_name}
             </h3>

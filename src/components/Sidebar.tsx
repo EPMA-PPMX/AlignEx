@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FolderKanban, Settings, Target, TrendingUp, FileText, Award, Users, CheckSquare, Clock, ChevronLeft, ChevronRight, BarChart3, Lock, ClipboardCheck, Calendar, UsersRound } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, Settings, Target, TrendingUp, FileText, Award, Users, CheckSquare, Clock, ChevronLeft, ChevronRight, BarChart3, Lock, ClipboardCheck, Calendar } from 'lucide-react';
 import { usePermissions } from '../lib/usePermissions';
 import { ModuleKey } from '../lib/permissionService';
 
@@ -43,11 +43,6 @@ const Sidebar: React.FC = () => {
       name: 'Resources',
       path: '/resources',
       icon: Users,
-    },
-    {
-      name: 'Teams',
-      path: '/teams',
-      icon: UsersRound,
     },
     {
       name: 'My Skills',

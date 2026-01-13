@@ -520,16 +520,16 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           el.style.pointerEvents = 'none';
           el.style.zIndex = '2'; // Higher z-index to appear above task bar
 
-          // Find the bars area (the scrolling content layer) and append
-          const barsArea = document.querySelector('.gantt_bars_area');
-          console.log("Bars area found:", !!barsArea);
+          // Find the timeline area and append
+          const timelineArea = document.querySelector('.gantt_task');
+          console.log("Timeline area found:", !!timelineArea);
 
-          if (barsArea) {
-            barsArea.appendChild(el);
+          if (timelineArea) {
+            timelineArea.appendChild(el);
             baselineCount++;
             console.log(`Baseline rendered for task ${task.id} at top: ${baselineTop}px`);
           } else {
-            console.warn("Bars area not found for baseline rendering");
+            console.warn("Timeline area not found for baseline rendering");
           }
         } catch (e) {
           console.error('Error rendering baseline for task', task.id, e);
@@ -779,7 +779,6 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     // Configure work time - always skip weekends by default
     gantt.config.duration_unit = "day";
     gantt.config.skip_off_time = false; // Always show weekends in chart (never hide them)
-    gantt.config.correct_work_time = true; // Ensure duration calculations respect work_time
 
     // Apply work time configuration to skip weekends
     this.updateWorkTimeConfig(this.skipWeekends);
@@ -796,7 +795,9 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       keyboard_navigation: true,
       auto_scheduling: true, // Enable auto-scheduling for automatic task rescheduling based on dependencies
       inline_editors: true,
-      export_api: true // Enable MS Project import/export functionality
+      export_api: true, // Enable MS Project import/export functionality
+      undo: true, // Enable undo/redo functionality
+      multiselect: true // Enable multi-task selection
     });
 
     // Configure undo plugin
@@ -2216,7 +2217,13 @@ export default class Gantt extends Component<GanttProps, GanttState> {
                        prevProps.projecttasks.data?.length !== projecttasks.data?.length ||
                        prevProps.projecttasks.links !== projecttasks.links;
 
+    // Skip re-parsing data if undo/redo is in progress to preserve the undo/redo stack
     if (dataChanged) {
+      if (this.isUndoRedoInProgress) {
+        console.log("Skipping data re-parse - undo/redo in progress");
+        return;
+      }
+
       this.allTasks = projecttasks.data || [];
       console.log("=== Gantt parsing tasks ===", projecttasks.data?.length || 0, "tasks");
 
@@ -2516,13 +2523,12 @@ export default class Gantt extends Component<GanttProps, GanttState> {
   }
 
   /**
-   * Remove end_date from tasks to ensure DHTMLX uses the stored duration value.
-   * DHTMLX prioritizes end_date over duration, so removing it forces the library
-   * to calculate end_date from start_date + duration, preventing off-by-one errors.
+   * Remove end_date from tasks to prevent DHTMLX from prioritizing it over duration.
+   * DHTMLX will calculate end_date automatically based on start_date + duration.
+   * This fixes the bug where old end_date from database causes incorrect duration recalculation.
    */
   private prepareTasksForParsing(tasks: any[]): any[] {
     return tasks.map(task => {
-      // Remove end_date to let DHTMLX calculate it from duration
       const { end_date, ...taskWithoutEndDate } = task;
 
       // Ensure duration is a valid number

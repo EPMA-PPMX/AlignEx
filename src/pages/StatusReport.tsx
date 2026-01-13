@@ -188,9 +188,9 @@ export default function StatusReport() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-lg shadow-lg">
+        <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200">
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -202,9 +202,10 @@ export default function StatusReport() {
                   onClick={() => setViewMode('create')}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium ${
                     viewMode === 'create'
-                      ? 'bg-blue-600 text-white'
+                      ? 'text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
+                  style={viewMode === 'create' ? { backgroundColor: '#7e22ce' } : {}}
                 >
                   <Plus className="w-4 h-4" />
                   New Report
@@ -213,9 +214,10 @@ export default function StatusReport() {
                   onClick={() => setViewMode('history')}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium ${
                     viewMode === 'history'
-                      ? 'bg-blue-600 text-white'
+                      ? 'text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
+                  style={viewMode === 'history' ? { backgroundColor: '#7e22ce' } : {}}
                 >
                   <History className="w-4 h-4" />
                   View History
@@ -237,7 +239,10 @@ export default function StatusReport() {
                   <p className="text-gray-600">No status reports found</p>
                   <button
                     onClick={() => setViewMode('create')}
-                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    className="mt-4 px-4 py-2 text-white rounded-lg"
+                    style={{ backgroundColor: '#7e22ce' }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#6b1fb5'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#7e22ce'}
                   >
                     Create Your First Report
                   </button>
@@ -247,7 +252,7 @@ export default function StatusReport() {
                   {pastReports.map((report) => (
                     <div
                       key={report.id}
-                      className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                      className="border border-gray-200 rounded-lg p-4 hover:border-purple-300 hover:bg-purple-50 transition-colors"
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -262,11 +267,18 @@ export default function StatusReport() {
                             <span
                               className={`px-2 py-1 text-xs font-medium rounded ${
                                 report.status === 'submitted'
-                                  ? 'bg-green-100 text-green-700'
+                                  ? 'text-white'
                                   : report.status === 'approved'
-                                  ? 'bg-blue-100 text-blue-700'
+                                  ? 'text-white'
                                   : 'bg-gray-100 text-gray-700'
                               }`}
+                              style={
+                                report.status === 'submitted'
+                                  ? { backgroundColor: '#5DB6B8' }
+                                  : report.status === 'approved'
+                                  ? { backgroundColor: '#5DB6B8' }
+                                  : {}
+                              }
                             >
                               {report.status}
                             </span>
@@ -277,7 +289,12 @@ export default function StatusReport() {
                             </span>
                           </div>
                         </div>
-                        <button className="flex items-center gap-2 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg">
+                        <button
+                          className="flex items-center gap-2 px-3 py-2 text-sm text-white rounded-lg"
+                          style={{ backgroundColor: '#7e22ce' }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#6b1fb5'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#7e22ce'}
+                        >
                           <Eye className="w-4 h-4" />
                           View
                         </button>
@@ -302,24 +319,41 @@ export default function StatusReport() {
                       <div
                         className={`w-10 h-10 rounded-full flex items-center justify-center ${
                           isActive
-                            ? 'bg-blue-600 text-white'
+                            ? 'text-white'
                             : isCompleted
-                            ? 'bg-green-600 text-white'
+                            ? 'text-white'
                             : 'bg-gray-200 text-gray-600'
                         }`}
+                        style={
+                          isActive
+                            ? { backgroundColor: '#7e22ce' }
+                            : isCompleted
+                            ? { backgroundColor: '#5DB6B8' }
+                            : {}
+                        }
                       >
                         {isCompleted ? <Check className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
                       </div>
                       <span
                         className={`ml-2 text-sm font-medium hidden lg:block ${
-                          isActive ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-500'
+                          isActive ? '' : isCompleted ? '' : 'text-gray-500'
                         }`}
+                        style={
+                          isActive
+                            ? { color: '#7e22ce' }
+                            : isCompleted
+                            ? { color: '#5DB6B8' }
+                            : {}
+                        }
                       >
                         {step.label}
                       </span>
                     </div>
                     {index < STEPS.length - 1 && (
-                      <div className={`flex-1 h-0.5 mx-2 ${isCompleted ? 'bg-green-600' : 'bg-gray-200'}`} />
+                      <div
+                        className={`flex-1 h-0.5 mx-2 ${isCompleted ? '' : 'bg-gray-200'}`}
+                        style={isCompleted ? { backgroundColor: '#5DB6B8' } : {}}
+                      />
                     )}
                   </div>
                 );
@@ -381,7 +415,10 @@ export default function StatusReport() {
                 <button
                   onClick={handleNext}
                   disabled={!reportData.projectId || !reportData.weekEndingDate}
-                  className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 px-6 py-2 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: '#7e22ce' }}
+                  onMouseEnter={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = '#6b1fb5')}
+                  onMouseLeave={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = '#7e22ce')}
                 >
                   Next
                   <ChevronRight className="w-4 h-4" />
@@ -390,7 +427,10 @@ export default function StatusReport() {
                 <button
                   onClick={handleSubmit}
                   disabled={saving || !reportData.projectId || !reportData.weekEndingDate}
-                  className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 px-6 py-2 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: '#5DB6B8' }}
+                  onMouseEnter={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = '#4da5a7')}
+                  onMouseLeave={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = '#5DB6B8')}
                 >
                   <Send className="w-4 h-4" />
                   {saving ? 'Submitting...' : 'Submit Report'}
