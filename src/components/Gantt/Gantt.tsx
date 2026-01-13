@@ -83,6 +83,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
   private userId: string = 'anonymous'; // Default user ID for preferences
   private isUndoRedoInProgress = false;
   private eventHandlersAttached = false;
+  private displayedBaselineNum: number = 0; // Track which baseline is currently displayed
 
   constructor(props: GanttProps) {
     super(props);
@@ -245,56 +246,82 @@ export default class Gantt extends Component<GanttProps, GanttState> {
   public setBaseline = (baselineNum: number = 0): any[] => {
     const baselineData: any[] = [];
 
+    // Update the displayed baseline number to match the one being set
+    this.displayedBaselineNum = baselineNum;
+
+    // Store all task IDs first to ensure we process all tasks
+    const taskIds: any[] = [];
     gantt.eachTask((task: any) => {
       // Skip group headers
       if (task.$group_header) return;
+      taskIds.push(task.id);
+    });
 
-      // Get current start and end dates
-      const startDate = gantt.date.parseDate(task.start_date, "xml_date");
-      // Use DHTMLX's calculateEndDate which calculates calendar days (including weekends)
-      const endDate = gantt.calculateEndDate(startDate, task.duration);
+    console.log(`Setting baseline ${baselineNum} for ${taskIds.length} tasks`);
 
-      // Format dates as YYYY-MM-DD HH:mm for storage
-      const dateTimeFormat = gantt.date.date_to_str("%Y-%m-%d %H:%i");
-      const startDateStr = dateTimeFormat(startDate);
-      const endDateStr = dateTimeFormat(endDate);
+    // Use batchUpdate to process all tasks at once without triggering individual re-renders
+    gantt.batchUpdate(() => {
+      // Process each task
+      taskIds.forEach((taskId) => {
+        const task = gantt.getTask(taskId);
 
-      // Store baseline fields with lowercase naming: baseline{N}_startDate, baseline{N}_endDate, baseline{N}_duration
-      task[`baseline${baselineNum}_startDate`] = startDateStr;
-      task[`baseline${baselineNum}_endDate`] = endDateStr;
-      task[`baseline${baselineNum}_duration`] = task.duration;
+        // Get current start and end dates
+        const startDate = gantt.date.parseDate(task.start_date, "xml_date");
+        // Use DHTMLX's calculateEndDate which calculates calendar days (including weekends)
+        const endDate = gantt.calculateEndDate(startDate, task.duration);
 
-      // Also store as Date objects for rendering baseline bars
-      task[`planned_start_${baselineNum}`] = startDate;
-      task[`planned_end_${baselineNum}`] = endDate;
+        // Format dates as YYYY-MM-DD HH:mm for storage
+        const dateTimeFormat = gantt.date.date_to_str("%Y-%m-%d %H:%i");
+        const startDateStr = dateTimeFormat(startDate);
+        const endDateStr = dateTimeFormat(endDate);
 
-      // Keep the default planned_start/planned_end for backward compatibility with baseline 0
-      if (baselineNum === 0) {
-        task.planned_start = startDate;
-        task.planned_end = endDate;
-      }
+        // Store baseline fields with lowercase naming: baseline{N}_startDate, baseline{N}_endDate, baseline{N}_duration
+        task[`baseline${baselineNum}_startDate`] = startDateStr;
+        task[`baseline${baselineNum}_endDate`] = endDateStr;
+        task[`baseline${baselineNum}_duration`] = task.duration;
 
-      // Store baseline data for return (for logging purposes)
-      baselineData.push({
-        task_id: task.id,
-        baseline_number: baselineNum,
-        [`baseline${baselineNum}_startDate`]: startDateStr,
-        [`baseline${baselineNum}_endDate`]: endDateStr,
-        [`baseline${baselineNum}_duration`]: task.duration
+        // Also store as Date objects for rendering baseline bars
+        task[`planned_start_${baselineNum}`] = startDate;
+        task[`planned_end_${baselineNum}`] = endDate;
+
+        // Keep the default planned_start/planned_end for backward compatibility with baseline 0
+        if (baselineNum === 0) {
+          task.planned_start = startDate;
+          task.planned_end = endDate;
+        }
+
+        // Store baseline data for return (for logging purposes)
+        baselineData.push({
+          task_id: task.id,
+          baseline_number: baselineNum,
+          [`baseline${baselineNum}_startDate`]: startDateStr,
+          [`baseline${baselineNum}_endDate`]: endDateStr,
+          [`baseline${baselineNum}_duration`]: task.duration
+        });
       });
-
-      // Update the task in gantt
-      gantt.updateTask(task.id);
     });
 
     console.log(`Setting baseline ${baselineNum} with fields: baseline${baselineNum}_startDate, baseline${baselineNum}_endDate, baseline${baselineNum}_duration`);
     console.log('Baseline data:', baselineData);
-    gantt.render();
+    console.log(`Successfully set baseline for ${baselineData.length} tasks`);
 
-    // Manually trigger baseline rendering
-    setTimeout(() => {
-      this.renderBaselines();
-    }, 100);
+    // Verify that all tasks have baseline data set
+    let verifiedCount = 0;
+    gantt.eachTask((task: any) => {
+      if (task.$group_header) return;
+      const baselineStartField = `baseline${baselineNum}_startDate`;
+      const baselineEndField = `baseline${baselineNum}_endDate`;
+      if (task[baselineStartField] && task[baselineEndField]) {
+        verifiedCount++;
+        console.log(`Task ${task.id}: Has baseline data - ${baselineStartField}=${task[baselineStartField]}, ${baselineEndField}=${task[baselineEndField]}`);
+      } else {
+        console.warn(`Task ${task.id}: Missing baseline data after setBaseline`);
+      }
+    });
+    console.log(`Verified ${verifiedCount} tasks have baseline data`);
+
+    // Force a full render to trigger addTaskLayer - this now happens only once
+    gantt.render();
 
     return baselineData;
   };
@@ -470,74 +497,11 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     }
   };
 
+  // renderBaselines is no longer needed - using gantt.addTaskLayer instead
+  // This method is kept for backward compatibility but does nothing
   private renderBaselines = (): void => {
-    console.log("=== Rendering Baselines ===");
-
-    // Remove existing baseline elements
-    const existingBaselines = document.querySelectorAll('.baseline-bar');
-    console.log("Removing existing baselines:", existingBaselines.length);
-    existingBaselines.forEach(el => el.remove());
-
-    let baselineCount = 0;
-
-    // Render baseline for each task that has planned dates
-    gantt.eachTask((task: any) => {
-      console.log(`Task ${task.id}: planned_start=${task.planned_start}, planned_end=${task.planned_end}`);
-
-      if (task.planned_start && task.planned_end && !task.$group_header) {
-        try {
-          const sizes = gantt.getTaskPosition(task, task.planned_start, task.planned_end);
-          const actualTaskSizes = gantt.getTaskPosition(task, task.start_date, task.end_date);
-
-          console.log(`Task ${task.id} - baseline sizes:`, sizes);
-          console.log(`Task ${task.id} - actual task sizes:`, actualTaskSizes);
-          console.log(`Task ${task.id} - row_height: ${gantt.config.row_height}, task_height: ${gantt.config.task_height}`);
-
-          const el = document.createElement('div');
-          el.className = 'baseline-bar';
-          el.style.position = 'absolute';
-          el.style.left = sizes.left + 'px';
-          el.style.width = sizes.width + 'px';
-
-          // Position baseline directly below the task bar
-          // Get the task bar's actual position in the row
-          const rowTop = actualTaskSizes.top;
-          const rowHeight = actualTaskSizes.rowHeight;
-          const taskBarHeight = actualTaskSizes.height;
-          const taskBarVerticalOffset = (rowHeight - taskBarHeight) / 2;
-          const taskBarTop = rowTop + taskBarVerticalOffset;
-          // Position baseline just below the task bar
-          const baselineTop = taskBarTop + taskBarHeight;
-
-          console.log(`Task ${task.id} - calculated: rowTop=${rowTop}, taskBarTop=${taskBarTop}, baselineTop=${baselineTop}`);
-
-          el.style.top = baselineTop + 'px';
-          el.style.height = '3px';
-          el.style.background = '#ef4444'; // Red color
-          el.style.border = 'none';
-          el.style.opacity = '1';
-          el.style.borderRadius = '0';
-          el.style.pointerEvents = 'none';
-          el.style.zIndex = '2'; // Higher z-index to appear above task bar
-
-          // Find the timeline area and append
-          const timelineArea = document.querySelector('.gantt_task');
-          console.log("Timeline area found:", !!timelineArea);
-
-          if (timelineArea) {
-            timelineArea.appendChild(el);
-            baselineCount++;
-            console.log(`Baseline rendered for task ${task.id} at top: ${baselineTop}px`);
-          } else {
-            console.warn("Timeline area not found for baseline rendering");
-          }
-        } catch (e) {
-          console.error('Error rendering baseline for task', task.id, e);
-        }
-      }
-    });
-
-    console.log(`Total baselines rendered: ${baselineCount}`);
+    // Baselines are now rendered automatically via gantt.addTaskLayer
+    // See gantt.init() for the addTaskLayer implementation
   };
 
   private buildGanttColumns = () => {
@@ -1293,12 +1257,18 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         // Set default start date to project start date
         const { projectStartDate } = this.props;
         if (projectStartDate) {
-          const startDate = new Date(projectStartDate);
-          const year = startDate.getFullYear();
-          const month = String(startDate.getMonth() + 1).padStart(2, '0');
-          const day = String(startDate.getDate()).padStart(2, '0');
-          task.start_date = `${year}-${month}-${day} 00:00`;
+          // Set start_date as a Date object (not a string)
+          task.start_date = new Date(projectStartDate);
           console.log("Set default start_date to project start date:", task.start_date);
+        } else {
+          // Fallback to today's date if no project start date
+          task.start_date = new Date();
+          console.log("Set default start_date to today:", task.start_date);
+        }
+
+        // Set default duration
+        if (!task.duration) {
+          task.duration = 1;
         }
 
         // Capture the parent - check various parent properties
@@ -1652,6 +1622,91 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     if (this.ganttContainer.current) {
       gantt.init(this.ganttContainer.current);
 
+      // Add baseline layer using dhtmlx gantt's addTaskLayer method
+      gantt.addTaskLayer({
+        renderer: {
+          render: (task: any) => {
+            // Skip rendering if task doesn't have valid start_date (new tasks being created)
+            if (!task.start_date || !task.id) {
+              return false;
+            }
+
+            // Use the currently displayed baseline number
+            const baselineNum = this.displayedBaselineNum;
+            const baselineStartField = `baseline${baselineNum}_startDate`;
+            const baselineEndField = `baseline${baselineNum}_endDate`;
+
+            // Check if this task has data for the displayed baseline
+            if (!task[baselineStartField] || !task[baselineEndField]) {
+              return false;
+            }
+
+            // Parse the baseline dates
+            const plannedStart = gantt.date.parseDate(task[baselineStartField], "xml_date");
+            const plannedEnd = gantt.date.parseDate(task[baselineEndField], "xml_date");
+
+            // Only render baseline if we have valid planned dates
+            if (plannedStart && plannedEnd &&
+                plannedStart instanceof Date && plannedEnd instanceof Date &&
+                !isNaN(plannedStart.getTime()) && !isNaN(plannedEnd.getTime())) {
+              try {
+                const sizes = gantt.getTaskPosition(task, plannedStart, plannedEnd);
+
+                const el = document.createElement('div');
+                el.className = 'baseline';
+                el.style.left = sizes.left + 'px';
+                el.style.width = sizes.width + 'px';
+                el.style.top = (sizes.top + gantt.config.task_height + 13) + 'px';
+                el.style.height = '4px';
+                el.style.background = '#ef4444';
+                el.style.borderRadius = '2px';
+                el.style.opacity = '0.9';
+
+                return el;
+              } catch (e) {
+                // Silently handle any errors in baseline rendering
+                console.warn('Error rendering baseline for task:', task.id, e);
+                return false;
+              }
+            }
+            return false;
+          },
+          // Define getRectangle for smart rendering optimization
+          getRectangle: (task: any, view: any) => {
+            // Skip if task doesn't have valid start_date
+            if (!task.start_date || !task.id) {
+              return null;
+            }
+
+            // Use the currently displayed baseline number
+            const baselineNum = this.displayedBaselineNum;
+            const baselineStartField = `baseline${baselineNum}_startDate`;
+            const baselineEndField = `baseline${baselineNum}_endDate`;
+
+            // Check if this task has data for the displayed baseline
+            if (!task[baselineStartField] || !task[baselineEndField]) {
+              return null;
+            }
+
+            // Parse the baseline dates
+            const plannedStart = gantt.date.parseDate(task[baselineStartField], "xml_date");
+            const plannedEnd = gantt.date.parseDate(task[baselineEndField], "xml_date");
+
+            if (plannedStart && plannedEnd &&
+                plannedStart instanceof Date && plannedEnd instanceof Date &&
+                !isNaN(plannedStart.getTime()) && !isNaN(plannedEnd.getTime())) {
+              try {
+                return gantt.getTaskPosition(task, plannedStart, plannedEnd);
+              } catch (e) {
+                // Silently handle any errors
+                return null;
+              }
+            }
+            return null;
+          }
+        }
+      });
+
       // Attach event handlers for undo/redo and auto-save
       this.attachEventHandlers();
 
@@ -1699,24 +1754,6 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         gantt.render();
       });
       this.resizeObserver.observe(this.ganttContainer.current);
-
-      // Add baseline rendering after gantt renders
-      gantt.attachEvent("onGanttRender", () => {
-        this.renderBaselines();
-      });
-
-      // Re-render baselines after data area is rendered (scroll, zoom, etc.)
-      gantt.attachEvent("onDataRender", () => {
-        this.renderBaselines();
-      });
-
-      // Re-render baselines after task is dragged
-      gantt.attachEvent("onAfterTaskDrag", (id: any, mode: any, e: any) => {
-        setTimeout(() => {
-          this.renderBaselines();
-        }, 50);
-        return true;
-      });
 
       console.log("Initializing Gantt with data:", projecttasks);
       console.log("Links in projecttasks:", projecttasks.links);
@@ -1807,29 +1844,8 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         }
       });
 
-      // Convert baseline fields to Date objects for rendering
-      // Check for baseline0 by default (most commonly used baseline)
-      let hasBaselines = false;
-      gantt.eachTask((task: any) => {
-        if (task.$group_header) return;
-
-        // Check if task has baseline0 data
-        if (task.baseline0_startDate && task.baseline0_endDate) {
-          console.log(`Task ${task.id}: Loading baseline0 - startDate=${task.baseline0_startDate}, endDate=${task.baseline0_endDate}`);
-          task.planned_start = gantt.date.parseDate(task.baseline0_startDate, "xml_date");
-          task.planned_end = gantt.date.parseDate(task.baseline0_endDate, "xml_date");
-          console.log(`Task ${task.id}: Converted to Date objects - planned_start=${task.planned_start}, planned_end=${task.planned_end}`);
-          hasBaselines = true;
-        }
-      });
-
-      // Render baselines if any were found
-      if (hasBaselines) {
-        console.log('Baselines detected, triggering render...');
-        setTimeout(() => {
-          this.renderBaselines();
-        }, 100);
-      }
+      // Baseline rendering is now handled automatically by gantt.addTaskLayer
+      // No need for manual conversion here - addTaskLayer will convert baseline data on demand
 
       // Use event delegation to capture add and edit button clicks
       const clickHandler = (e: any) => {
@@ -2094,6 +2110,91 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         // Reinitialize with new layout
         gantt.init(this.ganttContainer.current);
 
+        // Add baseline layer using dhtmlx gantt's addTaskLayer method
+        gantt.addTaskLayer({
+          renderer: {
+            render: (task: any) => {
+              // Skip rendering if task doesn't have valid start_date (new tasks being created)
+              if (!task.start_date || !task.id) {
+                return false;
+              }
+
+              // Use the currently displayed baseline number
+              const baselineNum = this.displayedBaselineNum;
+              const baselineStartField = `baseline${baselineNum}_startDate`;
+              const baselineEndField = `baseline${baselineNum}_endDate`;
+
+              // Check if this task has data for the displayed baseline
+              if (!task[baselineStartField] || !task[baselineEndField]) {
+                return false;
+              }
+
+              // Parse the baseline dates
+              const plannedStart = gantt.date.parseDate(task[baselineStartField], "xml_date");
+              const plannedEnd = gantt.date.parseDate(task[baselineEndField], "xml_date");
+
+              // Only render baseline if we have valid planned dates
+              if (plannedStart && plannedEnd &&
+                  plannedStart instanceof Date && plannedEnd instanceof Date &&
+                  !isNaN(plannedStart.getTime()) && !isNaN(plannedEnd.getTime())) {
+                try {
+                  const sizes = gantt.getTaskPosition(task, plannedStart, plannedEnd);
+
+                  const el = document.createElement('div');
+                  el.className = 'baseline';
+                  el.style.left = sizes.left + 'px';
+                  el.style.width = sizes.width + 'px';
+                  el.style.top = (sizes.top + gantt.config.task_height + 13) + 'px';
+                  el.style.height = '4px';
+                  el.style.background = '#ef4444';
+                  el.style.borderRadius = '2px';
+                  el.style.opacity = '0.9';
+
+                  return el;
+                } catch (e) {
+                  // Silently handle any errors in baseline rendering
+                  console.warn('Error rendering baseline for task:', task.id, e);
+                  return false;
+                }
+              }
+              return false;
+            },
+            // Define getRectangle for smart rendering optimization
+            getRectangle: (task: any, view: any) => {
+              // Skip if task doesn't have valid start_date
+              if (!task.start_date || !task.id) {
+                return null;
+              }
+
+              // Use the currently displayed baseline number
+              const baselineNum = this.displayedBaselineNum;
+              const baselineStartField = `baseline${baselineNum}_startDate`;
+              const baselineEndField = `baseline${baselineNum}_endDate`;
+
+              // Check if this task has data for the displayed baseline
+              if (!task[baselineStartField] || !task[baselineEndField]) {
+                return null;
+              }
+
+              // Parse the baseline dates
+              const plannedStart = gantt.date.parseDate(task[baselineStartField], "xml_date");
+              const plannedEnd = gantt.date.parseDate(task[baselineEndField], "xml_date");
+
+              if (plannedStart && plannedEnd &&
+                  plannedStart instanceof Date && plannedEnd instanceof Date &&
+                  !isNaN(plannedStart.getTime()) && !isNaN(plannedEnd.getTime())) {
+                try {
+                  return gantt.getTaskPosition(task, plannedStart, plannedEnd);
+                } catch (e) {
+                  // Silently handle any errors
+                  return null;
+                }
+              }
+              return null;
+            }
+          }
+        });
+
         // Prepare tasks by removing end_date
         const preparedTasks = this.prepareTasksForParsing(projecttasks.data || []);
 
@@ -2144,27 +2245,8 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           }
         });
 
-        // Convert baseline fields to Date objects for rendering
-        let hasBaselines = false;
-        gantt.eachTask((task: any) => {
-          if (task.$group_header) return;
-
-          // Check if task has baseline0 data
-          if (task.baseline0_startDate && task.baseline0_endDate) {
-            task.planned_start = gantt.date.parseDate(task.baseline0_startDate, "xml_date");
-            task.planned_end = gantt.date.parseDate(task.baseline0_endDate, "xml_date");
-            hasBaselines = true;
-          }
-        });
-
+        // Baseline rendering is now handled automatically by gantt.addTaskLayer
         gantt.render();
-
-        // Render baselines if any were found
-        if (hasBaselines) {
-          setTimeout(() => {
-            this.renderBaselines();
-          }, 100);
-        }
       }
 
       return; // Exit early to avoid double render
@@ -2330,29 +2412,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
             }
           });
 
-          // Convert baseline fields to Date objects for rendering
-          // Check for baseline0 by default (most commonly used baseline)
-          let hasBaselines = false;
-          gantt.eachTask((task: any) => {
-            if (task.$group_header) return;
-
-            // Check if task has baseline0 data
-            if (task.baseline0_startDate && task.baseline0_endDate) {
-              console.log(`Task ${task.id}: Loading baseline0 - startDate=${task.baseline0_startDate}, endDate=${task.baseline0_endDate}`);
-              task.planned_start = gantt.date.parseDate(task.baseline0_startDate, "xml_date");
-              task.planned_end = gantt.date.parseDate(task.baseline0_endDate, "xml_date");
-              console.log(`Task ${task.id}: Converted to Date objects - planned_start=${task.planned_start}, planned_end=${task.planned_end}`);
-              hasBaselines = true;
-            }
-          });
-
-          // Render baselines if any were found
-          if (hasBaselines) {
-            console.log('Baselines detected in componentDidUpdate, triggering render...');
-            setTimeout(() => {
-              this.renderBaselines();
-            }, 100);
-          }
+          // Baseline rendering is now handled automatically by gantt.addTaskLayer
 
           // Restore scroll position after parsing and rendering
           if (scrollState) {
