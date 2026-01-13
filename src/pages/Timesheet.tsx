@@ -703,7 +703,7 @@ const Timesheet: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex justify-between items-center mb-6">
           <button
             onClick={() => navigateWeek(-1)}
@@ -723,40 +723,35 @@ const Timesheet: React.FC = () => {
         </div>
 
         <div className="mb-4 grid grid-cols-2 md:grid-cols-5 gap-4">
-          <div className="p-4 bg-blue-50 rounded-lg">
-            <div className="text-sm text-gray-600">Total Hours</div>
-            <div className="text-2xl font-bold text-blue-600">{grandTotal.toFixed(2)}</div>
+          <div className="p-4 rounded-lg" style={{ backgroundColor: '#7e22ce' }}>
+            <div className="text-sm text-white">Total Hours</div>
+            <div className="text-2xl font-bold text-white">{grandTotal.toFixed(2)}</div>
           </div>
-          <div className="p-4 bg-green-50 rounded-lg">
-            <div className="text-sm text-gray-600">Billable</div>
-            <div className="text-2xl font-bold text-green-600">{totalBillable.toFixed(2)}</div>
+          <div className="p-4 rounded-lg" style={{ backgroundColor: '#7e22ce' }}>
+            <div className="text-sm text-white">Billable</div>
+            <div className="text-2xl font-bold text-[#5DB6B8]">{totalBillable.toFixed(2)}</div>
           </div>
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <div className="text-sm text-gray-600">Non-Billable</div>
-            <div className="text-2xl font-bold text-gray-600">{totalNonBillable.toFixed(2)}</div>
+          <div className="p-4 rounded-lg" style={{ backgroundColor: '#7e22ce' }}>
+            <div className="text-sm text-white">Non-Billable</div>
+            <div className="text-2xl font-bold text-[#F89D43]">{totalNonBillable.toFixed(2)}</div>
           </div>
-          <div className="p-4 bg-orange-50 rounded-lg">
-            <div className="text-sm text-gray-600">Non-Project</div>
-            <div className="text-2xl font-bold text-orange-600">{nonProjectHours.toFixed(2)}</div>
+          <div className="p-4 rounded-lg" style={{ backgroundColor: '#7e22ce' }}>
+            <div className="text-sm text-white">Non-Project</div>
+            <div className="text-2xl font-bold text-[#9CA3AF]">{nonProjectHours.toFixed(2)}</div>
           </div>
           {weekSubmission && (
-            <div className={`p-4 rounded-lg ${
-              weekSubmission.status === 'submitted' ? 'bg-green-50' :
-              weekSubmission.status === 'approved' ? 'bg-green-100' :
-              weekSubmission.status === 'rejected' ? 'bg-red-50' :
-              'bg-gray-50'
-            }`}>
-              <div className="text-sm text-gray-600">Status</div>
+            <div className="p-4 rounded-lg" style={{ backgroundColor: '#7e22ce' }}>
+              <div className="text-sm text-white">Status</div>
               <div className={`text-2xl font-bold ${
-                weekSubmission.status === 'submitted' ? 'text-green-700' :
-                weekSubmission.status === 'approved' ? 'text-green-800' :
-                weekSubmission.status === 'rejected' ? 'text-red-700' :
-                'text-gray-700'
+                weekSubmission.status === 'submitted' ? 'text-[#5DB6B8]' :
+                weekSubmission.status === 'approved' ? 'text-[#5DB6B8]' :
+                weekSubmission.status === 'rejected' ? 'text-[#FD5D5D]' :
+                'text-white'
               }`}>
                 {weekSubmission.status.charAt(0).toUpperCase() + weekSubmission.status.slice(1)}
               </div>
               {weekSubmission.submitted_at && (
-                <div className="text-xs text-gray-500 mt-1">
+                <div className="text-xs text-white/80 mt-1">
                   Submitted: {new Date(weekSubmission.submitted_at).toLocaleDateString()}
                 </div>
               )}
@@ -768,7 +763,7 @@ const Timesheet: React.FC = () => {
           <button
             onClick={() => setShowAddModal(true)}
             disabled={weekSubmission && weekSubmission.status === 'submitted'}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-gradient-primary text-white px-4 py-2 rounded-lg hover:opacity-90 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="w-5 h-5" />
             Add Time Entry
@@ -796,21 +791,21 @@ const Timesheet: React.FC = () => {
 
         <div className="overflow-x-auto">
           <table className="min-w-full border-collapse">
-            <thead>
+            <thead className="bg-gradient-dark">
               <tr className="border-b-2 border-gray-300">
-                <th className="text-left py-3 px-4 font-semibold w-56">Project/Activity</th>
-                <th className="text-left py-3 px-2 font-semibold w-24">Type</th>
+                <th className="text-left py-3 px-4 font-semibold text-white w-56">Project/Activity</th>
+                <th className="text-left py-3 px-2 font-semibold text-white w-24">Type</th>
                 {weekDates.map((date, idx) => (
-                  <th key={idx} className="text-center py-3 px-2 font-semibold min-w-[80px]">
+                  <th key={idx} className="text-center py-3 px-2 font-semibold text-white min-w-[80px]">
                     <div>{date.toLocaleDateString('en-US', { weekday: 'short' })}</div>
-                    <div className="text-sm font-normal text-gray-600">{formatDate(date)}</div>
+                    <div className="text-sm font-normal text-gray-200">{formatDate(date)}</div>
                   </th>
                 ))}
-                <th className="text-center py-3 px-4 font-semibold w-20">Total</th>
-                <th className="text-center py-3 px-4 font-semibold w-20">Actions</th>
+                <th className="text-center py-3 px-4 font-semibold text-white w-20">Total</th>
+                <th className="text-center py-3 px-4 font-semibold text-white w-20">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody style={{ backgroundColor: '#F9F7FC' }}>
               {rows.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="text-center py-8 text-gray-500">
@@ -837,7 +832,7 @@ const Timesheet: React.FC = () => {
 
                     return (
                       <React.Fragment key={row.id}>
-                        <tr className={`${rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-b ${isExpanded ? 'border-gray-200' : 'border-gray-300'}`}>
+                        <tr className={`border-b ${isExpanded ? 'border-gray-200' : 'border-gray-300'}`}>
                           <td className="py-2 px-4" rowSpan={isExpanded ? 2 : 1}>
                             <div className="flex items-center gap-2">
                               <button
@@ -970,7 +965,7 @@ const Timesheet: React.FC = () => {
                           </td>
                         </tr>
                         {isExpanded && (
-                          <tr className={`${rowIdx % 2 === 0 ? 'bg-gray-50' : 'bg-gray-100'} border-b border-gray-300`}>
+                          <tr className="border-b border-gray-300">
                             <td className="py-2 px-2">
                               <span className="text-sm font-medium text-gray-600 italic">Non-Billable</span>
                             </td>

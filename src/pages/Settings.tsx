@@ -68,7 +68,7 @@ const Settings: React.FC = () => {
 
         {/* Settings Content */}
         <div className="flex-1">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6">
             {activeTab === 'profile' && (
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 mb-6">Profile Settings</h2>

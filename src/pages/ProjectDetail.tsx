@@ -163,6 +163,25 @@ interface MonthlyBudgetForecast {
   updated_at: string;
 }
 
+// Helper function to format currency
+const formatCurrency = (value: string): string => {
+  // Remove all non-numeric characters except decimal
+  const numericValue = value.replace(/[^\d.]/g, '');
+  if (!numericValue) return '';
+
+  // Split into integer and decimal parts
+  const parts = numericValue.split('.');
+  // Format integer part with commas
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+  return parts.join('.');
+};
+
+// Helper function to parse currency to numeric value
+const parseCurrency = (value: string): string => {
+  return value.replace(/[^\d.]/g, '');
+};
+
 const ProjectDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -284,6 +303,7 @@ const ProjectDetail: React.FC = () => {
     cost_impact: '',
     risk_impact: 'Low',
     resource_impact: 'Low',
+    status: 'Pending',
     attachments: ''
   });
 
@@ -1825,30 +1845,6 @@ const ProjectDetail: React.FC = () => {
         setShowSaveTemplateModal(false);
         setTemplateName('');
         setTemplateDescription('');
-        if (error) {
-          console.error('Error updating tasks:', error);
-        } else {
-          console.log("Tasks updated successfully");
-          // Don't fetch - this causes infinite loop
-          // The Gantt already has the updated data
-        }
-      } else {
-        // Insert new record only if none exists
-        console.log("Inserting new record");
-        const { error } = await supabase
-          .from('project_tasks')
-          .insert({
-            project_id: id,
-            task_data: cleanedData
-          });
-
-        if (error) {
-          console.error('Error inserting tasks:', error);
-        } else {
-          console.log("Tasks inserted successfully");
-          // Don't fetch - this causes infinite loop
-          // The Gantt already has the updated data
-        }
       }
     } catch (error) {
       console.error('Error saving schedule template:', error);
@@ -2484,6 +2480,7 @@ const ProjectDetail: React.FC = () => {
       cost_impact: changeRequest.cost_impact || '',
       risk_impact: changeRequest.risk_impact,
       resource_impact: changeRequest.resource_impact,
+      status: changeRequest.status || 'Pending',
       attachments: changeRequest.attachments || ''
     });
 
@@ -2541,6 +2538,7 @@ const ProjectDetail: React.FC = () => {
       cost_impact: '',
       risk_impact: 'Low',
       resource_impact: 'Low',
+      status: 'Pending',
       attachments: ''
     });
     setChangeRequestCustomFieldValues({});
@@ -3146,10 +3144,6 @@ const ProjectDetail: React.FC = () => {
       // Format to YYYY-MM-DD HH:MM to match start_date format
       const dateTimeFormat = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i");
       return dateTimeFormat(adjustedEndDate);
-      // Format to YYYY-MM-DD HH:MM to match start_date format
-      // Keep the exclusive end date format to match DHTMLX Gantt's expectations
-      const dateTimeFormat = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i");
-      return dateTimeFormat(calculatedEndDate);
     } catch (error) {
       console.error('Error calculating end date:', error);
       return '';
@@ -3162,7 +3156,7 @@ const ProjectDetail: React.FC = () => {
     console.log('🎯 SUBMIT - Form submitted with resourceAllocations:', resourceAllocations);
     console.log('🎯 SUBMIT - taskForm.resource_ids:', taskForm.resource_ids);
 
-    if (!taskForm.description || !taskForm.duration) {
+    if (!taskForm.description || !taskForm.start_date || !taskForm.duration) {
       showNotification('Please fill in all required fields', 'error');
       return;
     }
@@ -3209,20 +3203,16 @@ const ProjectDetail: React.FC = () => {
                 progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
               };
 
-              // Set start_date: use provided date or default to project start date or keep existing
+              // Set start_date: use provided date or default to project creation date or keep existing
               if (adjustedStartDate) {
                 const startDateStr = `${adjustedStartDate} 00:00`;
                 updatedTask.start_date = startDateStr;
-              } else if (!task.start_date && project?.start_date) {
-                // If task has no start date and no new date provided, default to project start date
-                const startDate = new Date(project.start_date);
-                const year = startDate.getFullYear();
-                const month = String(startDate.getMonth() + 1).padStart(2, '0');
-                const day = String(startDate.getDate()).padStart(2, '0');
-                const projectDate = `${year}-${month}-${day}`;
+              } else if (!task.start_date && project?.created_at) {
+                // If task has no start date and no new date provided, default to project creation date
+                const projectDate = new Date(project.created_at).toISOString().split('T')[0];
                 const startDateStr = `${projectDate} 00:00`;
                 updatedTask.start_date = startDateStr;
-                console.log('No start date provided, using project start date:', startDateStr);
+                console.log('No start date provided, using project creation date:', startDateStr);
               }
 
               // Calculate end_date using the same method as Gantt component (line 1216)
@@ -3297,29 +3287,16 @@ const ProjectDetail: React.FC = () => {
           progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
         };
 
-        // Set start_date: use provided date or default to project start date
+        // Set start_date: use provided date or default to project creation date
         if (adjustedStartDate) {
           const startDateStr = `${adjustedStartDate} 00:00`;
           newTask.start_date = startDateStr;
-        } else if (project?.start_date) {
-          // Default to project start date if no start date provided
-          const startDate = new Date(project.start_date);
-          const year = startDate.getFullYear();
-          const month = String(startDate.getMonth() + 1).padStart(2, '0');
-          const day = String(startDate.getDate()).padStart(2, '0');
-          const projectDate = `${year}-${month}-${day}`;
+        } else if (project?.created_at) {
+          // Default to project creation date if no start date provided
+          const projectDate = new Date(project.created_at).toISOString().split('T')[0];
           const startDateStr = `${projectDate} 00:00`;
           newTask.start_date = startDateStr;
-          console.log('No start date provided, using project start date:', startDateStr);
-        }
-
-        // Calculate end_date using the same method as Gantt component (line 1216)
-        if (newTask.start_date && duration > 0) {
-          newTask.end_date = calculateEndDate(newTask.start_date, duration);
-          console.log('Calculated end_date for new task:', newTask.end_date);
-        } else if (taskForm.type === 'milestone') {
-          // For milestones, end_date equals start_date
-          newTask.end_date = newTask.start_date;
+          console.log('No start date provided, using project creation date:', startDateStr);
         }
 
         // Calculate end_date using the same method as Gantt component (line 1216)
@@ -3947,7 +3924,7 @@ const ProjectDetail: React.FC = () => {
             {overviewConfig && overviewConfig.sections.length > 0 ? (
               <div className="space-y-8 overflow-visible">
                 {overviewConfig.sections.map((section) => (
-                  <div key={section.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 overflow-visible">
+                  <div key={section.id} className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6 overflow-visible">
                     <h3 className="text-lg font-semibold text-gray-900 mb-6">{section.name}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 overflow-visible">
                       {section.fields.map((field) => (
@@ -4002,7 +3979,7 @@ const ProjectDetail: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+              <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-8 text-center">
                 <Target className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No Overview Configuration</h3>
                 <p className="text-gray-600 mb-4">
@@ -4020,7 +3997,7 @@ const ProjectDetail: React.FC = () => {
         )}
 
         {activeTab === 'timeline' && (
-          <div className={isGanttFullscreen ? "fixed inset-0 z-50 bg-white p-6" : "bg-white rounded-lg shadow-sm border border-gray-200 p-6"}>
+          <div className={isGanttFullscreen ? "fixed inset-0 z-50 bg-white p-6" : "bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6"}>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-4">
                 <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
@@ -4657,7 +4634,7 @@ const ProjectDetail: React.FC = () => {
                     resetRiskForm();
                     setShowRiskModal(true);
                   }}
-                  className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  className="flex items-center space-x-2 px-4 py-2 bg-gradient-primary text-white rounded-lg hover:opacity-90 transition-all shadow-lg"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add Risk</span>
@@ -4665,29 +4642,29 @@ const ProjectDetail: React.FC = () => {
               </div>
 
               {risks.length === 0 ? (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+                <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-8 text-center">
                   <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h4 className="text-lg font-medium text-gray-900 mb-2">No Risks</h4>
                   <p className="text-gray-600">No risks have been identified for this project yet.</p>
                 </div>
               ) : (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                      <thead className="bg-gradient-dark">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Impact</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Title</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Type</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Description</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Impact</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Created</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="divide-y divide-gray-200" style={{ backgroundColor: '#F9F7FC' }}>
                         {risks.map((risk) => (
-                          <tr key={risk.id} className="hover:bg-gray-50">
+                          <tr key={risk.id} className="hover:bg-gray-100">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{risk.title}</td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -4747,7 +4724,7 @@ const ProjectDetail: React.FC = () => {
                     resetIssueForm();
                     setShowIssueModal(true);
                   }}
-                  className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                  className="flex items-center space-x-2 px-4 py-2 bg-gradient-primary text-white rounded-lg hover:opacity-90 transition-all shadow-lg"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add Issue</span>
@@ -4755,29 +4732,29 @@ const ProjectDetail: React.FC = () => {
               </div>
 
               {issues.length === 0 ? (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+                <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-8 text-center">
                   <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h4 className="text-lg font-medium text-gray-900 mb-2">No Issues</h4>
                   <p className="text-gray-600">No issues have been reported for this project yet.</p>
                 </div>
               ) : (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                      <thead className="bg-gradient-dark">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Impact</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Title</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Type</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Description</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Impact</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Created</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="divide-y divide-gray-200" style={{ backgroundColor: '#F9F7FC' }}>
                         {issues.map((issue) => (
-                          <tr key={issue.id} className="hover:bg-gray-50">
+                          <tr key={issue.id} className="hover:bg-gray-100">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{issue.title}</td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -4839,7 +4816,7 @@ const ProjectDetail: React.FC = () => {
                   resetChangeRequestForm();
                   setShowChangeRequestModal(true);
                 }}
-                className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                className="flex items-center space-x-2 px-4 py-2 bg-gradient-primary text-white rounded-lg hover:opacity-90 transition-all shadow-lg"
               >
                 <Plus className="w-4 h-4" />
                 <span>Add Change Request</span>
@@ -4847,30 +4824,30 @@ const ProjectDetail: React.FC = () => {
             </div>
 
             {changeRequests.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+              <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-8 text-center">
                 <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <h4 className="text-lg font-medium text-gray-900 mb-2">No Change Requests</h4>
                 <p className="text-gray-600">No change requests have been submitted for this project yet.</p>
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-gradient-dark">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Impact</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attachments</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Title</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Type</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Impact</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Description</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Attachments</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Created</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="divide-y divide-gray-200" style={{ backgroundColor: '#F9F7FC' }}>
                       {changeRequests.map((changeRequest) => (
-                        <tr key={changeRequest.id} className="hover:bg-gray-50">
+                        <tr key={changeRequest.id} className="hover:bg-gray-100">
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{changeRequest.request_title}</td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -4957,7 +4934,7 @@ const ProjectDetail: React.FC = () => {
         {activeTab === 'budget' && (
           <div className="space-y-6">
             {budgets.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="text-center py-12">
                   <DollarSign className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No Budget Categories Yet</h3>
@@ -4972,7 +4949,7 @@ const ProjectDetail: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-semibold text-gray-900">Annual Budget Forecast ({selectedYear})</h3>
                   <div className="flex items-center gap-4">
@@ -5058,7 +5035,7 @@ const ProjectDetail: React.FC = () => {
 
         {activeTab === 'settings' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">Project Documents</h3>
                 <label className="cursor-pointer">
@@ -5596,13 +5573,32 @@ const ProjectDetail: React.FC = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Cost Impact</label>
-                <input
-                  type="text"
-                  value={changeRequestForm.cost_impact}
-                  onChange={(e) => setChangeRequestForm({ ...changeRequestForm, cost_impact: e.target.value })}
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                  <input
+                    type="text"
+                    value={formatCurrency(changeRequestForm.cost_impact)}
+                    onChange={(e) => {
+                      const formatted = formatCurrency(e.target.value);
+                      setChangeRequestForm({ ...changeRequestForm, cost_impact: parseCurrency(formatted) });
+                    }}
+                    className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                <select
+                  value={changeRequestForm.status}
+                  onChange={(e) => setChangeRequestForm({ ...changeRequestForm, status: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Describe cost impact (optional)"
-                />
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="In Review">In Review</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Attachments</label>
