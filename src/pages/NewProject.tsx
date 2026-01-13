@@ -106,7 +106,7 @@ const NewProject: React.FC = () => {
           name: formData.name.trim(),
           description: formData.description.trim() || null,
           template_id: formData.template_id || null,
-          schedule_start_date: formData.start_date || null,
+          start_date: formData.start_date || null,
           status: 'In-Progress'
         }])
         .select();

@@ -66,11 +66,6 @@ const Sidebar: React.FC = () => {
       icon: BarChart3,
     },
     {
-      name: 'Timesheet',
-      path: '/timesheet',
-      icon: Clock,
-    },
-    {
       name: 'Settings',
       path: '/settings',
       icon: Settings,

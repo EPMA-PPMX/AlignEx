@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { CheckSquare, AlertCircle, FolderOpen, Clock } from 'lucide-react';
+import { CheckSquare, AlertCircle, FolderOpen, Clock, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { DEMO_USER_ID } from '../../lib/useCurrentUser';
 import { Link } from 'react-router-dom';
 
 interface Task {
   id: string;
-  task_id: string;
+  task_id?: string;
   project_id: string;
   title: string;
   status: string;
@@ -125,7 +125,7 @@ export default function MyTasksWidget() {
         return dateA - dateB;
       });
 
-      setTasks(myTasks);
+      setTasks(myTasks.slice(0, 10));
     } catch (err) {
       console.error('Error fetching tasks:', err);
     } finally {
@@ -157,12 +157,12 @@ export default function MyTasksWidget() {
   }, {} as GroupedTasks);
 
   const overdueCount = tasks.filter(t => {
-    const days = getDaysFromToday(t.end_date);
+    const days = getDaysFromToday(t.start_date);
     return days !== null && days < 0;
   }).length;
 
-  const dueTodayCount = tasks.filter(t => {
-    const days = getDaysFromToday(t.end_date);
+  const startingTodayCount = tasks.filter(t => {
+    const days = getDaysFromToday(t.start_date);
     return days === 0;
   }).length;
 
@@ -197,9 +197,9 @@ export default function MyTasksWidget() {
               {overdueCount} overdue
             </span>
           )}
-          {dueTodayCount > 0 && (
+          {startingTodayCount > 0 && (
             <span className="px-2 py-1 bg-[#F39C12] bg-opacity-20 text-[#F39C12] text-xs rounded-full font-medium">
-              {dueTodayCount} today
+              {startingTodayCount} today
             </span>
           )}
         </div>
@@ -212,7 +212,7 @@ export default function MyTasksWidget() {
           <p className="text-sm text-gray-500">You're all caught up!</p>
         </div>
       ) : (
-        <div className="space-y-4 flex-1 overflow-auto">
+        <div className="space-y-3 flex-1 overflow-auto">
           {Object.values(groupedTasks).map((group) => (
             <div key={group.projectId} className="space-y-2">
               <Link
@@ -298,6 +298,10 @@ export default function MyTasksWidget() {
         <div className="mt-3 pt-3 border-t border-gray-200">
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-600">{tasks.length} active tasks</span>
+            <Link to="/projects" className="text-blue-600 hover:text-blue-700 flex items-center gap-1">
+              View All
+              <ChevronRight className="w-4 h-4" />
+            </Link>
           </div>
         </div>
       )}

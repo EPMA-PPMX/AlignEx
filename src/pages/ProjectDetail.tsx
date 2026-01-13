@@ -452,7 +452,9 @@ const ProjectDetail: React.FC = () => {
 
       // Create a copy of tasks and add new fields with null values
       const updatedTasks = projectTasks.data.map((task: any) => {
-        const updatedTask = { ...task };
+        // Exclude end_date to ensure Gantt recalculates it from duration
+        const { end_date, ...taskWithoutEndDate } = task;
+        const updatedTask = { ...taskWithoutEndDate };
 
         newFieldIds.forEach(fieldId => {
           const field = taskCustomFields.find(f => f.id === fieldId);
@@ -901,7 +903,18 @@ const ProjectDetail: React.FC = () => {
 
             // Use stored duration - let Gantt calculate end_date from start_date + duration
             // This ensures working days logic is applied correctly
-            const duration = task.duration || 1;
+            // Ensure duration is a valid number (convert string to number if needed)
+            let duration = task.duration;
+            console.log(`Task ${task.id} from DB: duration=${task.duration} (type: ${typeof task.duration})`);
+            if (typeof duration === 'string') {
+              duration = parseFloat(duration);
+              console.log(`  Converted string to number: ${duration}`);
+            }
+            if (typeof duration !== 'number' || isNaN(duration) || duration < 1) {
+              console.log(`  Invalid duration, setting to 1`);
+              duration = 1;
+            }
+            console.log(`  Final duration: ${duration} (type: ${typeof duration})`);
 
             const taskObject = {
               id: task.id,
@@ -1291,25 +1304,15 @@ const ProjectDetail: React.FC = () => {
 
             console.log(`Task ${taskId}: duration=${task.duration} (type: ${typeof task.duration}), cleaned duration=${duration}`);
 
-            // Calculate end_date using the same method as Gantt component
-            // Use DHTMLX's calculateEndDate which handles calendar days correctly
-            let endDate = task.end_date;
-            if (task.start_date && duration) {
-              const startDate = typeof task.start_date === 'string'
-                ? ganttInstance.date.parseDate(task.start_date, "xml_date")
-                : task.start_date;
-              // Use the same calculation as in Gantt.tsx line 1216 - no adjustments
-              endDate = ganttInstance.calculateEndDate(startDate, duration);
-              console.log(`Calculated end_date for task ${taskId}:`, endDate);
-            }
-
             // Build the task object for storage
+            // DO NOT save end_date - only save start_date and duration
+            // This ensures duration is always the source of truth and prevents off-by-one errors
             const taskToSave: any = {
               id: taskId,
               text: task.text,
               start_date: task.start_date,
+              // end_date is intentionally NOT saved - it will be calculated from start_date + duration when loaded
               duration: duration,
-              end_date: endDate,
               progress: task.progress || 0,
               type: task.type || 'task',
               parent: task.$original_parent !== undefined ? task.$original_parent : (task.parent || 0),
@@ -1320,6 +1323,7 @@ const ProjectDetail: React.FC = () => {
               ...extraFields // Include custom fields and baseline fields
             };
 
+            console.log(`Saving task ${taskId} to DB: duration=${taskToSave.duration} (type: ${typeof taskToSave.duration}), start_date=${taskToSave.start_date}`);
             taskMap.set(taskId, taskToSave);
           }
         });
@@ -1674,15 +1678,28 @@ const ProjectDetail: React.FC = () => {
         }
       }
 
+      //working
       // Determine start date
       let startDate = new Date();
-      if (project?.created_at) {
-        startDate = new Date(project.created_at);
+      ///if (project?.created_at) { 12 Jan
+      ///startDate = new Date(project.created_at);  12 Jan
+      if (project.start_date) {
+         startDate = new Date(project.start_date);
       }
 
       // Adjust to workday if needed
       const adjustedStartDate = adjustToWorkday(startDate.toISOString().split('T')[0]);
       const startDateStr = `${adjustedStartDate} 00:00`;
+
+      // Calculate end_date from start_date + duration
+      const duration = taskType === 'milestone' ? 0 : 1;
+      const startDateObj = ganttInstance.date.parseDate(startDateStr, 'xml_date');
+      const endDate = ganttInstance.calculateEndDate({
+        start_date: startDateObj,
+        duration: duration
+      });
+      const dateFormatter = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i");
+      const endDateStr = dateFormatter(endDate);
 
       // Create new task object with unique ID
       const newTaskId = Date.now();
@@ -1690,18 +1707,12 @@ const ProjectDetail: React.FC = () => {
         id: newTaskId,
         text: taskType === 'milestone' ? 'New Milestone' : 'New Task',
         start_date: startDateStr,
-        duration: taskType === 'milestone' ? 0 : 1,
+        end_date: endDateStr,
+        duration: duration,
         progress: 0,
         type: taskType,
         parent: parentId
       };
-
-      // Calculate end date
-      if (taskType === 'milestone') {
-        newTaskData.end_date = startDateStr;
-      } else {
-        newTaskData.end_date = calculateEndDate(startDateStr, 1);
-      }
 
       // Find where to insert the new task
       let insertIndex = allTasks.length;
@@ -3195,8 +3206,10 @@ const ProjectDetail: React.FC = () => {
             if (task.id === editingTaskId) {
               const duration = taskForm.type === 'milestone' ? 0 : taskForm.duration;
 
+              // Exclude end_date from the spread to ensure Gantt recalculates it from duration
+              const { end_date, ...taskWithoutEndDate } = task;
               const updatedTask: any = {
-                ...task,
+                ...taskWithoutEndDate,
                 text: taskForm.description,
                 duration: duration,
                 type: taskForm.type,
@@ -3215,20 +3228,25 @@ const ProjectDetail: React.FC = () => {
                 console.log('No start date provided, using project creation date:', startDateStr);
               }
 
-              // Calculate end_date using the same method as Gantt component (line 1216)
-              if (updatedTask.start_date && duration > 0) {
-                updatedTask.end_date = calculateEndDate(updatedTask.start_date, duration);
-                console.log('Calculated end_date:', updatedTask.end_date);
-              } else if (taskForm.type === 'milestone') {
-                // For milestones, end_date equals start_date
-                updatedTask.end_date = updatedTask.start_date;
+              // Calculate inclusive end_date to match what's displayed in Gantt "End time" column
+              // Use the exact same logic as the Gantt template to ensure consistency
+              if (updatedTask.start_date && duration > 0 && ganttRef.current) {
+                const ganttInstance = ganttRef.current.getGanttInstance();
+                const startDate = typeof updatedTask.start_date === 'string'
+                  ? ganttInstance.date.parseDate(updatedTask.start_date, "xml_date")
+                  : updatedTask.start_date;
+                // DHTMLX uses exclusive end dates (end_date = start of day after task completes)
+                // Subtract 1 day to show the inclusive end date (actual last day of the task)
+                const exclusiveEndDate = ganttInstance.calculateEndDate(startDate, duration);
+                const inclusiveEndDate = ganttInstance.date.add(exclusiveEndDate, -1, "day");
+                updatedTask.end_date = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i")(inclusiveEndDate);
               }
 
               console.log('Updated task values:', {
                 id: editingTaskId,
                 start_date: updatedTask.start_date,
-                duration: duration,
-                end_date: updatedTask.end_date
+                end_date: updatedTask.end_date,
+                duration: duration
               });
 
               // Update resources if selected
@@ -3296,16 +3314,21 @@ const ProjectDetail: React.FC = () => {
           const projectDate = new Date(project.created_at).toISOString().split('T')[0];
           const startDateStr = `${projectDate} 00:00`;
           newTask.start_date = startDateStr;
-          console.log('No start date provided, using project creation date:', startDateStr);
+          console.log('No start date provided, using project start date:', startDateStr);
         }
 
-        // Calculate end_date using the same method as Gantt component (line 1216)
-        if (newTask.start_date && duration > 0) {
-          newTask.end_date = calculateEndDate(newTask.start_date, duration);
-          console.log('Calculated end_date for new task:', newTask.end_date);
-        } else if (taskForm.type === 'milestone') {
-          // For milestones, end_date equals start_date
-          newTask.end_date = newTask.start_date;
+        // Calculate inclusive end_date to match what's displayed in Gantt "End time" column
+        // Use the exact same logic as the Gantt template to ensure consistency
+        if (newTask.start_date && duration > 0 && ganttRef.current) {
+          const ganttInstance = ganttRef.current.getGanttInstance();
+          const startDate = typeof newTask.start_date === 'string'
+            ? ganttInstance.date.parseDate(newTask.start_date, "xml_date")
+            : newTask.start_date;
+          // DHTMLX uses exclusive end dates (end_date = start of day after task completes)
+          // Subtract 1 day to show the inclusive end date (actual last day of the task)
+          const exclusiveEndDate = ganttInstance.calculateEndDate(startDate, duration);
+          const inclusiveEndDate = ganttInstance.date.add(exclusiveEndDate, -1, "day");
+          newTask.end_date = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i")(inclusiveEndDate);
         }
 
         // Set parent - MUST be 0 for root tasks, not undefined
@@ -4239,8 +4262,9 @@ const ProjectDetail: React.FC = () => {
                                         // manually collect all tasks with their full data including baseline fields
                                         const updatedTasks: any[] = [];
                                         ganttInstance.eachTask((task: any) => {
-                                          // Create a copy of the task with all its properties preserved
-                                          updatedTasks.push({ ...task });
+                                          // Exclude end_date from the copy to ensure Gantt recalculates it from duration
+                                          const { end_date, ...taskWithoutEndDate } = task;
+                                          updatedTasks.push(taskWithoutEndDate);
                                         });
 
                                         // Get links separately
@@ -4248,7 +4272,7 @@ const ProjectDetail: React.FC = () => {
 
                                         // Verify that baseline fields exist
                                         const tasksWithBaseline = updatedTasks.filter((task: any) =>
-                                          task[`baseline${baselineNum}_StartDate`] && task[`baseline${baselineNum}_EndDate`]
+                                          task[`baseline${baselineNum}_startDate`] && task[`baseline${baselineNum}_endDate`]
                                         );
                                         console.log(`${tasksWithBaseline.length} tasks have baseline ${baselineNum} fields set`);
 
@@ -4275,7 +4299,7 @@ const ProjectDetail: React.FC = () => {
                                           links: links
                                         });
 
-                                        alert(`Baseline ${baselineNum} set successfully! Fields baseline${baselineNum}_StartDate and baseline${baselineNum}_EndDate added to all tasks.`);
+                                        showNotification(`Baseline ${baselineNum} set successfully! Captured: baseline${baselineNum}_startDate, baseline${baselineNum}_endDate, baseline${baselineNum}_duration`, 'success');
                                       } catch (error) {
                                         console.error('Error saving baseline:', error);
                                         alert('Failed to save baseline: ' + (error as Error).message);
@@ -4468,7 +4492,7 @@ const ProjectDetail: React.FC = () => {
                 selectedTaskFields={selectedTaskFields}
                 taskCustomFields={taskCustomFields}
                 showResourcePanel={showResourcePanel}
-                projectCreatedAt={project?.created_at}
+                projectStartDate={project?.start_date || undefined}
                 onOpenTaskModal={(parentId) => {
                   console.log('=== onOpenTaskModal called ===');
                   console.log('parentId received:', parentId);
@@ -4491,9 +4515,14 @@ const ProjectDetail: React.FC = () => {
                     }
                   }
 
+                  // Set default start date to project start date
+                  const defaultStartDate = project?.start_date
+                    ? new Date(project.start_date).toISOString().split('T')[0]
+                    : '';
+
                   setTaskForm({
                     description: '',
-                    start_date: '',
+                    start_date: defaultStartDate,
                     duration: 1,
                     owner_id: '',
                     resource_ids: [],
