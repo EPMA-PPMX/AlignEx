@@ -8,10 +8,10 @@ interface ProjectStatusDropdownProps {
 }
 
 const stateOptions = [
-  { value: 'Active', label: 'Active', color: 'bg-blue-100 text-blue-800' },
-  { value: 'On Hold', label: 'On Hold', color: 'bg-yellow-100 text-yellow-800' },
-  { value: 'Cancelled', label: 'Cancelled', color: 'bg-red-100 text-red-800' },
-  { value: 'Closed', label: 'Closed', color: 'bg-gray-100 text-gray-800' },
+  { value: 'Active', label: 'Active', color: 'bg-gradient-to-br from-[#276A6C] to-[#5DB6B8] text-white border-[#5DB6B8]' },
+  { value: 'On Hold', label: 'On Hold', color: 'bg-gradient-to-br from-[#C76F21] to-[#FAAF65] text-white border-[#F89D43]' },
+  { value: 'Cancelled', label: 'Cancelled', color: 'bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A] text-white border-[#FD5D5D]' },
+  { value: 'Closed', label: 'Closed', color: 'bg-gradient-to-br from-[#4D5656] to-[#95A5A6] text-white border-[#95A5A6]' },
 ];
 
 const ProjectStatusDropdown: React.FC<ProjectStatusDropdownProps> = ({
@@ -56,7 +56,7 @@ const ProjectStatusDropdown: React.FC<ProjectStatusDropdownProps> = ({
       <button
         onClick={() => setIsOpen(!isOpen)}
         disabled={isUpdating}
-        className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${currentStateOption.color} hover:opacity-80 transition-opacity cursor-pointer disabled:cursor-wait disabled:opacity-50`}
+        className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${currentStateOption.color} hover:opacity-80 transition-opacity cursor-pointer disabled:cursor-wait disabled:opacity-50`}
       >
         {isUpdating ? 'Updating...' : currentStateOption.label}
         <svg

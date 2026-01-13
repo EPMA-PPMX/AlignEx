@@ -116,6 +116,9 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
   const handleStartEdit = (member: TeamMember) => {
     setEditingMemberId(member.id);
     setEditValues({
+      allocation_percentage: member.allocation_percentage,
+      start_date: member.start_date,
+      end_date: member.end_date || '',
       role: member.role
     });
   };
@@ -123,6 +126,9 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
   const handleCancelEdit = () => {
     setEditingMemberId(null);
     setEditValues({
+      allocation_percentage: 0,
+      start_date: '',
+      end_date: '',
       role: ''
     });
   };
@@ -132,6 +138,9 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
       const { error } = await supabase
         .from('project_team_members')
         .update({
+          allocation_percentage: editValues.allocation_percentage,
+          start_date: editValues.start_date,
+          end_date: editValues.end_date || null,
           role: editValues.role
         })
         .eq('id', memberId);
@@ -164,7 +173,7 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
         </div>
         <button
           onClick={() => setShowAddMember(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-primary text-white rounded-lg hover:opacity-90 transition-all shadow-lg"
         >
           <Plus className="w-4 h-4" />
           Add Team Members
@@ -173,7 +182,7 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
 
       {teamMembers.length > 0 && <ResourceAllocationHeatmap teamMembers={teamMembers} />}
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200">
         {teamMembers.length === 0 ? (
           <div className="p-12 text-center text-gray-500">
             <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -182,23 +191,32 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="bg-gradient-dark">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Name
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Email
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Project Role
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                    Allocation
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                    Start Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                    End Date
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-200" style={{ backgroundColor: '#F9F7FC' }}>
                 {teamMembers.map((member) => {
                   const isEditing = editingMemberId === member.id;
 
@@ -343,8 +361,6 @@ interface Task {
   owner_id?: string;
   owner_name?: string;
   parent?: number;
-  resource_ids?: string[];
-  resource_allocations?: Record<string, number>;
 }
 
 function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] }) {
@@ -364,40 +380,6 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
       fetchAllocations();
     }
   }, [teamMembers, projectId]);
-
-  // Helper function to count business days (excluding weekends) between two dates
-  const countBusinessDays = (startDate: Date, endDate: Date): number => {
-    let count = 0;
-    const current = new Date(startDate);
-
-    while (current < endDate) {
-      const dayOfWeek = current.getDay();
-      // Count only weekdays (Monday=1 to Friday=5)
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-        count++;
-      }
-      current.setDate(current.getDate() + 1);
-    }
-
-    return count;
-  };
-
-  // Helper function to add business days to a date (for calculating task end date)
-  const addBusinessDays = (startDate: Date, businessDays: number): Date => {
-    const result = new Date(startDate);
-    let daysAdded = 0;
-
-    while (daysAdded < businessDays) {
-      result.setDate(result.getDate() + 1);
-      const dayOfWeek = result.getDay();
-      // Only count weekdays
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-        daysAdded++;
-      }
-    }
-
-    return result;
-  };
 
   const fetchAllocations = async () => {
     const allocationMap = new Map<string, Map<string, number>>();
@@ -440,11 +422,7 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
       for (const member of teamMembers) {
         const weekMap = new Map<string, number>();
         // Filter tasks across ALL projects for this resource
-        // Include tasks where the member is in resource_ids array OR is the owner_id
-        const memberTasks = allTasks.filter(task =>
-          task.resource_ids?.includes(member.resource_id) ||
-          task.owner_id === member.resource_id
-        );
+        const memberTasks = allTasks.filter(task => task.owner_id === member.resource_id);
 
         for (let i = 0; i < weeks; i++) {
           const weekStart = weekStarts[i]; // Monday
@@ -455,26 +433,21 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
 
           for (const task of memberTasks) {
             const taskStart = new Date(task.start_date);
-            // Task duration in Gantt represents working days, not calendar days
-            const taskEnd = addBusinessDays(taskStart, task.duration);
+            const taskEnd = new Date(taskStart);
+            taskEnd.setDate(taskEnd.getDate() + task.duration);
 
             const overlapStart = taskStart > weekStart ? taskStart : weekStart;
             const overlapEnd = taskEnd < weekEnd ? taskEnd : weekEnd;
 
             if (overlapStart < overlapEnd) {
-              // Count only business days (weekdays) in the overlap period
-              const overlapBusinessDays = countBusinessDays(overlapStart, overlapEnd);
+              const overlapDays = Math.ceil((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24));
               const hoursPerDay = 8; // 8 hours per work day
-
-              // Get allocation percentage from task's resource_allocations attribute
-              const allocationPercentage = task.resource_allocations?.[member.resource_id] || 100;
-              const allocationMultiplier = allocationPercentage / 100;
-              const taskHours = overlapBusinessDays * hoursPerDay * allocationMultiplier;
+              const taskHours = overlapDays * hoursPerDay;
               totalHours += taskHours;
             }
           }
 
-          weekMap.set(`week-${i}`, Math.round(totalHours));
+          weekMap.set(`week-${i}`, Math.min(Math.round(totalHours), 40));
         }
 
         allocationMap.set(member.id, weekMap);
@@ -501,10 +474,10 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
   };
 
   const getColorClass = (hours: number) => {
-    if (hours === 0) return 'bg-gray-100';
-    if (hours < 30) return 'bg-green-200';
-    if (hours <= 40) return 'bg-yellow-200';
-    return 'bg-red-500';
+    if (hours <= 10) return 'bg-gradient-to-br from-teal-100 to-teal-200';
+    if (hours <= 30) return 'bg-gradient-to-br from-teal-300 to-teal-400';
+    if (hours <= 39) return 'bg-gradient-to-br from-orange-300 to-orange-400';
+    return 'bg-gradient-to-br from-red-400 to-red-500';
   };
 
   if (teamMembers.length === 0) {
@@ -512,7 +485,7 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
           <Calendar className="w-5 h-5" />
@@ -520,20 +493,20 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
         </h3>
         <div className="flex items-center gap-4 text-xs">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-gray-100 border border-gray-300"></div>
-            <span className="text-gray-600">0h</span>
+            <div className="w-3 h-3 bg-gradient-to-br from-teal-100 to-teal-200"></div>
+            <span className="text-gray-600">0-10h</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-green-200"></div>
-            <span className="text-gray-600">1-30h</span>
+            <div className="w-3 h-3 bg-gradient-to-br from-teal-300 to-teal-400"></div>
+            <span className="text-gray-600">11-30h</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-yellow-200"></div>
-            <span className="text-gray-600">30-40h</span>
+            <div className="w-3 h-3 bg-gradient-to-br from-orange-300 to-orange-400"></div>
+            <span className="text-gray-600">31-39h</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-red-500"></div>
-            <span className="text-gray-600">40h+</span>
+            <div className="w-3 h-3 bg-gradient-to-br from-red-400 to-red-500"></div>
+            <span className="text-gray-600">40+h</span>
           </div>
         </div>
       </div>
@@ -548,7 +521,7 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
               {teamMembers.map((member) => (
                 <div
                   key={member.id}
-                  className="h-12 border-b border-gray-200 flex items-center px-4 text-sm text-gray-700"
+                  className="h-12 border-b border-gray-200 flex items-center px-4 text-sm text-gray-700 font-bold"
                 >
                   {member.resource?.display_name || 'Unknown'}
                 </div>
@@ -574,7 +547,7 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
                             className={`h-12 border-b border-l border-gray-200 flex items-center justify-center text-sm font-medium ${getColorClass(hours)}`}
                             title={`${member.resource?.display_name} - ${weekLabel}: ${hours}h`}
                           >
-                            {hours > 0 ? `${hours}h` : ''}
+                            {`${hours}h`}
                           </div>
                         );
                       })}
@@ -684,7 +657,7 @@ function AddTeamMemberModal({ projectId, onClose, onSave, existingMemberResource
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-widget-bg rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-900">Add Team Members</h2>
           <p className="text-sm text-gray-500 mt-1">Select resources to add to the project team</p>
