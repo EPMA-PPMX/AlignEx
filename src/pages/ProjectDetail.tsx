@@ -1304,14 +1304,27 @@ const ProjectDetail: React.FC = () => {
 
             console.log(`Task ${taskId}: duration=${task.duration} (type: ${typeof task.duration}), cleaned duration=${duration}`);
 
+            // Calculate inclusive end_date to match what's displayed in Gantt "End time" column
+            // Use the exact same logic as the Gantt template to ensure consistency
+            let calculatedEndDate = task.end_date;
+            if (task.start_date && duration > 0 && ganttInstance) {
+              const startDate = typeof task.start_date === 'string'
+                ? ganttInstance.date.parseDate(task.start_date, "xml_date")
+                : task.start_date;
+              // DHTMLX uses exclusive end dates (end_date = start of day after task completes)
+              // Subtract 1 day to show the inclusive end date (actual last day of the task)
+              const exclusiveEndDate = ganttInstance.calculateEndDate(startDate, duration);
+              const inclusiveEndDate = ganttInstance.date.add(exclusiveEndDate, -1, "day");
+              calculatedEndDate = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i")(inclusiveEndDate);
+            }
+
             // Build the task object for storage
-            // DO NOT save end_date - only save start_date and duration
-            // This ensures duration is always the source of truth and prevents off-by-one errors
+            // Save end_date along with start_date and duration for consistency
             const taskToSave: any = {
               id: taskId,
               text: task.text,
               start_date: task.start_date,
-              // end_date is intentionally NOT saved - it will be calculated from start_date + duration when loaded
+              end_date: calculatedEndDate, // Save the inclusive end_date as shown in the Gantt
               duration: duration,
               progress: task.progress || 0,
               type: task.type || 'task',
@@ -1323,7 +1336,7 @@ const ProjectDetail: React.FC = () => {
               ...extraFields // Include custom fields and baseline fields
             };
 
-            console.log(`Saving task ${taskId} to DB: duration=${taskToSave.duration} (type: ${typeof taskToSave.duration}), start_date=${taskToSave.start_date}`);
+            console.log(`Saving task ${taskId} to DB: duration=${taskToSave.duration} (type: ${typeof taskToSave.duration}), start_date=${taskToSave.start_date}, end_date=${taskToSave.end_date}`);
             taskMap.set(taskId, taskToSave);
           }
         });
