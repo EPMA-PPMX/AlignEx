@@ -69,7 +69,7 @@ export default function StepSummary({ reportData, updateReportData }: Props) {
       </div>
 
       {loading ? (
-        <div className="text-center py-8 bg-white rounded-lg border border-gray-200">
+        <div className="text-center py-8 bg-widget-bg rounded-lg border border-gray-200">
           <p className="text-gray-500">Loading summary...</p>
         </div>
       ) : (

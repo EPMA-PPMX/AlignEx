@@ -19,7 +19,7 @@ export default function StepProjectSelection({ reportData, updateReportData }: P
     try {
       const { data, error } = await supabase
         .from('projects')
-        .select('id, name, status')
+        .select('id, name, health_status')
         .order('name');
 
       if (error) throw error;
@@ -71,7 +71,7 @@ export default function StepProjectSelection({ reportData, updateReportData }: P
               <option value="">Select a project</option>
               {projects.map((project) => (
                 <option key={project.id} value={project.id}>
-                  {project.name} - {project.status}
+                  {project.name} - {project.health_status || 'Not Set'}
                 </option>
               ))}
             </select>

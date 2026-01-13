@@ -38,18 +38,17 @@ export default function StepChangeRequests({ reportData, updateReportData }: Pro
         .from('change_requests')
         .select('*')
         .eq('project_id', reportData.projectId)
-        .eq('status', 'pending')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
       const existing = (data || []).map((cr) => ({
         change_request_id: cr.id,
-        title: cr.title,
+        title: cr.request_title,
         description: cr.description,
         status: cr.status,
         cost_impact: cr.cost_impact || 0,
-        schedule_impact: cr.schedule_impact || '',
+        schedule_impact: cr.scope_impact || '',
         is_new: false,
       }));
 
