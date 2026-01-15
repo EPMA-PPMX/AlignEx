@@ -1512,15 +1512,8 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           gantt.autoSchedule(id);
         }
 
-        // Recalculate end_date to ensure consistency
-        if (task.start_date && task.duration !== undefined) {
-          // Store the duration before recalculating end_date
-          const originalDuration = task.duration;
-          const calculatedEndDate = gantt.calculateEndDate(task.start_date, task.duration);
-          task.end_date = calculatedEndDate;
-          // Restore the original duration to prevent recalculation
-          task.duration = originalDuration;
-        }
+        // Don't recalculate end_date here - it causes duration to be reduced when only resources are updated
+        // End_date recalculation is handled specifically in onAfterInlineEditorSave when duration or start_date changes
 
         // Refresh the task display
         gantt.render();
