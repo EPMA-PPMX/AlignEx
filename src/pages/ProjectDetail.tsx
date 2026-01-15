@@ -1365,13 +1365,12 @@ const ProjectDetail: React.FC = () => {
               // Format start_date to YYYY-MM-DD
               formattedStartDate = ganttInstance.date.date_to_str("%Y-%m-%d")(startDate);
 
-              // Calculate inclusive end_date if duration is provided
+              // Calculate exclusive end_date as expected by DHTMLX Gantt
               if (duration > 0) {
                 // DHTMLX uses exclusive end dates (end_date = start of day after task completes)
-                // Subtract 1 day to show the inclusive end date (actual last day of the task)
+                // Store this exclusive end_date so Gantt can correctly calculate duration when parsing
                 const exclusiveEndDate = ganttInstance.calculateEndDate(startDate, duration);
-                const inclusiveEndDate = ganttInstance.date.add(exclusiveEndDate, -1, "day");
-                calculatedEndDate = ganttInstance.date.date_to_str("%Y-%m-%d")(inclusiveEndDate);
+                calculatedEndDate = ganttInstance.date.date_to_str("%Y-%m-%d")(exclusiveEndDate);
               }
             }
 
@@ -1381,7 +1380,7 @@ const ProjectDetail: React.FC = () => {
               id: taskId,
               text: task.text,
               start_date: formattedStartDate,
-              end_date: calculatedEndDate, // Save the inclusive end_date as shown in the Gantt
+              end_date: calculatedEndDate, // Save the exclusive end_date as expected by Gantt
               duration: duration,
               progress: task.progress || 0,
               type: task.type || 'task',
@@ -3298,18 +3297,17 @@ const ProjectDetail: React.FC = () => {
                 console.log('No start date provided, using project creation date:', projectDate);
               }
 
-              // Calculate inclusive end_date to match what's displayed in Gantt "End time" column
-              // Use the exact same logic as the Gantt template to ensure consistency
+              // Calculate exclusive end_date as expected by DHTMLX Gantt
+              // The "End time" column template handles displaying the inclusive date for users
               if (updatedTask.start_date && duration > 0 && ganttRef.current) {
                 const ganttInstance = ganttRef.current.getGanttInstance();
                 const startDate = typeof updatedTask.start_date === 'string'
                   ? ganttInstance.date.parseDate(updatedTask.start_date, "xml_date")
                   : updatedTask.start_date;
                 // DHTMLX uses exclusive end dates (end_date = start of day after task completes)
-                // Subtract 1 day to show the inclusive end date (actual last day of the task)
+                // Store this exclusive end_date so Gantt can correctly calculate duration when parsing
                 const exclusiveEndDate = ganttInstance.calculateEndDate(startDate, duration);
-                const inclusiveEndDate = ganttInstance.date.add(exclusiveEndDate, -1, "day");
-                updatedTask.end_date = formatDateToYYYYMMDD(inclusiveEndDate);
+                updatedTask.end_date = formatDateToYYYYMMDD(exclusiveEndDate);
                 console.log('📅 DATE DEBUG - Calculated end_date:', updatedTask.end_date);
               }
 
@@ -3387,18 +3385,17 @@ const ProjectDetail: React.FC = () => {
           console.log('No start date provided, using project start date:', projectDate);
         }
 
-        // Calculate inclusive end_date to match what's displayed in Gantt "End time" column
-        // Use the exact same logic as the Gantt template to ensure consistency
+        // Calculate exclusive end_date as expected by DHTMLX Gantt
+        // The "End time" column template handles displaying the inclusive date for users
         if (newTask.start_date && duration > 0 && ganttRef.current) {
           const ganttInstance = ganttRef.current.getGanttInstance();
           const startDate = typeof newTask.start_date === 'string'
             ? ganttInstance.date.parseDate(newTask.start_date, "xml_date")
             : newTask.start_date;
           // DHTMLX uses exclusive end dates (end_date = start of day after task completes)
-          // Subtract 1 day to show the inclusive end date (actual last day of the task)
+          // Store this exclusive end_date so Gantt can correctly calculate duration when parsing
           const exclusiveEndDate = ganttInstance.calculateEndDate(startDate, duration);
-          const inclusiveEndDate = ganttInstance.date.add(exclusiveEndDate, -1, "day");
-          newTask.end_date = formatDateToYYYYMMDD(inclusiveEndDate);
+          newTask.end_date = formatDateToYYYYMMDD(exclusiveEndDate);
           console.log('📅 DATE DEBUG - New task end_date:', newTask.end_date);
         }
 
@@ -6117,6 +6114,11 @@ const ProjectDetail: React.FC = () => {
                   {taskForm.type === 'project' && (
                     <p className="text-xs text-gray-500 mt-1">
                       Summary task duration is calculated from subtasks
+                    </p>
+                  )}
+                  {taskForm.type === 'task' && taskForm.start_date && taskForm.duration > 0 && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      Task will end on: {calculateEndDate(taskForm.start_date, taskForm.duration)}
                     </p>
                   )}
                 </div>
