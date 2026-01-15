@@ -265,30 +265,44 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       taskIds.forEach((taskId) => {
         const task = gantt.getTask(taskId);
 
-        // Get current start and end dates
-        const startDate = gantt.date.parseDate(task.start_date, "xml_date");
+        // Get current start and end dates - handle both Date objects and strings
+        let startDate: Date;
+        if (task.start_date instanceof Date) {
+          startDate = task.start_date;
+        } else if (typeof task.start_date === 'string') {
+          startDate = gantt.date.parseDate(task.start_date, "xml_date");
+        } else {
+          console.warn(`Task ${task.id}: Invalid start_date format`, task.start_date);
+          return;
+        }
+
         // Use DHTMLX's calculateEndDate which calculates calendar days (including weekends)
         const endDate = gantt.calculateEndDate(startDate, task.duration);
 
-        // Format dates as YYYY-MM-DD HH:mm for storage
-        const dateTimeFormat = gantt.date.date_to_str("%Y-%m-%d %H:%i");
-        const startDateStr = dateTimeFormat(startDate);
-        const endDateStr = dateTimeFormat(endDate);
+        // Format dates as YYYY-MM-DD using local date components to avoid timezone issues
+        const formatDateLocal = (date: Date): string => {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        };
 
-        // Store baseline fields with lowercase naming: baseline{N}_startDate, baseline{N}_endDate, baseline{N}_duration
+        const startDateStr = formatDateLocal(startDate);
+        const endDateStr = formatDateLocal(endDate);
+
+        console.log(`Task ${task.id} (${task.text}): Capturing baseline ${baselineNum}`);
+        console.log(`  Original start_date: ${task.start_date}`);
+        console.log(`  Parsed startDate: ${startDate}`);
+        console.log(`  Formatted startDateStr: ${startDateStr}`);
+        console.log(`  Calculated endDate: ${endDate}`);
+        console.log(`  Formatted endDateStr: ${endDateStr}`);
+        console.log(`  Duration: ${task.duration}`);
+
+        // Store baseline fields as STRINGS ONLY (no Date objects)
+        // This avoids JSON serialization and timezone issues
         task[`baseline${baselineNum}_startDate`] = startDateStr;
         task[`baseline${baselineNum}_endDate`] = endDateStr;
         task[`baseline${baselineNum}_duration`] = task.duration;
-
-        // Also store as Date objects for rendering baseline bars
-        task[`planned_start_${baselineNum}`] = startDate;
-        task[`planned_end_${baselineNum}`] = endDate;
-
-        // Keep the default planned_start/planned_end for backward compatibility with baseline 0
-        if (baselineNum === 0) {
-          task.planned_start = startDate;
-          task.planned_end = endDate;
-        }
 
         // Store baseline data for return (for logging purposes)
         baselineData.push({
@@ -307,18 +321,30 @@ export default class Gantt extends Component<GanttProps, GanttState> {
 
     // Verify that all tasks have baseline data set
     let verifiedCount = 0;
+    console.log('\n=== BASELINE VERIFICATION ===');
     gantt.eachTask((task: any) => {
       if (task.$group_header) return;
       const baselineStartField = `baseline${baselineNum}_startDate`;
       const baselineEndField = `baseline${baselineNum}_endDate`;
       if (task[baselineStartField] && task[baselineEndField]) {
         verifiedCount++;
-        console.log(`Task ${task.id}: Has baseline data - ${baselineStartField}=${task[baselineStartField]}, ${baselineEndField}=${task[baselineEndField]}`);
+
+        // Format current start_date for comparison
+        const currentStartStr = task.start_date instanceof Date
+          ? `${task.start_date.getFullYear()}-${String(task.start_date.getMonth() + 1).padStart(2, '0')}-${String(task.start_date.getDate()).padStart(2, '0')}`
+          : task.start_date;
+
+        console.log(`Task ${task.id} (${task.text}):`);
+        console.log(`  Current start_date: ${currentStartStr}`);
+        console.log(`  Baseline start: ${task[baselineStartField]}`);
+        console.log(`  Baseline end: ${task[baselineEndField]}`);
+        console.log(`  Match: ${currentStartStr === task[baselineStartField] ? '✓' : '✗ MISMATCH!'}`);
       } else {
         console.warn(`Task ${task.id}: Missing baseline data after setBaseline`);
       }
     });
     console.log(`Verified ${verifiedCount} tasks have baseline data`);
+    console.log('=== END VERIFICATION ===\n');
 
     // Force a full render to trigger addTaskLayer - this now happens only once
     gantt.render();
