@@ -56,7 +56,7 @@ export const BudgetSummaryTiles: React.FC<BudgetSummaryTilesProps> = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+        <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-gray-600">Total Budget</span>
             <div className="p-2 bg-blue-100 rounded-lg">
@@ -71,7 +71,7 @@ export const BudgetSummaryTiles: React.FC<BudgetSummaryTilesProps> = ({
           </p>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+        <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-gray-600">Spent</span>
             <div className={`p-2 rounded-lg ${isOverBudget ? 'bg-red-100' : 'bg-green-100'}`}>
@@ -86,7 +86,7 @@ export const BudgetSummaryTiles: React.FC<BudgetSummaryTilesProps> = ({
           </p>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+        <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-gray-600">Remaining</span>
             <div className={`p-2 rounded-lg ${isOverBudget ? 'bg-red-100' : 'bg-teal-100'}`}>
@@ -101,7 +101,7 @@ export const BudgetSummaryTiles: React.FC<BudgetSummaryTilesProps> = ({
           </p>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+        <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-gray-600">Burn Rate</span>
             <div className="p-2 bg-orange-100 rounded-lg">

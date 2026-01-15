@@ -173,7 +173,7 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
         </div>
         <button
           onClick={() => setShowAddMember(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-primary text-white rounded-lg hover:opacity-90 transition-all shadow-lg"
         >
           <Plus className="w-4 h-4" />
           Add Team Members
@@ -182,7 +182,7 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
 
       {teamMembers.length > 0 && <ResourceAllocationHeatmap teamMembers={teamMembers} />}
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200">
         {teamMembers.length === 0 ? (
           <div className="p-12 text-center text-gray-500">
             <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -191,32 +191,32 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="bg-gradient-dark">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Name
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Email
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Project Role
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Allocation
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Start Date
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     End Date
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-200" style={{ backgroundColor: '#F9F7FC' }}>
                 {teamMembers.map((member) => {
                   const isEditing = editingMemberId === member.id;
 
@@ -474,10 +474,10 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
   };
 
   const getColorClass = (hours: number) => {
-    if (hours === 0) return 'bg-gray-100';
-    if (hours <= 10) return 'bg-green-200';
-    if (hours <= 30) return 'bg-yellow-200';
-    return 'bg-red-400';
+    if (hours <= 10) return 'bg-gradient-to-br from-teal-100 to-teal-200';
+    if (hours <= 30) return 'bg-gradient-to-br from-teal-300 to-teal-400';
+    if (hours <= 39) return 'bg-gradient-to-br from-orange-300 to-orange-400';
+    return 'bg-gradient-to-br from-red-400 to-red-500';
   };
 
   if (teamMembers.length === 0) {
@@ -485,7 +485,7 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
           <Calendar className="w-5 h-5" />
@@ -493,20 +493,20 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
         </h3>
         <div className="flex items-center gap-4 text-xs">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-gray-100 border border-gray-300"></div>
-            <span className="text-gray-600">0h - No allocation</span>
+            <div className="w-3 h-3 bg-gradient-to-br from-teal-100 to-teal-200"></div>
+            <span className="text-gray-600">0-10h</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-green-200"></div>
-            <span className="text-gray-600">1-10h - Available</span>
+            <div className="w-3 h-3 bg-gradient-to-br from-teal-300 to-teal-400"></div>
+            <span className="text-gray-600">11-30h</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-yellow-200"></div>
-            <span className="text-gray-600">11-30h - Moderate Load</span>
+            <div className="w-3 h-3 bg-gradient-to-br from-orange-300 to-orange-400"></div>
+            <span className="text-gray-600">31-39h</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-red-400"></div>
-            <span className="text-gray-600">31-40h - Overloaded</span>
+            <div className="w-3 h-3 bg-gradient-to-br from-red-400 to-red-500"></div>
+            <span className="text-gray-600">40+h</span>
           </div>
         </div>
       </div>
@@ -521,7 +521,7 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
               {teamMembers.map((member) => (
                 <div
                   key={member.id}
-                  className="h-12 border-b border-gray-200 flex items-center px-4 text-sm text-gray-700"
+                  className="h-12 border-b border-gray-200 flex items-center px-4 text-sm text-gray-700 font-bold"
                 >
                   {member.resource?.display_name || 'Unknown'}
                 </div>
@@ -547,7 +547,7 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
                             className={`h-12 border-b border-l border-gray-200 flex items-center justify-center text-sm font-medium ${getColorClass(hours)}`}
                             title={`${member.resource?.display_name} - ${weekLabel}: ${hours}h`}
                           >
-                            {hours > 0 ? `${hours}h` : ''}
+                            {`${hours}h`}
                           </div>
                         );
                       })}
@@ -657,7 +657,7 @@ function AddTeamMemberModal({ projectId, onClose, onSave, existingMemberResource
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-widget-bg rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-900">Add Team Members</h2>
           <p className="text-sm text-gray-500 mt-1">Select resources to add to the project team</p>

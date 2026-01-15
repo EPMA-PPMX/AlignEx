@@ -280,25 +280,19 @@ export default function ResourceAllocationHeatMap() {
 
   const getHeatColor = (hours: number): string => {
     if (hours === 0) return 'bg-gray-50';
-    if (hours <= 10) return 'bg-green-100 text-green-800';
-    if (hours <= 20) return 'bg-yellow-100 text-yellow-800';
-    if (hours <= 30) return 'bg-orange-100 text-orange-800';
-    if (hours <= 40) return 'bg-red-100 text-red-800';
-    if (hours <= 60) return 'bg-red-200 text-red-900 font-bold';
-    if (hours <= 80) return 'bg-red-300 text-red-950 font-bold';
-    return 'bg-red-400 text-white font-bold';
+    if (hours <= 10) return 'bg-gradient-to-br from-[#4DB8AA] to-[#88D4CA] text-white';
+    if (hours <= 30) return 'bg-gradient-to-br from-[#276A6C] to-[#5DB6B8] text-white';
+    if (hours <= 39) return 'bg-gradient-to-br from-[#C76F21] to-[#FAAF65] text-white';
+    return 'bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A] text-white';
   };
 
   const getCapacityIndicator = (hours: number): string => {
-    const weeklyCapacity = 40;
-    const percentage = (hours / weeklyCapacity) * 100;
-
-    if (percentage === 0) return '';
-    if (percentage <= 50) return '🟢';
-    if (percentage <= 80) return '🟡';
-    if (percentage <= 100) return '🟠';
-    if (percentage <= 150) return '🔴';
-    if (percentage <= 200) return '🔴🔴';
+    if (hours === 0) return '';
+    if (hours <= 10) return '🟢';
+    if (hours <= 30) return '🟡';
+    if (hours <= 39) return '🟠';
+    if (hours <= 60) return '🔴';
+    if (hours <= 100) return '🔴🔴';
     return '⚠️';
   };
 
@@ -322,7 +316,7 @@ export default function ResourceAllocationHeatMap() {
 
   if (allocations.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+      <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-8">
         <div className="flex flex-col items-center justify-center text-center">
           <AlertCircle className="w-12 h-12 text-gray-400 mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No Resource Allocations</h3>
@@ -336,7 +330,7 @@ export default function ResourceAllocationHeatMap() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+      <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-4">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
             <button
@@ -374,7 +368,7 @@ export default function ResourceAllocationHeatMap() {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -445,36 +439,29 @@ export default function ResourceAllocationHeatMap() {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+      <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-4">
         <h3 className="text-sm font-medium text-gray-900 mb-3">Legend</h3>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="flex items-center gap-2">
-            <span>🟢</span>
-            <span className="text-sm text-gray-600">0-20 hrs/week</span>
+            <div className="w-4 h-4 bg-gradient-to-br from-[#4DB8AA] to-[#88D4CA] border border-[#6BC8BD] rounded"></div>
+            <span className="text-sm text-gray-600">0-10 hrs/week</span>
           </div>
           <div className="flex items-center gap-2">
-            <span>🟡</span>
-            <span className="text-sm text-gray-600">20-32 hrs/week</span>
+            <div className="w-4 h-4 bg-gradient-to-br from-[#276A6C] to-[#5DB6B8] border border-[#349698] rounded"></div>
+            <span className="text-sm text-gray-600">11-30 hrs/week</span>
           </div>
           <div className="flex items-center gap-2">
-            <span>🟠</span>
-            <span className="text-sm text-gray-600">32-40 hrs/week</span>
+            <div className="w-4 h-4 bg-gradient-to-br from-[#C76F21] to-[#FAAF65] border border-[#F89D43] rounded"></div>
+            <span className="text-sm text-gray-600">31-39 hrs/week</span>
           </div>
           <div className="flex items-center gap-2">
-            <span>🔴</span>
-            <span className="text-sm text-gray-600">40-60 hrs/week</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span>🔴🔴 / ⚠️</span>
-            <span className="text-sm text-gray-600">60+ hrs/week</span>
+            <div className="w-4 h-4 bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A] border border-[#FD5D5D] rounded"></div>
+            <span className="text-sm text-gray-600">40+ hrs/week</span>
           </div>
         </div>
         <div className="space-y-2 mt-3">
           <p className="text-xs text-gray-700 font-medium bg-blue-50 p-2 rounded border border-blue-200">
-            All hours shown are actual calculated allocations from task assignments. There is NO restriction or cap - if a resource is allocated 80, 100, or more hours in a week, the exact number will be displayed.
-          </p>
-          <p className="text-xs text-gray-500">
-            Hours are distributed evenly across working days (Mon-Fri) within each task's date range. Standard capacity reference: 40 hrs/week.
+            All hours shown are actual calculated allocations from task assignments. Hours are distributed evenly across working days (Mon-Fri) within each task's date range. Standard capacity reference: 40 hrs/week.
           </p>
           <p className="text-xs text-blue-600 font-medium">
             Note: Only hours within the visible date range are displayed. Use Previous/Next buttons or adjust the weeks dropdown to view allocations in other time periods.

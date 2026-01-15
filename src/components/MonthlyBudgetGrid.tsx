@@ -35,7 +35,7 @@ export const MonthlyBudgetGrid: React.FC<MonthlyBudgetGridProps> = ({
 
   if (forecasts.length === 0) {
     return (
-      <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+      <div className="text-center py-12 bg-widget-bg rounded-lg border border-gray-200">
         <p className="text-gray-500">No budget categories selected. Add budget categories above to get started.</p>
       </div>
     );
@@ -114,26 +114,26 @@ export const MonthlyBudgetGrid: React.FC<MonthlyBudgetGridProps> = ({
     const categoryData = groupByCategory();
 
     return (
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div className="bg-widget-bg rounded-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="sticky left-0 z-20 bg-gray-50 px-4 py-3 text-left text-sm font-semibold text-gray-900 border-r border-gray-200 min-w-[150px]">
+              <tr className="bg-gradient-dark border-b border-gray-200">
+                <th className="sticky left-0 z-20 bg-gradient-dark px-4 py-3 text-left text-sm font-semibold text-white border-r border-gray-200 min-w-[150px]">
                   Category
                 </th>
-                <th className="px-2 py-3 text-center text-xs font-medium text-gray-600 border-r border-gray-200 min-w-[60px]">
+                <th className="px-2 py-3 text-center text-xs font-medium text-white border-r border-gray-200 min-w-[60px]">
                   Type
                 </th>
                 {MONTH_LABELS.map((label, index) => (
                   <th
                     key={index}
-                    className="px-2 py-3 text-center text-xs font-semibold text-gray-900 border-r border-gray-200 min-w-[100px]"
+                    className="px-2 py-3 text-center text-xs font-semibold text-white border-r border-gray-200 min-w-[100px]"
                   >
                     {label}
                   </th>
                 ))}
-                <th className="px-4 py-3 text-center text-sm font-semibold text-gray-900 min-w-[100px]">
+                <th className="px-4 py-3 text-center text-sm font-semibold text-white min-w-[100px]">
                   Total
                 </th>
               </tr>
@@ -238,26 +238,26 @@ export const MonthlyBudgetGrid: React.FC<MonthlyBudgetGridProps> = ({
     const categoryData = groupByCategory();
 
     return (
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div className="bg-widget-bg rounded-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="sticky left-0 z-20 bg-gray-50 px-4 py-3 text-left text-sm font-semibold text-gray-900 border-r border-gray-200 min-w-[150px]">
+              <tr className="bg-gradient-dark border-b border-gray-200">
+                <th className="sticky left-0 z-20 bg-gradient-dark px-4 py-3 text-left text-sm font-semibold text-white border-r border-gray-200 min-w-[150px]">
                   Category
                 </th>
-                <th className="px-2 py-3 text-center text-xs font-medium text-gray-600 border-r border-gray-200 min-w-[60px]">
+                <th className="px-2 py-3 text-center text-xs font-medium text-white border-r border-gray-200 min-w-[60px]">
                   Type
                 </th>
                 {QUARTER_LABELS.map((label, index) => (
                   <th
                     key={index}
-                    className="px-4 py-3 text-center text-sm font-semibold text-gray-900 border-r border-gray-200 min-w-[120px]"
+                    className="px-4 py-3 text-center text-sm font-semibold text-white border-r border-gray-200 min-w-[120px]"
                   >
                     {label}
                   </th>
                 ))}
-                <th className="px-4 py-3 text-center text-sm font-semibold text-gray-900 min-w-[120px]">
+                <th className="px-4 py-3 text-center text-sm font-semibold text-white min-w-[120px]">
                   Total
                 </th>
               </tr>
@@ -339,21 +339,21 @@ export const MonthlyBudgetGrid: React.FC<MonthlyBudgetGridProps> = ({
     const categoryData = groupByCategory();
 
     return (
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div className="bg-widget-bg rounded-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 border-r border-gray-200 min-w-[200px]">
+              <tr className="bg-gradient-dark border-b border-gray-200">
+                <th className="px-4 py-3 text-left text-sm font-semibold text-white border-r border-gray-200 min-w-[200px]">
                   Category
                 </th>
-                <th className="px-4 py-3 text-center text-sm font-semibold text-gray-900 border-r border-gray-200 min-w-[150px]">
+                <th className="px-4 py-3 text-center text-sm font-semibold text-white border-r border-gray-200 min-w-[150px]">
                   Forecasted
                 </th>
-                <th className="px-4 py-3 text-center text-sm font-semibold text-gray-900 border-r border-gray-200 min-w-[150px]">
+                <th className="px-4 py-3 text-center text-sm font-semibold text-white border-r border-gray-200 min-w-[150px]">
                   Actual
                 </th>
-                <th className="px-4 py-3 text-center text-sm font-semibold text-gray-900 min-w-[150px]">
+                <th className="px-4 py-3 text-center text-sm font-semibold text-white min-w-[150px]">
                   Variance
                 </th>
               </tr>

@@ -256,20 +256,20 @@ export default function RoleComparisonTab() {
           </div>
         );
       case 'na':
-        return <span className="text-slate-500 font-medium">N/A</span>;
+        return <span className="text-gray-500 font-medium">N/A</span>;
       default:
         return null;
     }
   };
 
   if (loading && roles.length === 0) {
-    return <div className="text-center py-12 text-slate-600">Loading roles...</div>;
+    return <div className="text-center py-12 text-gray-600">Loading roles...</div>;
   }
 
   if (roles.length === 0) {
     return (
-      <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
-        <p className="text-slate-600">
+      <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+        <p className="text-gray-600">
           No roles configured yet. Please add roles in the Settings page.
         </p>
       </div>
@@ -288,8 +288,8 @@ export default function RoleComparisonTab() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">Role Comparison</h2>
-          <p className="text-sm text-slate-600 mt-1">
+          <h2 className="text-xl font-semibold text-gray-900">Role Comparison</h2>
+          <p className="text-sm text-gray-600 mt-1">
             Compare your skills against target role requirements
           </p>
         </div>
@@ -297,7 +297,7 @@ export default function RoleComparisonTab() {
           <select
             value={selectedRole}
             onChange={(e) => setSelectedRole(e.target.value)}
-            className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             {roles.map((role) => (
               <option key={role.id} value={role.id}>
@@ -309,25 +309,25 @@ export default function RoleComparisonTab() {
       </div>
 
       {comparisons.length === 0 ? (
-        <div className="text-center py-12 bg-slate-50 rounded-lg border border-slate-200">
-          <p className="text-slate-600">No skill requirements configured for this role.</p>
+        <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-gray-600">No skill requirements configured for this role.</p>
         </div>
       ) : (
         <div className="space-y-6">
           {Object.keys(groupedComparisons)
             .sort()
             .map((categoryName) => (
-              <div key={categoryName} className="bg-white border border-slate-200 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">{categoryName}</h3>
+              <div key={categoryName} className="bg-widget-bg border border-gray-200 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">{categoryName}</h3>
                 <div className="space-y-4">
                   {groupedComparisons[categoryName].map((comp) => (
                     <div key={comp.skill.id}>
                       <div
-                        className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0"
+                        className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0"
                       >
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium text-slate-900">{comp.skill.name}</span>
+                            <span className="font-medium text-gray-900">{comp.skill.name}</span>
                             {comp.priority === 'required' && (
                               <span className="px-2 py-0.5 bg-red-100 text-red-800 text-xs font-medium rounded">
                                 required
@@ -339,10 +339,10 @@ export default function RoleComparisonTab() {
                               </span>
                             )}
                           </div>
-                          <div className="text-sm text-slate-600">
+                          <div className="text-sm text-gray-600">
                             <span className="text-blue-700">Required: {comp.requiredLevel}</span>
                             <span className="mx-2">•</span>
-                            <span className="text-slate-700">Current: {comp.currentLevel}</span>
+                            <span className="text-gray-700">Current: {comp.currentLevel}</span>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
@@ -368,7 +368,7 @@ export default function RoleComparisonTab() {
 
       {showGoalModal && selectedSkillForGoal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-widget-bg rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <h3 className="text-xl font-semibold text-gray-900 mb-4">
                 Create Skill Goal

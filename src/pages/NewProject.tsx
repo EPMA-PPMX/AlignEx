@@ -106,7 +106,7 @@ const NewProject: React.FC = () => {
           name: formData.name.trim(),
           description: formData.description.trim() || null,
           template_id: formData.template_id || null,
-          schedule_start_date: formData.start_date || null,
+          start_date: formData.start_date || null,
           status: 'In-Progress'
         }])
         .select();
@@ -172,6 +172,39 @@ const NewProject: React.FC = () => {
                   console.error('Error creating project tasks from template:', tasksError);
                 } else {
                   console.log('Schedule template applied successfully');
+
+                  // Extract unique resource IDs from tasks and add them as team members
+                  const uniqueResourceIds = new Set<string>();
+                  if (taskData.data && Array.isArray(taskData.data)) {
+                    taskData.data.forEach((task: any) => {
+                      if (task.resource_ids && Array.isArray(task.resource_ids)) {
+                        task.resource_ids.forEach((resourceId: string) => {
+                          if (resourceId) {
+                            uniqueResourceIds.add(resourceId);
+                          }
+                        });
+                      }
+                    });
+                  }
+
+                  // Insert team members for all resources found in tasks
+                  if (uniqueResourceIds.size > 0) {
+                    const teamMembers = Array.from(uniqueResourceIds).map(resourceId => ({
+                      project_id: projectId,
+                      resource_id: resourceId,
+                      allocation_percentage: 100 // Default allocation
+                    }));
+
+                    const { error: teamMembersError } = await supabase
+                      .from('project_team_members')
+                      .insert(teamMembers);
+
+                    if (teamMembersError) {
+                      console.error('Error adding team members from template:', teamMembersError);
+                    } else {
+                      console.log(`Added ${uniqueResourceIds.size} team members from template tasks`);
+                    }
+                  }
                 }
               }
             } catch (error) {
@@ -256,7 +289,7 @@ const NewProject: React.FC = () => {
         </div>
 
         {/* Form */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label htmlFor="template_id" className="block text-sm font-medium text-gray-700 mb-2">

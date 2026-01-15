@@ -214,13 +214,13 @@ export default function ProjectInitiation() {
       case 'Draft':
         return 'bg-slate-100 text-slate-800 border-slate-200';
       case 'Pending Approval':
-        return 'bg-amber-100 text-amber-800 border-amber-200';
+        return 'bg-gradient-to-br from-[#C76F21] to-[#FAAF65] text-white border-transparent';
       case 'Approved':
-        return 'bg-green-100 text-green-800 border-green-200';
+        return 'bg-gradient-to-br from-[#276A6C] to-[#5DB6B8] text-white border-transparent';
       case 'Rejected':
-        return 'bg-red-100 text-red-800 border-red-200';
+        return 'bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A] text-white border-transparent';
       case 'More Information Needed':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+        return 'bg-gradient-to-br from-[#C76F21] to-[#FAAF65] text-white border-transparent';
       default:
         return 'bg-slate-100 text-slate-800 border-slate-200';
     }
@@ -259,7 +259,7 @@ export default function ProjectInitiation() {
             setEditingRequest(null);
             setShowForm(true);
           }}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-primary text-white rounded-lg hover:shadow-lg transition-all"
         >
           <Plus className="w-5 h-5" />
           New Request
@@ -294,24 +294,24 @@ export default function ProjectInitiation() {
           </p>
         </div>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+        <div className="bg-widget-bg border border-slate-200 rounded-lg overflow-hidden">
           <table className="w-full">
-            <thead className="bg-slate-50 border-b border-slate-200">
+            <thead className="bg-gradient-dark border-b border-slate-200">
               <tr>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Project Name</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Type</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Status</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Start Date</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Est. Cost</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Created</th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-slate-700">Actions</th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-white">Project Name</th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-white">Type</th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-white">Status</th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-white">Start Date</th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-white">Est. Cost</th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-white">Created</th>
+                <th className="text-center py-3 px-4 text-sm font-semibold text-white">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody style={{ backgroundColor: '#F9F7FC' }}>
               {filteredRequests.map((request) => (
                 <tr
                   key={request.id}
-                  className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer"
+                  className="border-b border-slate-100 hover:bg-gray-100 transition-colors cursor-pointer"
                   onClick={() => handleView(request)}
                 >
                   <td className="py-3 px-4">
@@ -377,13 +377,13 @@ function RequestDetailsView({ request, onClose, onEdit, onDelete, onStatusChange
       case 'Draft':
         return 'bg-slate-100 text-slate-800 border-slate-200';
       case 'Pending Approval':
-        return 'bg-amber-100 text-amber-800 border-amber-200';
+        return 'bg-gradient-to-br from-[#C76F21] to-[#FAAF65] text-white border-transparent';
       case 'Approved':
-        return 'bg-green-100 text-green-800 border-green-200';
+        return 'bg-gradient-to-br from-[#276A6C] to-[#5DB6B8] text-white border-transparent';
       case 'Rejected':
-        return 'bg-red-100 text-red-800 border-red-200';
+        return 'bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A] text-white border-transparent';
       case 'More Information Needed':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+        return 'bg-gradient-to-br from-[#C76F21] to-[#FAAF65] text-white border-transparent';
       default:
         return 'bg-slate-100 text-slate-800 border-slate-200';
     }

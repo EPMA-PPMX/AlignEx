@@ -185,13 +185,18 @@ export default function PriorityAnalytics() {
 
       <div className="grid gap-6">
         {analytics.map((data) => (
-          <div key={data.priority.id} className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+          <div key={data.priority.id} style={{ backgroundColor: '#F9F7FC' }} className="border border-slate-200 rounded-lg overflow-hidden">
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 border-b border-slate-200">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <h3 className="text-xl font-semibold text-slate-900 mb-1">{data.priority.title}</h3>
                   <p className="text-sm text-slate-600">
-                    Target: <span className="font-medium text-slate-900">{data.priority.target_value}</span>
+                    Target: <span className="font-medium text-slate-900">
+                      {data.priority.target_value.startsWith('$')
+                        ? data.priority.target_value
+                        : `$${parseFloat(data.priority.target_value.replace(/[^0-9.-]/g, '') || '0').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      }
+                    </span>
                   </p>
                   <p className="text-sm text-slate-600">
                     Owner: <span className="font-medium text-slate-900">{data.priority.owner}</span>

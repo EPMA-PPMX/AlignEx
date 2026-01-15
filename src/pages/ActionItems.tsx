@@ -216,7 +216,7 @@ export default function ActionItems() {
       </div>
 
       {showForm && (
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6">
           <h2 className="text-xl font-semibold mb-4">Create New Action Item</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -355,7 +355,7 @@ export default function ActionItems() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow-md p-4">
+      <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-4">
         <div className="flex gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -395,14 +395,14 @@ export default function ActionItems() {
 
       <div className="space-y-3">
         {filteredItems.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-md p-12 text-center">
+          <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-12 text-center">
             <p className="text-gray-500">No action items found. Create your first action item to get started.</p>
           </div>
         ) : (
           filteredItems.map((item) => (
             <div
               key={item.id}
-              className="bg-white rounded-lg shadow-md p-5 hover:shadow-lg transition-shadow"
+              className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-5 hover:shadow-lg transition-shadow"
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-3 flex-1">

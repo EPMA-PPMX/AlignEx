@@ -119,13 +119,13 @@ export default function StrategicPriorities() {
   const getStatusIcon = (status: Priority['status']) => {
     switch (status) {
       case 'Active':
-        return <Circle className="w-5 h-5 text-green-600" />;
+        return <Circle className="w-5 h-5 text-[#5DB6B8]" />;
       case 'Completed':
-        return <CheckCircle className="w-5 h-5 text-primary-600" />;
+        return <CheckCircle className="w-5 h-5 text-[#4CAF50]" />;
       case 'On Hold':
-        return <Pause className="w-5 h-5 text-amber-600" />;
+        return <Pause className="w-5 h-5 text-[#F89D43]" />;
       case 'Cancelled':
-        return <XCircle className="w-5 h-5 text-red-600" />;
+        return <XCircle className="w-5 h-5 text-[#FD5D5D]" />;
       default:
         return <Circle className="w-5 h-5 text-slate-400" />;
     }
@@ -134,13 +134,13 @@ export default function StrategicPriorities() {
   const getStatusColor = (status: Priority['status']) => {
     switch (status) {
       case 'Active':
-        return 'bg-green-50 text-green-700 border-green-200';
+        return 'bg-gradient-to-br from-[#276A6C] to-[#5DB6B8] text-white border-[#5DB6B8]';
       case 'Completed':
-        return 'bg-primary-50 text-primary-700 border-blue-200';
+        return 'bg-gradient-to-br from-[#66BB6A] to-[#81C784] text-white border-[#4CAF50]';
       case 'On Hold':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
+        return 'bg-gradient-to-br from-[#C76F21] to-[#FAAF65] text-white border-[#F89D43]';
       case 'Cancelled':
-        return 'bg-red-50 text-red-700 border-red-200';
+        return 'bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A] text-white border-[#FD5D5D]';
       default:
         return 'bg-slate-50 text-slate-700 border-slate-200';
     }
@@ -168,7 +168,7 @@ export default function StrategicPriorities() {
               status: 'Active',
             });
           }}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-primary text-white rounded-lg hover:opacity-90 transition-opacity shadow-lg"
         >
           <Plus className="w-5 h-5" />
           Add Priority
@@ -176,7 +176,7 @@ export default function StrategicPriorities() {
       </div>
 
       {showForm && (
-        <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-sm">
+        <div style={{ backgroundColor: '#F9F7FC' }} className="border border-slate-200 rounded-lg p-6 shadow-sm">
           <h3 className="text-lg font-semibold text-slate-900 mb-4">
             {editingId ? 'Edit Priority' : 'Create New Priority'}
           </h3>
@@ -296,7 +296,8 @@ export default function StrategicPriorities() {
           {priorities.map((priority) => (
             <div
               key={priority.id}
-              className="bg-white border border-slate-200 rounded-lg p-6 hover:shadow-md transition-shadow"
+              style={{ backgroundColor: '#F9F7FC' }}
+              className="border border-slate-200 rounded-lg p-6 hover:shadow-md transition-shadow"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
@@ -315,7 +316,12 @@ export default function StrategicPriorities() {
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="text-slate-500">Target:</span>
-                      <span className="ml-2 font-medium text-slate-900">{priority.target_value}</span>
+                      <span className="ml-2 font-medium text-slate-900">
+                        {priority.target_value.startsWith('$')
+                          ? priority.target_value
+                          : `$${parseFloat(priority.target_value.replace(/[^0-9.-]/g, '') || '0').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        }
+                      </span>
                     </div>
                     <div>
                       <span className="text-slate-500">Owner:</span>

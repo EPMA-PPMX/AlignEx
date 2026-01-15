@@ -16,10 +16,10 @@ interface RequestAnalyticsProps {
 export default function RequestAnalytics({ requests }: RequestAnalyticsProps) {
   const statusColors: { [key: string]: { bg: string; text: string; icon: any } } = {
     'Draft': { bg: 'bg-slate-100', text: 'text-slate-700', icon: FileText },
-    'Pending Approval': { bg: 'bg-amber-100', text: 'text-amber-700', icon: Clock },
-    'Approved': { bg: 'bg-green-100', text: 'text-green-700', icon: CheckCircle },
-    'Rejected': { bg: 'bg-red-100', text: 'text-red-700', icon: XCircle },
-    'More Information Needed': { bg: 'bg-blue-100', text: 'text-blue-700', icon: AlertCircle },
+    'Pending Approval': { bg: 'bg-gradient-to-br from-[#C76F21] to-[#FAAF65]', text: 'text-white', icon: Clock },
+    'Approved': { bg: 'bg-gradient-to-br from-[#276A6C] to-[#5DB6B8]', text: 'text-white', icon: CheckCircle },
+    'Rejected': { bg: 'bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A]', text: 'text-white', icon: XCircle },
+    'More Information Needed': { bg: 'bg-gradient-to-br from-[#C76F21] to-[#FAAF65]', text: 'text-white', icon: AlertCircle },
   };
 
   const statusDistribution = requests.reduce((acc, req) => {
@@ -123,7 +123,7 @@ export default function RequestAnalytics({ requests }: RequestAnalyticsProps) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
       {/* Status Distribution */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="bg-widget-bg rounded-xl shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Request Status Distribution</h3>
 
         <div className="flex items-center justify-center mb-6">
@@ -131,10 +131,10 @@ export default function RequestAnalytics({ requests }: RequestAnalyticsProps) {
             {chartData.map((item, index) => {
               const colors: { [key: string]: string } = {
                 'Draft': '#64748b',
-                'Pending Approval': '#f59e0b',
-                'Approved': '#10b981',
-                'Rejected': '#ef4444',
-                'More Information Needed': '#3b82f6',
+                'Pending Approval': '#C76F21',
+                'Approved': '#276A6C',
+                'Rejected': '#D43E3E',
+                'More Information Needed': '#C76F21',
               };
 
               return (
@@ -160,10 +160,17 @@ export default function RequestAnalytics({ requests }: RequestAnalyticsProps) {
         <div className="space-y-2">
           {Object.entries(statusDistribution).map(([status, count]) => {
             const StatusIcon = statusColors[status]?.icon || FileText;
+            const iconColors: { [key: string]: string } = {
+              'Draft': 'text-slate-700',
+              'Pending Approval': 'text-[#C76F21]',
+              'Approved': 'text-[#276A6C]',
+              'Rejected': 'text-[#D43E3E]',
+              'More Information Needed': 'text-[#C76F21]',
+            };
             return (
               <div key={status} className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <StatusIcon className={`w-4 h-4 ${statusColors[status]?.text || 'text-gray-600'}`} />
+                  <StatusIcon className={`w-4 h-4 ${iconColors[status] || 'text-gray-600'}`} />
                   <span className="text-sm text-gray-700">{status}</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -179,26 +186,26 @@ export default function RequestAnalytics({ requests }: RequestAnalyticsProps) {
       </div>
 
       {/* Cost Analysis */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="bg-widget-bg rounded-xl shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Cost Analysis</h3>
 
         <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="bg-blue-50 rounded-lg p-4">
+          <div className="bg-gradient-to-br from-[#7e22ce]/10 to-[#a855f7]/10 rounded-lg p-4 border border-[#7e22ce]/20">
             <div className="flex items-center gap-2 mb-1">
-              <DollarSign className="w-4 h-4 text-blue-600" />
-              <span className="text-xs text-blue-600 font-medium">Total Cost</span>
+              <DollarSign className="w-4 h-4 text-[#7e22ce]" />
+              <span className="text-xs text-[#7e22ce] font-medium">Total Cost</span>
             </div>
-            <p className="text-xl font-bold text-blue-900">
+            <p className="text-xl font-bold text-[#7e22ce]">
               {formatCurrencyWithK(totalCost)}
             </p>
           </div>
 
-          <div className="bg-green-50 rounded-lg p-4">
+          <div className="bg-gradient-to-br from-[#7e22ce]/10 to-[#a855f7]/10 rounded-lg p-4 border border-[#7e22ce]/20">
             <div className="flex items-center gap-2 mb-1">
-              <TrendingUp className="w-4 h-4 text-green-600" />
-              <span className="text-xs text-green-600 font-medium">Avg Cost</span>
+              <TrendingUp className="w-4 h-4 text-[#7e22ce]" />
+              <span className="text-xs text-[#7e22ce] font-medium">Avg Cost</span>
             </div>
-            <p className="text-xl font-bold text-green-900">
+            <p className="text-xl font-bold text-[#7e22ce]">
               {formatCurrencyWithK(avgCost)}
             </p>
           </div>
@@ -214,7 +221,7 @@ export default function RequestAnalytics({ requests }: RequestAnalyticsProps) {
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
-                  className="bg-blue-600 h-2 rounded-full transition-all"
+                  className="bg-gradient-to-r from-[#7e22ce] to-[#a855f7] h-2 rounded-full transition-all"
                   style={{ width: `${(range.count / maxCostCount) * 100}%` }}
                 />
               </div>
@@ -228,26 +235,26 @@ export default function RequestAnalytics({ requests }: RequestAnalyticsProps) {
       </div>
 
       {/* Duration Analysis */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="bg-widget-bg rounded-xl shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Duration Analysis</h3>
 
         <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="bg-purple-50 rounded-lg p-4">
+          <div className="bg-gradient-to-br from-[#7e22ce]/10 to-[#a855f7]/10 rounded-lg p-4 border border-[#7e22ce]/20">
             <div className="flex items-center gap-2 mb-1">
-              <Clock className="w-4 h-4 text-purple-600" />
-              <span className="text-xs text-purple-600 font-medium">Total Duration</span>
+              <Clock className="w-4 h-4 text-[#7e22ce]" />
+              <span className="text-xs text-[#7e22ce] font-medium">Total Duration</span>
             </div>
-            <p className="text-xl font-bold text-purple-900">
+            <p className="text-xl font-bold text-[#7e22ce]">
               {totalDuration.toLocaleString('en-US')} <span className="text-sm">mo</span>
             </p>
           </div>
 
-          <div className="bg-orange-50 rounded-lg p-4">
+          <div className="bg-gradient-to-br from-[#7e22ce]/10 to-[#a855f7]/10 rounded-lg p-4 border border-[#7e22ce]/20">
             <div className="flex items-center gap-2 mb-1">
-              <TrendingUp className="w-4 h-4 text-orange-600" />
-              <span className="text-xs text-orange-600 font-medium">Avg Duration</span>
+              <TrendingUp className="w-4 h-4 text-[#7e22ce]" />
+              <span className="text-xs text-[#7e22ce] font-medium">Avg Duration</span>
             </div>
-            <p className="text-xl font-bold text-orange-900">
+            <p className="text-xl font-bold text-[#7e22ce]">
               {avgDuration.toFixed(1)} <span className="text-sm">mo</span>
             </p>
           </div>
@@ -263,7 +270,7 @@ export default function RequestAnalytics({ requests }: RequestAnalyticsProps) {
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
-                  className="bg-purple-600 h-2 rounded-full transition-all"
+                  className="bg-gradient-to-r from-[#7e22ce] to-[#a855f7] h-2 rounded-full transition-all"
                   style={{ width: `${(range.count / maxDurationCount) * 100}%` }}
                 />
               </div>

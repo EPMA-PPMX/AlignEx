@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp, Search, Group, Flag, ZoomIn, ZoomOut, Maximize2, Minimize2, History } from 'lucide-react';
+import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp, Search, Group, Flag, ZoomIn, ZoomOut, Maximize2, Minimize2, History, ChevronRight, ChevronLeft, Undo, Redo, Link2, Unlink } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNotification } from '../lib/useNotification';
 import { trackFieldHistory, shouldTrackFieldHistory } from '../lib/fieldHistoryTracker';
@@ -163,6 +163,61 @@ interface MonthlyBudgetForecast {
   updated_at: string;
 }
 
+// Helper function to format currency
+const formatCurrency = (value: string): string => {
+  // Remove all non-numeric characters except decimal
+  const numericValue = value.replace(/[^\d.]/g, '');
+  if (!numericValue) return '';
+
+  // Split into integer and decimal parts
+  const parts = numericValue.split('.');
+  // Format integer part with commas
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+  return parts.join('.');
+};
+
+// Helper function to parse currency to numeric value
+const parseCurrency = (value: string): string => {
+  return value.replace(/[^\d.]/g, '');
+};
+
+// Helper function to format date to YYYY-MM-DD
+const formatDateToYYYYMMDD = (dateValue: any): string => {
+  if (!dateValue) return '';
+
+  // If it's already a string in the right format, return it
+  if (typeof dateValue === 'string') {
+    // Extract just the YYYY-MM-DD part if it has time
+    const datePart = dateValue.split(' ')[0];
+    // Validate it's in YYYY-MM-DD format
+    if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+      return datePart;
+    }
+    // Try to parse ISO string
+    if (dateValue.includes('T')) {
+      const parsed = new Date(dateValue);
+      if (!isNaN(parsed.getTime())) {
+        const year = parsed.getFullYear();
+        const month = String(parsed.getMonth() + 1).padStart(2, '0');
+        const day = String(parsed.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+    }
+    return datePart;
+  }
+
+  // If it's a Date object
+  if (dateValue instanceof Date && !isNaN(dateValue.getTime())) {
+    const year = dateValue.getFullYear();
+    const month = String(dateValue.getMonth() + 1).padStart(2, '0');
+    const day = String(dateValue.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  return '';
+};
+
 const ProjectDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -172,7 +227,20 @@ const ProjectDetail: React.FC = () => {
 
   // Utility function to adjust date to skip weekends
   const adjustToWorkday = (dateString: string): string => {
-    const date = new Date(dateString);
+    // Parse date components to avoid timezone issues
+    // Input format is YYYY-MM-DD from date input
+    const parts = dateString.split('-');
+    if (parts.length !== 3) {
+      console.error('Invalid date format provided to adjustToWorkday:', dateString);
+      return dateString;
+    }
+
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
+    const day = parseInt(parts[2], 10);
+
+    // Create date in local timezone
+    const date = new Date(year, month, day);
 
     // Check if date is valid
     if (isNaN(date.getTime())) {
@@ -192,10 +260,10 @@ const ProjectDetail: React.FC = () => {
     }
 
     // Format back to YYYY-MM-DD
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    const adjustedYear = date.getFullYear();
+    const adjustedMonth = String(date.getMonth() + 1).padStart(2, '0');
+    const adjustedDay = String(date.getDate()).padStart(2, '0');
+    return `${adjustedYear}-${adjustedMonth}-${adjustedDay}`;
   };
   const [project, setProject] = useState<Project | null>(null);
   const [overviewConfig, setOverviewConfig] = useState<OverviewConfiguration | null>(null);
@@ -284,6 +352,7 @@ const ProjectDetail: React.FC = () => {
     cost_impact: '',
     risk_impact: 'Low',
     resource_impact: 'Low',
+    status: 'Pending',
     attachments: ''
   });
 
@@ -329,6 +398,8 @@ const ProjectDetail: React.FC = () => {
   const [showResourcePanel, setShowResourcePanel] = useState(false);
 
   const [taskSearchQuery, setTaskSearchQuery] = useState('');
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<number[]>([]);
   const ganttRef = useRef<any>(null);
   const msProjectFileInputRef = useRef<HTMLInputElement>(null);
   const [importingMSProject, setImportingMSProject] = useState(false);
@@ -430,7 +501,9 @@ const ProjectDetail: React.FC = () => {
 
       // Create a copy of tasks and add new fields with null values
       const updatedTasks = projectTasks.data.map((task: any) => {
-        const updatedTask = { ...task };
+        // Exclude end_date to ensure Gantt recalculates it from duration
+        const { end_date, ...taskWithoutEndDate } = task;
+        const updatedTask = { ...taskWithoutEndDate };
 
         newFieldIds.forEach(fieldId => {
           const field = taskCustomFields.find(f => f.id === fieldId);
@@ -843,14 +916,14 @@ const ProjectDetail: React.FC = () => {
               if (startDate.includes('T') || startDate.includes('Z')) {
                 startDate = startDate.split('T')[0];
               }
-              // Ensure it has time component
-              if (!startDate.includes(':')) {
-                startDate = `${startDate} 00:00`;
+              // Extract just date part if there's a time component
+              if (startDate.includes(' ')) {
+                startDate = startDate.split(' ')[0];
               }
             } else {
-              // If no start date, use today
+              // If no start date, use today (date only, no time)
               const today = new Date();
-              startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')} 00:00`;
+              startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
               console.warn(`Task ${task.id} missing start_date, using today`);
             }
 
@@ -879,7 +952,18 @@ const ProjectDetail: React.FC = () => {
 
             // Use stored duration - let Gantt calculate end_date from start_date + duration
             // This ensures working days logic is applied correctly
-            const duration = task.duration || 1;
+            // Ensure duration is a valid number (convert string to number if needed)
+            let duration = task.duration;
+            console.log(`Task ${task.id} from DB: duration=${task.duration} (type: ${typeof task.duration})`);
+            if (typeof duration === 'string') {
+              duration = parseFloat(duration);
+              console.log(`  Converted string to number: ${duration}`);
+            }
+            if (typeof duration !== 'number' || isNaN(duration) || duration < 1) {
+              console.log(`  Invalid duration, setting to 1`);
+              duration = 1;
+            }
+            console.log(`  Final duration: ${duration} (type: ${typeof duration})`);
 
             const taskObject = {
               id: task.id,
@@ -1269,25 +1353,35 @@ const ProjectDetail: React.FC = () => {
 
             console.log(`Task ${taskId}: duration=${task.duration} (type: ${typeof task.duration}), cleaned duration=${duration}`);
 
-            // Calculate end_date using the same method as Gantt component
-            // Use DHTMLX's calculateEndDate which handles calendar days correctly
-            let endDate = task.end_date;
-            if (task.start_date && duration) {
+            // Format start_date and end_date to YYYY-MM-DD (date only, no time)
+            let formattedStartDate = task.start_date;
+            let calculatedEndDate = task.end_date;
+
+            if (task.start_date && ganttInstance) {
               const startDate = typeof task.start_date === 'string'
                 ? ganttInstance.date.parseDate(task.start_date, "xml_date")
                 : task.start_date;
-              // Use the same calculation as in Gantt.tsx line 1216 - no adjustments
-              endDate = ganttInstance.calculateEndDate(startDate, duration);
-              console.log(`Calculated end_date for task ${taskId}:`, endDate);
+
+              // Format start_date to YYYY-MM-DD
+              formattedStartDate = ganttInstance.date.date_to_str("%Y-%m-%d")(startDate);
+
+              // Calculate exclusive end_date as expected by DHTMLX Gantt
+              if (duration > 0) {
+                // DHTMLX uses exclusive end dates (end_date = start of day after task completes)
+                // Store this exclusive end_date so Gantt can correctly calculate duration when parsing
+                const exclusiveEndDate = ganttInstance.calculateEndDate(startDate, duration);
+                calculatedEndDate = ganttInstance.date.date_to_str("%Y-%m-%d")(exclusiveEndDate);
+              }
             }
 
             // Build the task object for storage
+            // Save end_date along with start_date and duration for consistency
             const taskToSave: any = {
               id: taskId,
               text: task.text,
-              start_date: task.start_date,
+              start_date: formattedStartDate,
+              end_date: calculatedEndDate, // Save the exclusive end_date as expected by Gantt
               duration: duration,
-              end_date: endDate,
               progress: task.progress || 0,
               type: task.type || 'task',
               parent: task.$original_parent !== undefined ? task.$original_parent : (task.parent || 0),
@@ -1298,6 +1392,7 @@ const ProjectDetail: React.FC = () => {
               ...extraFields // Include custom fields and baseline fields
             };
 
+            console.log(`Saving task ${taskId} to DB: duration=${taskToSave.duration} (type: ${typeof taskToSave.duration}), start_date=${taskToSave.start_date}, end_date=${taskToSave.end_date}`);
             taskMap.set(taskId, taskToSave);
           }
         });
@@ -1367,6 +1462,377 @@ const ProjectDetail: React.FC = () => {
     }
   };
 
+  const updateTaskProgress = async (progressValue: number) => {
+    if (!selectedTaskId || !ganttRef.current) return;
+
+    try {
+      const ganttInstance = ganttRef.current.getGanttInstance();
+      if (!ganttInstance) return;
+
+      // Get the task and update its progress
+      const task = ganttInstance.getTask(selectedTaskId);
+      if (task) {
+        task.progress = progressValue / 100;
+        ganttInstance.updateTask(selectedTaskId);
+
+        // Save to database
+        await saveProjectTasks();
+        showNotification(`Task progress updated to ${progressValue}%`, 'success');
+      }
+    } catch (error) {
+      console.error('Error updating task progress:', error);
+      showNotification('Failed to update task progress', 'error');
+    }
+  };
+
+  const indentTask = async () => {
+    if (!selectedTaskId || !ganttRef.current) return;
+
+    try {
+      const ganttInstance = ganttRef.current.getGanttInstance();
+      if (!ganttInstance) return;
+
+      // Trigger DHTMLX Gantt's built-in indent command (Shift+Right Arrow)
+      const event = new KeyboardEvent('keydown', {
+        key: 'ArrowRight',
+        code: 'ArrowRight',
+        keyCode: 39,
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true
+      });
+
+      // Dispatch the event to the gantt container
+      const ganttContainer = document.querySelector('.gantt_container');
+      if (ganttContainer) {
+        ganttContainer.dispatchEvent(event);
+
+        // Wait a bit for the indent to process, then save
+        setTimeout(async () => {
+          await saveProjectTasks();
+          showNotification('Task indented successfully', 'success');
+        }, 100);
+      }
+    } catch (error) {
+      console.error('Error indenting task:', error);
+      showNotification('Failed to indent task', 'error');
+    }
+  };
+
+  const outdentTask = async () => {
+    if (!selectedTaskId || !ganttRef.current) return;
+
+    try {
+      const ganttInstance = ganttRef.current.getGanttInstance();
+      if (!ganttInstance) return;
+
+      // Trigger DHTMLX Gantt's built-in outdent command (Shift+Left Arrow)
+      const event = new KeyboardEvent('keydown', {
+        key: 'ArrowLeft',
+        code: 'ArrowLeft',
+        keyCode: 37,
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true
+      });
+
+      // Dispatch the event to the gantt container
+      const ganttContainer = document.querySelector('.gantt_container');
+      if (ganttContainer) {
+        ganttContainer.dispatchEvent(event);
+
+        // Wait a bit for the outdent to process, then save
+        setTimeout(async () => {
+          await saveProjectTasks();
+          showNotification('Task outdented successfully', 'success');
+        }, 100);
+      }
+    } catch (error) {
+      console.error('Error outdenting task:', error);
+      showNotification('Failed to outdent task', 'error');
+    }
+  };
+
+  const undoAction = () => {
+    if (!ganttRef.current) return;
+
+    try {
+      const ganttInstance = ganttRef.current.getGanttInstance();
+      if (!ganttInstance) {
+        console.error('Gantt instance not found');
+        return;
+      }
+
+      console.log('Attempting undo...');
+      console.log('Gantt instance:', ganttInstance);
+      console.log('Gantt.ext:', ganttInstance.ext);
+      console.log('Gantt.ext.undo:', ganttInstance.ext ? ganttInstance.ext.undo : 'ext not available');
+
+      // Try to access undo through the ext namespace (DHTMLX Gantt extension pattern)
+      if (ganttInstance.ext && ganttInstance.ext.undo && typeof ganttInstance.ext.undo.undo === 'function') {
+        console.log('Using gantt.ext.undo.undo()');
+        ganttInstance.ext.undo.undo();
+        console.log('Undo executed');
+      } else if (typeof ganttInstance.undo === 'function') {
+        console.log('Using gantt.undo()');
+        ganttInstance.undo();
+        console.log('Undo executed');
+      } else {
+        console.error('Undo function not available');
+        console.error('Available methods:', Object.keys(ganttInstance));
+        showNotification('Undo not available', 'error');
+      }
+    } catch (error) {
+      console.error('Error undoing action:', error);
+      showNotification('Error undoing action', 'error');
+    }
+  };
+
+  const redoAction = () => {
+    if (!ganttRef.current) return;
+
+    try {
+      const ganttInstance = ganttRef.current.getGanttInstance();
+      if (!ganttInstance) {
+        console.error('Gantt instance not found');
+        return;
+      }
+
+      console.log('Attempting redo...');
+      console.log('Gantt.ext.undo:', ganttInstance.ext ? ganttInstance.ext.undo : 'ext not available');
+
+      // Try to access redo through the ext namespace (DHTMLX Gantt extension pattern)
+      if (ganttInstance.ext && ganttInstance.ext.undo && typeof ganttInstance.ext.undo.redo === 'function') {
+        console.log('Using gantt.ext.undo.redo()');
+        ganttInstance.ext.undo.redo();
+        console.log('Redo executed');
+      } else if (typeof ganttInstance.redo === 'function') {
+        console.log('Using gantt.redo()');
+        ganttInstance.redo();
+        console.log('Redo executed');
+      } else {
+        console.error('Redo function not available');
+        showNotification('Redo not available', 'error');
+      }
+    } catch (error) {
+      console.error('Error redoing action:', error);
+      showNotification('Error redoing action', 'error');
+    }
+  };
+
+  const handleTaskMultiSelect = (taskIds: number[]) => {
+    console.log('Multi-select updated:', taskIds);
+    setSelectedTaskIds(taskIds);
+  };
+
+  const linkSelectedTasks = async () => {
+    if (!ganttRef.current || selectedTaskIds.length < 2) {
+      showNotification('Please select at least 2 tasks to link', 'error');
+      return;
+    }
+
+    try {
+      const ganttInstance = ganttRef.current.getGanttInstance();
+      if (!ganttInstance) {
+        showNotification('Gantt instance not found', 'error');
+        return;
+      }
+
+      const sortedTaskIds = [...selectedTaskIds].sort((a, b) => {
+        const taskA = ganttInstance.getTask(a);
+        const taskB = ganttInstance.getTask(b);
+        const wbsA = ganttInstance.getWBSCode?.(taskA) || '';
+        const wbsB = ganttInstance.getWBSCode?.(taskB) || '';
+        return wbsA.localeCompare(wbsB, undefined, { numeric: true });
+      });
+
+      let linksCreated = 0;
+      const existingLinks = ganttInstance.getLinks();
+      const maxLinkId = existingLinks.length > 0
+        ? Math.max(...existingLinks.map((l: any) => l.id))
+        : 0;
+
+      for (let i = 0; i < sortedTaskIds.length - 1; i++) {
+        const sourceId = sortedTaskIds[i];
+        const targetId = sortedTaskIds[i + 1];
+
+        const linkExists = existingLinks.some((link: any) =>
+          link.source === sourceId && link.target === targetId
+        );
+
+        if (!linkExists) {
+          const linkId = maxLinkId + linksCreated + 1;
+          ganttInstance.addLink({
+            id: linkId,
+            source: sourceId,
+            target: targetId,
+            type: '0'
+          });
+          linksCreated++;
+        }
+      }
+
+      if (linksCreated > 0) {
+        await saveProjectTasks();
+        showNotification(`Successfully linked ${selectedTaskIds.length} tasks with ${linksCreated} new links`, 'success');
+      } else {
+        showNotification('All selected tasks are already linked', 'info');
+      }
+    } catch (error) {
+      console.error('Error linking tasks:', error);
+      showNotification('Failed to link tasks', 'error');
+    }
+  };
+
+  const unlinkSelectedTasks = async () => {
+    if (!ganttRef.current || selectedTaskIds.length < 1) {
+      showNotification('Please select at least 1 task to unlink', 'error');
+      return;
+    }
+
+    try {
+      const ganttInstance = ganttRef.current.getGanttInstance();
+      if (!ganttInstance) {
+        showNotification('Gantt instance not found', 'error');
+        return;
+      }
+
+      const linksToRemove: number[] = [];
+      const allLinks = ganttInstance.getLinks();
+
+      allLinks.forEach((link: any) => {
+        const sourceSelected = selectedTaskIds.includes(link.source);
+        const targetSelected = selectedTaskIds.includes(link.target);
+
+        if (sourceSelected && targetSelected) {
+          linksToRemove.push(link.id);
+        }
+      });
+
+      if (linksToRemove.length > 0) {
+        linksToRemove.forEach(linkId => {
+          ganttInstance.deleteLink(linkId);
+        });
+
+        await saveProjectTasks();
+        showNotification(`Removed ${linksToRemove.length} link${linksToRemove.length > 1 ? 's' : ''} between selected tasks`, 'success');
+      } else {
+        showNotification('No links found between selected tasks', 'info');
+      }
+    } catch (error) {
+      console.error('Error unlinking tasks:', error);
+      showNotification('Failed to unlink tasks', 'error');
+    }
+  };
+
+  const insertTask = async (taskType: 'task' | 'milestone' = 'task') => {
+    if (!ganttRef.current) return;
+
+    try {
+      const ganttInstance = ganttRef.current.getGanttInstance();
+      if (!ganttInstance) return;
+
+      // Get all current tasks
+      const allTasks = ganttInstance.serialize().data;
+
+      let parentId = 0;
+      let insertAfterTaskId = null;
+
+      // If a task is selected, insert after it at the same level
+      if (selectedTaskId) {
+        const selectedTask = allTasks.find((t: any) => t.id === selectedTaskId);
+        if (selectedTask) {
+          parentId = selectedTask.parent || 0;
+          insertAfterTaskId = selectedTaskId;
+        }
+      }
+
+      //working
+      // Determine start date
+      let startDate = new Date();
+      ///if (project?.created_at) { 12 Jan
+      ///startDate = new Date(project.created_at);  12 Jan
+      if (project.start_date) {
+         startDate = new Date(project.start_date);
+      }
+
+      // Adjust to workday if needed
+      const adjustedStartDate = adjustToWorkday(startDate.toISOString().split('T')[0]);
+      const startDateStr = adjustedStartDate;
+
+      // Calculate end_date from start_date + duration
+      const duration = taskType === 'milestone' ? 0 : 1;
+      const startDateObj = ganttInstance.date.parseDate(startDateStr, 'xml_date');
+      const endDate = ganttInstance.calculateEndDate({
+        start_date: startDateObj,
+        duration: duration
+      });
+      const dateFormatter = ganttInstance.date.date_to_str("%Y-%m-%d");
+      const endDateStr = dateFormatter(endDate);
+
+      // Create new task object with unique ID
+      const newTaskId = Date.now();
+      const newTaskData: any = {
+        id: newTaskId,
+        text: taskType === 'milestone' ? 'New Milestone' : 'New Task',
+        start_date: startDateStr,
+        end_date: endDateStr,
+        duration: duration,
+        progress: 0,
+        type: taskType,
+        parent: parentId
+      };
+
+      // Find where to insert the new task
+      let insertIndex = allTasks.length;
+
+      if (insertAfterTaskId) {
+        // Find all siblings (tasks with the same parent)
+        const siblings = allTasks.filter((t: any) => (t.parent || 0) === parentId);
+        const selectedIndex = siblings.findIndex((t: any) => t.id === insertAfterTaskId);
+
+        if (selectedIndex !== -1) {
+          // Find the global index of the task after which we want to insert
+          const selectedTask = siblings[selectedIndex];
+          const globalIndex = allTasks.findIndex((t: any) => t.id === selectedTask.id);
+
+          // Insert right after the selected task
+          insertIndex = globalIndex + 1;
+        }
+      }
+
+      // Insert the new task at the correct position
+      const updatedTasks = [
+        ...allTasks.slice(0, insertIndex),
+        newTaskData,
+        ...allTasks.slice(insertIndex)
+      ];
+
+      // Clear and reload all tasks
+      ganttInstance.clearAll();
+      ganttInstance.parse({ data: updatedTasks, links: ganttInstance.serialize().links });
+
+      // Select the newly created task
+      ganttInstance.selectTask(newTaskId);
+
+      // Save to database
+      await saveProjectTasks();
+
+      const taskTypeLabel = taskType === 'milestone' ? 'Milestone' : 'Task';
+      showNotification(`${taskTypeLabel} inserted successfully`, 'success');
+
+      // Set the newly created task as selected
+      setSelectedTaskId(newTaskId);
+    } catch (error) {
+      console.error('Error inserting task:', error);
+      showNotification('Failed to insert task', 'error');
+    }
+  };
+
+  const insertMilestone = async () => {
+    await insertTask('milestone');
+  };
+
   const saveScheduleAsTemplate = async () => {
     if (!templateName.trim()) {
       showNotification('Please enter a template name', 'error');
@@ -1407,10 +1873,19 @@ const ProjectDetail: React.FC = () => {
             }
             duration = Math.max(1, duration);
 
+            // Format start_date to YYYY-MM-DD (date only, no time)
+            let formattedStartDate = task.start_date;
+            if (task.start_date && ganttInstance) {
+              const startDate = typeof task.start_date === 'string'
+                ? ganttInstance.date.parseDate(task.start_date, "xml_date")
+                : task.start_date;
+              formattedStartDate = ganttInstance.date.date_to_str("%Y-%m-%d")(startDate);
+            }
+
             taskMap.set(taskId, {
               id: taskId,
               text: task.text,
-              start_date: task.start_date,
+              start_date: formattedStartDate,
               duration: duration,
               progress: 0, // Reset progress to 0%
               type: task.type || 'task',
@@ -2094,6 +2569,7 @@ const ProjectDetail: React.FC = () => {
       cost_impact: changeRequest.cost_impact || '',
       risk_impact: changeRequest.risk_impact,
       resource_impact: changeRequest.resource_impact,
+      status: changeRequest.status || 'Pending',
       attachments: changeRequest.attachments || ''
     });
 
@@ -2151,6 +2627,7 @@ const ProjectDetail: React.FC = () => {
       cost_impact: '',
       risk_impact: 'Low',
       resource_impact: 'Low',
+      status: 'Pending',
       attachments: ''
     });
     setChangeRequestCustomFieldValues({});
@@ -2397,20 +2874,10 @@ const ProjectDetail: React.FC = () => {
             const newTaskId = nextTaskId++;
             taskIdMap.set(originalId, newTaskId);
 
-            // Format start_date to match expected format
+            // Format start_date to YYYY-MM-DD format
             let formattedStartDate = '';
             if (importedTask.start_date) {
-              const dateObj = typeof importedTask.start_date === 'string'
-                ? new Date(importedTask.start_date)
-                : importedTask.start_date;
-              if (!isNaN(dateObj.getTime())) {
-                const year = dateObj.getFullYear();
-                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-                const day = String(dateObj.getDate()).padStart(2, '0');
-                const hours = String(dateObj.getHours()).padStart(2, '0');
-                const minutes = String(dateObj.getMinutes()).padStart(2, '0');
-                formattedStartDate = `${year}-${month}-${day} ${hours}:${minutes}`;
-              }
+              formattedStartDate = formatDateToYYYYMMDD(importedTask.start_date);
             }
 
             // Map parent ID to new ID
@@ -2753,9 +3220,9 @@ const ProjectDetail: React.FC = () => {
       const calculatedEndDate = ganttInstance.calculateEndDate(parsedStartDate, duration);
       // Subtract 1 day from end date to show the actual last working day (same as Task Pane display)
       const adjustedEndDate = ganttInstance.date.add(calculatedEndDate, -1, "day");
-      // Format to YYYY-MM-DD HH:MM to match start_date format
-      const dateTimeFormat = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i");
-      return dateTimeFormat(adjustedEndDate);
+      // Format to YYYY-MM-DD (date only, no time)
+      const dateFormat = ganttInstance.date.date_to_str("%Y-%m-%d");
+      return dateFormat(adjustedEndDate);
     } catch (error) {
       console.error('Error calculating end date:', error);
       return '';
@@ -2778,7 +3245,9 @@ const ProjectDetail: React.FC = () => {
       let currentTaskId = editingTaskId;
       let adjustedStartDate = null;
       if (taskForm.start_date && taskForm.start_date.trim() !== '') {
+        console.log('📅 DATE DEBUG - Form input date:', taskForm.start_date);
         adjustedStartDate = adjustToWorkday(taskForm.start_date);
+        console.log('📅 DATE DEBUG - Adjusted date:', adjustedStartDate);
       }
 
       if (editingTaskId) {
@@ -2807,8 +3276,10 @@ const ProjectDetail: React.FC = () => {
             if (task.id === editingTaskId) {
               const duration = taskForm.type === 'milestone' ? 0 : taskForm.duration;
 
+              // Exclude end_date from the spread to ensure Gantt recalculates it from duration
+              const { end_date, ...taskWithoutEndDate } = task;
               const updatedTask: any = {
-                ...task,
+                ...taskWithoutEndDate,
                 text: taskForm.description,
                 duration: duration,
                 type: taskForm.type,
@@ -2817,30 +3288,34 @@ const ProjectDetail: React.FC = () => {
 
               // Set start_date: use provided date or default to project creation date or keep existing
               if (adjustedStartDate) {
-                const startDateStr = `${adjustedStartDate} 00:00`;
-                updatedTask.start_date = startDateStr;
+                updatedTask.start_date = adjustedStartDate;
+                console.log('📅 DATE DEBUG - Setting task start_date:', adjustedStartDate);
               } else if (!task.start_date && project?.created_at) {
                 // If task has no start date and no new date provided, default to project creation date
-                const projectDate = new Date(project.created_at).toISOString().split('T')[0];
-                const startDateStr = `${projectDate} 00:00`;
-                updatedTask.start_date = startDateStr;
-                console.log('No start date provided, using project creation date:', startDateStr);
+                const projectDate = formatDateToYYYYMMDD(new Date(project.created_at));
+                updatedTask.start_date = projectDate;
+                console.log('No start date provided, using project creation date:', projectDate);
               }
 
-              // Calculate end_date using the same method as Gantt component (line 1216)
-              if (updatedTask.start_date && duration > 0) {
-                updatedTask.end_date = calculateEndDate(updatedTask.start_date, duration);
-                console.log('Calculated end_date:', updatedTask.end_date);
-              } else if (taskForm.type === 'milestone') {
-                // For milestones, end_date equals start_date
-                updatedTask.end_date = updatedTask.start_date;
+              // Calculate exclusive end_date as expected by DHTMLX Gantt
+              // The "End time" column template handles displaying the inclusive date for users
+              if (updatedTask.start_date && duration > 0 && ganttRef.current) {
+                const ganttInstance = ganttRef.current.getGanttInstance();
+                const startDate = typeof updatedTask.start_date === 'string'
+                  ? ganttInstance.date.parseDate(updatedTask.start_date, "xml_date")
+                  : updatedTask.start_date;
+                // DHTMLX uses exclusive end dates (end_date = start of day after task completes)
+                // Store this exclusive end_date so Gantt can correctly calculate duration when parsing
+                const exclusiveEndDate = ganttInstance.calculateEndDate(startDate, duration);
+                updatedTask.end_date = formatDateToYYYYMMDD(exclusiveEndDate);
+                console.log('📅 DATE DEBUG - Calculated end_date:', updatedTask.end_date);
               }
 
               console.log('Updated task values:', {
                 id: editingTaskId,
                 start_date: updatedTask.start_date,
-                duration: duration,
-                end_date: updatedTask.end_date
+                end_date: updatedTask.end_date,
+                duration: duration
               });
 
               // Update resources if selected
@@ -2901,23 +3376,27 @@ const ProjectDetail: React.FC = () => {
 
         // Set start_date: use provided date or default to project creation date
         if (adjustedStartDate) {
-          const startDateStr = `${adjustedStartDate} 00:00`;
-          newTask.start_date = startDateStr;
+          newTask.start_date = adjustedStartDate;
+          console.log('📅 DATE DEBUG - New task start_date:', adjustedStartDate);
         } else if (project?.created_at) {
           // Default to project creation date if no start date provided
-          const projectDate = new Date(project.created_at).toISOString().split('T')[0];
-          const startDateStr = `${projectDate} 00:00`;
-          newTask.start_date = startDateStr;
-          console.log('No start date provided, using project creation date:', startDateStr);
+          const projectDate = formatDateToYYYYMMDD(new Date(project.created_at));
+          newTask.start_date = projectDate;
+          console.log('No start date provided, using project start date:', projectDate);
         }
 
-        // Calculate end_date using the same method as Gantt component (line 1216)
-        if (newTask.start_date && duration > 0) {
-          newTask.end_date = calculateEndDate(newTask.start_date, duration);
-          console.log('Calculated end_date for new task:', newTask.end_date);
-        } else if (taskForm.type === 'milestone') {
-          // For milestones, end_date equals start_date
-          newTask.end_date = newTask.start_date;
+        // Calculate exclusive end_date as expected by DHTMLX Gantt
+        // The "End time" column template handles displaying the inclusive date for users
+        if (newTask.start_date && duration > 0 && ganttRef.current) {
+          const ganttInstance = ganttRef.current.getGanttInstance();
+          const startDate = typeof newTask.start_date === 'string'
+            ? ganttInstance.date.parseDate(newTask.start_date, "xml_date")
+            : newTask.start_date;
+          // DHTMLX uses exclusive end dates (end_date = start of day after task completes)
+          // Store this exclusive end_date so Gantt can correctly calculate duration when parsing
+          const exclusiveEndDate = ganttInstance.calculateEndDate(startDate, duration);
+          newTask.end_date = formatDateToYYYYMMDD(exclusiveEndDate);
+          console.log('📅 DATE DEBUG - New task end_date:', newTask.end_date);
         }
 
         // Set parent - MUST be 0 for root tasks, not undefined
@@ -2984,6 +3463,10 @@ const ProjectDetail: React.FC = () => {
       console.log('💾 SAVING TASK DATA - Full updatedTaskData:', JSON.stringify(updatedTaskData, null, 2));
       const taskBeingSaved = updatedTaskData.data.find((t: any) => t.id === currentTaskId);
       console.log('💾 SAVING TASK DATA - Current task resource_allocations:', taskBeingSaved?.resource_allocations);
+      console.log('📅 DATE DEBUG - Task being saved to DB:', {
+        start_date: taskBeingSaved?.start_date,
+        end_date: taskBeingSaved?.end_date
+      });
 
       // Check if project_tasks record exists (get the most recent one)
       const { data: existingData, error: fetchError } = await supabase
@@ -3536,7 +4019,7 @@ const ProjectDetail: React.FC = () => {
             {overviewConfig && overviewConfig.sections.length > 0 ? (
               <div className="space-y-8 overflow-visible">
                 {overviewConfig.sections.map((section) => (
-                  <div key={section.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 overflow-visible">
+                  <div key={section.id} className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6 overflow-visible">
                     <h3 className="text-lg font-semibold text-gray-900 mb-6">{section.name}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 overflow-visible">
                       {section.fields.map((field) => (
@@ -3591,7 +4074,7 @@ const ProjectDetail: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+              <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-8 text-center">
                 <Target className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No Overview Configuration</h3>
                 <p className="text-gray-600 mb-4">
@@ -3609,7 +4092,7 @@ const ProjectDetail: React.FC = () => {
         )}
 
         {activeTab === 'timeline' && (
-          <div className={isGanttFullscreen ? "fixed inset-0 z-50 bg-white p-6" : "bg-white rounded-lg shadow-sm border border-gray-200 p-6"}>
+          <div className={isGanttFullscreen ? "fixed inset-0 z-50 bg-white p-6" : "bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6"}>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-4">
                 <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
@@ -3668,240 +4151,423 @@ const ProjectDetail: React.FC = () => {
                     >
                       {isGanttFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
                     </button>
-                    <button
-                      onClick={() => {
-                        if (ganttRef.current) {
-                          ganttRef.current.toggleGroupByOwner();
-                          setIsGroupedByOwner(!isGroupedByOwner);
-                        }
-                      }}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                    >
-                      <Group className="w-4 h-4" />
-                      {isGroupedByOwner ? 'Show All Tasks' : 'Group by Owner'}
-                    </button>
-                    <input
-                      ref={msProjectFileInputRef}
-                      type="file"
-                      accept=".mpp,.xml"
-                      onChange={handleMSProjectImport}
-                      className="hidden"
-                    />
-                    <button
-                      onClick={() => msProjectFileInputRef.current?.click()}
-                      disabled={importingMSProject}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:bg-orange-400 disabled:cursor-not-allowed"
-                      title="Import tasks from MS Project file (.mpp or .xml)"
-                    >
-                      <Upload className="w-4 h-4" />
-                      {importingMSProject ? 'Importing...' : 'Upload MS Project'}
-                    </button>
-                    <button
-                      onClick={() => setShowResourcePanel(!showResourcePanel)}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                      <Users className="w-4 h-4" />
-                      {showResourcePanel ? 'Hide Resources' : 'Show Resources'}
-                    </button>
-
-                <button
-                  onClick={() => setShowSaveTemplateModal(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-                  title="Save current schedule as a template"
-                >
-                  <Save className="w-4 h-4" />
-                  Save as Template
-                </button>
-
-                {/* Task Fields Selector */}
-                <div className="relative">
-                  <button
-                    onClick={() => setShowTaskFieldsDropdown(!showTaskFieldsDropdown)}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Task Fields
-                    {selectedTaskFields.length > 0 && (
-                      <span className="ml-1 px-2 py-0.5 bg-blue-500 rounded-full text-xs">
-                        {selectedTaskFields.length}
-                      </span>
-                    )}
-                  </button>
-
-                  {showTaskFieldsDropdown && (
-                    <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
-                      <div className="p-3 border-b border-gray-200">
-                        <h4 className="font-medium text-gray-900">Select Task Fields</h4>
-                        <p className="text-xs text-gray-500 mt-1">Choose fields to display in task pane</p>
-                      </div>
-                      <div className="max-h-80 overflow-y-auto p-2">
-                        {taskCustomFields.length === 0 ? (
-                          <div className="text-center py-8 text-gray-500">
-                            <p className="text-sm">No task fields available</p>
-                            <p className="text-xs mt-1">Create task fields in Settings</p>
-                          </div>
-                        ) : (
-                          taskCustomFields.map((field) => (
-                            <label
-                              key={field.id}
-                              className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedTaskFields.includes(field.id)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedTaskFields([...selectedTaskFields, field.id]);
-                                  } else {
-                                    setSelectedTaskFields(selectedTaskFields.filter(id => id !== field.id));
-                                  }
-                                }}
-                                className="mt-1 w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                              />
-                              <div className="flex-1">
-                                <div className="text-sm font-medium text-gray-900">{field.field_label}</div>
-                                {field.field_description && (
-                                  <div className="text-xs text-gray-500 mt-0.5">{field.field_description}</div>
-                                )}
-                                <div className="text-xs text-gray-400 mt-0.5">Type: {field.field_type}</div>
-                              </div>
-                            </label>
-                          ))
-                        )}
-                      </div>
-                      <div className="p-3 border-t border-gray-200 flex justify-end gap-2">
-                        <button
-                          onClick={() => setShowTaskFieldsDropdown(false)}
-                          className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                        >
-                          Close
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Baseline Selector */}
-                <div className="relative">
-                  <button
-                    onClick={() => setShowBaselineDropdown(!showBaselineDropdown)}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    <Flag className="w-4 h-4" />
-                    Set Baseline
-                  </button>
-
-                  {showBaselineDropdown && (
-                    <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
-                      <div className="p-3 border-b border-gray-200">
-                        <h4 className="font-medium text-gray-900">Select Baseline</h4>
-                        <p className="text-xs text-gray-500 mt-1">Choose which baseline to set</p>
-                      </div>
-                      <div className="max-h-80 overflow-y-auto p-2">
-                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((baselineNum) => (
-                          <button
-                            key={baselineNum}
-                            onClick={async () => {
-                              setShowBaselineDropdown(false);
-                              if (ganttRef.current && id) {
-                                // Set baseline on Gantt - this updates task data with baseline{N}_StartDate and baseline{N}_EndDate fields
-                                ganttRef.current.setBaseline(baselineNum);
-
-                                // Save baseline fields to database
-                                try {
-                                  const ganttInstance = ganttRef.current.getGanttInstance();
-
-                                  // Instead of using serialize which strips properties,
-                                  // manually collect all tasks with their full data including baseline fields
-                                  const updatedTasks: any[] = [];
-                                  ganttInstance.eachTask((task: any) => {
-                                    // Create a copy of the task with all its properties preserved
-                                    updatedTasks.push({ ...task });
-                                  });
-
-                                  // Get links separately
-                                  const links = ganttInstance.getLinks().map((link: any) => ({ ...link }));
-
-                                  // Verify that baseline fields exist
-                                  const tasksWithBaseline = updatedTasks.filter((task: any) =>
-                                    task[`baseline${baselineNum}_StartDate`] && task[`baseline${baselineNum}_EndDate`]
-                                  );
-                                  console.log(`${tasksWithBaseline.length} tasks have baseline ${baselineNum} fields set`);
-
-                                  // Update the database with the new task data containing baseline fields
-                                  const updatedTaskData = {
-                                    data: updatedTasks,
-                                    links: links
-                                  };
-
-                                  console.log('Saving task data with baseline fields to database:', updatedTaskData);
-
-                                  // Update the record
-                                  const { error: updateError } = await supabase
-                                    .from('project_tasks')
-                                    .update({ task_data: updatedTaskData })
-                                    .eq('project_id', id);
-
-                                  if (updateError) throw updateError;
-
-                                  // Update local state
-                                  setProjectTasks({
-                                    ...projectTasks,
-                                    data: updatedTasks,
-                                    links: links
-                                  });
-
-                                  alert(`Baseline ${baselineNum} set successfully! Fields baseline${baselineNum}_StartDate and baseline${baselineNum}_EndDate added to all tasks.`);
-                                } catch (error) {
-                                  console.error('Error saving baseline:', error);
-                                  alert('Failed to save baseline: ' + (error as Error).message);
-                                }
-                              }
-                            }}
-                            className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded text-sm text-gray-900 transition-colors"
-                          >
-                            Baseline {baselineNum}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="p-3 border-t border-gray-200 flex justify-end gap-2">
-                        <button
-                          onClick={() => setShowBaselineDropdown(false)}
-                          className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                        >
-                          Close
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                    <button
-                      onClick={() => {
-                        setEditingTaskId(null);
-                        setTaskForm({
-                          description: '',
-                          start_date: '',
-                          duration: 1,
-                          owner_id: '',
-                          resource_ids: [],
-                          parent_id: undefined,
-                          parent_wbs: '',
-                          predecessor_ids: [],
-                          type: 'task',
-                          progress: 0
-                        });
-                        setResourceAllocations({});
-                        setShowTaskModal(true);
-                      }}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Create Task
-                    </button>
                   </>
                 )}
               </div>
             </div>
+
+            {/* Microsoft-style Ribbon */}
+            {timelineView === 'gantt' && (
+              <div className="mb-4 bg-gradient-to-b from-gray-50 to-white border border-gray-200 rounded-lg shadow-sm">
+                <div className="px-4 py-3">
+                  <div className="flex items-start gap-1">
+                    {/* View Group */}
+                    <div className="flex items-center gap-1 pr-4 border-r border-gray-300">
+                      <button
+                        onClick={() => {
+                          if (ganttRef.current) {
+                            ganttRef.current.toggleGroupByOwner();
+                            setIsGroupedByOwner(!isGroupedByOwner);
+                          }
+                        }}
+                        className="flex flex-col items-center justify-center px-3 py-2 hover:bg-blue-50 rounded-md transition-colors group min-w-[70px]"
+                        title={isGroupedByOwner ? 'Show All Tasks' : 'Group by Owner'}
+                      >
+                        <Group className="w-6 h-6 text-blue-600 mb-1" />
+                        <span className="text-xs text-gray-700 text-center leading-tight">
+                          {isGroupedByOwner ? 'Show All' : 'Group by'}<br />Owner
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => setShowResourcePanel(!showResourcePanel)}
+                        className="flex flex-col items-center justify-center px-3 py-2 hover:bg-blue-50 rounded-md transition-colors group min-w-[70px]"
+                        title={showResourcePanel ? 'Hide Resources' : 'Show Resources'}
+                      >
+                        <Users className="w-6 h-6 text-blue-600 mb-1" />
+                        <span className="text-xs text-gray-700 text-center leading-tight">
+                          {showResourcePanel ? 'Hide' : 'Show'}<br />Resources
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Import/Export Group */}
+                    <div className="flex items-center gap-1 px-4 border-r border-gray-300">
+                      <input
+                        ref={msProjectFileInputRef}
+                        type="file"
+                        accept=".mpp,.xml"
+                        onChange={handleMSProjectImport}
+                        className="hidden"
+                      />
+                      <button
+                        onClick={() => msProjectFileInputRef.current?.click()}
+                        disabled={importingMSProject}
+                        className="flex flex-col items-center justify-center px-3 py-2 hover:bg-orange-50 rounded-md transition-colors group min-w-[70px] disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Import tasks from MS Project file (.mpp or .xml)"
+                      >
+                        <Upload className="w-6 h-6 text-orange-600 mb-1" />
+                        <span className="text-xs text-gray-700 text-center leading-tight">
+                          {importingMSProject ? 'Importing...' : <>Upload<br />MS Project</>}
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => setShowSaveTemplateModal(true)}
+                        className="flex flex-col items-center justify-center px-3 py-2 hover:bg-amber-50 rounded-md transition-colors group min-w-[70px]"
+                        title="Save current schedule as a template"
+                      >
+                        <Save className="w-6 h-6 text-amber-600 mb-1" />
+                        <span className="text-xs text-gray-700 text-center leading-tight">
+                          Save as<br />Template
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Configuration Group */}
+                    <div className="flex items-center gap-1 px-4 border-r border-gray-300">
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowTaskFieldsDropdown(!showTaskFieldsDropdown)}
+                          className="flex flex-col items-center justify-center px-3 py-2 hover:bg-emerald-50 rounded-md transition-colors group min-w-[70px]"
+                          title="Add custom fields to tasks"
+                        >
+                          <div className="relative">
+                            <Plus className="w-6 h-6 text-emerald-600 mb-1" />
+                            {selectedTaskFields.length > 0 && (
+                              <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-emerald-600 text-white rounded-full text-[10px] font-medium">
+                                {selectedTaskFields.length}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs text-gray-700 text-center leading-tight">
+                            Add Task<br />Fields
+                          </span>
+                        </button>
+
+                        {showTaskFieldsDropdown && (
+                          <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+                            <div className="p-3 border-b border-gray-200">
+                              <h4 className="font-medium text-gray-900">Select Task Fields</h4>
+                              <p className="text-xs text-gray-500 mt-1">Choose fields to display in task pane</p>
+                            </div>
+                            <div className="max-h-80 overflow-y-auto p-2">
+                              {taskCustomFields.length === 0 ? (
+                                <div className="text-center py-8 text-gray-500">
+                                  <p className="text-sm">No task fields available</p>
+                                  <p className="text-xs mt-1">Create task fields in Settings</p>
+                                </div>
+                              ) : (
+                                taskCustomFields.map((field) => (
+                                  <label
+                                    key={field.id}
+                                    className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedTaskFields.includes(field.id)}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setSelectedTaskFields([...selectedTaskFields, field.id]);
+                                        } else {
+                                          setSelectedTaskFields(selectedTaskFields.filter(id => id !== field.id));
+                                        }
+                                      }}
+                                      className="mt-1 w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+                                    />
+                                    <div className="flex-1">
+                                      <div className="text-sm font-medium text-gray-900">{field.field_label}</div>
+                                      {field.field_description && (
+                                        <div className="text-xs text-gray-500 mt-0.5">{field.field_description}</div>
+                                      )}
+                                      <div className="text-xs text-gray-400 mt-0.5">Type: {field.field_type}</div>
+                                    </div>
+                                  </label>
+                                ))
+                              )}
+                            </div>
+                            <div className="p-3 border-t border-gray-200 flex justify-end gap-2">
+                              <button
+                                onClick={() => setShowTaskFieldsDropdown(false)}
+                                className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                              >
+                                Close
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowBaselineDropdown(!showBaselineDropdown)}
+                          className="flex flex-col items-center justify-center px-3 py-2 hover:bg-teal-50 rounded-md transition-colors group min-w-[70px]"
+                          title="Set a baseline for the project"
+                        >
+                          <Flag className="w-6 h-6 text-teal-600 mb-1" />
+                          <span className="text-xs text-gray-700 text-center leading-tight">
+                            Set<br />Baseline
+                          </span>
+                        </button>
+
+                        {showBaselineDropdown && (
+                          <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+                            <div className="p-3 border-b border-gray-200">
+                              <h4 className="font-medium text-gray-900">Select Baseline</h4>
+                              <p className="text-xs text-gray-500 mt-1">Choose which baseline to set</p>
+                            </div>
+                            <div className="max-h-80 overflow-y-auto p-2">
+                              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((baselineNum) => (
+                                <button
+                                  key={baselineNum}
+                                  onClick={async () => {
+                                    setShowBaselineDropdown(false);
+                                    if (ganttRef.current && id) {
+                                      // Set baseline on Gantt - this updates task data with baseline{N}_StartDate and baseline{N}_EndDate fields
+                                      ganttRef.current.setBaseline(baselineNum);
+
+                                      // Save baseline fields to database
+                                      try {
+                                        const ganttInstance = ganttRef.current.getGanttInstance();
+
+                                        // Instead of using serialize which strips properties,
+                                        // manually collect all tasks with their full data including baseline fields
+                                        const updatedTasks: any[] = [];
+                                        ganttInstance.eachTask((task: any) => {
+                                          if (task.$group_header) return; // Skip group headers
+
+                                          // Exclude Date objects (planned_start, planned_end) to avoid timezone issues
+                                          // Keep string-based fields including end_date and baseline fields
+                                          const taskCopy: any = {};
+                                          Object.keys(task).forEach(key => {
+                                            // Exclude Date object fields and internal DHTMLX fields
+                                            if (key.startsWith('planned_start') ||
+                                                key.startsWith('planned_end') ||
+                                                key.startsWith('$')) {
+                                              return;
+                                            }
+                                            // Format date fields to YYYY-MM-DD
+                                            if ((key === 'start_date' || key === 'end_date') && task[key]) {
+                                              taskCopy[key] = formatDateToYYYYMMDD(task[key]);
+                                            } else {
+                                              taskCopy[key] = task[key];
+                                            }
+                                          });
+
+                                          updatedTasks.push(taskCopy);
+                                        });
+
+                                        // Get links separately
+                                        const links = ganttInstance.getLinks().map((link: any) => ({ ...link }));
+
+                                        // Verify that baseline fields exist and log them
+                                        console.log('\n=== BASELINE SAVE VERIFICATION ===');
+                                        const tasksWithBaseline = updatedTasks.filter((task: any) =>
+                                          task[`baseline${baselineNum}_startDate`] && task[`baseline${baselineNum}_endDate`]
+                                        );
+                                        console.log(`${tasksWithBaseline.length} tasks have baseline ${baselineNum} fields set`);
+
+                                        // Log first 3 tasks to show what's being saved
+                                        updatedTasks.slice(0, 3).forEach(task => {
+                                          console.log(`\nTask ${task.id} (${task.text}) - Fields being saved:`);
+                                          console.log(`  start_date: ${task.start_date}`);
+                                          console.log(`  end_date: ${task.end_date}`);
+                                          console.log(`  duration: ${task.duration}`);
+                                          console.log(`  baseline${baselineNum}_startDate: ${task[`baseline${baselineNum}_startDate`]}`);
+                                          console.log(`  baseline${baselineNum}_endDate: ${task[`baseline${baselineNum}_endDate`]}`);
+                                          console.log(`  baseline${baselineNum}_duration: ${task[`baseline${baselineNum}_duration`]}`);
+                                        });
+                                        console.log('=== END SAVE VERIFICATION ===\n');
+
+                                        // Update the database with the new task data containing baseline fields
+                                        const updatedTaskData = {
+                                          data: updatedTasks,
+                                          links: links
+                                        };
+
+                                        console.log('Saving task data with baseline fields to database:', updatedTaskData);
+
+                                        // Update the record
+                                        const { error: updateError } = await supabase
+                                          .from('project_tasks')
+                                          .update({ task_data: updatedTaskData })
+                                          .eq('project_id', id);
+
+                                        if (updateError) throw updateError;
+
+                                        // Update local state
+                                        setProjectTasks({
+                                          ...projectTasks,
+                                          data: updatedTasks,
+                                          links: links
+                                        });
+
+                                        showNotification(`Baseline ${baselineNum} set successfully! Captured: baseline${baselineNum}_startDate, baseline${baselineNum}_endDate, baseline${baselineNum}_duration`, 'success');
+                                      } catch (error) {
+                                        console.error('Error saving baseline:', error);
+                                        alert('Failed to save baseline: ' + (error as Error).message);
+                                      }
+                                    }
+                                  }}
+                                  className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded text-sm text-gray-900 transition-colors"
+                                >
+                                  Baseline {baselineNum}
+                                </button>
+                              ))}
+                            </div>
+                            <div className="p-3 border-t border-gray-200 flex justify-end gap-2">
+                              <button
+                                onClick={() => setShowBaselineDropdown(false)}
+                                className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                              >
+                                Close
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Progress & Hierarchy Group */}
+                    <div className="flex items-center gap-1 px-4 border-r border-gray-300">
+                      <div className="flex flex-col items-center gap-2">
+                        {/* Progress Row */}
+                        <div className="flex flex-col items-center">
+                          <span className="text-xs text-gray-600 mb-1 font-medium">Progress</span>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => updateTaskProgress(25)}
+                              disabled={!selectedTaskId}
+                              className="px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                              title="Set task progress to 25%"
+                            >
+                              25%
+                            </button>
+                            <button
+                              onClick={() => updateTaskProgress(50)}
+                              disabled={!selectedTaskId}
+                              className="px-2 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                              title="Set task progress to 50%"
+                            >
+                              50%
+                            </button>
+                            <button
+                              onClick={() => updateTaskProgress(75)}
+                              disabled={!selectedTaskId}
+                              className="px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                              title="Set task progress to 75%"
+                            >
+                              75%
+                            </button>
+                            <button
+                              onClick={() => updateTaskProgress(100)}
+                              disabled={!selectedTaskId}
+                              className="px-2 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                              title="Set task progress to 100%"
+                            >
+                              100%
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Hierarchy & Links Row */}
+                        <div className="flex flex-col items-center">
+                          <span className="text-xs text-gray-600 mb-1 font-medium">Hierarchy & Links</span>
+                          <div className="flex gap-1 items-center">
+                            <button
+                              onClick={outdentTask}
+                              disabled={!selectedTaskId}
+                              className="px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                              title="Outdent task (move task out of parent)"
+                            >
+                              <ChevronLeft className="w-3 h-3" />
+                              Outdent
+                            </button>
+                            <button
+                              onClick={indentTask}
+                              disabled={!selectedTaskId}
+                              className="px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                              title="Indent task (move task under parent)"
+                            >
+                              <ChevronRight className="w-3 h-3" />
+                              Indent
+                            </button>
+                            <div className="w-px h-6 bg-gray-300 mx-1"></div>
+                            <button
+                              onClick={linkSelectedTasks}
+                              disabled={selectedTaskIds.length < 2}
+                              className="px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                              title={selectedTaskIds.length < 2 ? "Select at least 2 tasks to link (Ctrl+Click)" : `Link ${selectedTaskIds.length} selected tasks sequentially`}
+                            >
+                              <Link2 className="w-3 h-3" />
+                              Link
+                            </button>
+                            <button
+                              onClick={unlinkSelectedTasks}
+                              disabled={selectedTaskIds.length < 1}
+                              className="px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                              title={selectedTaskIds.length < 1 ? "Select at least 1 task to unlink" : `Remove links between ${selectedTaskIds.length} selected tasks`}
+                            >
+                              <Unlink className="w-3 h-3" />
+                              Unlink
+                            </button>
+                            {selectedTaskIds.length > 0 && (
+                              <span className="text-xs text-gray-600 ml-2 px-2 py-1 bg-blue-50 rounded">
+                                {selectedTaskIds.length} task{selectedTaskIds.length > 1 ? 's' : ''} selected
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* History Group */}
+                    <div className="flex items-center gap-1 px-4 border-r border-gray-300">
+                      <button
+                        onClick={undoAction}
+                        className="px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded transition-colors flex items-center gap-1"
+                        title="Undo last action"
+                      >
+                        <Undo className="w-3 h-3" />
+                        Undo
+                      </button>
+                      <button
+                        onClick={redoAction}
+                        className="px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded transition-colors flex items-center gap-1"
+                        title="Redo last action"
+                      >
+                        <Redo className="w-3 h-3" />
+                        Redo
+                      </button>
+                    </div>
+
+                    {/* Tasks Group */}
+                    <div className="flex items-center gap-1 pl-4">
+                      <button
+                        onClick={() => insertTask('task')}
+                        className="flex flex-col items-center justify-center px-3 py-2 hover:bg-sky-50 rounded-md transition-colors group min-w-[70px]"
+                        title={selectedTaskId ? "Insert a new task after the selected task" : "Insert a new task at the bottom"}
+                      >
+                        <Plus className="w-6 h-6 text-sky-600 mb-1" />
+                        <span className="text-xs text-gray-700 text-center leading-tight">
+                          Insert<br />Task
+                        </span>
+                      </button>
+                      <button
+                        onClick={insertMilestone}
+                        className="flex flex-col items-center justify-center px-3 py-2 hover:bg-amber-50 rounded-md transition-colors group min-w-[70px]"
+                        title={selectedTaskId ? "Insert a new milestone after the selected task" : "Insert a new milestone at the bottom"}
+                      >
+                        <Flag className="w-6 h-6 text-amber-600 mb-1" />
+                        <span className="text-xs text-gray-700 text-center leading-tight">
+                          Insert<br />Milestone
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {timelineView === 'gantt' && (
               <>
@@ -3923,11 +4589,13 @@ const ProjectDetail: React.FC = () => {
                 projectId={id}
                 projecttasks={projectTasks}
                 onTaskUpdate={saveProjectTasks}
+                onTaskSelect={setSelectedTaskId}
+                onTaskMultiSelect={handleTaskMultiSelect}
                 searchQuery={taskSearchQuery}
                 selectedTaskFields={selectedTaskFields}
                 taskCustomFields={taskCustomFields}
                 showResourcePanel={showResourcePanel}
-                projectCreatedAt={project?.created_at}
+                projectStartDate={project?.start_date || undefined}
                 onOpenTaskModal={(parentId) => {
                   console.log('=== onOpenTaskModal called ===');
                   console.log('parentId received:', parentId);
@@ -3950,9 +4618,14 @@ const ProjectDetail: React.FC = () => {
                     }
                   }
 
+                  // Set default start date to project start date
+                  const defaultStartDate = project?.start_date
+                    ? new Date(project.start_date).toISOString().split('T')[0]
+                    : '';
+
                   setTaskForm({
                     description: '',
-                    start_date: '',
+                    start_date: defaultStartDate,
                     duration: 1,
                     owner_id: '',
                     resource_ids: [],
@@ -4093,7 +4766,7 @@ const ProjectDetail: React.FC = () => {
                     resetRiskForm();
                     setShowRiskModal(true);
                   }}
-                  className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  className="flex items-center space-x-2 px-4 py-2 bg-gradient-primary text-white rounded-lg hover:opacity-90 transition-all shadow-lg"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add Risk</span>
@@ -4101,29 +4774,29 @@ const ProjectDetail: React.FC = () => {
               </div>
 
               {risks.length === 0 ? (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+                <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-8 text-center">
                   <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h4 className="text-lg font-medium text-gray-900 mb-2">No Risks</h4>
                   <p className="text-gray-600">No risks have been identified for this project yet.</p>
                 </div>
               ) : (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                      <thead className="bg-gradient-dark">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Impact</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Title</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Type</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Description</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Impact</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Created</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="divide-y divide-gray-200" style={{ backgroundColor: '#F9F7FC' }}>
                         {risks.map((risk) => (
-                          <tr key={risk.id} className="hover:bg-gray-50">
+                          <tr key={risk.id} className="hover:bg-gray-100">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{risk.title}</td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -4183,7 +4856,7 @@ const ProjectDetail: React.FC = () => {
                     resetIssueForm();
                     setShowIssueModal(true);
                   }}
-                  className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                  className="flex items-center space-x-2 px-4 py-2 bg-gradient-primary text-white rounded-lg hover:opacity-90 transition-all shadow-lg"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add Issue</span>
@@ -4191,29 +4864,29 @@ const ProjectDetail: React.FC = () => {
               </div>
 
               {issues.length === 0 ? (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+                <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-8 text-center">
                   <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h4 className="text-lg font-medium text-gray-900 mb-2">No Issues</h4>
                   <p className="text-gray-600">No issues have been reported for this project yet.</p>
                 </div>
               ) : (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                      <thead className="bg-gradient-dark">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Impact</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Title</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Type</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Description</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Impact</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Created</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="divide-y divide-gray-200" style={{ backgroundColor: '#F9F7FC' }}>
                         {issues.map((issue) => (
-                          <tr key={issue.id} className="hover:bg-gray-50">
+                          <tr key={issue.id} className="hover:bg-gray-100">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{issue.title}</td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -4275,7 +4948,7 @@ const ProjectDetail: React.FC = () => {
                   resetChangeRequestForm();
                   setShowChangeRequestModal(true);
                 }}
-                className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                className="flex items-center space-x-2 px-4 py-2 bg-gradient-primary text-white rounded-lg hover:opacity-90 transition-all shadow-lg"
               >
                 <Plus className="w-4 h-4" />
                 <span>Add Change Request</span>
@@ -4283,30 +4956,30 @@ const ProjectDetail: React.FC = () => {
             </div>
 
             {changeRequests.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+              <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-8 text-center">
                 <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <h4 className="text-lg font-medium text-gray-900 mb-2">No Change Requests</h4>
                 <p className="text-gray-600">No change requests have been submitted for this project yet.</p>
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-gradient-dark">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Impact</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attachments</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Title</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Type</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Impact</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Description</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Attachments</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Created</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="divide-y divide-gray-200" style={{ backgroundColor: '#F9F7FC' }}>
                       {changeRequests.map((changeRequest) => (
-                        <tr key={changeRequest.id} className="hover:bg-gray-50">
+                        <tr key={changeRequest.id} className="hover:bg-gray-100">
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{changeRequest.request_title}</td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -4393,7 +5066,7 @@ const ProjectDetail: React.FC = () => {
         {activeTab === 'budget' && (
           <div className="space-y-6">
             {budgets.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="text-center py-12">
                   <DollarSign className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No Budget Categories Yet</h3>
@@ -4408,7 +5081,7 @@ const ProjectDetail: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-semibold text-gray-900">Annual Budget Forecast ({selectedYear})</h3>
                   <div className="flex items-center gap-4">
@@ -4494,7 +5167,7 @@ const ProjectDetail: React.FC = () => {
 
         {activeTab === 'settings' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">Project Documents</h3>
                 <label className="cursor-pointer">
@@ -5032,13 +5705,32 @@ const ProjectDetail: React.FC = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Cost Impact</label>
-                <input
-                  type="text"
-                  value={changeRequestForm.cost_impact}
-                  onChange={(e) => setChangeRequestForm({ ...changeRequestForm, cost_impact: e.target.value })}
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                  <input
+                    type="text"
+                    value={formatCurrency(changeRequestForm.cost_impact)}
+                    onChange={(e) => {
+                      const formatted = formatCurrency(e.target.value);
+                      setChangeRequestForm({ ...changeRequestForm, cost_impact: parseCurrency(formatted) });
+                    }}
+                    className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                <select
+                  value={changeRequestForm.status}
+                  onChange={(e) => setChangeRequestForm({ ...changeRequestForm, status: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Describe cost impact (optional)"
-                />
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="In Review">In Review</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Attachments</label>
@@ -5422,6 +6114,11 @@ const ProjectDetail: React.FC = () => {
                   {taskForm.type === 'project' && (
                     <p className="text-xs text-gray-500 mt-1">
                       Summary task duration is calculated from subtasks
+                    </p>
+                  )}
+                  {taskForm.type === 'task' && taskForm.start_date && taskForm.duration > 0 && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      Task will end on: {calculateEndDate(taskForm.start_date, taskForm.duration)}
                     </p>
                   )}
                 </div>

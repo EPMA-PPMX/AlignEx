@@ -220,15 +220,19 @@ export default function TeamCapacityWidget() {
   };
 
   const getColorClass = (hours: number) => {
-    if (hours === 0) return 'bg-gray-100';
-    if (hours <= 10) return 'bg-green-200';
-    if (hours <= 30) return 'bg-yellow-200';
-    return 'bg-red-400';
+    if (hours <= 10) return 'bg-gradient-to-br from-[#4DB8AA] to-[#88D4CA]';
+    if (hours <= 30) return 'bg-gradient-to-br from-[#276A6C] to-[#5DB6B8]';
+    if (hours <= 39) return 'bg-gradient-to-br from-[#C76F21] to-[#FAAF65]';
+    return 'bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A]';
+  };
+
+  const getTextColorClass = (hours: number) => {
+    return 'text-white';
   };
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 h-full">
+      <div className="bg-widget-bg rounded-lg shadow-sm p-4 border border-gray-200 h-full">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
             <Users className="w-4 h-4" />
@@ -245,10 +249,10 @@ export default function TeamCapacityWidget() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 h-full flex flex-col">
+    <div className="bg-widget-bg rounded-lg shadow-sm p-4 border border-gray-200 h-full flex flex-col">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-          <Users className="w-4 h-4 text-blue-600" />
+          <Users className="w-4 h-4 text-[#5B2C91]" />
           My Team Workload
         </h3>
         <span className="text-xs text-gray-500">
@@ -267,20 +271,20 @@ export default function TeamCapacityWidget() {
           {/* Legend */}
           <div className="flex items-center gap-3 text-xs mb-3 pb-3 border-b border-gray-200">
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 bg-gray-100 border border-gray-300 rounded"></div>
-              <span className="text-gray-600">0h</span>
+              <div className="w-3 h-3 bg-gradient-to-br from-[#4DB8AA] to-[#88D4CA] border border-[#6BC8BD] rounded"></div>
+              <span className="text-gray-600">0-10h</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 bg-green-200 rounded"></div>
-              <span className="text-gray-600">1-10h</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 bg-yellow-200 rounded"></div>
+              <div className="w-3 h-3 bg-gradient-to-br from-[#276A6C] to-[#5DB6B8] border border-[#349698] rounded"></div>
               <span className="text-gray-600">11-30h</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 bg-red-400 rounded"></div>
-              <span className="text-gray-600">31-40h</span>
+              <div className="w-3 h-3 bg-gradient-to-br from-[#C76F21] to-[#FAAF65] border border-[#F89D43] rounded"></div>
+              <span className="text-gray-600">31-39h</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A] border border-[#FD5D5D] rounded"></div>
+              <span className="text-gray-600">40+h</span>
             </div>
           </div>
 
@@ -289,7 +293,7 @@ export default function TeamCapacityWidget() {
             <div className="flex">
               {/* Resource Names */}
               <div className="w-36 flex-shrink-0 pr-2">
-                <div className="h-8 flex items-center text-xs font-medium text-gray-900">
+                <div className="h-8 flex items-center text-xs font-medium text-white bg-gradient-dark px-2 rounded-tl">
                   Resource
                 </div>
                 {teamMembers.map((member) => (
@@ -297,7 +301,7 @@ export default function TeamCapacityWidget() {
                     key={member.resource_id}
                     className="h-10 flex items-center text-xs text-gray-700 border-b border-gray-100"
                   >
-                    <span className="truncate">{member.display_name}</span>
+                    <span className="truncate font-bold">{member.display_name}</span>
                   </div>
                 ))}
               </div>
@@ -310,7 +314,7 @@ export default function TeamCapacityWidget() {
 
                   return (
                     <div key={weekIndex} className="flex-1 min-w-20">
-                      <div className="h-8 flex items-center justify-center text-xs font-medium text-gray-600 border-l border-gray-200">
+                      <div className="h-8 flex items-center justify-center text-xs font-medium text-white bg-gradient-dark border-l border-white">
                         <span className="text-center">{weekLabel}</span>
                       </div>
                       {teamMembers.map((member) => {
@@ -324,7 +328,7 @@ export default function TeamCapacityWidget() {
                               className={`w-full h-full flex items-center justify-center ${getColorClass(hours)}`}
                               title={`${hours}h workload`}
                             >
-                              <span className="text-xs font-medium text-gray-700">
+                              <span className={`text-xs font-medium ${getTextColorClass(hours)}`}>
                                 {hours}h
                               </span>
                             </div>

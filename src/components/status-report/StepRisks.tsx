@@ -13,10 +13,14 @@ interface Risk {
   project_id: string;
   title: string;
   description: string;
-  probability: string;
+  probability: number;
   impact: string;
-  mitigation_plan: string;
+  notes: string;
   status: string;
+  category?: string;
+  owner?: string;
+  assigned_to?: string;
+  cost?: number;
 }
 
 export default function StepRisks({ reportData, updateReportData }: Props) {
@@ -26,10 +30,10 @@ export default function StepRisks({ reportData, updateReportData }: Props) {
   const [newRisk, setNewRisk] = useState({
     title: '',
     description: '',
-    probability: 'medium',
-    impact: 'medium',
-    mitigation_plan: '',
-    status: 'open',
+    probability: 50,
+    impact: 'Medium',
+    notes: '',
+    status: 'Active',
   });
 
   useEffect(() => {
@@ -93,10 +97,10 @@ export default function StepRisks({ reportData, updateReportData }: Props) {
       setNewRisk({
         title: '',
         description: '',
-        probability: 'medium',
-        impact: 'medium',
-        mitigation_plan: '',
-        status: 'open',
+        probability: 50,
+        impact: 'Medium',
+        notes: '',
+        status: 'Active',
       });
       setShowAddForm(false);
     } catch (error) {
@@ -127,20 +131,18 @@ export default function StepRisks({ reportData, updateReportData }: Props) {
     }
   };
 
-  const getProbabilityColor = (prob: string) => {
-    switch (prob) {
-      case 'low': return 'bg-green-100 text-green-700 border-green-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-      case 'high': return 'bg-red-100 text-red-700 border-red-200';
-      default: return 'bg-gray-100 text-gray-700 border-gray-200';
-    }
+  const getProbabilityColor = (prob: number) => {
+    if (prob <= 33) return 'bg-green-100 text-green-700 border-green-200';
+    if (prob <= 66) return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+    return 'bg-red-100 text-red-700 border-red-200';
   };
 
   const getImpactColor = (impact: string) => {
-    switch (impact) {
+    switch (impact?.toLowerCase()) {
       case 'low': return 'bg-blue-100 text-blue-700 border-blue-200';
       case 'medium': return 'bg-orange-100 text-orange-700 border-orange-200';
       case 'high': return 'bg-red-100 text-red-700 border-red-200';
+      case 'critical': return 'bg-red-100 text-red-700 border-red-200';
       default: return 'bg-gray-100 text-gray-700 border-gray-200';
     }
   };
@@ -184,16 +186,15 @@ export default function StepRisks({ reportData, updateReportData }: Props) {
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Probability</label>
-                  <select
-                    value={risk.probability}
-                    onChange={(e) => handleUpdateRisk(risk.id, 'probability', e.target.value)}
-                    className={`w-full px-3 py-2 text-sm rounded border font-medium ${getProbabilityColor(risk.probability)}`}
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Probability (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={risk.probability || 0}
+                    onChange={(e) => handleUpdateRisk(risk.id, 'probability', parseInt(e.target.value) || 0)}
+                    className={`w-full px-3 py-2 text-sm rounded border font-medium ${getProbabilityColor(risk.probability || 0)}`}
+                  />
                 </div>
 
                 <div>
@@ -203,9 +204,10 @@ export default function StepRisks({ reportData, updateReportData }: Props) {
                     onChange={(e) => handleUpdateRisk(risk.id, 'impact', e.target.value)}
                     className={`w-full px-3 py-2 text-sm rounded border font-medium ${getImpactColor(risk.impact)}`}
                   >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Critical">Critical</option>
                   </select>
                 </div>
 
@@ -216,21 +218,20 @@ export default function StepRisks({ reportData, updateReportData }: Props) {
                     onChange={(e) => handleUpdateRisk(risk.id, 'status', e.target.value)}
                     className="w-full px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded border border-gray-200 font-medium"
                   >
-                    <option value="open">Open</option>
-                    <option value="mitigated">Mitigated</option>
-                    <option value="closed">Closed</option>
+                    <option value="Active">Active</option>
+                    <option value="Closed">Closed</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Mitigation Plan</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
                 <textarea
-                  value={risk.mitigation_plan || ''}
-                  onChange={(e) => handleUpdateRisk(risk.id, 'mitigation_plan', e.target.value)}
+                  value={risk.notes || ''}
+                  onChange={(e) => handleUpdateRisk(risk.id, 'notes', e.target.value)}
                   className="w-full text-sm text-gray-600 border border-gray-200 rounded px-3 py-2 hover:border-gray-300 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   rows={2}
-                  placeholder="How will this risk be mitigated?"
+                  placeholder="Additional notes about this risk"
                 />
               </div>
             </div>
@@ -284,16 +285,16 @@ export default function StepRisks({ reportData, updateReportData }: Props) {
 
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Probability</label>
-                <select
+                <label className="block text-sm font-medium text-gray-700 mb-1">Probability (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
                   value={newRisk.probability}
-                  onChange={(e) => setNewRisk({ ...newRisk, probability: e.target.value })}
+                  onChange={(e) => setNewRisk({ ...newRisk, probability: parseInt(e.target.value) || 0 })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
+                  placeholder="0-100"
+                />
               </div>
 
               <div>
@@ -303,9 +304,10 @@ export default function StepRisks({ reportData, updateReportData }: Props) {
                   onChange={(e) => setNewRisk({ ...newRisk, impact: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                  <option value="Critical">Critical</option>
                 </select>
               </div>
 
@@ -316,21 +318,20 @@ export default function StepRisks({ reportData, updateReportData }: Props) {
                   onChange={(e) => setNewRisk({ ...newRisk, status: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 >
-                  <option value="open">Open</option>
-                  <option value="mitigated">Mitigated</option>
-                  <option value="closed">Closed</option>
+                  <option value="Active">Active</option>
+                  <option value="Closed">Closed</option>
                 </select>
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Mitigation Plan</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
               <textarea
-                value={newRisk.mitigation_plan}
-                onChange={(e) => setNewRisk({ ...newRisk, mitigation_plan: e.target.value })}
+                value={newRisk.notes}
+                onChange={(e) => setNewRisk({ ...newRisk, notes: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 rows={2}
-                placeholder="How will this risk be mitigated?"
+                placeholder="Additional notes about this risk"
               />
             </div>
 
@@ -348,10 +349,10 @@ export default function StepRisks({ reportData, updateReportData }: Props) {
                   setNewRisk({
                     title: '',
                     description: '',
-                    probability: 'medium',
-                    impact: 'medium',
-                    mitigation_plan: '',
-                    status: 'open',
+                    probability: 50,
+                    impact: 'Medium',
+                    notes: '',
+                    status: 'Active',
                   });
                 }}
                 className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
