@@ -151,7 +151,7 @@ export default function MySkillsTab({ categories, allSkills, userSkills, onRefre
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search skills..."
-          className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
         />
       </div>
 
@@ -171,7 +171,7 @@ export default function MySkillsTab({ categories, allSkills, userSkills, onRefre
               >
                 <div className="flex-1">
                   <h2 className="text-xl font-semibold text-slate-900 mb-1">{category.name}</h2>
-                  <p className="text-sm text-blue-600">{category.description}</p>
+                  <p className="text-sm text-primary-600">{category.description}</p>
                 </div>
                 <ChevronRight
                   className={`w-6 h-6 text-slate-400 transition-transform ${
@@ -227,11 +227,11 @@ export default function MySkillsTab({ categories, allSkills, userSkills, onRefre
                                     handleSkillChange(skill.id, 'proficiency_level', e.target.value);
                                     setEditingSkill(skill.id);
                                   }}
-                                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
                                     proficiencyLevel === 'Expert'
                                       ? 'border-green-500 bg-green-50'
                                       : proficiencyLevel === 'Intermediate'
-                                      ? 'border-blue-500 bg-blue-50'
+                                      ? 'border-primary-500 bg-primary-50'
                                       : proficiencyLevel === 'Basic'
                                       ? 'border-amber-500 bg-amber-50'
                                       : 'border-slate-300'
@@ -262,7 +262,7 @@ export default function MySkillsTab({ categories, allSkills, userSkills, onRefre
                                     );
                                     setEditingSkill(skill.id);
                                   }}
-                                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                                   placeholder="0.0"
                                 />
                               </div>
@@ -280,7 +280,7 @@ export default function MySkillsTab({ categories, allSkills, userSkills, onRefre
                                         handleSkillChange(skill.id, 'certification_name', e.target.value);
                                         setEditingSkill(skill.id);
                                       }}
-                                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                                       placeholder="e.g., PMP, AWS Certified"
                                     />
                                   </div>
@@ -298,7 +298,7 @@ export default function MySkillsTab({ categories, allSkills, userSkills, onRefre
                                           handleSkillChange(skill.id, 'certification_date', e.target.value);
                                           setEditingSkill(skill.id);
                                         }}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                                       />
                                     </div>
                                     <div>
@@ -313,7 +313,7 @@ export default function MySkillsTab({ categories, allSkills, userSkills, onRefre
                                           handleSkillChange(skill.id, 'certification_expiry', e.target.value);
                                           setEditingSkill(skill.id);
                                         }}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                                       />
                                     </div>
                                   </div>
@@ -329,7 +329,7 @@ export default function MySkillsTab({ categories, allSkills, userSkills, onRefre
                                     handleSkillChange(skill.id, 'comments', e.target.value);
                                     setEditingSkill(skill.id);
                                   }}
-                                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                                   placeholder="Additional notes about your experience with this skill..."
                                 />
                               </div>
@@ -340,7 +340,7 @@ export default function MySkillsTab({ categories, allSkills, userSkills, onRefre
                                 <button
                                   onClick={() => handleSaveSkill(skill.id)}
                                   disabled={saving}
-                                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                                  className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50"
                                 >
                                   <Save className="w-4 h-4" />
                                   {saving ? 'Saving...' : 'Save Changes'}
