@@ -2217,10 +2217,6 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     onDataChange({ data: tasks, links });
   }
 
-  componentWillUnmount(): void {
-    gantt.clearAll();
-  }
-
   render(): React.ReactNode {
     return (
       <div
