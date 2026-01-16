@@ -194,7 +194,7 @@ export default function SkillsManagement() {
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           >
             {categories.map((cat) => (
               <option key={cat.id} value={cat.id}>
@@ -204,7 +204,7 @@ export default function SkillsManagement() {
           </select>
           <button
             onClick={() => setShowAddForm(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
           >
             <Plus className="w-4 h-4" />
             Add Skill
@@ -213,7 +213,7 @@ export default function SkillsManagement() {
       </div>
 
       {showAddForm && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="bg-primary-50 border border-blue-200 rounded-lg p-4">
           <h3 className="font-medium text-slate-900 mb-4">New Skill</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
@@ -224,7 +224,7 @@ export default function SkillsManagement() {
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="e.g., Resource Management"
               />
             </div>
@@ -234,7 +234,7 @@ export default function SkillsManagement() {
                 type="text"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Brief description"
               />
             </div>
@@ -245,7 +245,7 @@ export default function SkillsManagement() {
                 type="checkbox"
                 checked={formData.is_core}
                 onChange={(e) => setFormData({ ...formData, is_core: e.target.checked })}
-                className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                className="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500"
               />
               <Star className="w-4 h-4 text-amber-500" />
               <span className="text-sm text-slate-700">Core Skill</span>
@@ -255,7 +255,7 @@ export default function SkillsManagement() {
                 type="checkbox"
                 checked={formData.is_certifiable}
                 onChange={(e) => setFormData({ ...formData, is_certifiable: e.target.checked })}
-                className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                className="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500"
               />
               <Award className="w-4 h-4 text-blue-500" />
               <span className="text-sm text-slate-700">Certifiable</span>
@@ -265,7 +265,7 @@ export default function SkillsManagement() {
                 type="checkbox"
                 checked={formData.is_in_demand}
                 onChange={(e) => setFormData({ ...formData, is_in_demand: e.target.checked })}
-                className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                className="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500"
               />
               <TrendingUp className="w-4 h-4 text-green-500" />
               <span className="text-sm text-slate-700">In Demand</span>
@@ -274,7 +274,7 @@ export default function SkillsManagement() {
           <div className="flex gap-2">
             <button
               onClick={handleAdd}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
             >
               <Save className="w-4 h-4" />
               Save
@@ -325,7 +325,7 @@ export default function SkillsManagement() {
                         type="text"
                         value={skill.name}
                         onChange={(e) => handleSkillChange(skill.id, 'name', e.target.value)}
-                        className="w-full px-2 py-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-2 py-1 border border-slate-300 rounded focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                       />
                     ) : (
                       <span className="font-medium text-slate-900">{skill.name}</span>
@@ -337,7 +337,7 @@ export default function SkillsManagement() {
                         type="text"
                         value={skill.description}
                         onChange={(e) => handleSkillChange(skill.id, 'description', e.target.value)}
-                        className="w-full px-2 py-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-2 py-1 border border-slate-300 rounded focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                       />
                     ) : (
                       <span className="text-slate-600">{skill.description || '-'}</span>
@@ -351,7 +351,7 @@ export default function SkillsManagement() {
                             type="checkbox"
                             checked={skill.is_core}
                             onChange={(e) => handleSkillChange(skill.id, 'is_core', e.target.checked)}
-                            className="w-4 h-4 text-blue-600 border-slate-300 rounded"
+                            className="w-4 h-4 text-primary-600 border-slate-300 rounded"
                           />
                           <Star className="w-4 h-4 text-amber-500" />
                         </label>
@@ -360,7 +360,7 @@ export default function SkillsManagement() {
                             type="checkbox"
                             checked={skill.is_certifiable}
                             onChange={(e) => handleSkillChange(skill.id, 'is_certifiable', e.target.checked)}
-                            className="w-4 h-4 text-blue-600 border-slate-300 rounded"
+                            className="w-4 h-4 text-primary-600 border-slate-300 rounded"
                           />
                           <Award className="w-4 h-4 text-blue-500" />
                         </label>
@@ -369,7 +369,7 @@ export default function SkillsManagement() {
                             type="checkbox"
                             checked={skill.is_in_demand}
                             onChange={(e) => handleSkillChange(skill.id, 'is_in_demand', e.target.checked)}
-                            className="w-4 h-4 text-blue-600 border-slate-300 rounded"
+                            className="w-4 h-4 text-primary-600 border-slate-300 rounded"
                           />
                           <TrendingUp className="w-4 h-4 text-green-500" />
                         </label>
@@ -411,7 +411,7 @@ export default function SkillsManagement() {
                         <>
                           <button
                             onClick={() => setEditingId(skill.id)}
-                            className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            className="p-1 text-primary-600 hover:bg-primary-50 rounded transition-colors"
                             title="Edit"
                           >
                             <Edit2 className="w-4 h-4" />
