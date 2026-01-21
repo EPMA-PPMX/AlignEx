@@ -595,7 +595,16 @@ const ProjectDetail: React.FC = () => {
       if (error && error.code !== 'PGRST116') {
         console.error('Error fetching tasks:', error);
       } else if (data?.task_data) {
-        setProjectTasks(data.task_data);
+        // Sort tasks by sortorder before setting state
+        const sortedTaskData = {
+          ...data.task_data,
+          data: [...(data.task_data.data || [])].sort((a: any, b: any) => {
+            const orderA = a.sortorder !== undefined ? a.sortorder : 999999;
+            const orderB = b.sortorder !== undefined ? b.sortorder : 999999;
+            return orderA - orderB;
+          })
+        };
+        setProjectTasks(sortedTaskData);
       } else {
         setProjectTasks({ data: [], links: [] });
       }
@@ -903,7 +912,16 @@ const ProjectDetail: React.FC = () => {
         // Normalize date formats for dhtmlx-gantt and clean data
         const taskData = data.task_data;
         if (taskData.data && Array.isArray(taskData.data)) {
-          taskData.data = taskData.data.map((task: any) => {
+          // Sort tasks by sortorder to preserve visual order
+          const sortedTasks = [...taskData.data].sort((a: any, b: any) => {
+            const orderA = a.sortorder !== undefined ? a.sortorder : Number.MAX_SAFE_INTEGER;
+            const orderB = b.sortorder !== undefined ? b.sortorder : Number.MAX_SAFE_INTEGER;
+            return orderA - orderB;
+          });
+
+          console.log('Loading tasks with sortorder:', sortedTasks.map((t: any) => ({ id: t.id, text: t.text, sortorder: t.sortorder })));
+
+          taskData.data = sortedTasks.map((task: any) => {
             // Only keep essential fields and ensure proper date format
             let startDate = task.start_date;
 
@@ -982,6 +1000,7 @@ const ProjectDetail: React.FC = () => {
               work_hours: task.work_hours || 0,
               resource_work_hours: task.resource_work_hours || {},
               resource_allocations: task.resource_allocations || {},
+              sortorder: task.sortorder, // Preserve sortorder
               ...customFields  // Spread all custom fields
             };
 
@@ -1323,14 +1342,34 @@ const ProjectDetail: React.FC = () => {
         return;
       }
 
-      const currentTasks = ganttInstance.serialize();
-      console.log("Current tasks from Gantt:", currentTasks);
+      // Get tasks in their current display order by collecting task IDs from the grid
+      // This ensures we capture the visual order, including newly inserted tasks
+      const tasksInOrder: any[] = [];
+
+      // Collect all task IDs in display order by walking through the tree
+      const collectTasksInOrder = (parentId: number = 0) => {
+        const children = ganttInstance.getChildren(parentId);
+        children.forEach((childId: any) => {
+          const task = ganttInstance.getTask(childId);
+          if (task && !task.$group_header) {
+            tasksInOrder.push(task);
+          }
+          // Recursively collect subtasks
+          if (ganttInstance.hasChild(childId)) {
+            collectTasksInOrder(childId);
+          }
+        });
+      };
+
+      // Start collecting from root level (parent = 0)
+      collectTasksInOrder(0);
+
+      console.log("Current tasks from Gantt (in visual order):", tasksInOrder.length, "tasks");
 
       // Clean the data before saving - filter out group headers and deduplicate
       const taskMap = new Map();
-      currentTasks.data
-        .filter((task: any) => !task.$group_header) // Exclude group headers
-        .forEach((task: any) => {
+
+      tasksInOrder.forEach((task: any, index: number) => {
           const taskId = task.$original_id || task.id;
           // Only add if not already in map (handles duplicates from grouping)
           if (!taskMap.has(taskId)) {
@@ -1389,17 +1428,21 @@ const ProjectDetail: React.FC = () => {
               owner_name: task.owner_name,
               resource_ids: task.resource_ids || [],
               resource_names: task.resource_names || [],
+              sortorder: index, // Add explicit sort order
               ...extraFields // Include custom fields and baseline fields
             };
 
-            console.log(`Saving task ${taskId} to DB: duration=${taskToSave.duration} (type: ${typeof taskToSave.duration}), start_date=${taskToSave.start_date}, end_date=${taskToSave.end_date}`);
+            console.log(`Saving task ${taskId} to DB: duration=${taskToSave.duration}, sortorder=${taskToSave.sortorder}, start_date=${taskToSave.start_date}`);
             taskMap.set(taskId, taskToSave);
           }
         });
 
+      // Get links separately
+      const allLinks = ganttInstance.getLinks();
+
       const cleanedData = {
         data: Array.from(taskMap.values()),
-        links: (currentTasks.links || []).map((link: any) => ({
+        links: allLinks.map((link: any) => ({
           id: link.id,
           source: link.source,
           target: link.target,
@@ -1623,6 +1666,12 @@ const ProjectDetail: React.FC = () => {
   const handleTaskMultiSelect = (taskIds: number[]) => {
     console.log('Multi-select updated:', taskIds);
     setSelectedTaskIds(taskIds);
+    // Also update single selection state with the last selected task
+    if (taskIds.length === 1) {
+      setSelectedTaskId(taskIds[0]);
+    } else if (taskIds.length === 0) {
+      setSelectedTaskId(null);
+    }
   };
 
   const linkSelectedTasks = async () => {
@@ -1738,13 +1787,28 @@ const ProjectDetail: React.FC = () => {
       let parentId = 0;
       let insertAfterTaskId = null;
 
+      console.log('insertTask called with selectedTaskId:', selectedTaskId);
+
+      // Check both React state and Gantt's internal selection
+      const ganttSelectedId = ganttInstance.getSelectedId();
+      console.log('Gantt internal selected task:', ganttSelectedId);
+
+      // Use Gantt's internal selection as fallback if React state is not set
+      const taskIdToUse = selectedTaskId || ganttSelectedId;
+      console.log('Task ID to use for insertion:', taskIdToUse);
+      console.log('All tasks IDs:', allTasks.map((t: any) => ({ id: t.id, type: typeof t.id })));
+
       // If a task is selected, insert after it at the same level
-      if (selectedTaskId) {
-        const selectedTask = allTasks.find((t: any) => t.id === selectedTaskId);
+      if (taskIdToUse) {
+        // Convert both IDs to same type for comparison (use String to be safe)
+        const selectedTask = allTasks.find((t: any) => String(t.id) === String(taskIdToUse));
+        console.log('Found selected task:', selectedTask);
         if (selectedTask) {
           parentId = selectedTask.parent || 0;
-          insertAfterTaskId = selectedTaskId;
+          insertAfterTaskId = selectedTask.id; // Use the task's actual ID
         }
+      } else {
+        console.log('No task selected - will insert at bottom');
       }
 
       //working
@@ -1787,42 +1851,90 @@ const ProjectDetail: React.FC = () => {
       let insertIndex = allTasks.length;
 
       if (insertAfterTaskId) {
-        // Find all siblings (tasks with the same parent)
-        const siblings = allTasks.filter((t: any) => (t.parent || 0) === parentId);
-        const selectedIndex = siblings.findIndex((t: any) => t.id === insertAfterTaskId);
+        // Find the selected task
+        const selectedTask = allTasks.find((t: any) => t.id === insertAfterTaskId);
 
-        if (selectedIndex !== -1) {
-          // Find the global index of the task after which we want to insert
-          const selectedTask = siblings[selectedIndex];
-          const globalIndex = allTasks.findIndex((t: any) => t.id === selectedTask.id);
+        if (selectedTask) {
+          // Function to get all descendants of a task
+          const getAllDescendants = (taskId: number): number[] => {
+            const descendants: number[] = [];
+            const children = allTasks.filter((t: any) => t.parent === taskId);
+            children.forEach((child: any) => {
+              descendants.push(child.id);
+              descendants.push(...getAllDescendants(child.id));
+            });
+            return descendants;
+          };
 
-          // Insert right after the selected task
-          insertIndex = globalIndex + 1;
+          // Get all descendants of the selected task
+          const descendants = getAllDescendants(insertAfterTaskId);
+
+          // Find the global index of the selected task
+          const globalIndex = allTasks.findIndex((t: any) => t.id === insertAfterTaskId);
+
+          // If the task has descendants, find the last descendant
+          if (descendants.length > 0) {
+            const lastDescendantId = descendants[descendants.length - 1];
+            const lastDescendantIndex = allTasks.findIndex((t: any) => t.id === lastDescendantId);
+            insertIndex = lastDescendantIndex + 1;
+          } else {
+            // No descendants, insert right after the selected task
+            insertIndex = globalIndex + 1;
+          }
         }
       }
 
-      // Insert the new task at the correct position
+      // Insert the new task at the correct position and assign sortorder to all tasks
       const updatedTasks = [
         ...allTasks.slice(0, insertIndex),
         newTaskData,
         ...allTasks.slice(insertIndex)
-      ];
+      ].map((task, index) => ({
+        ...task,
+        sortorder: index
+      }));
+
+      console.log('Inserting task at index:', insertIndex, 'Total tasks:', updatedTasks.length);
+      console.log('Tasks with sortorder:', updatedTasks.map((t: any) => ({ id: t.id, text: t.text, sortorder: t.sortorder })));
+
+      // Capture scroll position before any operations
+      const scrollStateBefore = ganttInstance.getScrollState();
+
+      // Unselect all tasks to prevent auto-scroll during reload
+      ganttInstance.unselectTask();
 
       // Clear and reload all tasks
       ganttInstance.clearAll();
       ganttInstance.parse({ data: updatedTasks, links: ganttInstance.serialize().links });
 
-      // Select the newly created task
-      ganttInstance.selectTask(newTaskId);
+      // Clear state selection to prevent it from being restored during reload
+      setSelectedTaskId(null);
+      setSelectedTaskIds([]);
 
-      // Save to database
+      // Save to database (this will reload tasks)
       await saveProjectTasks();
+
+      // After reload completes, restore scroll and THEN select task
+      setTimeout(() => {
+        try {
+          // First restore scroll position
+          if (scrollStateBefore) {
+            ganttInstance.scrollTo(scrollStateBefore.x, scrollStateBefore.y);
+          }
+
+          // Then select the task
+          if (ganttInstance.isTaskExists(newTaskId)) {
+            ganttInstance.selectTask(newTaskId);
+            setSelectedTaskId(newTaskId);
+            setSelectedTaskIds([newTaskId]);
+          }
+        } catch (e) {
+          console.warn('Could not restore scroll position after insert:', e);
+        }
+      }, 300);
 
       const taskTypeLabel = taskType === 'milestone' ? 'Milestone' : 'Task';
       showNotification(`${taskTypeLabel} inserted successfully`, 'success');
-
-      // Set the newly created task as selected
-      setSelectedTaskId(newTaskId);
     } catch (error) {
       console.error('Error inserting task:', error);
       showNotification('Failed to insert task', 'error');
@@ -3439,7 +3551,7 @@ const ProjectDetail: React.FC = () => {
           newTask.resource_allocations = {};
         }
 
-        // Add to existing tasks
+        // Add to existing tasks - insert after selected task if available
         const existingLinks = projectTasks.links || [];
 
         // Create links for predecessor tasks (predecessors point to this task)
@@ -3450,8 +3562,28 @@ const ProjectDetail: React.FC = () => {
           type: "0" // Finish-to-Start dependency
         }));
 
+        // Insert new task after the selected task (if any)
+        let newTasksData;
+        if (selectedTaskId) {
+          const selectedIndex = projectTasks.data.findIndex((t: any) => t.id === selectedTaskId);
+          if (selectedIndex !== -1) {
+            // Insert right after the selected task
+            newTasksData = [
+              ...projectTasks.data.slice(0, selectedIndex + 1),
+              newTask,
+              ...projectTasks.data.slice(selectedIndex + 1)
+            ];
+          } else {
+            // Fallback: append to end if selected task not found
+            newTasksData = [...projectTasks.data, newTask];
+          }
+        } else {
+          // No task selected, append to end
+          newTasksData = [...projectTasks.data, newTask];
+        }
+
         updatedTaskData = {
-          data: [...projectTasks.data, newTask],
+          data: newTasksData,
           links: [...existingLinks, ...newLinks]
         };
 
@@ -3468,42 +3600,7 @@ const ProjectDetail: React.FC = () => {
         end_date: taskBeingSaved?.end_date
       });
 
-      // Check if project_tasks record exists (get the most recent one)
-      const { data: existingData, error: fetchError } = await supabase
-        .from('project_tasks')
-        .select('id')
-        .eq('project_id', id)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (existingData && existingData.length > 0) {
-        // Update the most recent record
-        const { error } = await supabase
-          .from('project_tasks')
-          .update({
-            task_data: updatedTaskData,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingData[0].id);
-
-        if (error) throw error;
-        console.log('💾 SAVED - Task data updated in database');
-      } else {
-        // Insert new record only if none exists
-        const { error } = await supabase
-          .from('project_tasks')
-          .insert({
-            project_id: id,
-            task_data: updatedTaskData
-          });
-
-        if (error) throw error;
-      }
-
-      // Resource assignments are stored in the task_data JSON directly
-      // No need for separate junction table for Gantt tasks
-
-      // Update local state
+      // Update local state first
       setProjectTasks(updatedTaskData);
       // Reset grouping state when tasks are updated
       setIsGroupedByOwner(false);
@@ -3531,7 +3628,10 @@ const ProjectDetail: React.FC = () => {
               if (b.parent === 0) return 1;
               return a.parent - b.parent;
             }
-            return a.id - b.id;
+            // Sort by sortorder within same parent
+            const orderA = a.sortorder !== undefined ? a.sortorder : a.id;
+            const orderB = b.sortorder !== undefined ? b.sortorder : b.id;
+            return orderA - orderB;
           });
 
           // Open all parent tasks to show subtasks
@@ -3550,6 +3650,9 @@ const ProjectDetail: React.FC = () => {
           }, 0);
         }
       }
+
+      // Save to database with proper sortorder assignment
+      await saveProjectTasks();
 
       alert(editingTaskId ? 'Task updated successfully!' : 'Task created successfully!');
       setShowTaskModal(false);
@@ -4546,7 +4649,7 @@ const ProjectDetail: React.FC = () => {
                       <button
                         onClick={() => insertTask('task')}
                         className="flex flex-col items-center justify-center px-3 py-2 hover:bg-sky-50 rounded-md transition-colors group min-w-[70px]"
-                        title={selectedTaskId ? "Insert a new task after the selected task" : "Insert a new task at the bottom"}
+                        title="Insert a new task (after selected task if any, otherwise at bottom)"
                       >
                         <Plus className="w-6 h-6 text-sky-600 mb-1" />
                         <span className="text-xs text-gray-700 text-center leading-tight">
@@ -4556,7 +4659,7 @@ const ProjectDetail: React.FC = () => {
                       <button
                         onClick={insertMilestone}
                         className="flex flex-col items-center justify-center px-3 py-2 hover:bg-amber-50 rounded-md transition-colors group min-w-[70px]"
-                        title={selectedTaskId ? "Insert a new milestone after the selected task" : "Insert a new milestone at the bottom"}
+                        title="Insert a new milestone (after selected task if any, otherwise at bottom)"
                       >
                         <Flag className="w-6 h-6 text-amber-600 mb-1" />
                         <span className="text-xs text-gray-700 text-center leading-tight">
