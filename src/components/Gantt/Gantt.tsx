@@ -612,7 +612,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       },
       {
         name: "start_date",
-        label: "Start time",
+        label: "Start Date",
         align: "center",
         width: 150,
         resize: true,
@@ -631,7 +631,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       },
       {
         name: "end_date",
-        label: "End time",
+        label: "End Date",
         align: "center",
         width: 150,
         resize: true,
@@ -1733,11 +1733,13 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       const { onTaskSelect, onTaskMultiSelect } = this.props;
       if (onTaskSelect) {
         gantt.attachEvent("onTaskSelected", (id: number) => {
+          console.log('Gantt onTaskSelected event fired, task ID:', id);
           onTaskSelect(id);
           return true;
         });
 
         gantt.attachEvent("onTaskUnselected", (id: number) => {
+          console.log('Gantt onTaskUnselected event fired, task ID:', id);
           onTaskSelect(null);
           return true;
         });
@@ -1838,8 +1840,10 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           if (b.parent === 0) return 1;
           return a.parent - b.parent;
         }
-        // Within same parent, sort by ID
-        return a.id - b.id;
+        // Within same parent, sort by sortorder (not ID) to preserve user-defined order
+        const orderA = a.sortorder !== undefined ? a.sortorder : a.id;
+        const orderB = b.sortorder !== undefined ? b.sortorder : b.id;
+        return orderA - orderB;
       });
 
       // Open all parent tasks to show subtasks
@@ -2420,8 +2424,10 @@ export default class Gantt extends Component<GanttProps, GanttState> {
               if (b.parent === 0) return 1;
               return a.parent - b.parent;
             }
-            // Within same parent, sort by ID
-            return a.id - b.id;
+            // Within same parent, sort by sortorder (not ID) to preserve user-defined order
+            const orderA = a.sortorder !== undefined ? a.sortorder : a.id;
+            const orderB = b.sortorder !== undefined ? b.sortorder : b.id;
+            return orderA - orderB;
           });
 
           // Open all parent tasks to show subtasks
