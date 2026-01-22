@@ -66,6 +66,7 @@ interface GanttProps {
   showResourcePanel?: boolean;
   projectStartDate?: string;
   projectId?: string;
+  viewMode?: 'summary' | 'baseline';
 }
 
 interface GanttState {}
@@ -303,6 +304,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         task[`baseline${baselineNum}_startDate`] = startDateStr;
         task[`baseline${baselineNum}_endDate`] = endDateStr;
         task[`baseline${baselineNum}_duration`] = task.duration;
+        task[`baseline${baselineNum}_work`] = task.work_hours || 0;
 
         // Store baseline data for return (for logging purposes)
         baselineData.push({
@@ -310,12 +312,13 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           baseline_number: baselineNum,
           [`baseline${baselineNum}_startDate`]: startDateStr,
           [`baseline${baselineNum}_endDate`]: endDateStr,
-          [`baseline${baselineNum}_duration`]: task.duration
+          [`baseline${baselineNum}_duration`]: task.duration,
+          [`baseline${baselineNum}_work`]: task.work_hours || 0
         });
       });
     });
 
-    console.log(`Setting baseline ${baselineNum} with fields: baseline${baselineNum}_startDate, baseline${baselineNum}_endDate, baseline${baselineNum}_duration`);
+    console.log(`Setting baseline ${baselineNum} with fields: baseline${baselineNum}_startDate, baseline${baselineNum}_endDate, baseline${baselineNum}_duration, baseline${baselineNum}_work`);
     console.log('Baseline data:', baselineData);
     console.log(`Successfully set baseline for ${baselineData.length} tasks`);
 
@@ -530,15 +533,256 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     // See gantt.init() for the addTaskLayer implementation
   };
 
+  private buildBaselineColumns = () => {
+    // Define editors
+    const textEditor = { type: "text", map_to: "text" };
+
+    const baselineColumns: any[] = [
+      {
+        name: "edit",
+        label: "",
+        width: 40,
+        align: "center",
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          return `<div class="gantt_edit_btn" data-task-id="${task.$original_id || task.id}" title="Edit task">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </div>`;
+        }
+      },
+      {
+        name: "wbs",
+        label: "WBS",
+        width: 60,
+        resize: true,
+        template: gantt.getWBSCode
+      },
+      { name: "text", label: "Task Name", tree: true, width: 200, min_width: 150, max_width: 500, resize: true, editor: textEditor },
+      {
+        name: "owner_name",
+        label: "Owners",
+        align: "center",
+        width: 120,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+
+          // Handle resource_ids array (multi-resource assignments)
+          if (task.resource_ids && Array.isArray(task.resource_ids) && task.resource_ids.length > 0) {
+            const owners = task.resource_names || [];
+            if (owners.length === 0) return "Unassigned";
+
+            const badges = owners.map((name: string, index: number) => {
+              const initial = name.charAt(0).toUpperCase();
+              const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+              const color = colors[index % colors.length];
+              return `<span class="owner-badge" style="background-color: ${color};" title="${name}">${initial}</span>`;
+            }).join('');
+
+            return `<div class="owner-badges-container">${badges}</div>`;
+          }
+
+          // Handle owner_name as array
+          if (task.owner_name && Array.isArray(task.owner_name) && task.owner_name.length > 0) {
+            const owners = task.owner_name;
+            const badges = owners
+              .filter((name: any) => name && typeof name === 'string')
+              .map((name: string, index: number) => {
+                const initial = name.charAt(0).toUpperCase();
+                const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+                const color = colors[index % colors.length];
+                return `<span class="owner-badge" style="background-color: ${color};" title="${name}">${initial}</span>`;
+              }).join('');
+
+            return badges ? `<div class="owner-badges-container">${badges}</div>` : "Unassigned";
+          }
+
+          // Handle owner_name as string
+          if (task.owner_name && typeof task.owner_name === 'string') {
+            return task.owner_name;
+          }
+
+          return "Unassigned";
+        }
+      },
+      {
+        name: "start_date",
+        label: "Start Date",
+        align: "center",
+        width: 120,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          if (task.start_date) {
+            const startDate = typeof task.start_date === 'string'
+              ? gantt.date.parseDate(task.start_date, "xml_date")
+              : task.start_date;
+            return gantt.date.date_to_str("%m/%d/%y")(startDate);
+          }
+          return "";
+        }
+      },
+      {
+        name: "baseline_start",
+        label: "Baseline Start Date",
+        align: "center",
+        width: 140,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          // Check lowercase property name (baseline0_startDate)
+          if (task.baseline0_startDate) {
+            try {
+              // Parse the date string format YYYY-MM-DD
+              const dateStr = task.baseline0_startDate;
+              if (typeof dateStr === 'string') {
+                const parts = dateStr.split('-');
+                if (parts.length === 3) {
+                  const year = parseInt(parts[0]);
+                  const month = parseInt(parts[1]) - 1; // JS months are 0-indexed
+                  const day = parseInt(parts[2]);
+                  const date = new Date(year, month, day);
+                  return gantt.date.date_to_str("%m/%d/%y")(date);
+                }
+              }
+              return dateStr;
+            } catch (e) {
+              return "";
+            }
+          }
+          return "";
+        }
+      },
+      {
+        name: "end_date",
+        label: "End Date",
+        align: "center",
+        width: 120,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          if (task.start_date && task.duration) {
+            const startDate = typeof task.start_date === 'string'
+              ? gantt.date.parseDate(task.start_date, "xml_date")
+              : task.start_date;
+            const exclusiveEndDate = gantt.calculateEndDate(startDate, task.duration);
+            const inclusiveEndDate = gantt.date.add(exclusiveEndDate, -1, "day");
+            return gantt.date.date_to_str("%m/%d/%y")(inclusiveEndDate);
+          }
+          return "";
+        }
+      },
+      {
+        name: "baseline_end",
+        label: "Baseline End Date",
+        align: "center",
+        width: 140,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          // Check lowercase property name (baseline0_endDate)
+          if (task.baseline0_endDate) {
+            try {
+              // Parse the date string format YYYY-MM-DD
+              const dateStr = task.baseline0_endDate;
+              if (typeof dateStr === 'string') {
+                const parts = dateStr.split('-');
+                if (parts.length === 3) {
+                  const year = parseInt(parts[0]);
+                  const month = parseInt(parts[1]) - 1; // JS months are 0-indexed
+                  const day = parseInt(parts[2]);
+                  const date = new Date(year, month, day);
+                  return gantt.date.date_to_str("%m/%d/%y")(date);
+                }
+              }
+              return dateStr;
+            } catch (e) {
+              return "";
+            }
+          }
+          return "";
+        }
+      },
+      {
+        name: "duration",
+        label: "Duration",
+        align: "center",
+        width: 80,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          return task.duration || 0;
+        }
+      },
+      {
+        name: "baseline_duration",
+        label: "Baseline Duration",
+        align: "center",
+        width: 120,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          // Check lowercase property name (baseline0_duration)
+          if (task.baseline0_duration !== undefined && task.baseline0_duration !== null) {
+            return task.baseline0_duration;
+          }
+          return "";
+        }
+      },
+      {
+        name: "work_hours",
+        label: "Work",
+        align: "center",
+        width: 90,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          if (task.work_hours !== undefined && task.work_hours !== null) {
+            return task.work_hours.toFixed(2);
+          }
+          return "";
+        }
+      },
+      {
+        name: "baseline_work",
+        label: "Baseline Work",
+        align: "center",
+        width: 110,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          // Check lowercase property name (baseline0_work)
+          if (task.baseline0_work !== undefined && task.baseline0_work !== null) {
+            return task.baseline0_work.toFixed(2);
+          }
+          return "";
+        }
+      }
+    ];
+
+    // Add the "add" button column at the end
+    baselineColumns.push({ name: "add", label: "", width: 44 });
+
+    gantt.config.columns = baselineColumns;
+  };
+
   private buildGanttColumns = () => {
-    const { selectedTaskFields = [], taskCustomFields = [] } = this.props;
+    const { selectedTaskFields = [], taskCustomFields = [], viewMode = 'summary' } = this.props;
 
     // Define text and date editors
     const textEditor = { type: "text", map_to: "text" };
     const dateEditor = { type: "date", map_to: "start_date" };
     const durationEditor = { type: "number", map_to: "duration", min: 0, max: 100 };
 
-    // Base columns
+    // Build columns based on view mode
+    if (viewMode === 'baseline') {
+      return this.buildBaselineColumns();
+    }
+
+    // Base columns for summary view
     const baseColumns: any[] = [
       {
         name: "edit",
@@ -1963,8 +2207,15 @@ export default class Gantt extends Component<GanttProps, GanttState> {
   }
 
   componentDidUpdate(prevProps: GanttProps): void {
-    const { projecttasks, searchQuery, selectedTaskFields = [], taskCustomFields = [], showResourcePanel } = this.props;
+    const { projecttasks, searchQuery, selectedTaskFields = [], taskCustomFields = [], showResourcePanel, viewMode } = this.props;
     const prevSelectedFields = prevProps.selectedTaskFields || [];
+
+    // Check if viewMode changed
+    if (prevProps.viewMode !== viewMode) {
+      console.log("viewMode changed from", prevProps.viewMode, "to", viewMode);
+      this.buildGanttColumns();
+      gantt.render();
+    }
 
     // Check if showResourcePanel changed
     if (prevProps.showResourcePanel !== showResourcePanel) {
