@@ -224,6 +224,7 @@ const ProjectDetail: React.FC = () => {
   const { showConfirm, showNotification } = useNotification();
   const [activeTab, setActiveTab] = useState('overview');
   const [timelineView, setTimelineView] = useState<'gantt' | 'scheduler'>('gantt');
+  const [ganttView, setGanttView] = useState<'summary' | 'baseline'>('summary');
 
   // Utility function to adjust date to skip weekends
   const adjustToWorkday = (dateString: string): string => {
@@ -4674,8 +4675,8 @@ const ProjectDetail: React.FC = () => {
 
             {timelineView === 'gantt' && (
               <>
-                <div className="mb-4">
-                  <div className="relative">
+                <div className="mb-4 flex gap-4">
+                  <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
                       type="text"
@@ -4684,6 +4685,20 @@ const ProjectDetail: React.FC = () => {
                       onChange={(e) => setTaskSearchQuery(e.target.value)}
                       className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="gantt-view" className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                      View:
+                    </label>
+                    <select
+                      id="gantt-view"
+                      value={ganttView}
+                      onChange={(e) => setGanttView(e.target.value as 'summary' | 'baseline')}
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                    >
+                      <option value="summary">Task Summary View</option>
+                      <option value="baseline">Baseline View</option>
+                    </select>
                   </div>
                 </div>
                 <div style={{ width: "100%", height: isGanttFullscreen ? "calc(100vh - 150px)" : "600px", overflow: "auto" }}>
@@ -4699,6 +4714,7 @@ const ProjectDetail: React.FC = () => {
                 taskCustomFields={taskCustomFields}
                 showResourcePanel={showResourcePanel}
                 projectStartDate={project?.start_date || undefined}
+                viewMode={ganttView}
                 onOpenTaskModal={(parentId) => {
                   console.log('=== onOpenTaskModal called ===');
                   console.log('parentId received:', parentId);
