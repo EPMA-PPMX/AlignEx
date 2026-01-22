@@ -5170,24 +5170,6 @@ const ProjectDetail: React.FC = () => {
             <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">Project Documents</h3>
-                <label className="cursor-pointer">
-                  <input
-                    type="file"
-                    className="hidden"
-                    onChange={handleDocumentUpload}
-                  />
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      (e.currentTarget.previousElementSibling as HTMLInputElement)?.click();
-                    }}
-                  >
-                    <Upload className="w-4 h-4" />
-                    Upload Document
-                  </button>
-                </label>
                 <DocumentUpload
                   projectId={id!}
                   onUploadSuccess={() => {
