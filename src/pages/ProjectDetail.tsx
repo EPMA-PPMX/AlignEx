@@ -182,6 +182,42 @@ const parseCurrency = (value: string): string => {
   return value.replace(/[^\d.]/g, '');
 };
 
+// Helper function to format date to YYYY-MM-DD
+const formatDateToYYYYMMDD = (dateValue: any): string => {
+  if (!dateValue) return '';
+
+  // If it's already a string in the right format, return it
+  if (typeof dateValue === 'string') {
+    // Extract just the YYYY-MM-DD part if it has time
+    const datePart = dateValue.split(' ')[0];
+    // Validate it's in YYYY-MM-DD format
+    if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+      return datePart;
+    }
+    // Try to parse ISO string
+    if (dateValue.includes('T')) {
+      const parsed = new Date(dateValue);
+      if (!isNaN(parsed.getTime())) {
+        const year = parsed.getFullYear();
+        const month = String(parsed.getMonth() + 1).padStart(2, '0');
+        const day = String(parsed.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+    }
+    return datePart;
+  }
+
+  // If it's a Date object
+  if (dateValue instanceof Date && !isNaN(dateValue.getTime())) {
+    const year = dateValue.getFullYear();
+    const month = String(dateValue.getMonth() + 1).padStart(2, '0');
+    const day = String(dateValue.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  return '';
+};
+
 const ProjectDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -191,7 +227,20 @@ const ProjectDetail: React.FC = () => {
 
   // Utility function to adjust date to skip weekends
   const adjustToWorkday = (dateString: string): string => {
-    const date = new Date(dateString);
+    // Parse date components to avoid timezone issues
+    // Input format is YYYY-MM-DD from date input
+    const parts = dateString.split('-');
+    if (parts.length !== 3) {
+      console.error('Invalid date format provided to adjustToWorkday:', dateString);
+      return dateString;
+    }
+
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
+    const day = parseInt(parts[2], 10);
+
+    // Create date in local timezone
+    const date = new Date(year, month, day);
 
     // Check if date is valid
     if (isNaN(date.getTime())) {
@@ -211,10 +260,10 @@ const ProjectDetail: React.FC = () => {
     }
 
     // Format back to YYYY-MM-DD
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    const adjustedYear = date.getFullYear();
+    const adjustedMonth = String(date.getMonth() + 1).padStart(2, '0');
+    const adjustedDay = String(date.getDate()).padStart(2, '0');
+    return `${adjustedYear}-${adjustedMonth}-${adjustedDay}`;
   };
   const [project, setProject] = useState<Project | null>(null);
   const [overviewConfig, setOverviewConfig] = useState<OverviewConfiguration | null>(null);
@@ -867,14 +916,14 @@ const ProjectDetail: React.FC = () => {
               if (startDate.includes('T') || startDate.includes('Z')) {
                 startDate = startDate.split('T')[0];
               }
-              // Ensure it has time component
-              if (!startDate.includes(':')) {
-                startDate = `${startDate} 00:00`;
+              // Extract just date part if there's a time component
+              if (startDate.includes(' ')) {
+                startDate = startDate.split(' ')[0];
               }
             } else {
-              // If no start date, use today
+              // If no start date, use today (date only, no time)
               const today = new Date();
-              startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')} 00:00`;
+              startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
               console.warn(`Task ${task.id} missing start_date, using today`);
             }
 
@@ -1304,18 +1353,25 @@ const ProjectDetail: React.FC = () => {
 
             console.log(`Task ${taskId}: duration=${task.duration} (type: ${typeof task.duration}), cleaned duration=${duration}`);
 
-            // Calculate inclusive end_date to match what's displayed in Gantt "End time" column
-            // Use the exact same logic as the Gantt template to ensure consistency
+            // Format start_date and end_date to YYYY-MM-DD (date only, no time)
+            let formattedStartDate = task.start_date;
             let calculatedEndDate = task.end_date;
-            if (task.start_date && duration > 0 && ganttInstance) {
+
+            if (task.start_date && ganttInstance) {
               const startDate = typeof task.start_date === 'string'
                 ? ganttInstance.date.parseDate(task.start_date, "xml_date")
                 : task.start_date;
-              // DHTMLX uses exclusive end dates (end_date = start of day after task completes)
-              // Subtract 1 day to show the inclusive end date (actual last day of the task)
-              const exclusiveEndDate = ganttInstance.calculateEndDate(startDate, duration);
-              const inclusiveEndDate = ganttInstance.date.add(exclusiveEndDate, -1, "day");
-              calculatedEndDate = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i")(inclusiveEndDate);
+
+              // Format start_date to YYYY-MM-DD
+              formattedStartDate = ganttInstance.date.date_to_str("%Y-%m-%d")(startDate);
+
+              // Calculate exclusive end_date as expected by DHTMLX Gantt
+              if (duration > 0) {
+                // DHTMLX uses exclusive end dates (end_date = start of day after task completes)
+                // Store this exclusive end_date so Gantt can correctly calculate duration when parsing
+                const exclusiveEndDate = ganttInstance.calculateEndDate(startDate, duration);
+                calculatedEndDate = ganttInstance.date.date_to_str("%Y-%m-%d")(exclusiveEndDate);
+              }
             }
 
             // Build the task object for storage
@@ -1323,8 +1379,8 @@ const ProjectDetail: React.FC = () => {
             const taskToSave: any = {
               id: taskId,
               text: task.text,
-              start_date: task.start_date,
-              end_date: calculatedEndDate, // Save the inclusive end_date as shown in the Gantt
+              start_date: formattedStartDate,
+              end_date: calculatedEndDate, // Save the exclusive end_date as expected by Gantt
               duration: duration,
               progress: task.progress || 0,
               type: task.type || 'task',
@@ -1702,7 +1758,7 @@ const ProjectDetail: React.FC = () => {
 
       // Adjust to workday if needed
       const adjustedStartDate = adjustToWorkday(startDate.toISOString().split('T')[0]);
-      const startDateStr = `${adjustedStartDate} 00:00`;
+      const startDateStr = adjustedStartDate;
 
       // Calculate end_date from start_date + duration
       const duration = taskType === 'milestone' ? 0 : 1;
@@ -1711,7 +1767,7 @@ const ProjectDetail: React.FC = () => {
         start_date: startDateObj,
         duration: duration
       });
-      const dateFormatter = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i");
+      const dateFormatter = ganttInstance.date.date_to_str("%Y-%m-%d");
       const endDateStr = dateFormatter(endDate);
 
       // Create new task object with unique ID
@@ -1817,10 +1873,19 @@ const ProjectDetail: React.FC = () => {
             }
             duration = Math.max(1, duration);
 
+            // Format start_date to YYYY-MM-DD (date only, no time)
+            let formattedStartDate = task.start_date;
+            if (task.start_date && ganttInstance) {
+              const startDate = typeof task.start_date === 'string'
+                ? ganttInstance.date.parseDate(task.start_date, "xml_date")
+                : task.start_date;
+              formattedStartDate = ganttInstance.date.date_to_str("%Y-%m-%d")(startDate);
+            }
+
             taskMap.set(taskId, {
               id: taskId,
               text: task.text,
-              start_date: task.start_date,
+              start_date: formattedStartDate,
               duration: duration,
               progress: 0, // Reset progress to 0%
               type: task.type || 'task',
@@ -2809,20 +2874,10 @@ const ProjectDetail: React.FC = () => {
             const newTaskId = nextTaskId++;
             taskIdMap.set(originalId, newTaskId);
 
-            // Format start_date to match expected format
+            // Format start_date to YYYY-MM-DD format
             let formattedStartDate = '';
             if (importedTask.start_date) {
-              const dateObj = typeof importedTask.start_date === 'string'
-                ? new Date(importedTask.start_date)
-                : importedTask.start_date;
-              if (!isNaN(dateObj.getTime())) {
-                const year = dateObj.getFullYear();
-                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-                const day = String(dateObj.getDate()).padStart(2, '0');
-                const hours = String(dateObj.getHours()).padStart(2, '0');
-                const minutes = String(dateObj.getMinutes()).padStart(2, '0');
-                formattedStartDate = `${year}-${month}-${day} ${hours}:${minutes}`;
-              }
+              formattedStartDate = formatDateToYYYYMMDD(importedTask.start_date);
             }
 
             // Map parent ID to new ID
@@ -3165,9 +3220,9 @@ const ProjectDetail: React.FC = () => {
       const calculatedEndDate = ganttInstance.calculateEndDate(parsedStartDate, duration);
       // Subtract 1 day from end date to show the actual last working day (same as Task Pane display)
       const adjustedEndDate = ganttInstance.date.add(calculatedEndDate, -1, "day");
-      // Format to YYYY-MM-DD HH:MM to match start_date format
-      const dateTimeFormat = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i");
-      return dateTimeFormat(adjustedEndDate);
+      // Format to YYYY-MM-DD (date only, no time)
+      const dateFormat = ganttInstance.date.date_to_str("%Y-%m-%d");
+      return dateFormat(adjustedEndDate);
     } catch (error) {
       console.error('Error calculating end date:', error);
       return '';
@@ -3190,7 +3245,9 @@ const ProjectDetail: React.FC = () => {
       let currentTaskId = editingTaskId;
       let adjustedStartDate = null;
       if (taskForm.start_date && taskForm.start_date.trim() !== '') {
+        console.log('📅 DATE DEBUG - Form input date:', taskForm.start_date);
         adjustedStartDate = adjustToWorkday(taskForm.start_date);
+        console.log('📅 DATE DEBUG - Adjusted date:', adjustedStartDate);
       }
 
       if (editingTaskId) {
@@ -3231,28 +3288,27 @@ const ProjectDetail: React.FC = () => {
 
               // Set start_date: use provided date or default to project creation date or keep existing
               if (adjustedStartDate) {
-                const startDateStr = `${adjustedStartDate} 00:00`;
-                updatedTask.start_date = startDateStr;
+                updatedTask.start_date = adjustedStartDate;
+                console.log('📅 DATE DEBUG - Setting task start_date:', adjustedStartDate);
               } else if (!task.start_date && project?.created_at) {
                 // If task has no start date and no new date provided, default to project creation date
-                const projectDate = new Date(project.created_at).toISOString().split('T')[0];
-                const startDateStr = `${projectDate} 00:00`;
-                updatedTask.start_date = startDateStr;
-                console.log('No start date provided, using project creation date:', startDateStr);
+                const projectDate = formatDateToYYYYMMDD(new Date(project.created_at));
+                updatedTask.start_date = projectDate;
+                console.log('No start date provided, using project creation date:', projectDate);
               }
 
-              // Calculate inclusive end_date to match what's displayed in Gantt "End time" column
-              // Use the exact same logic as the Gantt template to ensure consistency
+              // Calculate exclusive end_date as expected by DHTMLX Gantt
+              // The "End time" column template handles displaying the inclusive date for users
               if (updatedTask.start_date && duration > 0 && ganttRef.current) {
                 const ganttInstance = ganttRef.current.getGanttInstance();
                 const startDate = typeof updatedTask.start_date === 'string'
                   ? ganttInstance.date.parseDate(updatedTask.start_date, "xml_date")
                   : updatedTask.start_date;
                 // DHTMLX uses exclusive end dates (end_date = start of day after task completes)
-                // Subtract 1 day to show the inclusive end date (actual last day of the task)
+                // Store this exclusive end_date so Gantt can correctly calculate duration when parsing
                 const exclusiveEndDate = ganttInstance.calculateEndDate(startDate, duration);
-                const inclusiveEndDate = ganttInstance.date.add(exclusiveEndDate, -1, "day");
-                updatedTask.end_date = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i")(inclusiveEndDate);
+                updatedTask.end_date = formatDateToYYYYMMDD(exclusiveEndDate);
+                console.log('📅 DATE DEBUG - Calculated end_date:', updatedTask.end_date);
               }
 
               console.log('Updated task values:', {
@@ -3320,28 +3376,27 @@ const ProjectDetail: React.FC = () => {
 
         // Set start_date: use provided date or default to project creation date
         if (adjustedStartDate) {
-          const startDateStr = `${adjustedStartDate} 00:00`;
-          newTask.start_date = startDateStr;
+          newTask.start_date = adjustedStartDate;
+          console.log('📅 DATE DEBUG - New task start_date:', adjustedStartDate);
         } else if (project?.created_at) {
           // Default to project creation date if no start date provided
-          const projectDate = new Date(project.created_at).toISOString().split('T')[0];
-          const startDateStr = `${projectDate} 00:00`;
-          newTask.start_date = startDateStr;
-          console.log('No start date provided, using project start date:', startDateStr);
+          const projectDate = formatDateToYYYYMMDD(new Date(project.created_at));
+          newTask.start_date = projectDate;
+          console.log('No start date provided, using project start date:', projectDate);
         }
 
-        // Calculate inclusive end_date to match what's displayed in Gantt "End time" column
-        // Use the exact same logic as the Gantt template to ensure consistency
+        // Calculate exclusive end_date as expected by DHTMLX Gantt
+        // The "End time" column template handles displaying the inclusive date for users
         if (newTask.start_date && duration > 0 && ganttRef.current) {
           const ganttInstance = ganttRef.current.getGanttInstance();
           const startDate = typeof newTask.start_date === 'string'
             ? ganttInstance.date.parseDate(newTask.start_date, "xml_date")
             : newTask.start_date;
           // DHTMLX uses exclusive end dates (end_date = start of day after task completes)
-          // Subtract 1 day to show the inclusive end date (actual last day of the task)
+          // Store this exclusive end_date so Gantt can correctly calculate duration when parsing
           const exclusiveEndDate = ganttInstance.calculateEndDate(startDate, duration);
-          const inclusiveEndDate = ganttInstance.date.add(exclusiveEndDate, -1, "day");
-          newTask.end_date = ganttInstance.date.date_to_str("%Y-%m-%d %H:%i")(inclusiveEndDate);
+          newTask.end_date = formatDateToYYYYMMDD(exclusiveEndDate);
+          console.log('📅 DATE DEBUG - New task end_date:', newTask.end_date);
         }
 
         // Set parent - MUST be 0 for root tasks, not undefined
@@ -3408,6 +3463,10 @@ const ProjectDetail: React.FC = () => {
       console.log('💾 SAVING TASK DATA - Full updatedTaskData:', JSON.stringify(updatedTaskData, null, 2));
       const taskBeingSaved = updatedTaskData.data.find((t: any) => t.id === currentTaskId);
       console.log('💾 SAVING TASK DATA - Current task resource_allocations:', taskBeingSaved?.resource_allocations);
+      console.log('📅 DATE DEBUG - Task being saved to DB:', {
+        start_date: taskBeingSaved?.start_date,
+        end_date: taskBeingSaved?.end_date
+      });
 
       // Check if project_tasks record exists (get the most recent one)
       const { data: existingData, error: fetchError } = await supabase
@@ -4275,19 +4334,50 @@ const ProjectDetail: React.FC = () => {
                                         // manually collect all tasks with their full data including baseline fields
                                         const updatedTasks: any[] = [];
                                         ganttInstance.eachTask((task: any) => {
-                                          // Exclude end_date from the copy to ensure Gantt recalculates it from duration
-                                          const { end_date, ...taskWithoutEndDate } = task;
-                                          updatedTasks.push(taskWithoutEndDate);
+                                          if (task.$group_header) return; // Skip group headers
+
+                                          // Exclude Date objects (planned_start, planned_end) to avoid timezone issues
+                                          // Keep string-based fields including end_date and baseline fields
+                                          const taskCopy: any = {};
+                                          Object.keys(task).forEach(key => {
+                                            // Exclude Date object fields and internal DHTMLX fields
+                                            if (key.startsWith('planned_start') ||
+                                                key.startsWith('planned_end') ||
+                                                key.startsWith('$')) {
+                                              return;
+                                            }
+                                            // Format date fields to YYYY-MM-DD
+                                            if ((key === 'start_date' || key === 'end_date') && task[key]) {
+                                              taskCopy[key] = formatDateToYYYYMMDD(task[key]);
+                                            } else {
+                                              taskCopy[key] = task[key];
+                                            }
+                                          });
+
+                                          updatedTasks.push(taskCopy);
                                         });
 
                                         // Get links separately
                                         const links = ganttInstance.getLinks().map((link: any) => ({ ...link }));
 
-                                        // Verify that baseline fields exist
+                                        // Verify that baseline fields exist and log them
+                                        console.log('\n=== BASELINE SAVE VERIFICATION ===');
                                         const tasksWithBaseline = updatedTasks.filter((task: any) =>
                                           task[`baseline${baselineNum}_startDate`] && task[`baseline${baselineNum}_endDate`]
                                         );
                                         console.log(`${tasksWithBaseline.length} tasks have baseline ${baselineNum} fields set`);
+
+                                        // Log first 3 tasks to show what's being saved
+                                        updatedTasks.slice(0, 3).forEach(task => {
+                                          console.log(`\nTask ${task.id} (${task.text}) - Fields being saved:`);
+                                          console.log(`  start_date: ${task.start_date}`);
+                                          console.log(`  end_date: ${task.end_date}`);
+                                          console.log(`  duration: ${task.duration}`);
+                                          console.log(`  baseline${baselineNum}_startDate: ${task[`baseline${baselineNum}_startDate`]}`);
+                                          console.log(`  baseline${baselineNum}_endDate: ${task[`baseline${baselineNum}_endDate`]}`);
+                                          console.log(`  baseline${baselineNum}_duration: ${task[`baseline${baselineNum}_duration`]}`);
+                                        });
+                                        console.log('=== END SAVE VERIFICATION ===\n');
 
                                         // Update the database with the new task data containing baseline fields
                                         const updatedTaskData = {
@@ -5080,24 +5170,6 @@ const ProjectDetail: React.FC = () => {
             <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">Project Documents</h3>
-                <label className="cursor-pointer">
-                  <input
-                    type="file"
-                    className="hidden"
-                    onChange={handleDocumentUpload}
-                  />
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      (e.currentTarget.previousElementSibling as HTMLInputElement)?.click();
-                    }}
-                  >
-                    <Upload className="w-4 h-4" />
-                    Upload Document
-                  </button>
-                </label>
                 <DocumentUpload
                   projectId={id!}
                   onUploadSuccess={() => {
@@ -6024,6 +6096,11 @@ const ProjectDetail: React.FC = () => {
                   {taskForm.type === 'project' && (
                     <p className="text-xs text-gray-500 mt-1">
                       Summary task duration is calculated from subtasks
+                    </p>
+                  )}
+                  {taskForm.type === 'task' && taskForm.start_date && taskForm.duration > 0 && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      Task will end on: {calculateEndDate(taskForm.start_date, taskForm.duration)}
                     </p>
                   )}
                 </div>

@@ -6,6 +6,7 @@ import MyTasksWidget from '../components/widgets/MyTasksWidget';
 import MyProjectsWidget from '../components/widgets/MyProjectsWidget';
 import MyRisksWidget from '../components/widgets/MyRisksWidget';
 import MyIssuesWidget from '../components/widgets/MyIssuesWidget';
+import MyChangeRequestsWidget from '../components/widgets/MyChangeRequestsWidget';
 import DeadlinesWidget from '../components/widgets/DeadlinesWidget';
 import TimesheetQuickWidget from '../components/widgets/TimesheetQuickWidget';
 import RecentActivityWidget from '../components/widgets/RecentActivityWidget';
@@ -61,6 +62,7 @@ const Dashboard: React.FC = () => {
     my_projects: <MyProjectsWidget key="my_projects" />,
     my_risks: <MyRisksWidget key="my_risks" />,
     my_issues: <MyIssuesWidget key="my_issues" />,
+    my_change_requests: <MyChangeRequestsWidget key="my_change_requests" />,
     deadlines: <DeadlinesWidget key="deadlines" />,
     timesheet_quick: <TimesheetQuickWidget key="timesheet_quick" />,
     recent_activity: <RecentActivityWidget key="recent_activity" />,
