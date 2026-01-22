@@ -12,18 +12,54 @@
 /* Grid resizer styling - the vertical line between grid and timeline */
 .gantt_grid_resize_wrap {
   cursor: col-resize !important;
-  background-color: #d1d5db;
-  width: 3px !important;
+  background-color: #64748b;
+  width: 8px !important;
   position: absolute;
   right: 0;
   top: 0;
   height: 100%;
   z-index: 100;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.15);
 }
 
 .gantt_grid_resize_wrap:hover {
   background-color: #3b82f6 !important;
+  width: 10px !important;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+}
+
+/* Arrow indicator on hover */
+.gantt_grid_resize_wrap::before,
+.gantt_grid_resize_wrap::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-style: solid;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.gantt_grid_resize_wrap:hover::before,
+.gantt_grid_resize_wrap:hover::after {
+  opacity: 1;
+}
+
+/* Left arrow */
+.gantt_grid_resize_wrap::before {
+  left: -10px;
+  border-width: 8px 10px 8px 0;
+  border-color: transparent #3b82f6 transparent transparent;
+}
+
+/* Right arrow */
+.gantt_grid_resize_wrap::after {
+  right: -10px;
+  border-width: 8px 0 8px 10px;
+  border-color: transparent transparent transparent #3b82f6;
 }
 
 .gantt_grid_head_cell {
@@ -131,23 +167,37 @@
 }
 
 /* Milestone styling - diamond shape in yellow - MUST COME AFTER regular task styling */
+/* Position the parent container in its task row */
 .gantt_task_line.gantt_milestone,
 .gantt_task_line.gantt_task.gantt_milestone {
+  background: transparent !important;
+  border: none !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  width: 16px !important;
+  /* Ensure milestone aligns vertically in the middle of the task row */
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+}
+
+/* The milestone content div is what creates the diamond shape - it MUST be visible */
+.gantt_task_line.gantt_milestone .gantt_task_content,
+.gantt_task_line.gantt_task.gantt_milestone .gantt_task_content {
+  visibility: visible !important;
+  display: block !important;
   width: 16px !important;
   height: 16px !important;
   background: #fbbf24 !important;
   border: 2px solid #f59e0b !important;
   transform: rotate(45deg) !important;
-  margin-top: 8px !important;
   border-radius: 2px !important;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-  /* Override gradient from regular tasks */
-  background-image: none !important;
-}
-
-.gantt_task_line.gantt_milestone .gantt_task_content,
-.gantt_task_line.gantt_task.gantt_milestone .gantt_task_content {
-  display: none !important;
+  position: relative !important;
+  /* Hide text inside */
+  font-size: 0 !important;
+  color: transparent !important;
+  overflow: hidden !important;
 }
 
 .gantt_task_line.gantt_milestone .gantt_task_progress,
@@ -226,7 +276,29 @@
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
 }
 
-/* Baseline styling */
+/* Baseline bar styling - red line inside task bar */
+/* Baseline styles for addTaskLayer implementation */
+.baseline {
+  position: absolute;
+  height: 4px;
+  background-color: #ef4444;
+  pointer-events: none;
+  z-index: 5;
+  box-shadow: 0 1px 3px rgba(239, 68, 68, 0.4);
+  border-radius: 2px;
+  opacity: 0.9;
+}
+
+.baseline-bar {
+  position: absolute;
+  height: 2px;
+  background-color: #ef4444;
+  pointer-events: none;
+  z-index: 2;
+  box-shadow: 0 0 2px rgba(239, 68, 68, 0.5);
+}
+
+/* Old baseline styling - kept for compatibility */
 .gantt_task_line.baseline {
   background: #cbd5e1 !important;
   border: 1px solid #94a3b8 !important;
