@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Trash2, Calendar, User, Users } from 'lucide-react';
+import { Plus, Search, Trash2, Calendar, User, Users, Edit2, Check, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNotification } from '../lib/useNotification';
 
@@ -33,6 +33,18 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddMember, setShowAddMember] = useState(false);
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<{
+    allocation_percentage: number;
+    start_date: string;
+    end_date: string;
+    role: string;
+  }>({
+    allocation_percentage: 0,
+    start_date: '',
+    end_date: '',
+    role: ''
+  });
 
   useEffect(() => {
     fetchTeamMembers();
@@ -101,6 +113,49 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
     }
   };
 
+  const handleStartEdit = (member: TeamMember) => {
+    setEditingMemberId(member.id);
+    setEditValues({
+      allocation_percentage: member.allocation_percentage,
+      start_date: member.start_date,
+      end_date: member.end_date || '',
+      role: member.role
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMemberId(null);
+    setEditValues({
+      allocation_percentage: 0,
+      start_date: '',
+      end_date: '',
+      role: ''
+    });
+  };
+
+  const handleSaveEdit = async (memberId: string) => {
+    try {
+      const { error } = await supabase
+        .from('project_team_members')
+        .update({
+          allocation_percentage: editValues.allocation_percentage,
+          start_date: editValues.start_date,
+          end_date: editValues.end_date || null,
+          role: editValues.role
+        })
+        .eq('id', memberId);
+
+      if (error) throw error;
+
+      setEditingMemberId(null);
+      fetchTeamMembers();
+      onTeamMembersChange?.();
+    } catch (error) {
+      console.error('Error updating team member:', error);
+      alert('Failed to update team member');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -118,7 +173,7 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
         </div>
         <button
           onClick={() => setShowAddMember(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-primary text-white rounded-lg hover:opacity-90 transition-all shadow-lg"
         >
           <Plus className="w-4 h-4" />
           Add Team Members
@@ -127,7 +182,7 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
 
       {teamMembers.length > 0 && <ResourceAllocationHeatmap teamMembers={teamMembers} />}
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200">
         {teamMembers.length === 0 ? (
           <div className="p-12 text-center text-gray-500">
             <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -136,71 +191,146 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="bg-gradient-dark">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Name
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Email
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Project Role
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Allocation
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Start Date
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     End Date
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {teamMembers.map((member) => (
-                  <tr key={member.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <User className="w-4 h-4 text-gray-400" />
-                        <div className="text-sm font-medium text-gray-900">
-                          {member.resource?.display_name || 'Unknown'}
+              <tbody className="divide-y divide-gray-200" style={{ backgroundColor: '#F9F7FC' }}>
+                {teamMembers.map((member) => {
+                  const isEditing = editingMemberId === member.id;
+
+                  return (
+                    <tr key={member.id} className={isEditing ? 'bg-blue-50' : 'hover:bg-gray-50'}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-gray-400" />
+                          <div className="text-sm font-medium text-gray-900">
+                            {member.resource?.display_name || 'Unknown'}
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">{member.resource?.email || '-'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{member.role}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{member.allocation_percentage}%</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">
-                        {new Date(member.start_date).toLocaleDateString()}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">
-                        {member.end_date ? new Date(member.end_date).toLocaleDateString() : '-'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => handleRemoveMember(member.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">{member.resource?.email || '-'}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editValues.role}
+                            onChange={(e) => setEditValues({ ...editValues, role: e.target.value })}
+                            className="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        ) : (
+                          <div className="text-sm text-gray-900">{member.role}</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {isEditing ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="5"
+                              value={editValues.allocation_percentage}
+                              onChange={(e) => setEditValues({ ...editValues, allocation_percentage: parseInt(e.target.value) || 0 })}
+                              className="w-20 px-2 py-1 text-sm border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            />
+                            <span className="text-sm text-gray-600">%</span>
+                          </div>
+                        ) : (
+                          <div className="text-sm text-gray-900">{member.allocation_percentage}%</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {isEditing ? (
+                          <input
+                            type="date"
+                            value={editValues.start_date}
+                            onChange={(e) => setEditValues({ ...editValues, start_date: e.target.value })}
+                            className="px-2 py-1 text-sm border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        ) : (
+                          <div className="text-sm text-gray-500">
+                            {new Date(member.start_date).toLocaleDateString()}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {isEditing ? (
+                          <input
+                            type="date"
+                            value={editValues.end_date}
+                            onChange={(e) => setEditValues({ ...editValues, end_date: e.target.value })}
+                            className="px-2 py-1 text-sm border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        ) : (
+                          <div className="text-sm text-gray-500">
+                            {member.end_date ? new Date(member.end_date).toLocaleDateString() : '-'}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        {isEditing ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleSaveEdit(member.id)}
+                              className="p-1 text-green-600 hover:text-green-900 hover:bg-green-100 rounded transition-colors"
+                              title="Save changes"
+                            >
+                              <Check className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={handleCancelEdit}
+                              className="p-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                              title="Cancel"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleStartEdit(member)}
+                              className="p-1 text-blue-600 hover:text-blue-900 hover:bg-blue-100 rounded transition-colors"
+                              title="Edit"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleRemoveMember(member.id)}
+                              className="p-1 text-red-600 hover:text-red-900 hover:bg-red-100 rounded transition-colors"
+                              title="Remove"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -344,10 +474,10 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
   };
 
   const getColorClass = (hours: number) => {
-    if (hours === 0) return 'bg-gray-100';
-    if (hours <= 10) return 'bg-green-200';
-    if (hours <= 30) return 'bg-yellow-200';
-    return 'bg-red-400';
+    if (hours <= 10) return 'bg-gradient-to-br from-teal-100 to-teal-200';
+    if (hours <= 30) return 'bg-gradient-to-br from-teal-300 to-teal-400';
+    if (hours <= 39) return 'bg-gradient-to-br from-orange-300 to-orange-400';
+    return 'bg-gradient-to-br from-red-400 to-red-500';
   };
 
   if (teamMembers.length === 0) {
@@ -355,7 +485,7 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
           <Calendar className="w-5 h-5" />
@@ -363,20 +493,20 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
         </h3>
         <div className="flex items-center gap-4 text-xs">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-gray-100 border border-gray-300"></div>
-            <span className="text-gray-600">0h - No allocation</span>
+            <div className="w-3 h-3 bg-gradient-to-br from-teal-100 to-teal-200"></div>
+            <span className="text-gray-600">0-10h</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-green-200"></div>
-            <span className="text-gray-600">1-10h - Available</span>
+            <div className="w-3 h-3 bg-gradient-to-br from-teal-300 to-teal-400"></div>
+            <span className="text-gray-600">11-30h</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-yellow-200"></div>
-            <span className="text-gray-600">11-30h - Moderate Load</span>
+            <div className="w-3 h-3 bg-gradient-to-br from-orange-300 to-orange-400"></div>
+            <span className="text-gray-600">31-39h</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-red-400"></div>
-            <span className="text-gray-600">31-40h - Overloaded</span>
+            <div className="w-3 h-3 bg-gradient-to-br from-red-400 to-red-500"></div>
+            <span className="text-gray-600">40+h</span>
           </div>
         </div>
       </div>
@@ -391,7 +521,7 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
               {teamMembers.map((member) => (
                 <div
                   key={member.id}
-                  className="h-12 border-b border-gray-200 flex items-center px-4 text-sm text-gray-700"
+                  className="h-12 border-b border-gray-200 flex items-center px-4 text-sm text-gray-700 font-bold"
                 >
                   {member.resource?.display_name || 'Unknown'}
                 </div>
@@ -417,7 +547,7 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
                             className={`h-12 border-b border-l border-gray-200 flex items-center justify-center text-sm font-medium ${getColorClass(hours)}`}
                             title={`${member.resource?.display_name} - ${weekLabel}: ${hours}h`}
                           >
-                            {hours > 0 ? `${hours}h` : ''}
+                            {`${hours}h`}
                           </div>
                         );
                       })}
@@ -446,6 +576,9 @@ function AddTeamMemberModal({ projectId, onClose, onSave, existingMemberResource
   const [selectedResources, setSelectedResources] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [defaultAllocation, setDefaultAllocation] = useState(50);
+  const [defaultStartDate, setDefaultStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [defaultRole, setDefaultRole] = useState('Team Member');
 
   useEffect(() => {
     fetchResources();
@@ -492,14 +625,19 @@ function AddTeamMemberModal({ projectId, onClose, onSave, existingMemberResource
       return;
     }
 
+    if (!defaultStartDate) {
+      alert('Please select a start date');
+      return;
+    }
+
     setSaving(true);
     try {
       const teamMemberRecords = selectedResources.map((resourceId) => ({
         project_id: projectId,
         resource_id: resourceId,
-        role: 'Team Member',
-        allocation_percentage: 100,
-        start_date: new Date().toISOString().split('T')[0],
+        role: defaultRole,
+        allocation_percentage: defaultAllocation,
+        start_date: defaultStartDate,
         end_date: null
       }));
 
@@ -519,10 +657,57 @@ function AddTeamMemberModal({ projectId, onClose, onSave, existingMemberResource
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-widget-bg rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-900">Add Team Members</h2>
           <p className="text-sm text-gray-500 mt-1">Select resources to add to the project team</p>
+        </div>
+
+        <div className="p-6 border-b border-gray-200 bg-gray-50">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">Default Settings for New Members</h3>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Project Role
+              </label>
+              <input
+                type="text"
+                value={defaultRole}
+                onChange={(e) => setDefaultRole(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="e.g., Team Member"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Allocation %
+              </label>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value={defaultAllocation}
+                  onChange={(e) => setDefaultAllocation(parseInt(e.target.value) || 0)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <span className="text-sm text-gray-600">%</span>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Start Date
+              </label>
+              <input
+                type="date"
+                value={defaultStartDate}
+                onChange={(e) => setDefaultStartDate(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 mt-2">These settings will be applied to all selected members. You can edit them individually after adding.</p>
         </div>
 
         <div className="p-6 border-b border-gray-200">

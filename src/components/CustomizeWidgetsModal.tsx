@@ -17,6 +17,7 @@ const widgetInfo: { [key: string]: { name: string; description: string } } = {
   my_projects: { name: 'My Projects', description: 'Monitor projects you manage with health status overview' },
   my_risks: { name: 'My Risks', description: 'Track risks from your projects and assigned risks' },
   my_issues: { name: 'My Issues', description: 'Monitor issues from your projects and assigned issues' },
+  my_change_requests: { name: 'My Change Requests', description: 'View all change requests you have created' },
   pending_approvals: { name: 'Pending Approvals', description: 'Review change requests and approvals needing attention' },
   deadlines: { name: 'Deadlines', description: 'See upcoming deadlines from tasks and goals' },
   timesheet_quick: { name: 'Timesheet Quick Entry', description: 'Log hours and view weekly summary' },
