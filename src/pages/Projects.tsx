@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, MoreHorizontal, Grid3x3 as Grid3X3, List, Calendar, User, Settings2, X, Check, Layers, ChevronDown, ChevronRight, Archive, ArchiveRestore } from 'lucide-react';
-import ProjectCard from '../components/ProjectCard';
 import { supabase } from '../lib/supabase';
 import { DEMO_USER_ID } from '../lib/useCurrentUser';
 import { formatDate, formatCurrencyWithK } from '../lib/utils';
@@ -12,7 +11,7 @@ interface Project {
   id: string;
   name: string;
   description?: string;
-  status: string;
+  health_status: string;
   state?: string;
   created_at: string;
   updated_at: string;
@@ -108,7 +107,7 @@ const Projects: React.FC = () => {
         // Initialize columns with base fields and custom fields
         const baseColumns: ColumnConfig[] = [
           { key: 'name', label: 'Project Name', enabled: true },
-          { key: 'status', label: 'Status', enabled: true },
+          { key: 'health_status', label: 'Status', enabled: true },
           { key: 'state', label: 'State', enabled: false },
           { key: 'schedule_start_date', label: 'Start Date', enabled: false },
           { key: 'schedule_finish_date', label: 'Finish Date', enabled: false },
@@ -309,7 +308,7 @@ const Projects: React.FC = () => {
   const filteredProjects = projects.filter(project => {
     const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (project.description && project.description.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesFilter = filterStatus === 'all' || project.status.toLowerCase().replace(/[^a-z]/g, '') === filterStatus;
+    const matchesFilter = filterStatus === 'all' || (project.health_status && project.health_status.toLowerCase().replace(/[^a-z]/g, '') === filterStatus);
     const matchesArchived = showArchived ? project.archived === true : project.archived !== true;
     return matchesSearch && matchesFilter && matchesArchived;
   });
@@ -318,7 +317,7 @@ const Projects: React.FC = () => {
     if (groupByField === 'none') return 'all';
 
     // Handle built-in fields
-    if (groupByField === 'status') return project.status || 'No Status';
+    if (groupByField === 'health_status') return project.health_status || 'No Status';
     if (groupByField === 'state') return project.state || 'No State';
 
     // Handle custom fields
@@ -463,7 +462,7 @@ const Projects: React.FC = () => {
   const getGroupByOptions = () => {
     const options = [
       { value: 'none', label: 'No Grouping' },
-      { value: 'status', label: 'Status' },
+      { value: 'health_status', label: 'Status' },
       { value: 'state', label: 'State' },
     ];
 
@@ -609,10 +608,10 @@ const Projects: React.FC = () => {
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           >
             <option value="all">All Status</option>
-            <option value="planning">Planning</option>
-            <option value="inprogress">In Progress</option>
-            <option value="completed">Completed</option>
+            <option value="ontrack">On Track</option>
             <option value="atrisk">At Risk</option>
+            <option value="delayed">Delayed</option>
+            <option value="completed">Completed</option>
           </select>
           <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
             <Filter className="w-5 h-5" />
@@ -674,7 +673,7 @@ const Projects: React.FC = () => {
                     {groupProjects.map((project) => (
                       <div
                         key={project.id}
-                        className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow p-6 cursor-pointer relative"
+                        className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow p-6 cursor-pointer relative"
                         onClick={() => navigate(`/projects/${project.id}`)}
                       >
                         <div className="flex items-center justify-between mb-4">
@@ -700,15 +699,14 @@ const Projects: React.FC = () => {
                         )}
 
                         <div className="flex items-center justify-between mb-4">
-                          <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            project.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                            project.status === 'In-Progress' ? 'bg-blue-100 text-blue-800' :
-                            project.status === 'Planning' ? 'bg-yellow-100 text-yellow-800' :
-                            project.status === 'On-Hold' ? 'bg-gray-100 text-gray-800' :
-                            project.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
+                          <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                            project.health_status === 'On Track' ? 'bg-gradient-to-br from-[#276A6C] to-[#5DB6B8] text-white border-[#5DB6B8]' :
+                            project.health_status === 'At Risk' ? 'bg-gradient-to-br from-[#C76F21] to-[#FAAF65] text-white border-[#F89D43]' :
+                            project.health_status === 'Delayed' ? 'bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A] text-white border-[#FD5D5D]' :
+                            project.health_status === 'Completed' ? 'bg-gradient-to-br from-[#276A6C] to-[#5DB6B8] text-white border-[#5DB6B8]' :
                             'bg-gray-100 text-gray-800'
                           }`}>
-                            {project.status}
+                            {project.health_status || 'Not Set'}
                           </div>
                         </div>
 
@@ -767,26 +765,26 @@ const Projects: React.FC = () => {
                       </div>
                     )}
                     {isExpanded && (
-                      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                      <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
+                        <thead className="bg-gradient-dark">
                           <tr>
                             {visibleColumns.map((col) => (
-                              <th key={col.key} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              <th key={col.key} className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                                 {col.label}
                               </th>
                             ))}
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                               Actions
                             </th>
                           </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="divide-y divide-gray-200" style={{ backgroundColor: '#F9F7FC' }}>
                           {groupProjects.map((project) => (
                             <tr
                               key={project.id}
-                              className="hover:bg-gray-50 cursor-pointer"
+                              className="hover:bg-gray-100 cursor-pointer"
                               onClick={() => navigate(`/projects/${project.id}`)}
                             >
                               {visibleColumns.map((col) => {
@@ -807,18 +805,17 @@ const Projects: React.FC = () => {
                                       </div>
                                     </td>
                                   );
-                                } else if (col.key === 'status') {
+                                } else if (col.key === 'health_status') {
                                   return (
                                     <td key={col.key} className="px-6 py-4 whitespace-nowrap">
-                                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                        project.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                                        project.status === 'In-Progress' ? 'bg-blue-100 text-blue-800' :
-                                        project.status === 'Planning' ? 'bg-yellow-100 text-yellow-800' :
-                                        project.status === 'On-Hold' ? 'bg-gray-100 text-gray-800' :
-                                        project.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
+                                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${
+                                        project.health_status === 'On Track' ? 'bg-gradient-to-br from-[#276A6C] to-[#5DB6B8] text-white border-[#5DB6B8]' :
+                                        project.health_status === 'At Risk' ? 'bg-gradient-to-br from-[#C76F21] to-[#FAAF65] text-white border-[#F89D43]' :
+                                        project.health_status === 'Delayed' ? 'bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A] text-white border-[#FD5D5D]' :
+                                        project.health_status === 'Completed' ? 'bg-gradient-to-br from-[#276A6C] to-[#5DB6B8] text-white border-[#5DB6B8]' :
                                         'bg-gray-100 text-gray-800'
                                       }`}>
-                                        {project.status}
+                                        {project.health_status || 'Not Set'}
                                       </span>
                                     </td>
                                   );
