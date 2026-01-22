@@ -41,13 +41,13 @@ export default function RequestCard({ request, onEdit, onDelete, onStatusChange 
       case 'Draft':
         return 'bg-slate-100 text-slate-800 border-slate-200';
       case 'Pending Approval':
-        return 'bg-amber-100 text-amber-800 border-amber-200';
+        return 'bg-gradient-to-br from-[#C76F21] to-[#FAAF65] text-white border-transparent';
       case 'Approved':
-        return 'bg-green-100 text-green-800 border-green-200';
+        return 'bg-gradient-to-br from-[#276A6C] to-[#5DB6B8] text-white border-transparent';
       case 'Rejected':
-        return 'bg-red-100 text-red-800 border-red-200';
+        return 'bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A] text-white border-transparent';
       case 'More Information Needed':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+        return 'bg-gradient-to-br from-[#C76F21] to-[#FAAF65] text-white border-transparent';
       default:
         return 'bg-slate-100 text-slate-800 border-slate-200';
     }
@@ -110,7 +110,7 @@ export default function RequestCard({ request, onEdit, onDelete, onStatusChange 
             {(request.status === 'Draft' || request.status === 'More Information Needed') && (
               <button
                 onClick={() => onEdit(request)}
-                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                 title="Edit request"
               >
                 <Edit2 className="w-4 h-4" />
@@ -153,11 +153,11 @@ export default function RequestCard({ request, onEdit, onDelete, onStatusChange 
           )}
 
           {request.review_comments && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className="bg-primary-50 border border-blue-200 rounded-lg p-3">
               <span className="font-medium text-blue-900">Review Comments:</span>
               <p className="text-blue-800 mt-1">{request.review_comments}</p>
               {request.reviewed_at && (
-                <p className="text-xs text-blue-600 mt-2">
+                <p className="text-xs text-primary-600 mt-2">
                   Reviewed on {formatDate(request.reviewed_at)}
                 </p>
               )}
@@ -183,7 +183,7 @@ export default function RequestCard({ request, onEdit, onDelete, onStatusChange 
             </button>
             <button
               onClick={() => openReviewDialog('More Information Needed')}
-              className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+              className="flex items-center gap-2 px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm"
             >
               <AlertCircle className="w-4 h-4" />
               Request More Info
@@ -201,7 +201,7 @@ export default function RequestCard({ request, onEdit, onDelete, onStatusChange 
 
       {showReviewDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+          <div className="bg-widget-bg rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold text-slate-900 mb-4">
               {reviewAction === 'Approved' && 'Approve Request'}
               {reviewAction === 'Rejected' && 'Reject Request'}
@@ -216,7 +216,7 @@ export default function RequestCard({ request, onEdit, onDelete, onStatusChange 
                 value={reviewComments}
                 onChange={(e) => setReviewComments(e.target.value)}
                 rows={4}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Enter your comments..."
               />
             </div>
@@ -235,7 +235,7 @@ export default function RequestCard({ request, onEdit, onDelete, onStatusChange 
               <button
                 onClick={handleReviewSubmit}
                 disabled={reviewAction !== 'Approved' && !reviewComments.trim()}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Submit
               </button>

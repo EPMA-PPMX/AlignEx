@@ -211,8 +211,8 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
         project_type: formData.project_type.trim(),
         problem_statement: formData.problem_statement.trim(),
         estimated_start_date: formData.estimated_start_date || null,
-        estimated_duration: formData.estimated_duration.trim() || null,
-        initial_estimated_cost: formData.initial_estimated_cost.trim() || null,
+        estimated_duration: formData.estimated_duration,
+        initial_estimated_cost: formData.initial_estimated_cost,
         expected_benefits: formData.expected_benefits.trim(),
         consequences_of_inaction: formData.consequences_of_inaction.trim(),
         comments: formData.comments.trim() || null,
@@ -308,7 +308,7 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
                 name="project_name"
                 value={formData.project_name}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Enter project name"
                 required
               />
@@ -323,7 +323,7 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
                 value={formData.description}
                 onChange={handleInputChange}
                 rows={3}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Brief description of the project"
               />
             </div>
@@ -369,7 +369,7 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
                 name="estimated_start_date"
                 value={formData.estimated_start_date}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
             </div>
 
@@ -413,7 +413,7 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
               value={formData.problem_statement}
               onChange={handleInputChange}
               rows={4}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               placeholder="Describe the problem this project will address"
               required
             />
@@ -428,7 +428,7 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
               value={formData.expected_benefits}
               onChange={handleInputChange}
               rows={4}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               placeholder="What benefits will this project bring to the organization?"
               required
             />
@@ -443,7 +443,7 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
               value={formData.consequences_of_inaction}
               onChange={handleInputChange}
               rows={4}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               placeholder="What will happen if this project is not undertaken?"
               required
             />
@@ -515,7 +515,7 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
               value={formData.comments}
               onChange={handleInputChange}
               rows={4}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               placeholder="Any additional information or context..."
             />
           </div>
@@ -551,7 +551,7 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
               type="button"
               onClick={() => handleSave(false)}
               disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50"
             >
               {loading ? (
                 <>
