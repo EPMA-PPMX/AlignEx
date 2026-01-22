@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { FileEdit, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { DEMO_USER_ID } from '../../lib/useCurrentUser';
 import { Link } from 'react-router-dom';
@@ -11,22 +11,22 @@ interface ChangeRequest {
   status: string;
   type: string;
   created_at: string;
+  priority: string;
   projects?: {
     id: string;
     name: string;
   };
 }
 
-export default function PendingApprovalsWidget() {
+export default function MyChangeRequestsWidget() {
   const [requests, setRequests] = useState<ChangeRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchPendingApprovals();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetchMyChangeRequests();
   }, []);
 
-  const fetchPendingApprovals = async () => {
+  const fetchMyChangeRequests = async () => {
     try {
       setLoading(true);
 
@@ -38,13 +38,14 @@ export default function PendingApprovalsWidget() {
           request_title,
           status,
           type,
+          priority,
           created_at,
           projects (
             id,
             name
           )
         `)
-        .in('status', ['Pending', 'In Review'])
+        .eq('requested_by', DEMO_USER_ID)
         .order('created_at', { ascending: false })
         .limit(10);
 
@@ -52,7 +53,7 @@ export default function PendingApprovalsWidget() {
 
       setRequests(data || []);
     } catch (error) {
-      console.error('Error fetching pending approvals:', error);
+      console.error('Error fetching my change requests:', error);
     } finally {
       setLoading(false);
     }
@@ -60,6 +61,8 @@ export default function PendingApprovalsWidget() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
+      case 'Draft':
+        return <FileEdit className="w-4 h-4 text-[#7F8C8D]" />;
       case 'Pending':
       case 'Pending Review':
         return <Clock className="w-4 h-4 text-[#F39C12]" />;
@@ -70,25 +73,46 @@ export default function PendingApprovalsWidget() {
         return <CheckCircle className="w-4 h-4 text-[#2ECC71]" />;
       case 'Rejected':
         return <XCircle className="w-4 h-4 text-[#E74C3C]" />;
+      case 'Implemented':
+        return <CheckCircle className="w-4 h-4 text-[#1ABC9C]" />;
       default:
         return <Clock className="w-4 h-4 text-[#7F8C8D]" />;
     }
   };
 
-  const getTypeClass = (type: string) => {
-    switch (type) {
-      case 'Budget Change':
-        return 'text-[#E74C3C] bg-[#E74C3C] bg-opacity-20';
-      case 'Schedule Change':
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Draft':
+        return 'text-[#7F8C8D] bg-[#7F8C8D] bg-opacity-20';
+      case 'Pending':
+      case 'Pending Review':
         return 'text-[#F39C12] bg-[#F39C12] bg-opacity-20';
-      case 'Scope Change':
+      case 'In Review':
+      case 'Under Review':
         return 'text-[#26D0CE] bg-[#26D0CE] bg-opacity-20';
-      case 'Resource Change':
-        return 'text-[#5B2C91] bg-[#5B2C91] bg-opacity-20';
-      case 'Quality Change':
+      case 'Approved':
         return 'text-[#2ECC71] bg-[#2ECC71] bg-opacity-20';
+      case 'Rejected':
+        return 'text-[#E74C3C] bg-[#E74C3C] bg-opacity-20';
+      case 'Implemented':
+        return 'text-[#1ABC9C] bg-[#1ABC9C] bg-opacity-20';
       default:
         return 'text-[#7F8C8D] bg-[#7F8C8D] bg-opacity-20';
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'Critical':
+        return 'text-[#E74C3C]';
+      case 'High':
+        return 'text-[#F39C12]';
+      case 'Medium':
+        return 'text-[#26D0CE]';
+      case 'Low':
+        return 'text-[#2ECC71]';
+      default:
+        return 'text-[#7F8C8D]';
     }
   };
 
@@ -97,8 +121,8 @@ export default function PendingApprovalsWidget() {
       <div className="bg-widget-bg rounded-lg shadow-sm p-4 border border-gray-200 h-full">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-            <Clock className="w-4 h-4" />
-            Pending Approvals
+            <FileEdit className="w-4 h-4" />
+            My Change Requests
           </h3>
         </div>
         <div className="animate-pulse space-y-2">
@@ -114,19 +138,19 @@ export default function PendingApprovalsWidget() {
     <div className="bg-widget-bg rounded-lg shadow-sm p-4 border border-gray-200 h-full flex flex-col">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-          <Clock className="w-4 h-4 text-[#5B2C91]" />
-          Pending Approvals
+          <FileEdit className="w-4 h-4 text-[#5B2C91]" />
+          My Change Requests
         </h3>
         <span className="px-2 py-1 bg-[#5B2C91] bg-opacity-20 text-[#5B2C91] text-xs rounded-full font-medium">
-          {requests.length} pending
+          {requests.length}
         </span>
       </div>
 
       {requests.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center py-8">
-          <CheckCircle className="w-12 h-12 text-gray-400 mb-3" />
-          <p className="text-gray-600 mb-1">No pending approvals</p>
-          <p className="text-sm text-gray-500">All caught up!</p>
+          <FileEdit className="w-12 h-12 text-gray-400 mb-3" />
+          <p className="text-gray-600 mb-1">No change requests</p>
+          <p className="text-sm text-gray-500">You haven't created any change requests yet</p>
         </div>
       ) : (
         <div className="space-y-2 flex-1 overflow-auto">
@@ -148,15 +172,21 @@ export default function PendingApprovalsWidget() {
                     </p>
                   </div>
                 </div>
-                {request.type && (
-                  <span className={`px-2 py-0.5 text-xs rounded-full font-medium whitespace-nowrap ${getTypeClass(request.type)}`}>
-                    {request.type}
+                {request.priority && (
+                  <span className={`text-xs font-bold ${getPriorityColor(request.priority)}`}>
+                    {request.priority}
                   </span>
                 )}
               </div>
-              <div className="flex items-center justify-between text-xs text-gray-500">
-                <span>{request.status}</span>
-                <span>{new Date(request.created_at).toLocaleDateString()}</span>
+              <div className="flex items-center justify-between text-xs">
+                <span className={`px-2 py-0.5 rounded-full font-medium ${getStatusColor(request.status)}`}>
+                  {request.status}
+                </span>
+                {request.type && (
+                  <span className="text-gray-500">
+                    {request.type}
+                  </span>
+                )}
               </div>
             </Link>
           ))}

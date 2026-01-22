@@ -73,8 +73,6 @@ export default function MyTasksWidget() {
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const nextWeek = new Date(today);
-      nextWeek.setDate(nextWeek.getDate() + 7);
 
       const myTasks: Task[] = [];
 
@@ -82,17 +80,13 @@ export default function MyTasksWidget() {
         const ganttData = projectTask.task_data?.data || [];
 
         ganttData.forEach((task: any) => {
-          if (!task.start_date) return;
-
-          const taskStartDate = new Date(task.start_date);
-          taskStartDate.setHours(0, 0, 0, 0);
-
           // Check if the task is assigned to the user's resource_id using owner_id
           const isAssignedToMe = task.owner_id === userData.resource_id;
           const isNotCompleted = task.status !== 'Completed' && task.status !== 'Cancelled';
-          const isRelevantDate = taskStartDate <= nextWeek;
+          const isNotFullyComplete = !task.progress || task.progress < 1;
 
-          if (isAssignedToMe && isNotCompleted && isRelevantDate) {
+          // Show all tasks assigned to me that aren't completed or at 100% progress
+          if (isAssignedToMe && isNotCompleted && isNotFullyComplete) {
             // Use end_date directly from database (already calculated with weekend-skipping)
             const endDate = task.end_date;
 
