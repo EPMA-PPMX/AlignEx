@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Clock, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { DEMO_USER_ID } from '../../lib/useCurrentUser';
 import { Link } from 'react-router-dom';
 
 interface TimesheetSummary {
@@ -22,6 +21,7 @@ export default function TimesheetQuickWidget() {
 
   useEffect(() => {
     fetchThisWeekHours();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchThisWeekHours = async () => {
@@ -40,7 +40,6 @@ export default function TimesheetQuickWidget() {
       const { data, error } = await supabase
         .from('timesheet_entries')
         .select('hours, is_billable, entry_date')
-        .eq('user_id', DEMO_USER_ID)
         .gte('entry_date', startOfWeek.toISOString().split('T')[0])
         .lte('entry_date', endOfWeek.toISOString().split('T')[0]);
 
@@ -70,13 +69,13 @@ export default function TimesheetQuickWidget() {
     }
   };
 
-  const billablePercentage = summary.totalHours > 0
-    ? Math.round((summary.billableHours / summary.totalHours) * 100)
-    : 0;
+  const TARGET_BILLABLE_HOURS = 40;
+  const billablePercentage = Math.min(Math.round((summary.billableHours / TARGET_BILLABLE_HOURS) * 100), 100);
+  const isOverTarget = summary.billableHours > TARGET_BILLABLE_HOURS;
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 h-full">
+      <div className="bg-widget-bg rounded-lg shadow-sm p-6 border border-gray-200 h-full">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
             <Clock className="w-5 h-5" />
@@ -92,15 +91,15 @@ export default function TimesheetQuickWidget() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 h-full flex flex-col">
+    <div className="bg-widget-bg rounded-lg shadow-sm p-6 border border-gray-200 h-full flex flex-col">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-          <Clock className="w-5 h-5 text-blue-600" />
+          <Clock className="w-5 h-5 text-[#5B2C91]" />
           This Week
         </h3>
         <Link
           to="/timesheet"
-          className="text-sm text-blue-600 hover:text-blue-700"
+          className="text-sm text-[#5B2C91] hover:text-[#4a2377]"
         >
           <ChevronRight className="w-4 h-4" />
         </Link>
@@ -118,13 +117,13 @@ export default function TimesheetQuickWidget() {
           <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-600">Billable</span>
-              <span className="text-sm font-semibold text-blue-600">
-                {summary.billableHours.toFixed(1)}h
+              <span className={`text-sm font-semibold ${isOverTarget ? 'text-red-600' : 'text-[#5B2C91]'}`}>
+                {summary.billableHours.toFixed(1)}h / {TARGET_BILLABLE_HOURS}h
               </span>
             </div>
             <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
               <div
-                className="h-full bg-blue-600 transition-all"
+                className={`h-full transition-all ${isOverTarget ? 'bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A]' : 'bg-gradient-dark'}`}
                 style={{ width: `${billablePercentage}%` }}
               />
             </div>
@@ -153,7 +152,7 @@ export default function TimesheetQuickWidget() {
       <div className="mt-4 pt-4 border-t border-gray-200">
         <Link
           to="/timesheet"
-          className="block w-full text-center py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
+          className="block w-full text-center py-2 px-4 bg-gradient-dark hover:opacity-90 text-white rounded-lg transition-opacity text-sm font-medium"
         >
           Log Hours
         </Link>

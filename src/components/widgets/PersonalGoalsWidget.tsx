@@ -25,6 +25,7 @@ export default function PersonalGoalsWidget() {
 
   useEffect(() => {
     fetchGoals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchGoals = async () => {
@@ -75,10 +76,11 @@ export default function PersonalGoalsWidget() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'in_progress': return 'bg-blue-500';
-      case 'not_started': return 'bg-gray-400';
-      case 'completed': return 'bg-green-500';
-      default: return 'bg-yellow-500';
+      case 'not_started': return 'bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A]';
+      case 'in_progress': return 'bg-gradient-to-br from-[#C76F21] to-[#FAAF65]';
+      case 'completed': return 'bg-gradient-to-br from-[#276A6C] to-[#5DB6B8]';
+      case 'on_hold': return 'bg-gradient-to-br from-[#4D5656] to-[#95A5A6]';
+      default: return 'bg-gradient-to-br from-[#4D5656] to-[#95A5A6]';
     }
   };
 
@@ -92,7 +94,7 @@ export default function PersonalGoalsWidget() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 h-full">
+      <div className="bg-widget-bg rounded-lg shadow-sm p-4 border border-gray-200 h-full">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
             <Target className="w-4 h-4" />
@@ -108,15 +110,15 @@ export default function PersonalGoalsWidget() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 h-full flex flex-col">
+    <div className="bg-widget-bg rounded-lg shadow-sm p-4 border border-gray-200 h-full flex flex-col">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-          <Target className="w-4 h-4 text-blue-600" />
+          <Target className="w-4 h-4 text-[#5B2C91]" />
           My Goals
         </h3>
         <Link
           to="/skills?tab=my-goals"
-          className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+          className="text-xs text-[#5B2C91] hover:text-[#4a2377] flex items-center gap-1"
         >
           View All
           <ChevronRight className="w-3 h-3" />
@@ -129,7 +131,7 @@ export default function PersonalGoalsWidget() {
           <p className="text-sm text-gray-600 mb-2">No active goals</p>
           <Link
             to="/skills?tab=my-goals"
-            className="text-xs text-blue-600 hover:text-blue-700"
+            className="text-xs text-[#5B2C91] hover:text-[#4a2377]"
           >
             Create your first goal
           </Link>
@@ -146,7 +148,7 @@ export default function PersonalGoalsWidget() {
               <Link
                 key={goal.id}
                 to={`/skills?tab=my-goals&goalId=${goal.id}`}
-                className="block bg-gray-50 p-3 rounded-lg border border-gray-200 hover:border-blue-300 transition-all"
+                className="block bg-gray-50 p-3 rounded-lg border border-gray-200 hover:border-[#26D0CE] transition-all"
               >
                 <div className="flex items-start justify-between mb-1.5">
                   <div className="flex-1">
@@ -155,13 +157,13 @@ export default function PersonalGoalsWidget() {
                       <span className={`px-2 py-0.5 rounded ${getStatusColor(goal.status)} text-white`}>
                         {goal.status.replace('_', ' ')}
                       </span>
-                      <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800">
+                      <span className="px-2 py-0.5 rounded bg-[#5B2C91] bg-opacity-20 text-[#5B2C91] font-medium">
                         {goal.goal_type.replace('_', ' ')}
                       </span>
                     </div>
                   </div>
                   {goal.target_date && (
-                    <div className={`text-xs ${isOverdue ? 'text-red-600' : isDueSoon ? 'text-orange-600' : 'text-gray-600'}`}>
+                    <div className={`text-xs ${isOverdue ? 'text-[#E74C3C]' : isDueSoon ? 'text-[#F39C12]' : 'text-gray-600'}`}>
                       <Calendar className="w-3 h-3 inline mr-1" />
                       {isOverdue ? `${Math.abs(daysUntil!)}d overdue` : `${daysUntil}d left`}
                     </div>
@@ -174,9 +176,9 @@ export default function PersonalGoalsWidget() {
                       <span className="text-xs">Progress</span>
                       <span className="text-xs">{progress}%</span>
                     </div>
-                    <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="w-full h-1.5 bg-[#E8E4F1] rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-blue-600 transition-all"
+                        className="h-full bg-gradient-dark transition-all"
                         style={{ width: `${progress}%` }}
                       />
                     </div>
@@ -196,7 +198,7 @@ export default function PersonalGoalsWidget() {
             </span>
             <Link
               to="/skills?tab=my-goals"
-              className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
+              className="text-[#5B2C91] hover:text-[#4a2377] flex items-center gap-1"
             >
               Manage Goals
               <ChevronRight className="w-3 h-3" />
