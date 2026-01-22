@@ -93,7 +93,7 @@ export default function StepBudget({ reportData, updateReportData }: Props) {
       </div>
 
       {loading ? (
-        <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+        <div className="text-center py-12 bg-widget-bg rounded-lg border border-gray-200">
           <p className="text-gray-500">Loading budget data...</p>
         </div>
       ) : forecasts.length === 0 ? (
