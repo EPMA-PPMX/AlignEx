@@ -9,13 +9,14 @@ import NewProject from './pages/NewProject';
 import ProjectDetail from './pages/ProjectDetail';
 import OrganizationalPriorities from './pages/OrganizationalPriorities';
 import Resources from './pages/Resources';
-import ResourceFulfillment from './pages/ResourceFulfillment';
 import Skills from './pages/Skills';
 import ActionItems from './pages/ActionItems';
 import Timesheet from './pages/Timesheet';
 import TimesheetApproval from './pages/TimesheetApproval';
 import Settings from './pages/Settings';
 import StatusReport from './pages/StatusReport';
+import TaskScheduler from './pages/TaskScheduler';
+import Teams from './pages/Teams';
 
 function App() {
   return (
@@ -30,12 +31,13 @@ function App() {
             <Route path="/projects/:id" element={<ProjectDetail />} />
             <Route path="/priorities" element={<OrganizationalPriorities />} />
             <Route path="/resources" element={<Resources />} />
-            <Route path="/resource-fulfillment" element={<ResourceFulfillment />} />
             <Route path="/skills" element={<Skills />} />
             <Route path="/action-items" element={<ActionItems />} />
             <Route path="/timesheet" element={<Timesheet />} />
             <Route path="/timesheet-approval" element={<TimesheetApproval />} />
             <Route path="/status-report" element={<StatusReport />} />
+            <Route path="/scheduler" element={<TaskScheduler />} />
+            <Route path="/teams" element={<Teams />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </Layout>
