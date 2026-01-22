@@ -13,7 +13,7 @@ interface Priority {
 interface Project {
   id: string;
   name: string;
-  status: string;
+  health_status: string;
 }
 
 interface ProjectImpact {
@@ -64,7 +64,7 @@ export default function ContributingProjects() {
         .from('project_priority_impacts')
         .select(`
           *,
-          project:projects(id, name, status)
+          project:projects(id, name, health_status)
         `)
         .order('created_at', { ascending: false });
 
@@ -202,7 +202,7 @@ export default function ContributingProjects() {
           <select
             value={selectedPriority}
             onChange={(e) => setSelectedPriority(e.target.value)}
-            className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           >
             <option value="all">All Priorities</option>
             {priorities.map((priority) => (
@@ -221,18 +221,23 @@ export default function ContributingProjects() {
       ) : (
         <div className="space-y-8">
           {filteredPriorities.map((priority) => (
-            <div key={priority.id} className="bg-white border border-slate-200 rounded-lg p-6">
+            <div key={priority.id} style={{ backgroundColor: '#F9F7FC' }} className="border border-slate-200 rounded-lg p-6">
               <div className="mb-4 pb-4 border-b border-slate-200">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-xl font-semibold text-slate-900">{priority.title}</h3>
                     <p className="text-sm text-slate-600 mt-1">
-                      Target: <span className="font-medium text-slate-900">{priority.target_value}</span>
+                      Target: <span className="font-medium text-slate-900">
+                        {priority.target_value.startsWith('$')
+                          ? priority.target_value
+                          : `$${parseFloat(priority.target_value.replace(/[^0-9.-]/g, '') || '0').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        }
+                      </span>
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-slate-600">Contributing Projects</p>
-                    <p className="text-2xl font-bold text-blue-600">{priority.impacts.length}</p>
+                    <p className="text-2xl font-bold text-primary-600">{priority.impacts.length}</p>
                   </div>
                 </div>
               </div>
@@ -244,24 +249,24 @@ export default function ContributingProjects() {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-slate-200">
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">
+                    <thead className="bg-gradient-dark">
+                      <tr className="border-b border-primary-600">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-white">
                           Project / Request
                         </th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-white">
                           Status
                         </th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-white">
                           Expected Contribution
                         </th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-white">
                           Actual Impact
                         </th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-white">
                           Variance
                         </th>
-                        <th className="text-center py-3 px-4 text-sm font-semibold text-slate-700">
+                        <th className="text-center py-3 px-4 text-sm font-semibold text-white">
                           Actions
                         </th>
                       </tr>
@@ -282,19 +287,19 @@ export default function ContributingProjects() {
                           </td>
                           <td className="py-3 px-4">
                             <span
-                              className={`px-2 py-1 text-xs font-medium rounded ${
-                                impact.project.status === 'Completed'
-                                  ? 'bg-green-100 text-green-800'
-                                  : impact.project.status === 'In-Progress'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : impact.project.status === 'Planning'
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : impact.project.status === 'Pending Request'
-                                  ? 'bg-yellow-100 text-yellow-800'
+                              className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${
+                                impact.project.health_status === 'On Track'
+                                  ? 'bg-gradient-to-br from-[#276A6C] to-[#5DB6B8] text-white border-[#5DB6B8]'
+                                  : impact.project.health_status === 'At Risk'
+                                  ? 'bg-gradient-to-br from-[#C76F21] to-[#FAAF65] text-white border-[#F89D43]'
+                                  : impact.project.health_status === 'Delayed'
+                                  ? 'bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A] text-white border-[#FD5D5D]'
+                                  : impact.project.health_status === 'Completed'
+                                  ? 'bg-gradient-to-br from-[#276A6C] to-[#5DB6B8] text-white border-[#5DB6B8]'
                                   : 'bg-slate-100 text-slate-800'
                               }`}
                             >
-                              {impact.project.status}
+                              {impact.project.health_status || 'Not Set'}
                             </span>
                           </td>
                           <td className="py-3 px-4 text-slate-700">{impact.planned_impact}</td>
@@ -320,7 +325,7 @@ export default function ContributingProjects() {
                                   navigate(`/projects/${impact.project_id}`);
                                 }
                               }}
-                              className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm font-medium"
+                              className="inline-flex items-center gap-1 text-primary-700 hover:text-primary-800 text-sm font-medium"
                               title={impact.source === 'initiative' ? 'View pending request' : 'View project details'}
                             >
                               View
@@ -337,27 +342,27 @@ export default function ContributingProjects() {
               {priority.impacts.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-slate-200">
                   <div className="grid grid-cols-4 gap-4 text-sm">
-                    <div className="bg-blue-50 rounded-lg p-3">
-                      <p className="text-slate-600 mb-1">Total Contributing</p>
-                      <p className="text-lg font-semibold text-blue-700">
+                    <div className="bg-gradient-to-br from-[#7e22ce]/10 to-[#a855f7]/10 rounded-lg p-3 border border-[#7e22ce]/20">
+                      <p className="text-[#7e22ce] font-medium mb-1">Total Contributing</p>
+                      <p className="text-lg font-semibold text-[#7e22ce]">
                         {priority.impacts.length} {priority.impacts.length === 1 ? 'item' : 'items'}
                       </p>
                     </div>
-                    <div className="bg-yellow-50 rounded-lg p-3">
-                      <p className="text-slate-600 mb-1">Pending Requests</p>
-                      <p className="text-lg font-semibold text-yellow-700">
+                    <div className="bg-gradient-to-br from-[#7e22ce]/10 to-[#a855f7]/10 rounded-lg p-3 border border-[#7e22ce]/20">
+                      <p className="text-[#7e22ce] font-medium mb-1">Pending Requests</p>
+                      <p className="text-lg font-semibold text-[#FD5D5D]">
                         {priority.impacts.filter((i) => i.source === 'initiative').length}
                       </p>
                     </div>
-                    <div className="bg-green-50 rounded-lg p-3">
-                      <p className="text-slate-600 mb-1">Reported Actuals</p>
-                      <p className="text-lg font-semibold text-green-700">
+                    <div className="bg-gradient-to-br from-[#7e22ce]/10 to-[#a855f7]/10 rounded-lg p-3 border border-[#7e22ce]/20">
+                      <p className="text-[#7e22ce] font-medium mb-1">Reported Actuals</p>
+                      <p className="text-lg font-semibold text-[#5DB6B8]">
                         {priority.impacts.filter((i) => i.actual_impact).length} of {priority.impacts.length}
                       </p>
                     </div>
-                    <div className="bg-amber-50 rounded-lg p-3">
-                      <p className="text-slate-600 mb-1">Pending Reports</p>
-                      <p className="text-lg font-semibold text-amber-700">
+                    <div className="bg-gradient-to-br from-[#7e22ce]/10 to-[#a855f7]/10 rounded-lg p-3 border border-[#7e22ce]/20">
+                      <p className="text-[#7e22ce] font-medium mb-1">Pending Reports</p>
+                      <p className="text-lg font-semibold text-[#F89D43]">
                         {priority.impacts.filter((i) => !i.actual_impact).length}
                       </p>
                     </div>

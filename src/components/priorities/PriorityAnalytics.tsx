@@ -185,27 +185,32 @@ export default function PriorityAnalytics() {
 
       <div className="grid gap-6">
         {analytics.map((data) => (
-          <div key={data.priority.id} className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+          <div key={data.priority.id} style={{ backgroundColor: '#F9F7FC' }} className="border border-slate-200 rounded-lg overflow-hidden">
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 border-b border-slate-200">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <h3 className="text-xl font-semibold text-slate-900 mb-1">{data.priority.title}</h3>
                   <p className="text-sm text-slate-600">
-                    Target: <span className="font-medium text-slate-900">{data.priority.target_value}</span>
+                    Target: <span className="font-medium text-slate-900">
+                      {data.priority.target_value.startsWith('$')
+                        ? data.priority.target_value
+                        : `$${parseFloat(data.priority.target_value.replace(/[^0-9.-]/g, '') || '0').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      }
+                    </span>
                   </p>
                   <p className="text-sm text-slate-600">
                     Owner: <span className="font-medium text-slate-900">{data.priority.owner}</span>
                   </p>
                 </div>
-                <Target className="w-8 h-8 text-blue-600" />
+                <Target className="w-8 h-8 text-primary-600" />
               </div>
             </div>
 
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-4 gap-4">
-                <div className="bg-blue-50 rounded-lg p-4">
+                <div className="bg-primary-50 rounded-lg p-4">
                   <p className="text-sm text-slate-600 mb-1">Total Projects</p>
-                  <p className="text-2xl font-bold text-blue-700">{data.totalProjects}</p>
+                  <p className="text-2xl font-bold text-primary-700">{data.totalProjects}</p>
                 </div>
                 <div className="bg-green-50 rounded-lg p-4">
                   <p className="text-sm text-slate-600 mb-1">Reported</p>
@@ -223,13 +228,13 @@ export default function PriorityAnalytics() {
 
               <div>
                 <div className="flex items-center gap-2 mb-3">
-                  <CheckCircle className="w-5 h-5 text-blue-600" />
+                  <CheckCircle className="w-5 h-5 text-primary-600" />
                   <h4 className="text-lg font-semibold text-slate-900">Key Insights</h4>
                 </div>
                 <div className="space-y-2">
                   {data.insights.map((insight, index) => (
                     <div key={index} className="flex items-start gap-2 text-slate-700">
-                      <span className="text-blue-600 mt-1">•</span>
+                      <span className="text-primary-600 mt-1">•</span>
                       <p className="text-sm">{insight}</p>
                     </div>
                   ))}
