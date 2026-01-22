@@ -1447,6 +1447,12 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     gantt.config.row_height = 42;
     gantt.config.task_height = 26;
 
+    // Configure milestone bar height to match row positioning
+    gantt.config.bar_height = 26;
+
+    // Enable task cells for proper milestone rendering (absolute positioning)
+    gantt.config.show_task_cells = true;
+
     // Build columns dynamically based on selected custom fields
     this.buildGanttColumns();
 
@@ -1471,15 +1477,13 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       return "";
     };
 
-    // Configure milestone text display - required for milestones to render properly
+    // Hide text for milestones - show only diamond
     gantt.templates.rightside_text = function(start: any, end: any, task: any) {
-      if (task.type === gantt.config.types.milestone || task.type === "milestone") {
-        return task.text;
-      }
+      // No text for milestones
       return "";
     };
 
-    // Hide text inside milestone diamond, show text to the right instead
+    // Hide text inside milestone diamond
     gantt.templates.task_text = function(start: any, end: any, task: any) {
       if (task.type === gantt.config.types.milestone || task.type === "milestone") {
         return "";
@@ -2381,6 +2385,9 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         // Clear all existing data and datastores
         gantt.clearAll();
 
+        // Ensure task cells are enabled for proper milestone rendering
+        gantt.config.show_task_cells = true;
+
         // Reinitialize with new layout
         gantt.init(this.ganttContainer.current);
 
@@ -2707,6 +2714,8 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           // Try to recover by clearing and re-initializing
           gantt.clearAll();
           if (this.ganttContainer.current) {
+            // Ensure task cells are enabled for proper milestone rendering
+            gantt.config.show_task_cells = true;
             gantt.init(this.ganttContainer.current);
           }
         }
