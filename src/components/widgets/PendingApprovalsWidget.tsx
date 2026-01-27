@@ -23,6 +23,7 @@ export default function PendingApprovalsWidget() {
 
   useEffect(() => {
     fetchPendingApprovals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchPendingApprovals = async () => {
@@ -43,7 +44,7 @@ export default function PendingApprovalsWidget() {
             name
           )
         `)
-        .in('status', ['Pending Review', 'Under Review'])
+        .in('status', ['Pending', 'In Review'])
         .order('created_at', { ascending: false })
         .limit(10);
 
@@ -59,39 +60,41 @@ export default function PendingApprovalsWidget() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
+      case 'Pending':
       case 'Pending Review':
-        return <Clock className="w-4 h-4 text-yellow-600" />;
+        return <Clock className="w-4 h-4 text-[#F39C12]" />;
+      case 'In Review':
       case 'Under Review':
-        return <AlertCircle className="w-4 h-4 text-blue-600" />;
+        return <AlertCircle className="w-4 h-4 text-[#26D0CE]" />;
       case 'Approved':
-        return <CheckCircle className="w-4 h-4 text-green-600" />;
+        return <CheckCircle className="w-4 h-4 text-[#2ECC71]" />;
       case 'Rejected':
-        return <XCircle className="w-4 h-4 text-red-600" />;
+        return <XCircle className="w-4 h-4 text-[#E74C3C]" />;
       default:
-        return <Clock className="w-4 h-4 text-gray-600" />;
+        return <Clock className="w-4 h-4 text-[#7F8C8D]" />;
     }
   };
 
   const getTypeClass = (type: string) => {
     switch (type) {
       case 'Budget Change':
-        return 'text-red-700 bg-red-100';
+        return 'text-[#E74C3C] bg-[#E74C3C] bg-opacity-20';
       case 'Schedule Change':
-        return 'text-yellow-700 bg-yellow-100';
+        return 'text-[#F39C12] bg-[#F39C12] bg-opacity-20';
       case 'Scope Change':
-        return 'text-blue-700 bg-blue-100';
+        return 'text-[#26D0CE] bg-[#26D0CE] bg-opacity-20';
       case 'Resource Change':
-        return 'text-purple-700 bg-purple-100';
+        return 'text-[#5B2C91] bg-[#5B2C91] bg-opacity-20';
       case 'Quality Change':
-        return 'text-green-700 bg-green-100';
+        return 'text-[#2ECC71] bg-[#2ECC71] bg-opacity-20';
       default:
-        return 'text-gray-700 bg-gray-100';
+        return 'text-[#7F8C8D] bg-[#7F8C8D] bg-opacity-20';
     }
   };
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 h-full">
+      <div className="bg-widget-bg rounded-lg shadow-sm p-4 border border-gray-200 h-full">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
             <Clock className="w-4 h-4" />
@@ -108,13 +111,13 @@ export default function PendingApprovalsWidget() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 h-full flex flex-col">
+    <div className="bg-widget-bg rounded-lg shadow-sm p-4 border border-gray-200 h-full flex flex-col">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-          <Clock className="w-4 h-4 text-blue-600" />
+          <Clock className="w-4 h-4 text-[#5B2C91]" />
           Pending Approvals
         </h3>
-        <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+        <span className="px-2 py-1 bg-[#5B2C91] bg-opacity-20 text-[#5B2C91] text-xs rounded-full font-medium">
           {requests.length} pending
         </span>
       </div>
@@ -131,7 +134,7 @@ export default function PendingApprovalsWidget() {
             <Link
               key={request.id}
               to={`/projects/${request.project_id}`}
-              className="block bg-gray-50 p-3 rounded-lg border border-gray-200 hover:border-blue-300 transition-all"
+              className="block bg-gray-50 p-3 rounded-lg border border-gray-200 hover:border-[#26D0CE] transition-all"
             >
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div className="flex items-start gap-2 flex-1 min-w-0">

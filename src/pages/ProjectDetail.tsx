@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp, Search, Group, Flag, ZoomIn, ZoomOut, Maximize2, Minimize2, History } from 'lucide-react';
+import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp, Search, Group, Flag, ZoomIn, ZoomOut, Maximize2, Minimize2, History, ChevronRight, ChevronLeft, Undo, Redo, Link2, Unlink } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNotification } from '../lib/useNotification';
 import { trackFieldHistory, shouldTrackFieldHistory } from '../lib/fieldHistoryTracker';
 import { MonthlyBudgetGrid } from '../components/MonthlyBudgetGrid';
 import { BudgetSummaryTiles } from '../components/BudgetSummaryTiles';
 import Gantt from "../components/Gantt/Gantt";
+import Scheduler from "../components/Scheduler/Scheduler";
 import ProjectStatusDropdown from '../components/ProjectStatusDropdown';
 import ProjectHealthStatus from '../components/ProjectHealthStatus';
 import BenefitTracking from '../components/BenefitTracking';
@@ -14,6 +15,7 @@ import ProjectTeams from '../components/ProjectTeams';
 import PeoplePicker from '../components/PeoplePicker';
 import CustomFieldsRenderer from '../components/CustomFieldsRenderer';
 import SearchableMultiSelect from '../components/SearchableMultiSelect';
+import DocumentUpload from '../components/DocumentUpload';
 import { loadCustomFieldValues, saveCustomFieldValues } from '../lib/customFieldHelpers';
 
 interface Project {
@@ -100,6 +102,16 @@ interface Issue {
   updated_at: string;
 }
 
+interface ProjectTeamMember {
+  id: string;
+  resource_id: string;
+  allocation_percentage: number;
+  resources?: {
+    id: string;
+    display_name: string;
+  };
+}
+
 interface ChangeRequest {
   id: string;
   project_id: string;
@@ -151,15 +163,84 @@ interface MonthlyBudgetForecast {
   updated_at: string;
 }
 
+// Helper function to format currency
+const formatCurrency = (value: string): string => {
+  // Remove all non-numeric characters except decimal
+  const numericValue = value.replace(/[^\d.]/g, '');
+  if (!numericValue) return '';
+
+  // Split into integer and decimal parts
+  const parts = numericValue.split('.');
+  // Format integer part with commas
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+  return parts.join('.');
+};
+
+// Helper function to parse currency to numeric value
+const parseCurrency = (value: string): string => {
+  return value.replace(/[^\d.]/g, '');
+};
+
+// Helper function to format date to YYYY-MM-DD
+const formatDateToYYYYMMDD = (dateValue: any): string => {
+  if (!dateValue) return '';
+
+  // If it's already a string in the right format, return it
+  if (typeof dateValue === 'string') {
+    // Extract just the YYYY-MM-DD part if it has time
+    const datePart = dateValue.split(' ')[0];
+    // Validate it's in YYYY-MM-DD format
+    if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+      return datePart;
+    }
+    // Try to parse ISO string
+    if (dateValue.includes('T')) {
+      const parsed = new Date(dateValue);
+      if (!isNaN(parsed.getTime())) {
+        const year = parsed.getFullYear();
+        const month = String(parsed.getMonth() + 1).padStart(2, '0');
+        const day = String(parsed.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+    }
+    return datePart;
+  }
+
+  // If it's a Date object
+  if (dateValue instanceof Date && !isNaN(dateValue.getTime())) {
+    const year = dateValue.getFullYear();
+    const month = String(dateValue.getMonth() + 1).padStart(2, '0');
+    const day = String(dateValue.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  return '';
+};
+
 const ProjectDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { showConfirm, showNotification } = useNotification();
   const [activeTab, setActiveTab] = useState('overview');
+  const [timelineView, setTimelineView] = useState<'gantt' | 'scheduler'>('gantt');
 
   // Utility function to adjust date to skip weekends
   const adjustToWorkday = (dateString: string): string => {
-    const date = new Date(dateString);
+    // Parse date components to avoid timezone issues
+    // Input format is YYYY-MM-DD from date input
+    const parts = dateString.split('-');
+    if (parts.length !== 3) {
+      console.error('Invalid date format provided to adjustToWorkday:', dateString);
+      return dateString;
+    }
+
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
+    const day = parseInt(parts[2], 10);
+
+    // Create date in local timezone
+    const date = new Date(year, month, day);
 
     // Check if date is valid
     if (isNaN(date.getTime())) {
@@ -179,10 +260,10 @@ const ProjectDetail: React.FC = () => {
     }
 
     // Format back to YYYY-MM-DD
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    const adjustedYear = date.getFullYear();
+    const adjustedMonth = String(date.getMonth() + 1).padStart(2, '0');
+    const adjustedDay = String(date.getDate()).padStart(2, '0');
+    return `${adjustedYear}-${adjustedMonth}-${adjustedDay}`;
   };
   const [project, setProject] = useState<Project | null>(null);
   const [overviewConfig, setOverviewConfig] = useState<OverviewConfiguration | null>(null);
@@ -271,6 +352,7 @@ const ProjectDetail: React.FC = () => {
     cost_impact: '',
     risk_impact: 'Low',
     resource_impact: 'Low',
+    status: 'Pending',
     attachments: ''
   });
 
@@ -293,8 +375,9 @@ const ProjectDetail: React.FC = () => {
     progress: 0
   });
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const [resourceAllocations, setResourceAllocations] = useState<Record<string, number>>({});
 
-  const [projectTeamMembers, setProjectTeamMembers] = useState<any[]>([]);
+  const [projectTeamMembers, setProjectTeamMembers] = useState<ProjectTeamMember[]>([]);
 
   const [uploadedFiles, setUploadedFiles] = useState<Array<{
     fileName: string;
@@ -315,7 +398,11 @@ const ProjectDetail: React.FC = () => {
   const [showResourcePanel, setShowResourcePanel] = useState(false);
 
   const [taskSearchQuery, setTaskSearchQuery] = useState('');
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<number[]>([]);
   const ganttRef = useRef<any>(null);
+  const msProjectFileInputRef = useRef<HTMLInputElement>(null);
+  const [importingMSProject, setImportingMSProject] = useState(false);
 
   const tabs = [
     { id: 'overview', name: 'Overview', icon: Target },
@@ -390,23 +477,33 @@ const ProjectDetail: React.FC = () => {
 
   // Initialize new custom fields in all tasks when fields are added
   useEffect(() => {
-    const initializeNewFieldsInTasks = async () => {
-      if (!id || !project || projectTasks.data.length === 0 || taskCustomFields.length === 0) return;
+    // Debounce to prevent rapid re-runs during task loading
+    const timeoutId = setTimeout(() => {
+      initializeNewFieldsInTasks();
+    }, 500);
 
-      // Find newly added fields
-      const previousFields = prevSelectedTaskFieldsRef.current;
-      const newFieldIds = selectedTaskFields.filter(fieldId => !previousFields.includes(fieldId));
+    return () => clearTimeout(timeoutId);
+  }, [selectedTaskFields, id, project]);
 
-      if (newFieldIds.length === 0) {
-        prevSelectedTaskFieldsRef.current = selectedTaskFields;
-        return;
-      }
+  const initializeNewFieldsInTasks = async () => {
+    if (!id || !project || projectTasks.data.length === 0 || taskCustomFields.length === 0) return;
 
-      console.log('Initializing new fields in tasks:', newFieldIds);
+    // Find newly added fields
+    const previousFields = prevSelectedTaskFieldsRef.current;
+    const newFieldIds = selectedTaskFields.filter(fieldId => !previousFields.includes(fieldId));
+
+    if (newFieldIds.length === 0) {
+      prevSelectedTaskFieldsRef.current = selectedTaskFields;
+      return;
+    }
+
+    console.log('Initializing new fields in tasks:', newFieldIds);
 
       // Create a copy of tasks and add new fields with null values
       const updatedTasks = projectTasks.data.map((task: any) => {
-        const updatedTask = { ...task };
+        // Exclude end_date to ensure Gantt recalculates it from duration
+        const { end_date, ...taskWithoutEndDate } = task;
+        const updatedTask = { ...taskWithoutEndDate };
 
         newFieldIds.forEach(fieldId => {
           const field = taskCustomFields.find(f => f.id === fieldId);
@@ -450,12 +547,9 @@ const ProjectDetail: React.FC = () => {
         console.error('Error saving initialized fields:', error);
       }
 
-      // Update the ref for next comparison
-      prevSelectedTaskFieldsRef.current = selectedTaskFields;
-    };
-
-    initializeNewFieldsInTasks();
-  }, [selectedTaskFields, id, project]);
+    // Update the ref for next comparison
+    prevSelectedTaskFieldsRef.current = selectedTaskFields;
+  };
 
   const fetchProject = async () => {
     try {
@@ -822,14 +916,14 @@ const ProjectDetail: React.FC = () => {
               if (startDate.includes('T') || startDate.includes('Z')) {
                 startDate = startDate.split('T')[0];
               }
-              // Ensure it has time component
-              if (!startDate.includes(':')) {
-                startDate = `${startDate} 00:00`;
+              // Extract just date part if there's a time component
+              if (startDate.includes(' ')) {
+                startDate = startDate.split(' ')[0];
               }
             } else {
-              // If no start date, use today
+              // If no start date, use today (date only, no time)
               const today = new Date();
-              startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')} 00:00`;
+              startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
               console.warn(`Task ${task.id} missing start_date, using today`);
             }
 
@@ -858,9 +952,18 @@ const ProjectDetail: React.FC = () => {
 
             // Use stored duration - let Gantt calculate end_date from start_date + duration
             // This ensures working days logic is applied correctly
-            const duration = task.duration || 1;
-            console.log(`Task ${task.id} (${task.text}): Raw duration from DB = ${task.duration}, Using duration = ${duration}`);
-            console.log(`Task ${task.id}: Will let Gantt calculate end_date from start_date + duration`);
+            // Ensure duration is a valid number (convert string to number if needed)
+            let duration = task.duration;
+            console.log(`Task ${task.id} from DB: duration=${task.duration} (type: ${typeof task.duration})`);
+            if (typeof duration === 'string') {
+              duration = parseFloat(duration);
+              console.log(`  Converted string to number: ${duration}`);
+            }
+            if (typeof duration !== 'number' || isNaN(duration) || duration < 1) {
+              console.log(`  Invalid duration, setting to 1`);
+              duration = 1;
+            }
+            console.log(`  Final duration: ${duration} (type: ${typeof duration})`);
 
             const taskObject = {
               id: task.id,
@@ -876,15 +979,11 @@ const ProjectDetail: React.FC = () => {
               owner_name: task.owner_name,
               resource_ids: task.resource_ids || [],
               resource_names: task.resource_names || [],
+              work_hours: task.work_hours || 0,
+              resource_work_hours: task.resource_work_hours || {},
+              resource_allocations: task.resource_allocations || {},
               ...customFields  // Spread all custom fields
             };
-
-            console.log(`Task ${task.id} final object being returned:`, {
-              id: taskObject.id,
-              text: taskObject.text,
-              start_date: taskObject.start_date,
-              duration: taskObject.duration
-            });
 
             return taskObject;
           });
@@ -895,15 +994,18 @@ const ProjectDetail: React.FC = () => {
         const resourcesData = await fetchResourcesForGantt();
         const assignmentsData = await fetchResourceAssignments();
 
-        setProjectTasks({
-          data: taskData.data || [],
-          links: taskData.links || [],
-          baseline: taskData.baseline || [],
-          resources: resourcesData,
-          resourceAssignments: assignmentsData
-        });
-        // Reset grouping state when new data is loaded
-        setIsGroupedByOwner(false);
+        // Use setTimeout to allow UI thread to breathe
+        setTimeout(() => {
+          setProjectTasks({
+            data: taskData.data || [],
+            links: taskData.links || [],
+            baseline: taskData.baseline || [],
+            resources: resourcesData,
+            resourceAssignments: assignmentsData
+          });
+          // Reset grouping state when new data is loaded
+          setIsGroupedByOwner(false);
+        }, 0);
       } else {
         console.log('No task data found for project, setting empty array');
         setProjectTasks({ data: [], links: [], resources: [], resourceAssignments: [] });
@@ -974,32 +1076,23 @@ const ProjectDetail: React.FC = () => {
       if (!taskError && taskData?.task_data) {
         const tasks = taskData.task_data.data || [];
 
-        // Fetch resource assignments
-        const taskIds = tasks.map((t: any) => t.id);
-        if (taskIds.length > 0) {
-          const { data: assignments } = await supabase
-            .from('task_resource_assignments')
-            .select('task_id, resource_id')
-            .in('task_id', taskIds);
+        // Calculate total hours per resource using resource_ids from task data
+        const resourceHours: { [key: string]: number } = {};
 
-          // Calculate total hours per resource
-          const resourceHours: { [key: string]: number } = {};
+        tasks.forEach((task: any) => {
+          if (task.resource_ids && Array.isArray(task.resource_ids) && task.duration) {
+            // Convert days to hours (assuming 8 hours per day)
+            const hours = task.duration * 8;
+            task.resource_ids.forEach((resourceId: string) => {
+              resourceHours[resourceId] = (resourceHours[resourceId] || 0) + hours;
+            });
+          }
+        });
 
-          (assignments || []).forEach((assignment: any) => {
-            const task = tasks.find((t: any) => t.id === assignment.task_id);
-            if (task && task.duration) {
-              // Convert days to hours (assuming 8 hours per day)
-              const hours = task.duration * 8;
-              resourceHours[assignment.resource_id] =
-                (resourceHours[assignment.resource_id] || 0) + hours;
-            }
-          });
-
-          // Add hours to resource objects
-          uniqueResources.forEach((resource: any) => {
-            resource.hours = resourceHours[resource.id] || 0;
-          });
-        }
+        // Add hours to resource objects
+        uniqueResources.forEach((resource: any) => {
+          resource.hours = resourceHours[resource.id] || 0;
+        });
       }
 
       return uniqueResources;
@@ -1025,31 +1118,24 @@ const ProjectDetail: React.FC = () => {
         return [];
       }
 
-      // Extract task IDs from task_data
-      const taskIds = (tasks.task_data.data || []).map((t: any) => t.id);
+      // Build assignments from resource_ids in task data
+      const assignments: any[] = [];
+      let assignmentId = 1;
 
-      if (taskIds.length === 0) {
-        return [];
-      }
+      (tasks.task_data.data || []).forEach((task: any) => {
+        if (task.resource_ids && Array.isArray(task.resource_ids)) {
+          task.resource_ids.forEach((resourceId: string) => {
+            assignments.push({
+              id: assignmentId++,
+              task_id: task.id,
+              resource_id: resourceId,
+              value: 1
+            });
+          });
+        }
+      });
 
-      // Fetch assignments for these tasks
-      const { data, error } = await supabase
-        .from('task_resource_assignments')
-        .select('id, task_id, resource_id')
-        .in('task_id', taskIds);
-
-      if (error) {
-        console.error('Error fetching resource assignments:', error);
-        return [];
-      }
-
-      // Transform to Gantt assignment format
-      return (data || []).map(assignment => ({
-        id: assignment.id,
-        task_id: assignment.task_id,
-        resource_id: assignment.resource_id,
-        value: 1
-      }));
+      return assignments;
     } catch (error) {
       console.error('Error fetching resource assignments:', error);
       return [];
@@ -1065,6 +1151,7 @@ const ProjectDetail: React.FC = () => {
         .select(`
           id,
           resource_id,
+          allocation_percentage,
           resources (
             id,
             display_name
@@ -1075,6 +1162,7 @@ const ProjectDetail: React.FC = () => {
       if (error) {
         console.error('Error fetching project team members:', error);
       } else {
+        console.log('Fetched project team members with allocations:', data);
         setProjectTeamMembers(data || []);
 
         // Refresh Gantt resources when team members change
@@ -1246,10 +1334,11 @@ const ProjectDetail: React.FC = () => {
           const taskId = task.$original_id || task.id;
           // Only add if not already in map (handles duplicates from grouping)
           if (!taskMap.has(taskId)) {
-            // Collect custom fields and baseline fields (string format only, not Date objects)
+            // Collect custom fields, baseline fields, and resource fields (string format only, not Date objects)
             const extraFields: any = {};
             Object.keys(task).forEach(key => {
-              if (key.startsWith('custom_') || key.startsWith('baseline')) {
+              if (key.startsWith('custom_') || key.startsWith('baseline') ||
+                  key === 'work_hours' || key === 'resource_work_hours' || key === 'resource_allocations') {
                 extraFields[key] = task[key];
               }
             });
@@ -1264,24 +1353,35 @@ const ProjectDetail: React.FC = () => {
 
             console.log(`Task ${taskId}: duration=${task.duration} (type: ${typeof task.duration}), cleaned duration=${duration}`);
 
-            // Always calculate end_date using DHTMLX Gantt to ensure it accounts for weekends
-            let endDate: string | null = null;
-            if (task.start_date && duration) {
-              // Always recalculate using DHTMLX's calculateEndDate (which respects work_time/weekends)
+            // Format start_date and end_date to YYYY-MM-DD (date only, no time)
+            let formattedStartDate = task.start_date;
+            let calculatedEndDate = task.end_date;
+
+            if (task.start_date && ganttInstance) {
               const startDate = typeof task.start_date === 'string'
                 ? ganttInstance.date.parseDate(task.start_date, "xml_date")
                 : task.start_date;
-              const calculatedEndDate = ganttInstance.calculateEndDate(startDate, duration);
-              endDate = calculatedEndDate.toISOString().split('T')[0] + ' 00:00';
-              console.log(`Task ${taskId}: Calculated end_date=${endDate} from start=${task.start_date} + duration=${duration}`);
+
+              // Format start_date to YYYY-MM-DD
+              formattedStartDate = ganttInstance.date.date_to_str("%Y-%m-%d")(startDate);
+
+              // Calculate exclusive end_date as expected by DHTMLX Gantt
+              if (duration > 0) {
+                // DHTMLX uses exclusive end dates (end_date = start of day after task completes)
+                // Store this exclusive end_date so Gantt can correctly calculate duration when parsing
+                const exclusiveEndDate = ganttInstance.calculateEndDate(startDate, duration);
+                calculatedEndDate = ganttInstance.date.date_to_str("%Y-%m-%d")(exclusiveEndDate);
+              }
             }
 
-            taskMap.set(taskId, {
+            // Build the task object for storage
+            // Save end_date along with start_date and duration for consistency
+            const taskToSave: any = {
               id: taskId,
               text: task.text,
-              start_date: task.start_date,
+              start_date: formattedStartDate,
+              end_date: calculatedEndDate, // Save the exclusive end_date as expected by Gantt
               duration: duration,
-              end_date: endDate,
               progress: task.progress || 0,
               type: task.type || 'task',
               parent: task.$original_parent !== undefined ? task.$original_parent : (task.parent || 0),
@@ -1290,7 +1390,10 @@ const ProjectDetail: React.FC = () => {
               resource_ids: task.resource_ids || [],
               resource_names: task.resource_names || [],
               ...extraFields // Include custom fields and baseline fields
-            });
+            };
+
+            console.log(`Saving task ${taskId} to DB: duration=${taskToSave.duration} (type: ${typeof taskToSave.duration}), start_date=${taskToSave.start_date}, end_date=${taskToSave.end_date}`);
+            taskMap.set(taskId, taskToSave);
           }
         });
 
@@ -1359,6 +1462,377 @@ const ProjectDetail: React.FC = () => {
     }
   };
 
+  const updateTaskProgress = async (progressValue: number) => {
+    if (!selectedTaskId || !ganttRef.current) return;
+
+    try {
+      const ganttInstance = ganttRef.current.getGanttInstance();
+      if (!ganttInstance) return;
+
+      // Get the task and update its progress
+      const task = ganttInstance.getTask(selectedTaskId);
+      if (task) {
+        task.progress = progressValue / 100;
+        ganttInstance.updateTask(selectedTaskId);
+
+        // Save to database
+        await saveProjectTasks();
+        showNotification(`Task progress updated to ${progressValue}%`, 'success');
+      }
+    } catch (error) {
+      console.error('Error updating task progress:', error);
+      showNotification('Failed to update task progress', 'error');
+    }
+  };
+
+  const indentTask = async () => {
+    if (!selectedTaskId || !ganttRef.current) return;
+
+    try {
+      const ganttInstance = ganttRef.current.getGanttInstance();
+      if (!ganttInstance) return;
+
+      // Trigger DHTMLX Gantt's built-in indent command (Shift+Right Arrow)
+      const event = new KeyboardEvent('keydown', {
+        key: 'ArrowRight',
+        code: 'ArrowRight',
+        keyCode: 39,
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true
+      });
+
+      // Dispatch the event to the gantt container
+      const ganttContainer = document.querySelector('.gantt_container');
+      if (ganttContainer) {
+        ganttContainer.dispatchEvent(event);
+
+        // Wait a bit for the indent to process, then save
+        setTimeout(async () => {
+          await saveProjectTasks();
+          showNotification('Task indented successfully', 'success');
+        }, 100);
+      }
+    } catch (error) {
+      console.error('Error indenting task:', error);
+      showNotification('Failed to indent task', 'error');
+    }
+  };
+
+  const outdentTask = async () => {
+    if (!selectedTaskId || !ganttRef.current) return;
+
+    try {
+      const ganttInstance = ganttRef.current.getGanttInstance();
+      if (!ganttInstance) return;
+
+      // Trigger DHTMLX Gantt's built-in outdent command (Shift+Left Arrow)
+      const event = new KeyboardEvent('keydown', {
+        key: 'ArrowLeft',
+        code: 'ArrowLeft',
+        keyCode: 37,
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true
+      });
+
+      // Dispatch the event to the gantt container
+      const ganttContainer = document.querySelector('.gantt_container');
+      if (ganttContainer) {
+        ganttContainer.dispatchEvent(event);
+
+        // Wait a bit for the outdent to process, then save
+        setTimeout(async () => {
+          await saveProjectTasks();
+          showNotification('Task outdented successfully', 'success');
+        }, 100);
+      }
+    } catch (error) {
+      console.error('Error outdenting task:', error);
+      showNotification('Failed to outdent task', 'error');
+    }
+  };
+
+  const undoAction = () => {
+    if (!ganttRef.current) return;
+
+    try {
+      const ganttInstance = ganttRef.current.getGanttInstance();
+      if (!ganttInstance) {
+        console.error('Gantt instance not found');
+        return;
+      }
+
+      console.log('Attempting undo...');
+      console.log('Gantt instance:', ganttInstance);
+      console.log('Gantt.ext:', ganttInstance.ext);
+      console.log('Gantt.ext.undo:', ganttInstance.ext ? ganttInstance.ext.undo : 'ext not available');
+
+      // Try to access undo through the ext namespace (DHTMLX Gantt extension pattern)
+      if (ganttInstance.ext && ganttInstance.ext.undo && typeof ganttInstance.ext.undo.undo === 'function') {
+        console.log('Using gantt.ext.undo.undo()');
+        ganttInstance.ext.undo.undo();
+        console.log('Undo executed');
+      } else if (typeof ganttInstance.undo === 'function') {
+        console.log('Using gantt.undo()');
+        ganttInstance.undo();
+        console.log('Undo executed');
+      } else {
+        console.error('Undo function not available');
+        console.error('Available methods:', Object.keys(ganttInstance));
+        showNotification('Undo not available', 'error');
+      }
+    } catch (error) {
+      console.error('Error undoing action:', error);
+      showNotification('Error undoing action', 'error');
+    }
+  };
+
+  const redoAction = () => {
+    if (!ganttRef.current) return;
+
+    try {
+      const ganttInstance = ganttRef.current.getGanttInstance();
+      if (!ganttInstance) {
+        console.error('Gantt instance not found');
+        return;
+      }
+
+      console.log('Attempting redo...');
+      console.log('Gantt.ext.undo:', ganttInstance.ext ? ganttInstance.ext.undo : 'ext not available');
+
+      // Try to access redo through the ext namespace (DHTMLX Gantt extension pattern)
+      if (ganttInstance.ext && ganttInstance.ext.undo && typeof ganttInstance.ext.undo.redo === 'function') {
+        console.log('Using gantt.ext.undo.redo()');
+        ganttInstance.ext.undo.redo();
+        console.log('Redo executed');
+      } else if (typeof ganttInstance.redo === 'function') {
+        console.log('Using gantt.redo()');
+        ganttInstance.redo();
+        console.log('Redo executed');
+      } else {
+        console.error('Redo function not available');
+        showNotification('Redo not available', 'error');
+      }
+    } catch (error) {
+      console.error('Error redoing action:', error);
+      showNotification('Error redoing action', 'error');
+    }
+  };
+
+  const handleTaskMultiSelect = (taskIds: number[]) => {
+    console.log('Multi-select updated:', taskIds);
+    setSelectedTaskIds(taskIds);
+  };
+
+  const linkSelectedTasks = async () => {
+    if (!ganttRef.current || selectedTaskIds.length < 2) {
+      showNotification('Please select at least 2 tasks to link', 'error');
+      return;
+    }
+
+    try {
+      const ganttInstance = ganttRef.current.getGanttInstance();
+      if (!ganttInstance) {
+        showNotification('Gantt instance not found', 'error');
+        return;
+      }
+
+      const sortedTaskIds = [...selectedTaskIds].sort((a, b) => {
+        const taskA = ganttInstance.getTask(a);
+        const taskB = ganttInstance.getTask(b);
+        const wbsA = ganttInstance.getWBSCode?.(taskA) || '';
+        const wbsB = ganttInstance.getWBSCode?.(taskB) || '';
+        return wbsA.localeCompare(wbsB, undefined, { numeric: true });
+      });
+
+      let linksCreated = 0;
+      const existingLinks = ganttInstance.getLinks();
+      const maxLinkId = existingLinks.length > 0
+        ? Math.max(...existingLinks.map((l: any) => l.id))
+        : 0;
+
+      for (let i = 0; i < sortedTaskIds.length - 1; i++) {
+        const sourceId = sortedTaskIds[i];
+        const targetId = sortedTaskIds[i + 1];
+
+        const linkExists = existingLinks.some((link: any) =>
+          link.source === sourceId && link.target === targetId
+        );
+
+        if (!linkExists) {
+          const linkId = maxLinkId + linksCreated + 1;
+          ganttInstance.addLink({
+            id: linkId,
+            source: sourceId,
+            target: targetId,
+            type: '0'
+          });
+          linksCreated++;
+        }
+      }
+
+      if (linksCreated > 0) {
+        await saveProjectTasks();
+        showNotification(`Successfully linked ${selectedTaskIds.length} tasks with ${linksCreated} new links`, 'success');
+      } else {
+        showNotification('All selected tasks are already linked', 'info');
+      }
+    } catch (error) {
+      console.error('Error linking tasks:', error);
+      showNotification('Failed to link tasks', 'error');
+    }
+  };
+
+  const unlinkSelectedTasks = async () => {
+    if (!ganttRef.current || selectedTaskIds.length < 1) {
+      showNotification('Please select at least 1 task to unlink', 'error');
+      return;
+    }
+
+    try {
+      const ganttInstance = ganttRef.current.getGanttInstance();
+      if (!ganttInstance) {
+        showNotification('Gantt instance not found', 'error');
+        return;
+      }
+
+      const linksToRemove: number[] = [];
+      const allLinks = ganttInstance.getLinks();
+
+      allLinks.forEach((link: any) => {
+        const sourceSelected = selectedTaskIds.includes(link.source);
+        const targetSelected = selectedTaskIds.includes(link.target);
+
+        if (sourceSelected && targetSelected) {
+          linksToRemove.push(link.id);
+        }
+      });
+
+      if (linksToRemove.length > 0) {
+        linksToRemove.forEach(linkId => {
+          ganttInstance.deleteLink(linkId);
+        });
+
+        await saveProjectTasks();
+        showNotification(`Removed ${linksToRemove.length} link${linksToRemove.length > 1 ? 's' : ''} between selected tasks`, 'success');
+      } else {
+        showNotification('No links found between selected tasks', 'info');
+      }
+    } catch (error) {
+      console.error('Error unlinking tasks:', error);
+      showNotification('Failed to unlink tasks', 'error');
+    }
+  };
+
+  const insertTask = async (taskType: 'task' | 'milestone' = 'task') => {
+    if (!ganttRef.current) return;
+
+    try {
+      const ganttInstance = ganttRef.current.getGanttInstance();
+      if (!ganttInstance) return;
+
+      // Get all current tasks
+      const allTasks = ganttInstance.serialize().data;
+
+      let parentId = 0;
+      let insertAfterTaskId = null;
+
+      // If a task is selected, insert after it at the same level
+      if (selectedTaskId) {
+        const selectedTask = allTasks.find((t: any) => t.id === selectedTaskId);
+        if (selectedTask) {
+          parentId = selectedTask.parent || 0;
+          insertAfterTaskId = selectedTaskId;
+        }
+      }
+
+      //working
+      // Determine start date
+      let startDate = new Date();
+      ///if (project?.created_at) { 12 Jan
+      ///startDate = new Date(project.created_at);  12 Jan
+      if (project.start_date) {
+         startDate = new Date(project.start_date);
+      }
+
+      // Adjust to workday if needed
+      const adjustedStartDate = adjustToWorkday(startDate.toISOString().split('T')[0]);
+      const startDateStr = adjustedStartDate;
+
+      // Calculate end_date from start_date + duration
+      const duration = taskType === 'milestone' ? 0 : 1;
+      const startDateObj = ganttInstance.date.parseDate(startDateStr, 'xml_date');
+      const endDate = ganttInstance.calculateEndDate({
+        start_date: startDateObj,
+        duration: duration
+      });
+      const dateFormatter = ganttInstance.date.date_to_str("%Y-%m-%d");
+      const endDateStr = dateFormatter(endDate);
+
+      // Create new task object with unique ID
+      const newTaskId = Date.now();
+      const newTaskData: any = {
+        id: newTaskId,
+        text: taskType === 'milestone' ? 'New Milestone' : 'New Task',
+        start_date: startDateStr,
+        end_date: endDateStr,
+        duration: duration,
+        progress: 0,
+        type: taskType,
+        parent: parentId
+      };
+
+      // Find where to insert the new task
+      let insertIndex = allTasks.length;
+
+      if (insertAfterTaskId) {
+        // Find all siblings (tasks with the same parent)
+        const siblings = allTasks.filter((t: any) => (t.parent || 0) === parentId);
+        const selectedIndex = siblings.findIndex((t: any) => t.id === insertAfterTaskId);
+
+        if (selectedIndex !== -1) {
+          // Find the global index of the task after which we want to insert
+          const selectedTask = siblings[selectedIndex];
+          const globalIndex = allTasks.findIndex((t: any) => t.id === selectedTask.id);
+
+          // Insert right after the selected task
+          insertIndex = globalIndex + 1;
+        }
+      }
+
+      // Insert the new task at the correct position
+      const updatedTasks = [
+        ...allTasks.slice(0, insertIndex),
+        newTaskData,
+        ...allTasks.slice(insertIndex)
+      ];
+
+      // Clear and reload all tasks
+      ganttInstance.clearAll();
+      ganttInstance.parse({ data: updatedTasks, links: ganttInstance.serialize().links });
+
+      // Select the newly created task
+      ganttInstance.selectTask(newTaskId);
+
+      // Save to database
+      await saveProjectTasks();
+
+      const taskTypeLabel = taskType === 'milestone' ? 'Milestone' : 'Task';
+      showNotification(`${taskTypeLabel} inserted successfully`, 'success');
+
+      // Set the newly created task as selected
+      setSelectedTaskId(newTaskId);
+    } catch (error) {
+      console.error('Error inserting task:', error);
+      showNotification('Failed to insert task', 'error');
+    }
+  };
+
+  const insertMilestone = async () => {
+    await insertTask('milestone');
+  };
+
   const saveScheduleAsTemplate = async () => {
     if (!templateName.trim()) {
       showNotification('Please enter a template name', 'error');
@@ -1399,10 +1873,19 @@ const ProjectDetail: React.FC = () => {
             }
             duration = Math.max(1, duration);
 
+            // Format start_date to YYYY-MM-DD (date only, no time)
+            let formattedStartDate = task.start_date;
+            if (task.start_date && ganttInstance) {
+              const startDate = typeof task.start_date === 'string'
+                ? ganttInstance.date.parseDate(task.start_date, "xml_date")
+                : task.start_date;
+              formattedStartDate = ganttInstance.date.date_to_str("%Y-%m-%d")(startDate);
+            }
+
             taskMap.set(taskId, {
               id: taskId,
               text: task.text,
-              start_date: task.start_date,
+              start_date: formattedStartDate,
               duration: duration,
               progress: 0, // Reset progress to 0%
               type: task.type || 'task',
@@ -2086,6 +2569,7 @@ const ProjectDetail: React.FC = () => {
       cost_impact: changeRequest.cost_impact || '',
       risk_impact: changeRequest.risk_impact,
       resource_impact: changeRequest.resource_impact,
+      status: changeRequest.status || 'Pending',
       attachments: changeRequest.attachments || ''
     });
 
@@ -2143,6 +2627,7 @@ const ProjectDetail: React.FC = () => {
       cost_impact: '',
       risk_impact: 'Low',
       resource_impact: 'Low',
+      status: 'Pending',
       attachments: ''
     });
     setChangeRequestCustomFieldValues({});
@@ -2238,49 +2723,6 @@ const ProjectDetail: React.FC = () => {
     }
   };
 
-  const handleDocumentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !id) return;
-
-    try {
-      const timestamp = Date.now();
-      const fileName = `${timestamp}-${file.name}`;
-      const filePath = `${id}/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('project-documents')
-        .upload(filePath, file);
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      const { error: insertError } = await supabase
-        .from('project_documents')
-        .insert([{
-          project_id: id,
-          file_name: file.name,
-          file_path: filePath,
-          file_size: file.size,
-          mime_type: file.type
-        }]);
-
-      if (insertError) {
-        await supabase.storage
-          .from('project-documents')
-          .remove([filePath]);
-        throw insertError;
-      }
-
-      await fetchDocuments();
-      showNotification('Document uploaded successfully!', 'success');
-      event.target.value = '';
-    } catch (error: any) {
-      console.error('Error uploading document:', error);
-      showNotification(`Error uploading document: ${error.message}`, 'error');
-    }
-  };
-
   const handleDownloadDocument = async (doc: ProjectDocument) => {
     try {
       const { data, error } = await supabase.storage
@@ -2345,6 +2787,365 @@ const ProjectDetail: React.FC = () => {
     }
   };
 
+  const handleMSProjectImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !id || !ganttRef.current) {
+      event.target.value = '';
+      return;
+    }
+
+    try {
+      setImportingMSProject(true);
+
+      if (projectTeamMembers.length === 0) {
+        console.error('⚠️  No team members found. Resources will not be assigned.');
+      }
+
+      showNotification('Importing MS Project file...', 'info');
+
+      // Pre-build resource lookup maps for O(1) lookups instead of O(n) searches
+      const resourceNameToId = new Map<string, string>();
+      const resourceNameToIdLower = new Map<string, string>();
+      projectTeamMembers.forEach(member => {
+        if (member.resources?.display_name && member.resource_id) {
+          const name = member.resources.display_name;
+          resourceNameToId.set(name, member.resource_id);
+          resourceNameToIdLower.set(name.toLowerCase().trim(), member.resource_id);
+        }
+      });
+
+      ganttRef.current.importFromMSProject(file, async (success: boolean, data?: any, error?: string) => {
+        if (!success || !data) {
+          setImportingMSProject(false);
+          showNotification(`Failed to import MS Project file: ${error || 'Unknown error'}`, 'error');
+          event.target.value = '';
+          return;
+        }
+
+        try {
+          const importedTasks = data.data || [];
+          const importedLinks = data.links || [];
+          const importedResources = data.resources || [];
+          const importedResourceAssignments = data.resourceAssignments || [];
+
+          console.log(`\n📥 IMPORTING: ${importedTasks.length} tasks, ${importedResources.length} resources, ${importedResourceAssignments.length} assignments`);
+
+          // Get existing tasks
+          const existingTasks = projectTasks.data || [];
+          const existingLinks = projectTasks.links || [];
+
+          // Find the next available task ID
+          let nextTaskId = Math.max(0, ...existingTasks.map((t: any) => t.id || 0)) + 1;
+          let nextLinkId = Math.max(0, ...existingLinks.map((l: any) => l.id || 0)) + 1;
+
+          // Create a map to convert imported task IDs to new IDs
+          const taskIdMap = new Map<string | number, number>();
+
+          // Create a resource map from imported resources
+          const resourceMap = new Map<string | number, string>();
+          if (importedResources && Array.isArray(importedResources)) {
+            importedResources.forEach((resource: any) => {
+              if (resource.id && resource.name && typeof resource.name === 'string') {
+                resourceMap.set(resource.id, String(resource.name).trim());
+              }
+            });
+          }
+
+          // Create a task-to-resources map from resource assignments
+          const taskResourcesMap = new Map<string | number, string[]>();
+          if (importedResourceAssignments && Array.isArray(importedResourceAssignments)) {
+            importedResourceAssignments.forEach((assignment: any) => {
+              const taskId = assignment.task_id;
+              const resourceId = assignment.resource_id;
+              const resourceName = resourceMap.get(resourceId);
+
+              if (taskId && resourceName && typeof resourceName === 'string') {
+                if (!taskResourcesMap.has(taskId)) {
+                  taskResourcesMap.set(taskId, []);
+                }
+                taskResourcesMap.get(taskId)!.push(resourceName);
+              }
+            });
+          }
+
+          // Process imported tasks and assign new IDs
+          const newTasks = importedTasks.map((importedTask: any) => {
+            const originalId = importedTask.id;
+            const newTaskId = nextTaskId++;
+            taskIdMap.set(originalId, newTaskId);
+
+            // Format start_date to YYYY-MM-DD format
+            let formattedStartDate = '';
+            if (importedTask.start_date) {
+              formattedStartDate = formatDateToYYYYMMDD(importedTask.start_date);
+            }
+
+            // Map parent ID to new ID
+            const parentId = importedTask.parent && importedTask.parent !== 0
+              ? (taskIdMap.get(importedTask.parent) || 0)
+              : 0;
+
+            // Extract resource/owner information
+            let ownerName: string | string[] | null = null;
+            let resourceIds: string[] = [];
+            let resourceNames: string[] = [];
+
+            // First, check resource assignments map (most reliable)
+            const assignedResources = taskResourcesMap.get(originalId);
+
+            if (projectTeamMembers.length === 0) {
+              console.error('❌ NO TEAM MEMBERS! Add resources to Project Team tab first.');
+            }
+
+            if (assignedResources && assignedResources.length > 0) {
+              const validResources = assignedResources.filter(r => r && typeof r === 'string');
+              if (validResources.length > 0) {
+                ownerName = validResources.length === 1 ? validResources[0] : validResources;
+                resourceNames = validResources;
+                const unmatched: string[] = [];
+
+                resourceIds = validResources
+                  .map(resName => {
+                    const id = resourceNameToId.get(resName) || resourceNameToIdLower.get(resName.toLowerCase().trim());
+                    if (!id) unmatched.push(resName);
+                    return id;
+                  })
+                  .filter((id): id is string => id !== undefined);
+
+                if (unmatched.length > 0) {
+                  console.error(`❌ "${importedTask.text}": Unmatched resources [${unmatched.join(', ')}]`);
+                } else if (resourceIds.length > 0) {
+                  console.log(`✅ "${importedTask.text}": Matched ${resourceIds.length} resource(s)`);
+                }
+              }
+            }
+            // Check for comma-separated resource names in text fields
+            else {
+              const resourceTextField =
+                importedTask.resource_names ||
+                importedTask.resource_name ||
+                importedTask.resources ||
+                importedTask.owner_name ||
+                importedTask.$raw?.resources ||
+                importedTask.$raw?.resource ||
+                importedTask.$custom_data?.resources;
+
+              if (resourceTextField && typeof resourceTextField === 'string') {
+                const namesFromText = resourceTextField
+                  .split(',')
+                  .map(name => name.trim())
+                  .filter(name => name.length > 0);
+
+                if (namesFromText.length > 0) {
+                  console.log(`📝 "${importedTask.text}": Found text resources "${resourceTextField}"`);
+                  ownerName = namesFromText.length === 1 ? namesFromText[0] : namesFromText;
+                  resourceNames = namesFromText;
+                  const unmatched: string[] = [];
+
+                  resourceIds = namesFromText
+                    .map(resName => {
+                      const id = resourceNameToId.get(resName) || resourceNameToIdLower.get(resName.toLowerCase().trim());
+                      if (!id) unmatched.push(resName);
+                      return id;
+                    })
+                    .filter((id): id is string => id !== undefined);
+
+                  if (unmatched.length > 0) {
+                    console.error(`❌ "${importedTask.text}": Unmatched resources [${unmatched.join(', ')}]`);
+                  } else if (resourceIds.length > 0) {
+                    console.log(`✅ "${importedTask.text}": Matched ${resourceIds.length} resource(s)`);
+                  }
+                }
+              }
+            }
+
+            // Fallback: check for resource assignments in different possible formats
+            if (resourceIds.length === 0 && importedTask.owner_id) {
+              // Single resource assignment
+              const resourceName = resourceMap.get(importedTask.owner_id);
+              if (resourceName && typeof resourceName === 'string') {
+                ownerName = resourceName;
+                resourceNames = [resourceName];
+                const id = resourceNameToId.get(resourceName) || resourceNameToIdLower.get(resourceName.toLowerCase().trim());
+                if (id) {
+                  resourceIds = [id];
+                }
+              }
+            }
+
+            if (resourceIds.length === 0 && importedTask.resource_id) {
+              // Alternative single resource field
+              const resourceName = resourceMap.get(importedTask.resource_id);
+              if (resourceName && typeof resourceName === 'string') {
+                ownerName = resourceName;
+                resourceNames = [resourceName];
+                const id = resourceNameToId.get(resourceName) || resourceNameToIdLower.get(resourceName.toLowerCase().trim());
+                if (id) {
+                  resourceIds = [id];
+                }
+              }
+            }
+
+            if (resourceIds.length === 0 && importedTask.resources) {
+              // Multiple resources
+              if (Array.isArray(importedTask.resources)) {
+                const tempResourceIds = importedTask.resources.map((r: any) => r.resource_id || r.id || r);
+                const tempResourceNames = tempResourceIds
+                  .map((rid: any) => resourceMap.get(rid))
+                  .filter((n: any) => n && typeof n === 'string' && n !== 'Unknown');
+                if (tempResourceNames.length > 0) {
+                  ownerName = tempResourceNames.length === 1 ? tempResourceNames[0] : tempResourceNames;
+                  resourceNames = tempResourceNames;
+                  resourceIds = tempResourceNames
+                    .map((resName: string) => resourceNameToId.get(resName) || resourceNameToIdLower.get(resName.toLowerCase().trim()))
+                    .filter((id): id is string => id !== undefined);
+                }
+              }
+            } else if (importedTask.owner || importedTask.resource) {
+              // Direct resource name
+              const directName = importedTask.owner || importedTask.resource;
+              if (directName && typeof directName === 'string') {
+                ownerName = directName;
+                resourceNames = [directName];
+                const id = resourceNameToId.get(directName) || resourceNameToIdLower.get(directName.toLowerCase().trim());
+                if (id) {
+                  resourceIds = [id];
+                }
+              }
+            }
+
+            // Calculate work hours based on duration and assigned resources
+            const taskDuration = importedTask.duration || 1;
+            let workHours = 0;
+            let resourceWorkHours = {};
+
+            if (resourceIds && resourceIds.length > 0) {
+              // For MS Project import, default to 100% allocation for each resource
+              const workHoursData = calculateWorkHours(taskDuration, resourceIds, {});
+              workHours = workHoursData.total;
+              resourceWorkHours = workHoursData.byResource;
+            }
+
+            return {
+              id: newTaskId,
+              text: importedTask.text || 'Untitled Task',
+              start_date: formattedStartDate || null,
+              duration: taskDuration,
+              progress: importedTask.progress || 0,
+              parent: parentId,
+              type: importedTask.type || 'task',
+              owner_id: resourceIds.length > 0 ? resourceIds[0] : null,
+              owner_name: ownerName,
+              resource_ids: resourceIds,
+              resource_names: resourceNames,
+              work_hours: workHours,
+              resource_work_hours: resourceWorkHours,
+            };
+          });
+
+          // Process imported links with new task IDs
+          const newLinks = importedLinks
+            .map((link: any) => ({
+              id: nextLinkId++,
+              source: taskIdMap.get(link.source),
+              target: taskIdMap.get(link.target),
+              type: link.type || '0'
+            }))
+            .filter((link: any) => link.source && link.target);
+
+          // Combine existing and new tasks/links
+          const mergedTasks = [...existingTasks, ...newTasks];
+          const mergedLinks = [...existingLinks, ...newLinks];
+
+          // Update the project_tasks record with merged data
+          const updatedTaskData = {
+            data: mergedTasks,
+            links: mergedLinks
+          };
+
+
+          // Show progress notification
+          showNotification(`Processing ${newTasks.length} tasks...`, 'info');
+
+          // Check if record exists for this project
+          const { data: existingRecord } = await supabase
+            .from('project_tasks')
+            .select('id')
+            .eq('project_id', id)
+            .maybeSingle();
+
+          let updateError;
+          if (existingRecord) {
+            // Update existing record
+            const { error } = await supabase
+              .from('project_tasks')
+              .update({
+                task_data: updatedTaskData,
+                updated_at: new Date().toISOString()
+              })
+              .eq('project_id', id);
+            updateError = error;
+          } else {
+            // Insert new record
+            const { error } = await supabase
+              .from('project_tasks')
+              .insert({
+                project_id: id,
+                task_data: updatedTaskData
+              });
+            updateError = error;
+          }
+
+          if (updateError) {
+            throw updateError;
+          }
+
+          // Resource matching summary
+          const tasksWithResources = newTasks.filter(t => t.resource_ids && t.resource_ids.length > 0).length;
+          const tasksWithoutResources = newTasks.length - tasksWithResources;
+
+          console.log(`\n✅ IMPORT COMPLETE: ${newTasks.length} tasks`);
+          console.log(`   Resources matched: ${tasksWithResources}/${newTasks.length}`);
+          if (tasksWithoutResources > 0 && projectTeamMembers.length === 0) {
+            console.error('   ⚠️  Add team members in Team tab to assign resources!');
+          }
+
+          // Use setTimeout to allow UI to update before heavy re-render
+          setTimeout(async () => {
+            try {
+              showNotification('Loading tasks...', 'info');
+              await fetchProjectTasks();
+
+              let message = `Successfully imported ${newTasks.length} tasks from MS Project!`;
+              if (tasksWithoutResources > 0 && projectTeamMembers.length === 0) {
+                message += ' Note: No resources assigned - add team members in the Team tab first.';
+              } else if (tasksWithoutResources > 0) {
+                message += ` Warning: ${tasksWithoutResources} tasks have unassigned resources. Check console for details.`;
+              }
+              showNotification(message, tasksWithoutResources > 0 ? 'warning' : 'success');
+            } catch (fetchError: any) {
+              console.error('Error refreshing tasks:', fetchError);
+              showNotification('Tasks imported but failed to refresh view. Please reload the page.', 'warning');
+            } finally {
+              setImportingMSProject(false);
+              event.target.value = '';
+            }
+          }, 100);
+        } catch (error: any) {
+          console.error('Error saving imported tasks:', error);
+          setImportingMSProject(false);
+          showNotification(`Error saving imported tasks: ${error.message}`, 'error');
+          event.target.value = '';
+        }
+      });
+    } catch (error: any) {
+      console.error('Error importing MS Project file:', error);
+      setImportingMSProject(false);
+      showNotification(`Error importing MS Project file: ${error.message}`, 'error');
+      event.target.value = '';
+    }
+  };
+
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -2374,12 +3175,65 @@ const ProjectDetail: React.FC = () => {
     return tasksWithWBS;
   };
 
+  const calculateWorkHours = (
+    duration: number,
+    resourceIds: string[],
+    taskAllocations: Record<string, number> = {}
+  ): { total: number; byResource: { [key: string]: number } } => {
+    if (!resourceIds || resourceIds.length === 0) {
+      return { total: 0, byResource: {} };
+    }
+
+    let totalWorkHours = 0;
+    const resourceWorkHours: { [key: string]: number } = {};
+
+    // Calculate work for each resource based on their task-specific allocation percentage
+    resourceIds.forEach(resourceId => {
+      // Use task-specific allocation percentage, default to 100% if not specified
+      const allocationPercentage = taskAllocations[resourceId] || 100;
+
+      // Formula: Duration (days) × 8 hours/day × (Allocation % / 100)
+      const workHours = duration * 8 * (allocationPercentage / 100);
+      totalWorkHours += workHours;
+      resourceWorkHours[resourceId] = Math.round(workHours * 100) / 100;
+    });
+
+    return {
+      total: Math.round(totalWorkHours * 100) / 100,
+      byResource: resourceWorkHours
+    };
+  };
+
+  // Helper function to calculate end_date from start_date and duration
+  // Uses the EXACT same logic as Gantt.tsx Task Pane display (lines 539-543)
+  const calculateEndDate = (startDate: string, duration: number): string => {
+    const ganttInstance = (window as any).gantt;
+    if (!ganttInstance || !startDate || duration === undefined) {
+      return '';
+    }
+
+    try {
+      // Parse the start date
+      const parsedStartDate = ganttInstance.date.parseDate(startDate, "xml_date");
+      // Calculate end date using Gantt's method - same as in Gantt.tsx
+      // This returns the exclusive end date (day after last working day)
+      const calculatedEndDate = ganttInstance.calculateEndDate(parsedStartDate, duration);
+      // Subtract 1 day from end date to show the actual last working day (same as Task Pane display)
+      const adjustedEndDate = ganttInstance.date.add(calculatedEndDate, -1, "day");
+      // Format to YYYY-MM-DD (date only, no time)
+      const dateFormat = ganttInstance.date.date_to_str("%Y-%m-%d");
+      return dateFormat(adjustedEndDate);
+    } catch (error) {
+      console.error('Error calculating end date:', error);
+      return '';
+    }
+  };
+
   const handleTaskSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    console.log('=== Task Submit Started ===');
-    console.log('taskForm:', taskForm);
-    console.log('editingTaskId:', editingTaskId);
+    console.log('🎯 SUBMIT - Form submitted with resourceAllocations:', resourceAllocations);
+    console.log('🎯 SUBMIT - taskForm.resource_ids:', taskForm.resource_ids);
 
     if (!taskForm.description || !taskForm.start_date || !taskForm.duration) {
       showNotification('Please fill in all required fields', 'error');
@@ -2388,16 +3242,21 @@ const ProjectDetail: React.FC = () => {
 
     try {
       let updatedTaskData;
-      let currentTaskId = editingTaskId; // Track the task ID being worked with
-
-      // Adjust start date to skip weekends if provided
+      let currentTaskId = editingTaskId;
       let adjustedStartDate = null;
       if (taskForm.start_date && taskForm.start_date.trim() !== '') {
+        console.log('📅 DATE DEBUG - Form input date:', taskForm.start_date);
         adjustedStartDate = adjustToWorkday(taskForm.start_date);
-        console.log('Adjusted start date:', adjustedStartDate);
+        console.log('📅 DATE DEBUG - Adjusted date:', adjustedStartDate);
       }
 
       if (editingTaskId) {
+        // Get the original task to compare
+        const originalTask = projectTasks.data.find((t: any) => t.id === editingTaskId);
+        console.log('🔍 UPDATE TASK - Original resources:', originalTask?.resource_ids);
+        console.log('🔍 UPDATE TASK - Form resources:', taskForm.resource_ids);
+        console.log('🔍 UPDATE TASK - Original work hours:', originalTask?.resource_work_hours);
+
         // Update existing task
         const existingLinks = projectTasks.links || [];
 
@@ -2417,11 +3276,10 @@ const ProjectDetail: React.FC = () => {
             if (task.id === editingTaskId) {
               const duration = taskForm.type === 'milestone' ? 0 : taskForm.duration;
 
-              // Don't calculate end_date here - let DHTMLX Gantt calculate it based on work_time config
-              // DHTMLX will automatically calculate end_date from start_date + duration, respecting weekends
-
+              // Exclude end_date from the spread to ensure Gantt recalculates it from duration
+              const { end_date, ...taskWithoutEndDate } = task;
               const updatedTask: any = {
-                ...task,
+                ...taskWithoutEndDate,
                 text: taskForm.description,
                 duration: duration,
                 type: taskForm.type,
@@ -2430,42 +3288,68 @@ const ProjectDetail: React.FC = () => {
 
               // Set start_date: use provided date or default to project creation date or keep existing
               if (adjustedStartDate) {
-                const startDateStr = `${adjustedStartDate} 00:00`;
-                updatedTask.start_date = startDateStr;
+                updatedTask.start_date = adjustedStartDate;
+                console.log('📅 DATE DEBUG - Setting task start_date:', adjustedStartDate);
               } else if (!task.start_date && project?.created_at) {
                 // If task has no start date and no new date provided, default to project creation date
-                const projectDate = new Date(project.created_at).toISOString().split('T')[0];
-                const startDateStr = `${projectDate} 00:00`;
-                updatedTask.start_date = startDateStr;
-                console.log('No start date provided, using project creation date:', startDateStr);
+                const projectDate = formatDateToYYYYMMDD(new Date(project.created_at));
+                updatedTask.start_date = projectDate;
+                console.log('No start date provided, using project creation date:', projectDate);
               }
 
-              // Remove end_date so DHTMLX Gantt calculates it from duration
-              delete updatedTask.end_date;
+              // Calculate exclusive end_date as expected by DHTMLX Gantt
+              // The "End time" column template handles displaying the inclusive date for users
+              if (updatedTask.start_date && duration > 0 && ganttRef.current) {
+                const ganttInstance = ganttRef.current.getGanttInstance();
+                const startDate = typeof updatedTask.start_date === 'string'
+                  ? ganttInstance.date.parseDate(updatedTask.start_date, "xml_date")
+                  : updatedTask.start_date;
+                // DHTMLX uses exclusive end dates (end_date = start of day after task completes)
+                // Store this exclusive end_date so Gantt can correctly calculate duration when parsing
+                const exclusiveEndDate = ganttInstance.calculateEndDate(startDate, duration);
+                updatedTask.end_date = formatDateToYYYYMMDD(exclusiveEndDate);
+                console.log('📅 DATE DEBUG - Calculated end_date:', updatedTask.end_date);
+              }
 
               console.log('Updated task values:', {
                 id: editingTaskId,
-                start_date: adjustedStartDate ? `${adjustedStartDate} 00:00` : 'not set',
-                duration: duration,
-                note: 'end_date will be calculated by DHTMLX Gantt'
+                start_date: updatedTask.start_date,
+                end_date: updatedTask.end_date,
+                duration: duration
               });
 
               // Update resources if selected
               if (taskForm.resource_ids.length > 0) {
                 updatedTask.resource_ids = taskForm.resource_ids;
                 const resourceNames = taskForm.resource_ids.map(resId => {
-                  const member = projectTeamMembers.find((m: any) => m.resource_id === resId);
+                  const member = projectTeamMembers.find(m => m.resource_id === resId);
                   return member?.resources?.display_name || 'Unknown';
                 });
                 updatedTask.resource_names = resourceNames;
                 // Backward compatibility: set first resource as owner
                 updatedTask.owner_id = taskForm.resource_ids[0];
                 updatedTask.owner_name = resourceNames[0];
+
+                // Store allocation percentages
+                updatedTask.resource_allocations = resourceAllocations;
+
+                // Calculate and store work hours (both total and per-resource)
+                const workHoursData = calculateWorkHours(duration, taskForm.resource_ids, resourceAllocations);
+                updatedTask.work_hours = workHoursData.total;
+                updatedTask.resource_work_hours = workHoursData.byResource;
+
+                console.log('🔍 CALCULATED - New work hours:', workHoursData);
+                console.log('🔍 CALCULATED - Resources being saved:', taskForm.resource_ids);
+                console.log('🔍 CALCULATED - Resource names:', resourceNames);
+                console.log('🔍 CALCULATED - Resource allocations:', resourceAllocations);
               } else {
                 updatedTask.resource_ids = [];
                 updatedTask.resource_names = [];
                 updatedTask.owner_id = undefined;
                 updatedTask.owner_name = undefined;
+                updatedTask.work_hours = 0;
+                updatedTask.resource_work_hours = {};
+                updatedTask.resource_allocations = {};
               }
 
               return updatedTask;
@@ -2482,9 +3366,6 @@ const ProjectDetail: React.FC = () => {
 
         const duration = taskForm.type === 'milestone' ? 0 : taskForm.duration;
 
-        // Don't calculate end_date here - let DHTMLX Gantt calculate it based on work_time config
-        // DHTMLX will automatically calculate end_date from start_date + duration, respecting weekends
-
         const newTask: any = {
           id: newTaskId,
           text: taskForm.description,
@@ -2495,14 +3376,27 @@ const ProjectDetail: React.FC = () => {
 
         // Set start_date: use provided date or default to project creation date
         if (adjustedStartDate) {
-          const startDateStr = `${adjustedStartDate} 00:00`;
-          newTask.start_date = startDateStr;
+          newTask.start_date = adjustedStartDate;
+          console.log('📅 DATE DEBUG - New task start_date:', adjustedStartDate);
         } else if (project?.created_at) {
           // Default to project creation date if no start date provided
-          const projectDate = new Date(project.created_at).toISOString().split('T')[0];
-          const startDateStr = `${projectDate} 00:00`;
-          newTask.start_date = startDateStr;
-          console.log('No start date provided, using project creation date:', startDateStr);
+          const projectDate = formatDateToYYYYMMDD(new Date(project.created_at));
+          newTask.start_date = projectDate;
+          console.log('No start date provided, using project start date:', projectDate);
+        }
+
+        // Calculate exclusive end_date as expected by DHTMLX Gantt
+        // The "End time" column template handles displaying the inclusive date for users
+        if (newTask.start_date && duration > 0 && ganttRef.current) {
+          const ganttInstance = ganttRef.current.getGanttInstance();
+          const startDate = typeof newTask.start_date === 'string'
+            ? ganttInstance.date.parseDate(newTask.start_date, "xml_date")
+            : newTask.start_date;
+          // DHTMLX uses exclusive end dates (end_date = start of day after task completes)
+          // Store this exclusive end_date so Gantt can correctly calculate duration when parsing
+          const exclusiveEndDate = ganttInstance.calculateEndDate(startDate, duration);
+          newTask.end_date = formatDateToYYYYMMDD(exclusiveEndDate);
+          console.log('📅 DATE DEBUG - New task end_date:', newTask.end_date);
         }
 
         // Set parent - MUST be 0 for root tasks, not undefined
@@ -2521,13 +3415,28 @@ const ProjectDetail: React.FC = () => {
         if (taskForm.resource_ids.length > 0) {
           newTask.resource_ids = taskForm.resource_ids;
           const resourceNames = taskForm.resource_ids.map(resId => {
-            const member = projectTeamMembers.find((m: any) => m.resource_id === resId);
+            const member = projectTeamMembers.find(m => m.resource_id === resId);
             return member?.resources?.display_name || 'Unknown';
           });
           newTask.resource_names = resourceNames;
           // Backward compatibility: set first resource as owner
           newTask.owner_id = taskForm.resource_ids[0];
           newTask.owner_name = resourceNames[0];
+
+          // Store allocation percentages
+          newTask.resource_allocations = resourceAllocations;
+
+          // Calculate and store work hours (both total and per-resource)
+          const workHoursData = calculateWorkHours(duration, taskForm.resource_ids, resourceAllocations);
+          newTask.work_hours = workHoursData.total;
+          newTask.resource_work_hours = workHoursData.byResource;
+          console.log(`New task work hours: ${newTask.work_hours}`);
+          console.log(`Resource work hours breakdown:`, newTask.resource_work_hours);
+          console.log('Resource allocations:', resourceAllocations);
+        } else {
+          newTask.work_hours = 0;
+          newTask.resource_work_hours = {};
+          newTask.resource_allocations = {};
         }
 
         // Add to existing tasks
@@ -2550,6 +3459,15 @@ const ProjectDetail: React.FC = () => {
         currentTaskId = newTask.id;
       }
 
+      // Log the task data before saving to verify allocations are included
+      console.log('💾 SAVING TASK DATA - Full updatedTaskData:', JSON.stringify(updatedTaskData, null, 2));
+      const taskBeingSaved = updatedTaskData.data.find((t: any) => t.id === currentTaskId);
+      console.log('💾 SAVING TASK DATA - Current task resource_allocations:', taskBeingSaved?.resource_allocations);
+      console.log('📅 DATE DEBUG - Task being saved to DB:', {
+        start_date: taskBeingSaved?.start_date,
+        end_date: taskBeingSaved?.end_date
+      });
+
       // Check if project_tasks record exists (get the most recent one)
       const { data: existingData, error: fetchError } = await supabase
         .from('project_tasks')
@@ -2569,6 +3487,7 @@ const ProjectDetail: React.FC = () => {
           .eq('id', existingData[0].id);
 
         if (error) throw error;
+        console.log('💾 SAVED - Task data updated in database');
       } else {
         // Insert new record only if none exists
         const { error } = await supabase
@@ -2581,37 +3500,8 @@ const ProjectDetail: React.FC = () => {
         if (error) throw error;
       }
 
-      // Save resource assignments to junction table
-      if (taskForm.resource_ids.length > 0 && currentTaskId) {
-        // First, get the actual database task ID by finding it in task_data
-        const { data: taskRecord } = await supabase
-          .from('project_tasks')
-          .select('id, task_data')
-          .eq('project_id', id)
-          .maybeSingle();
-
-        if (taskRecord?.id) {
-          // Delete existing assignments for this task
-          await supabase
-            .from('task_resource_assignments')
-            .delete()
-            .eq('task_id', taskRecord.id);
-
-          // Insert new assignments
-          const assignments = taskForm.resource_ids.map(resourceId => ({
-            task_id: taskRecord.id,
-            resource_id: resourceId
-          }));
-
-          const { error: assignmentError } = await supabase
-            .from('task_resource_assignments')
-            .insert(assignments);
-
-          if (assignmentError) {
-            console.error('Error saving resource assignments:', assignmentError);
-          }
-        }
-      }
+      // Resource assignments are stored in the task_data JSON directly
+      // No need for separate junction table for Gantt tasks
 
       // Update local state
       setProjectTasks(updatedTaskData);
@@ -2675,6 +3565,7 @@ const ProjectDetail: React.FC = () => {
         type: 'task',
         progress: 0
       });
+      setResourceAllocations({});
     } catch (error: any) {
       console.error('Error creating task:', error);
       showNotification(`Error creating task: ${error.message}`, 'error');
@@ -2959,7 +3850,22 @@ const ProjectDetail: React.FC = () => {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-8 relative">
+      {/* Loading Overlay for MS Project Import */}
+      {importingMSProject && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 shadow-2xl max-w-md">
+            <div className="flex flex-col items-center space-y-4">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600"></div>
+              <h3 className="text-xl font-semibold text-gray-900">Importing MS Project File</h3>
+              <p className="text-gray-600 text-center">
+                Please wait while we process your tasks. This may take a moment...
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-8">
         <button
@@ -3113,7 +4019,7 @@ const ProjectDetail: React.FC = () => {
             {overviewConfig && overviewConfig.sections.length > 0 ? (
               <div className="space-y-8 overflow-visible">
                 {overviewConfig.sections.map((section) => (
-                  <div key={section.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 overflow-visible">
+                  <div key={section.id} className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6 overflow-visible">
                     <h3 className="text-lg font-semibold text-gray-900 mb-6">{section.name}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 overflow-visible">
                       {section.fields.map((field) => (
@@ -3168,7 +4074,7 @@ const ProjectDetail: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+              <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-8 text-center">
                 <Target className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No Overview Configuration</h3>
                 <p className="text-gray-600 mb-4">
@@ -3186,277 +4092,510 @@ const ProjectDetail: React.FC = () => {
         )}
 
         {activeTab === 'timeline' && (
-          <div className={isGanttFullscreen ? "fixed inset-0 z-50 bg-white p-6" : "bg-white rounded-lg shadow-sm border border-gray-200 p-6"}>
+          <div className={isGanttFullscreen ? "fixed inset-0 z-50 bg-white p-6" : "bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6"}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    if (ganttRef.current) {
-                      ganttRef.current.zoomIn();
-                    }
-                  }}
-                  className="inline-flex items-center justify-center w-9 h-9 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                  title="Zoom In"
-                >
-                  <ZoomIn className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => {
-                    if (ganttRef.current) {
-                      ganttRef.current.zoomOut();
-                    }
-                  }}
-                  className="inline-flex items-center justify-center w-9 h-9 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                  title="Zoom Out"
-                >
-                  <ZoomOut className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setIsGanttFullscreen(!isGanttFullscreen)}
-                  className="inline-flex items-center justify-center w-9 h-9 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                  title={isGanttFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-                >
-                  {isGanttFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                </button>
-                <button
-                  onClick={() => {
-                    if (ganttRef.current) {
-                      ganttRef.current.toggleGroupByOwner();
-                      setIsGroupedByOwner(!isGroupedByOwner);
-                    }
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                >
-                  <Group className="w-4 h-4" />
-                  {isGroupedByOwner ? 'Show All Tasks' : 'Group by Owner'}
-                </button>
-                <button
-                  onClick={() => setShowResourcePanel(!showResourcePanel)}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  <Users className="w-4 h-4" />
-                  {showResourcePanel ? 'Hide Resources' : 'Show Resources'}
-                </button>
-
-                <button
-                  onClick={() => setShowSaveTemplateModal(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-                  title="Save current schedule as a template"
-                >
-                  <Save className="w-4 h-4" />
-                  Save as Template
-                </button>
-
-                {/* Task Fields Selector */}
-                <div className="relative">
+              <div className="flex items-center gap-4">
+                <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
+                <div className="flex items-center bg-gray-100 rounded-lg p-1">
                   <button
-                    onClick={() => setShowTaskFieldsDropdown(!showTaskFieldsDropdown)}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    onClick={() => setTimelineView('gantt')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      timelineView === 'gantt'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
                   >
-                    <Plus className="w-4 h-4" />
-                    Add Task Fields
-                    {selectedTaskFields.length > 0 && (
-                      <span className="ml-1 px-2 py-0.5 bg-blue-500 rounded-full text-xs">
-                        {selectedTaskFields.length}
-                      </span>
-                    )}
+                    Gantt View
                   </button>
+                  <button
+                    onClick={() => setTimelineView('scheduler')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      timelineView === 'scheduler'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Calendar View
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {timelineView === 'gantt' && (
+                  <>
+                    <button
+                      onClick={() => {
+                        if (ganttRef.current) {
+                          ganttRef.current.zoomIn();
+                        }
+                      }}
+                      className="inline-flex items-center justify-center w-9 h-9 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                      title="Zoom In"
+                    >
+                      <ZoomIn className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (ganttRef.current) {
+                          ganttRef.current.zoomOut();
+                        }
+                      }}
+                      className="inline-flex items-center justify-center w-9 h-9 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                      title="Zoom Out"
+                    >
+                      <ZoomOut className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setIsGanttFullscreen(!isGanttFullscreen)}
+                      className="inline-flex items-center justify-center w-9 h-9 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                      title={isGanttFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+                    >
+                      {isGanttFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
 
-                  {showTaskFieldsDropdown && (
-                    <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
-                      <div className="p-3 border-b border-gray-200">
-                        <h4 className="font-medium text-gray-900">Select Task Fields</h4>
-                        <p className="text-xs text-gray-500 mt-1">Choose fields to display in task pane</p>
-                      </div>
-                      <div className="max-h-80 overflow-y-auto p-2">
-                        {taskCustomFields.length === 0 ? (
-                          <div className="text-center py-8 text-gray-500">
-                            <p className="text-sm">No task fields available</p>
-                            <p className="text-xs mt-1">Create task fields in Settings</p>
+            {/* Microsoft-style Ribbon */}
+            {timelineView === 'gantt' && (
+              <div className="mb-4 bg-gradient-to-b from-gray-50 to-white border border-gray-200 rounded-lg shadow-sm">
+                <div className="px-4 py-3">
+                  <div className="flex items-start gap-1">
+                    {/* View Group */}
+                    <div className="flex items-center gap-1 pr-4 border-r border-gray-300">
+                      <button
+                        onClick={() => {
+                          if (ganttRef.current) {
+                            ganttRef.current.toggleGroupByOwner();
+                            setIsGroupedByOwner(!isGroupedByOwner);
+                          }
+                        }}
+                        className="flex flex-col items-center justify-center px-3 py-2 hover:bg-blue-50 rounded-md transition-colors group min-w-[70px]"
+                        title={isGroupedByOwner ? 'Show All Tasks' : 'Group by Owner'}
+                      >
+                        <Group className="w-6 h-6 text-blue-600 mb-1" />
+                        <span className="text-xs text-gray-700 text-center leading-tight">
+                          {isGroupedByOwner ? 'Show All' : 'Group by'}<br />Owner
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => setShowResourcePanel(!showResourcePanel)}
+                        className="flex flex-col items-center justify-center px-3 py-2 hover:bg-blue-50 rounded-md transition-colors group min-w-[70px]"
+                        title={showResourcePanel ? 'Hide Resources' : 'Show Resources'}
+                      >
+                        <Users className="w-6 h-6 text-blue-600 mb-1" />
+                        <span className="text-xs text-gray-700 text-center leading-tight">
+                          {showResourcePanel ? 'Hide' : 'Show'}<br />Resources
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Import/Export Group */}
+                    <div className="flex items-center gap-1 px-4 border-r border-gray-300">
+                      <input
+                        ref={msProjectFileInputRef}
+                        type="file"
+                        accept=".mpp,.xml"
+                        onChange={handleMSProjectImport}
+                        className="hidden"
+                      />
+                      <button
+                        onClick={() => msProjectFileInputRef.current?.click()}
+                        disabled={importingMSProject}
+                        className="flex flex-col items-center justify-center px-3 py-2 hover:bg-orange-50 rounded-md transition-colors group min-w-[70px] disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Import tasks from MS Project file (.mpp or .xml)"
+                      >
+                        <Upload className="w-6 h-6 text-orange-600 mb-1" />
+                        <span className="text-xs text-gray-700 text-center leading-tight">
+                          {importingMSProject ? 'Importing...' : <>Upload<br />MS Project</>}
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => setShowSaveTemplateModal(true)}
+                        className="flex flex-col items-center justify-center px-3 py-2 hover:bg-amber-50 rounded-md transition-colors group min-w-[70px]"
+                        title="Save current schedule as a template"
+                      >
+                        <Save className="w-6 h-6 text-amber-600 mb-1" />
+                        <span className="text-xs text-gray-700 text-center leading-tight">
+                          Save as<br />Template
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Configuration Group */}
+                    <div className="flex items-center gap-1 px-4 border-r border-gray-300">
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowTaskFieldsDropdown(!showTaskFieldsDropdown)}
+                          className="flex flex-col items-center justify-center px-3 py-2 hover:bg-emerald-50 rounded-md transition-colors group min-w-[70px]"
+                          title="Add custom fields to tasks"
+                        >
+                          <div className="relative">
+                            <Plus className="w-6 h-6 text-emerald-600 mb-1" />
+                            {selectedTaskFields.length > 0 && (
+                              <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-emerald-600 text-white rounded-full text-[10px] font-medium">
+                                {selectedTaskFields.length}
+                              </span>
+                            )}
                           </div>
-                        ) : (
-                          taskCustomFields.map((field) => (
-                            <label
-                              key={field.id}
-                              className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedTaskFields.includes(field.id)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedTaskFields([...selectedTaskFields, field.id]);
-                                  } else {
-                                    setSelectedTaskFields(selectedTaskFields.filter(id => id !== field.id));
-                                  }
-                                }}
-                                className="mt-1 w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                              />
-                              <div className="flex-1">
-                                <div className="text-sm font-medium text-gray-900">{field.field_label}</div>
-                                {field.field_description && (
-                                  <div className="text-xs text-gray-500 mt-0.5">{field.field_description}</div>
-                                )}
-                                <div className="text-xs text-gray-400 mt-0.5">Type: {field.field_type}</div>
-                              </div>
-                            </label>
-                          ))
+                          <span className="text-xs text-gray-700 text-center leading-tight">
+                            Add Task<br />Fields
+                          </span>
+                        </button>
+
+                        {showTaskFieldsDropdown && (
+                          <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+                            <div className="p-3 border-b border-gray-200">
+                              <h4 className="font-medium text-gray-900">Select Task Fields</h4>
+                              <p className="text-xs text-gray-500 mt-1">Choose fields to display in task pane</p>
+                            </div>
+                            <div className="max-h-80 overflow-y-auto p-2">
+                              {taskCustomFields.length === 0 ? (
+                                <div className="text-center py-8 text-gray-500">
+                                  <p className="text-sm">No task fields available</p>
+                                  <p className="text-xs mt-1">Create task fields in Settings</p>
+                                </div>
+                              ) : (
+                                taskCustomFields.map((field) => (
+                                  <label
+                                    key={field.id}
+                                    className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedTaskFields.includes(field.id)}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setSelectedTaskFields([...selectedTaskFields, field.id]);
+                                        } else {
+                                          setSelectedTaskFields(selectedTaskFields.filter(id => id !== field.id));
+                                        }
+                                      }}
+                                      className="mt-1 w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+                                    />
+                                    <div className="flex-1">
+                                      <div className="text-sm font-medium text-gray-900">{field.field_label}</div>
+                                      {field.field_description && (
+                                        <div className="text-xs text-gray-500 mt-0.5">{field.field_description}</div>
+                                      )}
+                                      <div className="text-xs text-gray-400 mt-0.5">Type: {field.field_type}</div>
+                                    </div>
+                                  </label>
+                                ))
+                              )}
+                            </div>
+                            <div className="p-3 border-t border-gray-200 flex justify-end gap-2">
+                              <button
+                                onClick={() => setShowTaskFieldsDropdown(false)}
+                                className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                              >
+                                Close
+                              </button>
+                            </div>
+                          </div>
                         )}
                       </div>
-                      <div className="p-3 border-t border-gray-200 flex justify-end gap-2">
+
+                      <div className="relative">
                         <button
-                          onClick={() => setShowTaskFieldsDropdown(false)}
-                          className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                          onClick={() => setShowBaselineDropdown(!showBaselineDropdown)}
+                          className="flex flex-col items-center justify-center px-3 py-2 hover:bg-teal-50 rounded-md transition-colors group min-w-[70px]"
+                          title="Set a baseline for the project"
                         >
-                          Close
+                          <Flag className="w-6 h-6 text-teal-600 mb-1" />
+                          <span className="text-xs text-gray-700 text-center leading-tight">
+                            Set<br />Baseline
+                          </span>
                         </button>
+
+                        {showBaselineDropdown && (
+                          <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+                            <div className="p-3 border-b border-gray-200">
+                              <h4 className="font-medium text-gray-900">Select Baseline</h4>
+                              <p className="text-xs text-gray-500 mt-1">Choose which baseline to set</p>
+                            </div>
+                            <div className="max-h-80 overflow-y-auto p-2">
+                              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((baselineNum) => (
+                                <button
+                                  key={baselineNum}
+                                  onClick={async () => {
+                                    setShowBaselineDropdown(false);
+                                    if (ganttRef.current && id) {
+                                      // Set baseline on Gantt - this updates task data with baseline{N}_StartDate and baseline{N}_EndDate fields
+                                      ganttRef.current.setBaseline(baselineNum);
+
+                                      // Save baseline fields to database
+                                      try {
+                                        const ganttInstance = ganttRef.current.getGanttInstance();
+
+                                        // Instead of using serialize which strips properties,
+                                        // manually collect all tasks with their full data including baseline fields
+                                        const updatedTasks: any[] = [];
+                                        ganttInstance.eachTask((task: any) => {
+                                          if (task.$group_header) return; // Skip group headers
+
+                                          // Exclude Date objects (planned_start, planned_end) to avoid timezone issues
+                                          // Keep string-based fields including end_date and baseline fields
+                                          const taskCopy: any = {};
+                                          Object.keys(task).forEach(key => {
+                                            // Exclude Date object fields and internal DHTMLX fields
+                                            if (key.startsWith('planned_start') ||
+                                                key.startsWith('planned_end') ||
+                                                key.startsWith('$')) {
+                                              return;
+                                            }
+                                            // Format date fields to YYYY-MM-DD
+                                            if ((key === 'start_date' || key === 'end_date') && task[key]) {
+                                              taskCopy[key] = formatDateToYYYYMMDD(task[key]);
+                                            } else {
+                                              taskCopy[key] = task[key];
+                                            }
+                                          });
+
+                                          updatedTasks.push(taskCopy);
+                                        });
+
+                                        // Get links separately
+                                        const links = ganttInstance.getLinks().map((link: any) => ({ ...link }));
+
+                                        // Verify that baseline fields exist and log them
+                                        console.log('\n=== BASELINE SAVE VERIFICATION ===');
+                                        const tasksWithBaseline = updatedTasks.filter((task: any) =>
+                                          task[`baseline${baselineNum}_startDate`] && task[`baseline${baselineNum}_endDate`]
+                                        );
+                                        console.log(`${tasksWithBaseline.length} tasks have baseline ${baselineNum} fields set`);
+
+                                        // Log first 3 tasks to show what's being saved
+                                        updatedTasks.slice(0, 3).forEach(task => {
+                                          console.log(`\nTask ${task.id} (${task.text}) - Fields being saved:`);
+                                          console.log(`  start_date: ${task.start_date}`);
+                                          console.log(`  end_date: ${task.end_date}`);
+                                          console.log(`  duration: ${task.duration}`);
+                                          console.log(`  baseline${baselineNum}_startDate: ${task[`baseline${baselineNum}_startDate`]}`);
+                                          console.log(`  baseline${baselineNum}_endDate: ${task[`baseline${baselineNum}_endDate`]}`);
+                                          console.log(`  baseline${baselineNum}_duration: ${task[`baseline${baselineNum}_duration`]}`);
+                                        });
+                                        console.log('=== END SAVE VERIFICATION ===\n');
+
+                                        // Update the database with the new task data containing baseline fields
+                                        const updatedTaskData = {
+                                          data: updatedTasks,
+                                          links: links
+                                        };
+
+                                        console.log('Saving task data with baseline fields to database:', updatedTaskData);
+
+                                        // Update the record
+                                        const { error: updateError } = await supabase
+                                          .from('project_tasks')
+                                          .update({ task_data: updatedTaskData })
+                                          .eq('project_id', id);
+
+                                        if (updateError) throw updateError;
+
+                                        // Update local state
+                                        setProjectTasks({
+                                          ...projectTasks,
+                                          data: updatedTasks,
+                                          links: links
+                                        });
+
+                                        showNotification(`Baseline ${baselineNum} set successfully! Captured: baseline${baselineNum}_startDate, baseline${baselineNum}_endDate, baseline${baselineNum}_duration`, 'success');
+                                      } catch (error) {
+                                        console.error('Error saving baseline:', error);
+                                        alert('Failed to save baseline: ' + (error as Error).message);
+                                      }
+                                    }
+                                  }}
+                                  className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded text-sm text-gray-900 transition-colors"
+                                >
+                                  Baseline {baselineNum}
+                                </button>
+                              ))}
+                            </div>
+                            <div className="p-3 border-t border-gray-200 flex justify-end gap-2">
+                              <button
+                                onClick={() => setShowBaselineDropdown(false)}
+                                className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                              >
+                                Close
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  )}
-                </div>
 
-                {/* Baseline Selector */}
-                <div className="relative">
-                  <button
-                    onClick={() => setShowBaselineDropdown(!showBaselineDropdown)}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    <Flag className="w-4 h-4" />
-                    Set Baseline
-                  </button>
+                    {/* Progress & Hierarchy Group */}
+                    <div className="flex items-center gap-1 px-4 border-r border-gray-300">
+                      <div className="flex flex-col items-center gap-2">
+                        {/* Progress Row */}
+                        <div className="flex flex-col items-center">
+                          <span className="text-xs text-gray-600 mb-1 font-medium">Progress</span>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => updateTaskProgress(25)}
+                              disabled={!selectedTaskId}
+                              className="px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                              title="Set task progress to 25%"
+                            >
+                              25%
+                            </button>
+                            <button
+                              onClick={() => updateTaskProgress(50)}
+                              disabled={!selectedTaskId}
+                              className="px-2 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                              title="Set task progress to 50%"
+                            >
+                              50%
+                            </button>
+                            <button
+                              onClick={() => updateTaskProgress(75)}
+                              disabled={!selectedTaskId}
+                              className="px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                              title="Set task progress to 75%"
+                            >
+                              75%
+                            </button>
+                            <button
+                              onClick={() => updateTaskProgress(100)}
+                              disabled={!selectedTaskId}
+                              className="px-2 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                              title="Set task progress to 100%"
+                            >
+                              100%
+                            </button>
+                          </div>
+                        </div>
 
-                  {showBaselineDropdown && (
-                    <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
-                      <div className="p-3 border-b border-gray-200">
-                        <h4 className="font-medium text-gray-900">Select Baseline</h4>
-                        <p className="text-xs text-gray-500 mt-1">Choose which baseline to set</p>
-                      </div>
-                      <div className="max-h-80 overflow-y-auto p-2">
-                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((baselineNum) => (
-                          <button
-                            key={baselineNum}
-                            onClick={async () => {
-                              setShowBaselineDropdown(false);
-                              if (ganttRef.current && id) {
-                                // Set baseline on Gantt - this updates task data with baseline{N}_StartDate and baseline{N}_EndDate fields
-                                ganttRef.current.setBaseline(baselineNum);
-
-                                // Save baseline fields to database
-                                try {
-                                  const ganttInstance = ganttRef.current.getGanttInstance();
-
-                                  // Instead of using serialize which strips properties,
-                                  // manually collect all tasks with their full data including baseline fields
-                                  const updatedTasks: any[] = [];
-                                  ganttInstance.eachTask((task: any) => {
-                                    // Create a copy of the task with all its properties preserved
-                                    updatedTasks.push({ ...task });
-                                  });
-
-                                  // Get links separately
-                                  const links = ganttInstance.getLinks().map((link: any) => ({ ...link }));
-
-                                  // Verify that baseline fields exist
-                                  const tasksWithBaseline = updatedTasks.filter((task: any) =>
-                                    task[`baseline${baselineNum}_StartDate`] && task[`baseline${baselineNum}_EndDate`]
-                                  );
-                                  console.log(`${tasksWithBaseline.length} tasks have baseline ${baselineNum} fields set`);
-
-                                  // Update the database with the new task data containing baseline fields
-                                  const updatedTaskData = {
-                                    data: updatedTasks,
-                                    links: links
-                                  };
-
-                                  console.log('Saving task data with baseline fields to database:', updatedTaskData);
-
-                                  // Update the record
-                                  const { error: updateError } = await supabase
-                                    .from('project_tasks')
-                                    .update({ task_data: updatedTaskData })
-                                    .eq('project_id', id);
-
-                                  if (updateError) throw updateError;
-
-                                  // Update local state
-                                  setProjectTasks({
-                                    ...projectTasks,
-                                    data: updatedTasks,
-                                    links: links
-                                  });
-
-                                  alert(`Baseline ${baselineNum} set successfully! Fields baseline${baselineNum}_StartDate and baseline${baselineNum}_EndDate added to all tasks.`);
-                                } catch (error) {
-                                  console.error('Error saving baseline:', error);
-                                  alert('Failed to save baseline: ' + (error as Error).message);
-                                }
-                              }
-                            }}
-                            className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded text-sm text-gray-900 transition-colors"
-                          >
-                            Baseline {baselineNum}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="p-3 border-t border-gray-200 flex justify-end gap-2">
-                        <button
-                          onClick={() => setShowBaselineDropdown(false)}
-                          className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                        >
-                          Close
-                        </button>
+                        {/* Hierarchy & Links Row */}
+                        <div className="flex flex-col items-center">
+                          <span className="text-xs text-gray-600 mb-1 font-medium">Hierarchy & Links</span>
+                          <div className="flex gap-1 items-center">
+                            <button
+                              onClick={outdentTask}
+                              disabled={!selectedTaskId}
+                              className="px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                              title="Outdent task (move task out of parent)"
+                            >
+                              <ChevronLeft className="w-3 h-3" />
+                              Outdent
+                            </button>
+                            <button
+                              onClick={indentTask}
+                              disabled={!selectedTaskId}
+                              className="px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                              title="Indent task (move task under parent)"
+                            >
+                              <ChevronRight className="w-3 h-3" />
+                              Indent
+                            </button>
+                            <div className="w-px h-6 bg-gray-300 mx-1"></div>
+                            <button
+                              onClick={linkSelectedTasks}
+                              disabled={selectedTaskIds.length < 2}
+                              className="px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                              title={selectedTaskIds.length < 2 ? "Select at least 2 tasks to link (Ctrl+Click)" : `Link ${selectedTaskIds.length} selected tasks sequentially`}
+                            >
+                              <Link2 className="w-3 h-3" />
+                              Link
+                            </button>
+                            <button
+                              onClick={unlinkSelectedTasks}
+                              disabled={selectedTaskIds.length < 1}
+                              className="px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                              title={selectedTaskIds.length < 1 ? "Select at least 1 task to unlink" : `Remove links between ${selectedTaskIds.length} selected tasks`}
+                            >
+                              <Unlink className="w-3 h-3" />
+                              Unlink
+                            </button>
+                            {selectedTaskIds.length > 0 && (
+                              <span className="text-xs text-gray-600 ml-2 px-2 py-1 bg-blue-50 rounded">
+                                {selectedTaskIds.length} task{selectedTaskIds.length > 1 ? 's' : ''} selected
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  )}
+
+                    {/* History Group */}
+                    <div className="flex items-center gap-1 px-4 border-r border-gray-300">
+                      <button
+                        onClick={undoAction}
+                        className="px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded transition-colors flex items-center gap-1"
+                        title="Undo last action"
+                      >
+                        <Undo className="w-3 h-3" />
+                        Undo
+                      </button>
+                      <button
+                        onClick={redoAction}
+                        className="px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded transition-colors flex items-center gap-1"
+                        title="Redo last action"
+                      >
+                        <Redo className="w-3 h-3" />
+                        Redo
+                      </button>
+                    </div>
+
+                    {/* Tasks Group */}
+                    <div className="flex items-center gap-1 pl-4">
+                      <button
+                        onClick={() => insertTask('task')}
+                        className="flex flex-col items-center justify-center px-3 py-2 hover:bg-sky-50 rounded-md transition-colors group min-w-[70px]"
+                        title={selectedTaskId ? "Insert a new task after the selected task" : "Insert a new task at the bottom"}
+                      >
+                        <Plus className="w-6 h-6 text-sky-600 mb-1" />
+                        <span className="text-xs text-gray-700 text-center leading-tight">
+                          Insert<br />Task
+                        </span>
+                      </button>
+                      <button
+                        onClick={insertMilestone}
+                        className="flex flex-col items-center justify-center px-3 py-2 hover:bg-amber-50 rounded-md transition-colors group min-w-[70px]"
+                        title={selectedTaskId ? "Insert a new milestone after the selected task" : "Insert a new milestone at the bottom"}
+                      >
+                        <Flag className="w-6 h-6 text-amber-600 mb-1" />
+                        <span className="text-xs text-gray-700 text-center leading-tight">
+                          Insert<br />Milestone
+                        </span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <button
-                  onClick={() => {
-                    setEditingTaskId(null);
-                    setTaskForm({
-                      description: '',
-                      start_date: '',
-                      duration: 1,
-                      owner_id: '',
-                      resource_ids: [],
-                      parent_id: undefined,
-                      parent_wbs: '',
-                      predecessor_ids: [],
-                      type: 'task',
-                      progress: 0
-                    });
-                    setShowTaskModal(true);
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  Create Task
-                </button>
               </div>
-            </div>
-            <div className="mb-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search tasks by name..."
-                  value={taskSearchQuery}
-                  onChange={(e) => setTaskSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-            <div style={{ width: "100%", height: isGanttFullscreen ? "calc(100vh - 150px)" : "600px", overflow: "auto" }}>
-              <Gantt
+            )}
+
+            {timelineView === 'gantt' && (
+              <>
+                <div className="mb-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search tasks by name..."
+                      value={taskSearchQuery}
+                      onChange={(e) => setTaskSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+                <div style={{ width: "100%", height: isGanttFullscreen ? "calc(100vh - 150px)" : "600px", overflow: "auto" }}>
+                  <Gantt
                 ref={ganttRef}
                 projectId={id}
                 projecttasks={projectTasks}
                 onTaskUpdate={saveProjectTasks}
+                onTaskSelect={setSelectedTaskId}
+                onTaskMultiSelect={handleTaskMultiSelect}
                 searchQuery={taskSearchQuery}
                 selectedTaskFields={selectedTaskFields}
                 taskCustomFields={taskCustomFields}
                 showResourcePanel={showResourcePanel}
-                projectCreatedAt={project?.created_at}
+                projectStartDate={project?.start_date || undefined}
                 onOpenTaskModal={(parentId) => {
                   console.log('=== onOpenTaskModal called ===');
                   console.log('parentId received:', parentId);
@@ -3479,9 +4618,14 @@ const ProjectDetail: React.FC = () => {
                     }
                   }
 
+                  // Set default start date to project start date
+                  const defaultStartDate = project?.start_date
+                    ? new Date(project.start_date).toISOString().split('T')[0]
+                    : '';
+
                   setTaskForm({
                     description: '',
-                    start_date: '',
+                    start_date: defaultStartDate,
                     duration: 1,
                     owner_id: '',
                     resource_ids: [],
@@ -3492,6 +4636,7 @@ const ProjectDetail: React.FC = () => {
                     progress: 0
                   });
                   console.log('Task form after setting - parent_wbs:', parentWbs);
+                  setResourceAllocations({});
                   setEditingTaskId(null);
                   setShowTaskModal(true);
                 }}
@@ -3539,25 +4684,36 @@ const ProjectDetail: React.FC = () => {
                       const ownerNames = Array.isArray(task.owner_name) ? task.owner_name : [task.owner_name];
                       resourceIds = ownerNames
                         .map(name => {
-                          const member = projectTeamMembers.find((m: any) =>
+                          const member = projectTeamMembers.find(m =>
                             m.resources?.display_name === name
                           );
                           return member?.resource_id;
                         })
                         .filter(Boolean); // Remove undefined values
-                      console.log("Mapped owner_name to resource_ids:", ownerNames, "->", resourceIds);
                     }
 
-                    console.log("Setting task form with:", {
-                      description: task.text,
-                      start_date: startDate,
-                      duration: task.duration,
-                      owner_id: task.owner_id || '',
-                      resource_ids: resourceIds,
-                      parent_id: task.parent || undefined,
-                      parent_wbs: parentWbs,
-                      predecessor_ids: predecessorIds
-                    });
+                    console.log("🔍 EDIT TASK - Loading task:", task.text);
+                    console.log("🔍 EDIT TASK - Task resource_ids:", task.resource_ids);
+                    console.log("🔍 EDIT TASK - Task resource_names:", task.resource_names);
+                    console.log("🔍 EDIT TASK - Task work hours:", task.resource_work_hours);
+                    console.log("🔍 EDIT TASK - Task resource_allocations (RAW):", task.resource_allocations);
+                    console.log("🔍 EDIT TASK - Type of resource_allocations:", typeof task.resource_allocations);
+                    console.log("🔍 EDIT TASK - Full task object:", JSON.stringify(task, null, 2));
+                    console.log("🔍 EDIT TASK - Setting form resource_ids:", resourceIds);
+
+                    // Load resource allocations
+                    const allocations: Record<string, number> = {};
+                    if (task.resource_allocations && typeof task.resource_allocations === 'object' && Object.keys(task.resource_allocations).length > 0) {
+                      console.log("🔍 EDIT TASK - Loading allocations from task.resource_allocations");
+                      Object.assign(allocations, task.resource_allocations);
+                    } else {
+                      console.log("🔍 EDIT TASK - No allocations found (or empty object), defaulting to 100%");
+                      // Default to 100% for existing resources without allocation data
+                      resourceIds.forEach(resId => {
+                        allocations[resId] = 100;
+                      });
+                    }
+
                     setTaskForm({
                       description: task.text,
                       start_date: startDate,
@@ -3570,15 +4726,25 @@ const ProjectDetail: React.FC = () => {
                       type: task.type || 'task',
                       progress: Math.round((task.progress || 0) * 100)
                     });
+                    setResourceAllocations(allocations);
                     setEditingTaskId(taskId);
                     console.log("Opening modal with editingTaskId:", taskId);
+                    console.log("🔍 EDIT TASK - Loaded allocations:", allocations);
                     setShowTaskModal(true);
                   } else {
                     console.error("Task not found for ID:", taskId);
                   }
                 }}
               />
-            </div>
+                </div>
+              </>
+            )}
+
+            {timelineView === 'scheduler' && id && (
+              <div style={{ width: "100%", height: "700px" }}>
+                <Scheduler key={`scheduler-${timelineView}`} projectId={id} />
+              </div>
+            )}
           </div>
         )}
 
@@ -3600,7 +4766,7 @@ const ProjectDetail: React.FC = () => {
                     resetRiskForm();
                     setShowRiskModal(true);
                   }}
-                  className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  className="flex items-center space-x-2 px-4 py-2 bg-gradient-primary text-white rounded-lg hover:opacity-90 transition-all shadow-lg"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add Risk</span>
@@ -3608,29 +4774,29 @@ const ProjectDetail: React.FC = () => {
               </div>
 
               {risks.length === 0 ? (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+                <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-8 text-center">
                   <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h4 className="text-lg font-medium text-gray-900 mb-2">No Risks</h4>
                   <p className="text-gray-600">No risks have been identified for this project yet.</p>
                 </div>
               ) : (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                      <thead className="bg-gradient-dark">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Impact</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Title</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Type</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Description</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Impact</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Created</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="divide-y divide-gray-200" style={{ backgroundColor: '#F9F7FC' }}>
                         {risks.map((risk) => (
-                          <tr key={risk.id} className="hover:bg-gray-50">
+                          <tr key={risk.id} className="hover:bg-gray-100">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{risk.title}</td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -3690,7 +4856,7 @@ const ProjectDetail: React.FC = () => {
                     resetIssueForm();
                     setShowIssueModal(true);
                   }}
-                  className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                  className="flex items-center space-x-2 px-4 py-2 bg-gradient-primary text-white rounded-lg hover:opacity-90 transition-all shadow-lg"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add Issue</span>
@@ -3698,29 +4864,29 @@ const ProjectDetail: React.FC = () => {
               </div>
 
               {issues.length === 0 ? (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+                <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-8 text-center">
                   <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h4 className="text-lg font-medium text-gray-900 mb-2">No Issues</h4>
                   <p className="text-gray-600">No issues have been reported for this project yet.</p>
                 </div>
               ) : (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                      <thead className="bg-gradient-dark">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Impact</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Title</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Type</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Description</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Impact</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Created</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="divide-y divide-gray-200" style={{ backgroundColor: '#F9F7FC' }}>
                         {issues.map((issue) => (
-                          <tr key={issue.id} className="hover:bg-gray-50">
+                          <tr key={issue.id} className="hover:bg-gray-100">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{issue.title}</td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -3782,7 +4948,7 @@ const ProjectDetail: React.FC = () => {
                   resetChangeRequestForm();
                   setShowChangeRequestModal(true);
                 }}
-                className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                className="flex items-center space-x-2 px-4 py-2 bg-gradient-primary text-white rounded-lg hover:opacity-90 transition-all shadow-lg"
               >
                 <Plus className="w-4 h-4" />
                 <span>Add Change Request</span>
@@ -3790,30 +4956,30 @@ const ProjectDetail: React.FC = () => {
             </div>
 
             {changeRequests.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+              <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-8 text-center">
                 <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <h4 className="text-lg font-medium text-gray-900 mb-2">No Change Requests</h4>
                 <p className="text-gray-600">No change requests have been submitted for this project yet.</p>
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-gradient-dark">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Impact</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attachments</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Title</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Type</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Impact</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Description</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Attachments</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Created</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="divide-y divide-gray-200" style={{ backgroundColor: '#F9F7FC' }}>
                       {changeRequests.map((changeRequest) => (
-                        <tr key={changeRequest.id} className="hover:bg-gray-50">
+                        <tr key={changeRequest.id} className="hover:bg-gray-100">
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{changeRequest.request_title}</td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -3900,7 +5066,7 @@ const ProjectDetail: React.FC = () => {
         {activeTab === 'budget' && (
           <div className="space-y-6">
             {budgets.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="text-center py-12">
                   <DollarSign className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No Budget Categories Yet</h3>
@@ -3915,7 +5081,7 @@ const ProjectDetail: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-semibold text-gray-900">Annual Budget Forecast ({selectedYear})</h3>
                   <div className="flex items-center gap-4">
@@ -4001,27 +5167,21 @@ const ProjectDetail: React.FC = () => {
 
         {activeTab === 'settings' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">Project Documents</h3>
-                <label className="cursor-pointer">
-                  <input
-                    type="file"
-                    className="hidden"
-                    onChange={handleDocumentUpload}
-                  />
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      (e.currentTarget.previousElementSibling as HTMLInputElement)?.click();
-                    }}
-                  >
-                    <Upload className="w-4 h-4" />
-                    Upload Document
-                  </button>
-                </label>
+                <DocumentUpload
+                  projectId={id!}
+                  onUploadSuccess={() => {
+                    console.log('[ProjectDetail] Upload successful, refreshing documents');
+                    fetchDocuments();
+                    showNotification('Document uploaded successfully!', 'success');
+                  }}
+                  onUploadError={(message) => {
+                    console.error('[ProjectDetail] Upload error:', message);
+                    showNotification(`Error uploading document: ${message}`, 'error');
+                  }}
+                />
               </div>
 
               {documents.length === 0 ? (
@@ -4527,13 +5687,32 @@ const ProjectDetail: React.FC = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Cost Impact</label>
-                <input
-                  type="text"
-                  value={changeRequestForm.cost_impact}
-                  onChange={(e) => setChangeRequestForm({ ...changeRequestForm, cost_impact: e.target.value })}
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                  <input
+                    type="text"
+                    value={formatCurrency(changeRequestForm.cost_impact)}
+                    onChange={(e) => {
+                      const formatted = formatCurrency(e.target.value);
+                      setChangeRequestForm({ ...changeRequestForm, cost_impact: parseCurrency(formatted) });
+                    }}
+                    className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                <select
+                  value={changeRequestForm.status}
+                  onChange={(e) => setChangeRequestForm({ ...changeRequestForm, status: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Describe cost impact (optional)"
-                />
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="In Review">In Review</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Attachments</label>
@@ -4919,20 +6098,89 @@ const ProjectDetail: React.FC = () => {
                       Summary task duration is calculated from subtasks
                     </p>
                   )}
+                  {taskForm.type === 'task' && taskForm.start_date && taskForm.duration > 0 && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      Task will end on: {calculateEndDate(taskForm.start_date, taskForm.duration)}
+                    </p>
+                  )}
                 </div>
 
-                <SearchableMultiSelect
-                  label="Select Resources"
-                  placeholder="Search and select team members..."
-                  options={projectTeamMembers.map((member: any) => ({
-                    value: member.resource_id,
-                    label: member.resources?.display_name || 'Unknown'
-                  }))}
-                  selectedValues={taskForm.resource_ids}
-                  onChange={(values) => setTaskForm({ ...taskForm, resource_ids: values as string[] })}
-                  emptyMessage="No team members assigned. Add team members in the Team tab first."
-                  disabled={projectTeamMembers.length === 0}
-                />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Task Owners (Multiple Selection)
+                  </label>
+                  <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto">
+                    {projectTeamMembers.length === 0 ? (
+                      <p className="text-sm text-gray-500">
+                        No team members assigned. Add team members in the Team tab first.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {projectTeamMembers.map(member => (
+                          <div key={member.id} className="space-y-1">
+                            <label className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                              <input
+                                type="checkbox"
+                                checked={taskForm.resource_ids.includes(member.resource_id)}
+                                onChange={(e) => {
+                                  const resourceId = member.resource_id;
+                                  if (e.target.checked) {
+                                    setTaskForm({
+                                      ...taskForm,
+                                      resource_ids: [...taskForm.resource_ids, resourceId]
+                                    });
+                                    setResourceAllocations({
+                                      ...resourceAllocations,
+                                      [resourceId]: 100
+                                    });
+                                  } else {
+                                    setTaskForm({
+                                      ...taskForm,
+                                      resource_ids: taskForm.resource_ids.filter(id => id !== resourceId)
+                                    });
+                                    const newAllocations = { ...resourceAllocations };
+                                    delete newAllocations[resourceId];
+                                    setResourceAllocations(newAllocations);
+                                  }
+                                }}
+                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                              <span className="text-sm text-gray-700 flex-1">
+                                {member.resources?.display_name || 'Unknown'}
+                              </span>
+                            </label>
+                            {taskForm.resource_ids.includes(member.resource_id) && (
+                              <div className="ml-6 flex items-center gap-2">
+                                <label className="text-xs text-gray-600 w-20">Allocation:</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="1"
+                                  value={resourceAllocations[member.resource_id] || 100}
+                                  onChange={(e) => {
+                                    const value = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                                    setResourceAllocations({
+                                      ...resourceAllocations,
+                                      [member.resource_id]: value
+                                    });
+                                  }}
+                                  className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                                <span className="text-xs text-gray-600">%</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {taskForm.resource_ids.length > 0 && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {taskForm.resource_ids.length} team member(s) selected
+                    </p>
+                  )}
+                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

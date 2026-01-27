@@ -19,6 +19,7 @@ export default function DeadlinesWidget() {
 
   useEffect(() => {
     fetchDeadlines();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchDeadlines = async () => {
@@ -98,11 +99,11 @@ export default function DeadlinesWidget() {
   };
 
   const getDeadlineColor = (days: number) => {
-    if (days < 0) return 'text-red-700 bg-red-100';
-    if (days === 0) return 'text-yellow-700 bg-yellow-100';
-    if (days <= 3) return 'text-orange-700 bg-orange-100';
-    if (days <= 7) return 'text-blue-700 bg-blue-100';
-    return 'text-gray-700 bg-gray-100';
+    if (days < 0) return 'text-[#E74C3C] bg-[#E74C3C] bg-opacity-20';
+    if (days === 0) return 'text-[#F39C12] bg-[#F39C12] bg-opacity-20';
+    if (days <= 3) return 'text-[#F39C12] bg-[#F39C12] bg-opacity-20';
+    if (days <= 7) return 'text-[#26D0CE] bg-[#26D0CE] bg-opacity-20';
+    return 'text-[#7F8C8D] bg-[#7F8C8D] bg-opacity-20';
   };
 
   const getDeadlineText = (days: number) => {
@@ -125,7 +126,7 @@ export default function DeadlinesWidget() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 h-full">
+      <div className="bg-widget-bg rounded-lg shadow-sm p-6 border border-gray-200 h-full">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
             <Calendar className="w-5 h-5" />
@@ -142,20 +143,20 @@ export default function DeadlinesWidget() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 h-full flex flex-col">
+    <div className="bg-widget-bg rounded-lg shadow-sm p-6 border border-gray-200 h-full flex flex-col">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-          <Calendar className="w-5 h-5 text-blue-600" />
+          <Calendar className="w-5 h-5 text-[#5B2C91]" />
           Upcoming Deadlines
         </h3>
         <div className="flex items-center gap-2">
           {overdueCount > 0 && (
-            <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full font-medium">
+            <span className="px-2 py-1 bg-[#E74C3C] bg-opacity-20 text-[#E74C3C] text-xs rounded-full font-medium">
               {overdueCount} overdue
             </span>
           )}
           {dueTodayCount > 0 && (
-            <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">
+            <span className="px-2 py-1 bg-[#F39C12] bg-opacity-20 text-[#F39C12] text-xs rounded-full font-medium">
               {dueTodayCount} today
             </span>
           )}
@@ -179,8 +180,8 @@ export default function DeadlinesWidget() {
                 key={`${deadline.type}-${deadline.id}`}
                 className={`bg-gray-50 p-3 rounded-lg border transition-all ${
                   isOverdue
-                    ? 'border-red-300 hover:border-red-400'
-                    : 'border-gray-200 hover:border-blue-300'
+                    ? 'border-[#E74C3C] border-opacity-30 hover:border-opacity-50'
+                    : 'border-gray-200 hover:border-[#26D0CE]'
                 }`}
               >
                 <div className="flex items-start justify-between">
@@ -209,7 +210,7 @@ export default function DeadlinesWidget() {
         <div className="mt-4 pt-4 border-t border-gray-200">
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-600">{deadlines.length} upcoming</span>
-            <button className="text-blue-600 hover:text-blue-700 flex items-center gap-1">
+            <button className="text-[#5B2C91] hover:text-[#4a2377] flex items-center gap-1">
               View Calendar
               <ChevronRight className="w-4 h-4" />
             </button>

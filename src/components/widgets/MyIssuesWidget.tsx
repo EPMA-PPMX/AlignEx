@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AlertCircle, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { useCurrentUser } from '../../lib/useCurrentUser';
+import { DEMO_USER_ID } from '../../lib/useCurrentUser';
 import { Link } from 'react-router-dom';
 
 interface Issue {
@@ -10,28 +10,35 @@ interface Issue {
   title: string;
   priority: string;
   status: string;
+  category: string;
   assigned_to: string;
   project_name: string;
 }
 
 export default function MyIssuesWidget() {
-  const { user } = useCurrentUser();
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      fetchIssues();
-    }
-  }, [user]);
+    fetchIssues();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchIssues = async () => {
     try {
       setLoading(true);
 
-      if (!user?.resource_id) {
+      // Get user's resource_id
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('resource_id')
+        .eq('id', DEMO_USER_ID)
+        .maybeSingle();
+
+      if (userError || !userData?.resource_id) {
         console.log('MyIssuesWidget: User has no resource_id, cannot fetch issues');
         setIssues([]);
+        setLoading(false);
         return;
       }
 
@@ -51,7 +58,7 @@ export default function MyIssuesWidget() {
           .from('project_field_values')
           .select('project_id')
           .eq('field_id', pmField.id)
-          .eq('value', user.resource_id);
+          .eq('value', userData.resource_id);
 
         if (pfvError) throw pfvError;
 
@@ -61,7 +68,7 @@ export default function MyIssuesWidget() {
       const { data: teamData, error: teamError } = await supabase
         .from('project_team_members')
         .select('project_id')
-        .eq('resource_id', user.resource_id);
+        .eq('resource_id', userData.resource_id);
 
       if (teamError) throw teamError;
 
@@ -77,7 +84,7 @@ export default function MyIssuesWidget() {
         .from('project_issues')
         .select('*, projects(name)')
         .in('project_id', projectIds)
-        .in('status', ['Open', 'In Progress', 'Blocked'])
+        .eq('status', 'Active')
         .order('created_at', { ascending: false })
         .limit(5);
 
@@ -98,19 +105,29 @@ export default function MyIssuesWidget() {
 
   const getPriorityColor = (priority: string) => {
     switch (priority?.toLowerCase()) {
-      case 'critical': case 'high': return 'bg-red-500';
-      case 'medium': return 'bg-yellow-500';
-      case 'low': return 'bg-green-500';
-      default: return 'bg-gray-500';
+      case 'critical': return 'bg-[#A93226]';
+      case 'high': return 'bg-[#D43E3E]';
+      case 'medium': return 'bg-[#C76F21]';
+      case 'low': return 'bg-[#4DB8AA]';
+      default: return 'bg-[#7F8C8D]';
     }
   };
 
   const getPriorityTextColor = (priority: string) => {
     switch (priority?.toLowerCase()) {
-      case 'critical': case 'high': return 'text-red-700';
-      case 'medium': return 'text-yellow-700';
-      case 'low': return 'text-green-700';
-      default: return 'text-gray-700';
+      case 'critical': return 'text-[#A93226]';
+      case 'high': return 'text-[#D43E3E]';
+      case 'medium': return 'text-[#C76F21]';
+      case 'low': return 'text-[#4DB8AA]';
+      default: return 'text-[#7F8C8D]';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'active': return 'bg-[#D43E3E] bg-opacity-20 text-[#D43E3E]';
+      case 'closed': return 'bg-[#276A6C] bg-opacity-20 text-[#276A6C]';
+      default: return 'bg-[#7F8C8D] bg-opacity-20 text-[#7F8C8D]';
     }
   };
 
@@ -120,7 +137,7 @@ export default function MyIssuesWidget() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 h-full">
+      <div className="bg-widget-bg rounded-lg shadow-sm p-6 border border-gray-200 h-full">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
             <AlertCircle className="w-5 h-5" />
@@ -137,14 +154,14 @@ export default function MyIssuesWidget() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 h-full flex flex-col">
+    <div className="bg-widget-bg rounded-lg shadow-sm p-6 border border-gray-200 h-full flex flex-col">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 text-red-600" />
+          <AlertCircle className="w-5 h-5 text-[#D43E3E]" />
           My Issues
         </h3>
         {criticalCount > 0 && (
-          <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full flex items-center gap-1 font-medium">
+          <span className="px-2 py-1 bg-[#D43E3E] bg-opacity-20 text-[#D43E3E] text-xs rounded-full flex items-center gap-1 font-medium">
             <AlertCircle className="w-3 h-3" />
             {criticalCount} critical
           </span>
@@ -165,7 +182,7 @@ export default function MyIssuesWidget() {
             <Link
               key={issue.id}
               to={`/projects/${issue.project_id}`}
-              className="block bg-gray-50 p-4 rounded-lg border border-gray-200 hover:border-red-300 transition-all"
+              className="block bg-gray-50 p-4 rounded-lg border border-gray-200 hover:border-[#D43E3E] transition-all"
             >
               <div className="flex items-start justify-between mb-2">
                 <div className="flex-1 min-w-0">
@@ -181,8 +198,8 @@ export default function MyIssuesWidget() {
                     {issue.priority} Priority
                   </span>
                 </div>
-                <span className="px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-700">
-                  {issue.status}
+                <span className="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700">
+                  {issue.category || 'General'}
                 </span>
               </div>
             </Link>
@@ -196,7 +213,7 @@ export default function MyIssuesWidget() {
             <span className="text-gray-600">{issues.length} active issues</span>
             <Link
               to="/projects"
-              className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
+              className="text-[#5B2C91] hover:text-[#4a2377] flex items-center gap-1"
             >
               View All
               <ChevronRight className="w-4 h-4" />

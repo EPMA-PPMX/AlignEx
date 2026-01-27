@@ -21,7 +21,7 @@ const ProjectOverview: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Project Progress Chart */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-900">Project Progress</h3>
           <div className="flex items-center space-x-4 text-sm">
@@ -54,7 +54,7 @@ const ProjectOverview: React.FC = () => {
       </div>
 
       {/* Upcoming Deadlines */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Upcoming Deadlines</h3>
         <div className="space-y-3">
           {upcomingDeadlines.map((item, index) => (

@@ -16,6 +16,8 @@ import Timesheet from './pages/Timesheet';
 import TimesheetApproval from './pages/TimesheetApproval';
 import Settings from './pages/Settings';
 import StatusReport from './pages/StatusReport';
+import TaskScheduler from './pages/TaskScheduler';
+import Teams from './pages/Teams';
 
 function App() {
   return (
@@ -36,6 +38,8 @@ function App() {
             <Route path="/timesheet" element={<Timesheet />} />
             <Route path="/timesheet-approval" element={<TimesheetApproval />} />
             <Route path="/status-report" element={<StatusReport />} />
+            <Route path="/scheduler" element={<TaskScheduler />} />
+            <Route path="/teams" element={<Teams />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </Layout>

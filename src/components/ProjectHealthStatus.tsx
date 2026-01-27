@@ -8,10 +8,10 @@ interface ProjectHealthStatusProps {
 }
 
 const healthStatusOptions = [
-  { value: 'On Track', label: 'On Track', color: 'bg-green-100 text-green-800' },
-  { value: 'At Risk', label: 'At Risk', color: 'bg-red-100 text-red-800' },
-  { value: 'Delayed', label: 'Delayed', color: 'bg-orange-100 text-orange-800' },
-  { value: 'Completed', label: 'Completed', color: 'bg-blue-100 text-blue-800' },
+  { value: 'On Track', label: 'On Track', color: 'bg-gradient-to-br from-[#276A6C] to-[#5DB6B8] text-white border-[#5DB6B8]' },
+  { value: 'At Risk', label: 'At Risk', color: 'bg-gradient-to-br from-[#C76F21] to-[#FAAF65] text-white border-[#F89D43]' },
+  { value: 'Delayed', label: 'Delayed', color: 'bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A] text-white border-[#FD5D5D]' },
+  { value: 'Completed', label: 'Completed', color: 'bg-gradient-to-br from-[#276A6C] to-[#5DB6B8] text-white border-[#5DB6B8]' },
 ];
 
 const ProjectHealthStatus: React.FC<ProjectHealthStatusProps> = ({
@@ -56,7 +56,7 @@ const ProjectHealthStatus: React.FC<ProjectHealthStatusProps> = ({
       <button
         onClick={() => setIsOpen(!isOpen)}
         disabled={isUpdating}
-        className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${currentStatusOption.color} hover:opacity-80 transition-opacity cursor-pointer disabled:cursor-wait disabled:opacity-50`}
+        className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${currentStatusOption.color} hover:opacity-80 transition-opacity cursor-pointer disabled:cursor-wait disabled:opacity-50`}
       >
         {isUpdating ? 'Updating...' : currentStatusOption.label}
         <svg

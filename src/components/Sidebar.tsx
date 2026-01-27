@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { LayoutDashboard, FolderKanban, Settings, Target, TrendingUp, FileText, Award, Users, CheckSquare, Clock, ChevronLeft, ChevronRight, BarChart3, Lock, ClipboardCheck, Calendar } from 'lucide-react';
 import { LayoutDashboard, FolderKanban, Settings, Target, TrendingUp, FileText, Award, Users, CheckSquare, Clock, ChevronLeft, ChevronRight, BarChart3, Lock, ClipboardCheck, UserCog } from 'lucide-react';
 import { usePermissions } from '../lib/usePermissions';
 import { ModuleKey } from '../lib/permissionService';
@@ -69,11 +70,6 @@ const Sidebar: React.FC = () => {
       name: 'Status Report',
       path: '/status-report',
       icon: BarChart3,
-    },
-    {
-      name: 'Timesheet',
-      path: '/timesheet',
-      icon: Clock,
     },
     {
       name: 'Settings',

@@ -21,18 +21,22 @@ interface TeamMember {
 }
 
 export default function Teams() {
+  console.log('=== TEAMS PAGE COMPONENT RENDERING ===');
+
   const { showConfirm, showNotification } = useNotification();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddMember, setShowAddMember] = useState(false);
 
   useEffect(() => {
+    console.log('=== TEAMS PAGE useEffect - fetching team members ===');
     fetchTeamMembers();
   }, []);
 
   const fetchTeamMembers = async () => {
     try {
       setLoading(true);
+      console.log('=== Fetching team members from database ===');
       const { data, error } = await supabase
         .from('organization_team_members')
         .select(`
@@ -59,6 +63,7 @@ export default function Teams() {
         resource: item.resources as any
       })) || [];
 
+      console.log('=== Team members fetched:', formattedData.length, '===');
       setTeamMembers(formattedData);
     } catch (error) {
       console.error('Error fetching team members:', error);
@@ -115,7 +120,7 @@ export default function Teams() {
 
       <ResourceAllocationHeatMap />
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200">
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">Team Members</h2>
         </div>
@@ -127,31 +132,31 @@ export default function Teams() {
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="bg-gradient-dark">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Name
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Email
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Department
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Roles
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-200" style={{ backgroundColor: '#F9F7FC' }}>
                 {teamMembers.map((member) => (
-                  <tr key={member.id} className="hover:bg-gray-50">
+                  <tr key={member.id} className="hover:bg-gray-100">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <User className="w-4 h-4 text-gray-400" />

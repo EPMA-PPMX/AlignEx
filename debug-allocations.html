@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Debug Resource Allocations</title>
+  <script>
+    // This script helps you debug resource allocations
+    // Open browser console and paste this to see the calculation breakdown
+
+    console.log('=== RESOURCE ALLOCATION DEBUG ===');
+
+    // Check localStorage or sessionStorage for project data
+    console.log('Checking for stored project data...');
+
+    // You can also run this in your app's context
+    const debugAllocation = (taskData) => {
+      console.log('Task Data:', taskData);
+
+      // Check for resource_work_hours in each task
+      if (taskData && taskData.data) {
+        taskData.data.forEach(task => {
+          console.log(`\nTask: ${task.text}`);
+          console.log(`  Start: ${task.start_date}, End: ${task.end_date}`);
+          console.log(`  Resource IDs: ${task.resource_ids}`);
+          console.log(`  Resource Names: ${task.resource_names}`);
+          console.log(`  Work Hours:`, task.resource_work_hours);
+
+          // Calculate working days
+          const start = new Date(task.start_date);
+          const end = new Date(task.end_date);
+          let workingDays = 0;
+          let current = new Date(start);
+
+          while (current <= end) {
+            const day = current.getDay();
+            if (day !== 0 && day !== 6) workingDays++;
+            current.setDate(current.getDate() + 1);
+          }
+
+          console.log(`  Working Days: ${workingDays}`);
+
+          // Show distribution
+          if (task.resource_work_hours) {
+            Object.entries(task.resource_work_hours).forEach(([resourceId, hours]) => {
+              const hoursPerDay = hours / workingDays;
+              console.log(`  ${resourceId}: ${hours} total hours = ${hoursPerDay.toFixed(2)} hours/day`);
+            });
+          }
+        });
+      }
+    };
+
+    console.log('\nTo debug, call: debugAllocation(yourTaskData)');
+    console.log('Or check the Network tab for API responses containing task_data');
+  </script>
+</head>
+<body>
+  <h1>Resource Allocation Debugger</h1>
+  <p>Open the browser console to see debug functions</p>
+  <ol>
+    <li>Open your app in the browser</li>
+    <li>Open Developer Tools (F12)</li>
+    <li>Go to Console tab</li>
+    <li>Check the output for allocation calculations</li>
+  </ol>
+
+  <h2>What to check:</h2>
+  <ul>
+    <li>Each task's <code>resource_work_hours</code> object</li>
+    <li>The sum of all hours for each resource across all tasks</li>
+    <li>The working days between start and end dates</li>
+    <li>The weekly distribution of hours</li>
+  </ul>
+
+  <h2>Expected behavior:</h2>
+  <p>If Rakesh Borkar shows 80 hours, check:</p>
+  <ol>
+    <li>All tasks where Rakesh is assigned</li>
+    <li>Sum up the <code>resource_work_hours["rakesh-id"]</code> for each task</li>
+    <li>That total should equal 80</li>
+    <li>The heat map will show this distributed across weeks</li>
+  </ol>
+</body>
+</html>
