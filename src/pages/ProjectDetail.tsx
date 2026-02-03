@@ -3655,7 +3655,7 @@ const ProjectDetail: React.FC = () => {
       // Save to database with proper sortorder assignment
       await saveProjectTasks();
 
-      alert(editingTaskId ? 'Task updated successfully!' : 'Task created successfully!');
+      showNotification(editingTaskId ? 'Task updated successfully!' : 'Task created successfully!', 'success');
       setShowTaskModal(false);
       setEditingTaskId(null);
       setTaskForm({
@@ -4509,7 +4509,7 @@ const ProjectDetail: React.FC = () => {
                                         showNotification(`Baseline ${baselineNum} set successfully! Captured: baseline${baselineNum}_startDate, baseline${baselineNum}_endDate, baseline${baselineNum}_duration`, 'success');
                                       } catch (error) {
                                         console.error('Error saving baseline:', error);
-                                        alert('Failed to save baseline: ' + (error as Error).message);
+                                        showNotification('Failed to save baseline: ' + (error as Error).message, 'error');
                                       }
                                     }
                                   }}
