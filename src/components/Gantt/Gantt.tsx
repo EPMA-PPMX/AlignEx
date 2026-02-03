@@ -554,6 +554,27 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         }
       },
       {
+        name: "task_no",
+        label: "#",
+        width: 50,
+        align: "center",
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          // Get all tasks and count non-group tasks before this one
+          const allTasks = gantt.getTaskByTime();
+          let taskNumber = 0;
+          for (let i = 0; i < allTasks.length; i++) {
+            const t = allTasks[i];
+            if (!t.$group_header) {
+              taskNumber++;
+              if (t.id === task.id) break;
+            }
+          }
+          return taskNumber;
+        }
+      },
+      {
         name: "wbs",
         label: "WBS",
         width: 60,
@@ -797,6 +818,27 @@ export default class Gantt extends Component<GanttProps, GanttState> {
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
             </svg>
           </div>`;
+        }
+      },
+      {
+        name: "task_no",
+        label: "#",
+        width: 50,
+        align: "center",
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          // Get all tasks and count non-group tasks before this one
+          const allTasks = gantt.getTaskByTime();
+          let taskNumber = 0;
+          for (let i = 0; i < allTasks.length; i++) {
+            const t = allTasks[i];
+            if (!t.$group_header) {
+              taskNumber++;
+              if (t.id === task.id) break;
+            }
+          }
+          return taskNumber;
         }
       },
       {
