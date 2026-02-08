@@ -13,6 +13,8 @@ interface Task {
   progress?: number;
   parent?: number;
   type?: string;
+  actual_start?: string;
+  actual_finish?: string;
 }
 
 interface Link {
@@ -536,6 +538,8 @@ export default class Gantt extends Component<GanttProps, GanttState> {
   private buildBaselineColumns = () => {
     // Define editors
     const textEditor = { type: "text", map_to: "text" };
+    const actualStartEditor = { type: "date", map_to: "actual_start" };
+    const actualFinishEditor = { type: "date", map_to: "actual_finish" };
 
     const baselineColumns: any[] = [
       {
@@ -728,6 +732,46 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         }
       },
       {
+        name: "actual_start",
+        label: "Actual Start",
+        align: "center",
+        width: 120,
+        resize: true,
+        editor: actualStartEditor,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          if (task.actual_start) {
+            const actualStart = typeof task.actual_start === 'string'
+              ? gantt.date.parseDate(task.actual_start, "%Y-%m-%d")
+              : task.actual_start;
+            if (actualStart && actualStart instanceof Date && !isNaN(actualStart.getTime())) {
+              return gantt.date.date_to_str("%m/%d/%y")(actualStart);
+            }
+          }
+          return "-";
+        }
+      },
+      {
+        name: "actual_finish",
+        label: "Actual Finish",
+        align: "center",
+        width: 120,
+        resize: true,
+        editor: actualFinishEditor,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          if (task.actual_finish) {
+            const actualFinish = typeof task.actual_finish === 'string'
+              ? gantt.date.parseDate(task.actual_finish, "%Y-%m-%d")
+              : task.actual_finish;
+            if (actualFinish && actualFinish instanceof Date && !isNaN(actualFinish.getTime())) {
+              return gantt.date.date_to_str("%m/%d/%y")(actualFinish);
+            }
+          }
+          return "-";
+        }
+      },
+      {
         name: "duration",
         label: "Duration",
         align: "center",
@@ -797,6 +841,8 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     const textEditor = { type: "text", map_to: "text" };
     const dateEditor = { type: "date", map_to: "start_date" };
     const durationEditor = { type: "number", map_to: "duration", min: 0, max: 100 };
+    const actualStartEditor = { type: "date", map_to: "actual_start" };
+    const actualFinishEditor = { type: "date", map_to: "actual_finish" };
 
     // Build columns based on view mode
     if (viewMode === 'baseline') {
@@ -936,6 +982,48 @@ export default class Gantt extends Component<GanttProps, GanttState> {
             return gantt.date.date_to_str("%D %m/%d/%y")(inclusiveEndDate);
           }
           return "";
+        }
+      },
+      {
+        name: "actual_start",
+        label: "Actual Start",
+        align: "center",
+        width: 150,
+        resize: true,
+        editor: actualStartEditor,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          if (task.actual_start) {
+            // Parse date-only format (YYYY-MM-DD) if string, otherwise use Date object
+            const actualStart = typeof task.actual_start === 'string'
+              ? gantt.date.parseDate(task.actual_start, "%Y-%m-%d")
+              : task.actual_start;
+            if (actualStart instanceof Date && !isNaN(actualStart.getTime())) {
+              return gantt.date.date_to_str("%D %m/%d/%y")(actualStart);
+            }
+          }
+          return "-";
+        }
+      },
+      {
+        name: "actual_finish",
+        label: "Actual Finish",
+        align: "center",
+        width: 150,
+        resize: true,
+        editor: actualFinishEditor,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          if (task.actual_finish) {
+            // Parse date-only format (YYYY-MM-DD) if string, otherwise use Date object
+            const actualFinish = typeof task.actual_finish === 'string'
+              ? gantt.date.parseDate(task.actual_finish, "%Y-%m-%d")
+              : task.actual_finish;
+            if (actualFinish instanceof Date && !isNaN(actualFinish.getTime())) {
+              return gantt.date.date_to_str("%D %m/%d/%y")(actualFinish);
+            }
+          }
+          return "-";
         }
       },
       {
@@ -1765,6 +1853,22 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       return true;
     });
 
+    // Store task values before inline editor starts to detect changes later
+    const taskValuesBeforeEdit: { [key: string]: any } = {};
+
+    gantt.attachEvent("onBeforeInlineEditorStart", (state: any) => {
+      if (state.id && state.columnName === "actual_start") {
+        const task = gantt.getTask(state.id);
+        taskValuesBeforeEdit[state.id] = {
+          actual_start: task.actual_start,
+          start_date: task.start_date,
+          duration: task.duration
+        };
+        console.log(`Stored values before editing actual_start for task ${state.id}:`, taskValuesBeforeEdit[state.id]);
+      }
+      return true;
+    });
+
     // Validate and normalize duration before task is updated
     gantt.attachEvent("onBeforeTaskUpdate", (id: any, task: any) => {
       // Ensure duration is a valid positive number
@@ -1794,6 +1898,67 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       });
 
       gantt.attachEvent("onAfterTaskUpdate", (id: any, task: any) => {
+        // Store a flag to prevent infinite loops when we update the task
+        if (task.$updating) {
+          return true;
+        }
+
+        let needsUpdate = false;
+
+        // Auto-set Actual Start and Actual Finish dates based on progress
+        const progress = task.progress || 0;
+
+        // Set Actual Start when progress > 0 (only if not already set)
+        if (progress > 0 && !task.actual_start) {
+          task.actual_start = task.start_date;
+          needsUpdate = true;
+        }
+
+        // Set Actual Finish to end_date when progress = 100% (1.0 in DHTMLX)
+        if (progress >= 1.0 && !task.actual_finish) {
+          task.actual_finish = task.end_date;
+          needsUpdate = true;
+        }
+
+        // Clear Actual Finish if progress drops below 100%
+        if (progress < 1.0 && task.actual_finish) {
+          task.actual_finish = null;
+          needsUpdate = true;
+        }
+
+        // If actual_start is set and different from start_date, update start_date to match
+        if (task.actual_start) {
+          const actualStartDate = task.actual_start instanceof Date
+            ? task.actual_start
+            : new Date(task.actual_start);
+
+          const currentStartDate = task.start_date instanceof Date
+            ? task.start_date
+            : new Date(task.start_date);
+
+          // Check if dates are different (comparing just the date part)
+          if (actualStartDate.toDateString() !== currentStartDate.toDateString()) {
+            console.log(`Updating start_date to match actual_start for task ${id}`);
+            const originalDuration = task.duration;
+
+            // Update start_date to match actual_start
+            task.start_date = new Date(actualStartDate.getTime());
+
+            // Recalculate end_date based on new start_date and original duration
+            task.end_date = gantt.calculateEndDate(task.start_date, originalDuration);
+            task.duration = originalDuration; // Preserve duration
+
+            needsUpdate = true;
+          }
+        }
+
+        // If we made changes, mark the task as updating and update it
+        if (needsUpdate) {
+          task.$updating = true;
+          gantt.updateTask(id);
+          delete task.$updating;
+        }
+
         // Check if task has successors (tasks that depend on this one)
         const links = gantt.getLinks();
         const hasSuccessors = links.some((link: any) => link.source === id);
@@ -1836,6 +2001,49 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           task.end_date = calculatedEndDate;
           // Restore the original duration to prevent recalculation
           task.duration = originalDuration;
+        }
+
+        // If actual_start was edited, update start_date to match
+        if (state.columnName === "actual_start" && state.id) {
+          const task = gantt.getTask(state.id);
+          const oldValues = taskValuesBeforeEdit[state.id];
+
+          console.log(`=== onAfterInlineEditorSave: actual_start edited for task ${state.id} ===`);
+          console.log(`Old values:`, oldValues);
+          console.log(`New actual_start:`, task.actual_start);
+          console.log(`Current start_date:`, task.start_date);
+
+          if (task.actual_start) {
+            // Store the original duration
+            const originalDuration = oldValues?.duration || task.duration;
+            console.log(`Original duration: ${originalDuration}`);
+
+            // Ensure actual_start is a Date object
+            const newStartDate = task.actual_start instanceof Date
+              ? new Date(task.actual_start.getTime())
+              : new Date(task.actual_start);
+
+            console.log(`Setting start_date to match actual_start: ${newStartDate}`);
+
+            // Update task properties
+            task.start_date = newStartDate;
+
+            // Recalculate end_date based on new start_date and duration
+            const calculatedEndDate = gantt.calculateEndDate(newStartDate, originalDuration);
+            task.end_date = calculatedEndDate;
+            console.log(`Recalculated end_date: ${calculatedEndDate}`);
+
+            // Preserve the original duration
+            task.duration = originalDuration;
+            console.log(`Duration preserved: ${originalDuration}`);
+
+            // Update the task in the gantt
+            gantt.updateTask(state.id);
+            console.log(`=== Task ${state.id} updated successfully ===`);
+          }
+
+          // Clean up stored values
+          delete taskValuesBeforeEdit[state.id];
         }
 
         // Refresh the Gantt chart to show updated values
@@ -2913,10 +3121,27 @@ export default class Gantt extends Component<GanttProps, GanttState> {
    * Remove end_date from tasks to prevent DHTMLX from prioritizing it over duration.
    * DHTMLX will calculate end_date automatically based on start_date + duration.
    * This fixes the bug where old end_date from database causes incorrect duration recalculation.
+   * Also converts actual_start and actual_finish from string to Date format.
    */
   private prepareTasksForParsing(tasks: any[]): any[] {
-    return tasks.map(task => {
+    console.log('=== prepareTasksForParsing: Processing tasks ===');
+    console.log(`Total tasks to process: ${tasks.length}`);
+
+    // Count tasks with actual dates
+    const tasksWithActualStart = tasks.filter(t => t.actual_start).length;
+    const tasksWithActualFinish = tasks.filter(t => t.actual_finish).length;
+    console.log(`Tasks with actual_start: ${tasksWithActualStart}, with actual_finish: ${tasksWithActualFinish}`);
+
+    return tasks.map((task, index) => {
       const { end_date, ...taskWithoutEndDate } = task;
+
+      // Debug log for first few tasks
+      if (index < 3) {
+        console.log(`Task ${task.id} (${task.text}):`);
+        console.log(`  actual_start BEFORE: ${task.actual_start} (type: ${typeof task.actual_start})`);
+        console.log(`  actual_finish BEFORE: ${task.actual_finish} (type: ${typeof task.actual_finish})`);
+        console.log(`  progress: ${task.progress}`);
+      }
 
       // Ensure duration is a valid number
       if (taskWithoutEndDate.duration !== undefined && taskWithoutEndDate.duration !== null) {
@@ -2931,6 +3156,31 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       } else if (!taskWithoutEndDate.$group_header) {
         // Set default duration for non-group tasks
         taskWithoutEndDate.duration = 1;
+      }
+
+      // Convert actual_start from string to Date if needed
+      if (taskWithoutEndDate.actual_start && typeof taskWithoutEndDate.actual_start === 'string') {
+        // Parse date-only format (YYYY-MM-DD) instead of xml_date format
+        const parsed = gantt.date.parseDate(taskWithoutEndDate.actual_start, "%Y-%m-%d");
+        if (index < 3) {
+          console.log(`  Converting actual_start "${taskWithoutEndDate.actual_start}" to Date: ${parsed}`);
+        }
+        taskWithoutEndDate.actual_start = parsed;
+      }
+
+      // Convert actual_finish from string to Date if needed
+      if (taskWithoutEndDate.actual_finish && typeof taskWithoutEndDate.actual_finish === 'string') {
+        // Parse date-only format (YYYY-MM-DD) instead of xml_date format
+        const parsed = gantt.date.parseDate(taskWithoutEndDate.actual_finish, "%Y-%m-%d");
+        if (index < 3) {
+          console.log(`  Converting actual_finish "${taskWithoutEndDate.actual_finish}" to Date: ${parsed}`);
+        }
+        taskWithoutEndDate.actual_finish = parsed;
+      }
+
+      if (index < 3) {
+        console.log(`  actual_start AFTER: ${taskWithoutEndDate.actual_start} (type: ${typeof taskWithoutEndDate.actual_start})`);
+        console.log(`  actual_finish AFTER: ${taskWithoutEndDate.actual_finish} (type: ${typeof taskWithoutEndDate.actual_finish})`);
       }
 
       return taskWithoutEndDate;
