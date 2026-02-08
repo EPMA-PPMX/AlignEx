@@ -1456,7 +1456,13 @@ const ProjectDetail: React.FC = () => {
 
             // Set actual_finish to end_date when task completes (progress = 100%)
             if (currentProgress >= 1) {
-              actualFinish = calculatedEndDate; // Use the task's planned end_date
+              // Subtract one day from end_date to get the correct actual finish date
+              const endDate = new Date(calculatedEndDate);
+              endDate.setDate(endDate.getDate() - 1);
+              const year = endDate.getFullYear();
+              const month = String(endDate.getMonth() + 1).padStart(2, '0');
+              const day = String(endDate.getDate()).padStart(2, '0');
+              actualFinish = `${year}-${month}-${day}`;
             } else if (currentProgress < 1) {
               // Clear actual_finish if progress drops below 100%
               actualFinish = null;
