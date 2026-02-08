@@ -596,6 +596,15 @@ const ProjectDetail: React.FC = () => {
       if (error && error.code !== 'PGRST116') {
         console.error('Error fetching tasks:', error);
       } else if (data?.task_data) {
+        console.log('=== Raw task data from database ===');
+        console.log('First 3 tasks:', data.task_data.data?.slice(0, 3).map((t: any) => ({
+          id: t.id,
+          text: t.text,
+          actual_start: t.actual_start,
+          actual_finish: t.actual_finish,
+          progress: t.progress
+        })));
+
         // Sort tasks by sortorder before setting state
         const sortedTaskData = {
           ...data.task_data,
@@ -922,6 +931,11 @@ const ProjectDetail: React.FC = () => {
 
           console.log('Loading tasks with sortorder:', sortedTasks.map((t: any) => ({ id: t.id, text: t.text, sortorder: t.sortorder })));
 
+          // Count tasks with actual dates
+          const tasksWithActualStart = sortedTasks.filter((t: any) => t.actual_start).length;
+          const tasksWithActualFinish = sortedTasks.filter((t: any) => t.actual_finish).length;
+          console.log(`Tasks from DB with actual_start: ${tasksWithActualStart}, with actual_finish: ${tasksWithActualFinish}`);
+
           taskData.data = sortedTasks.map((task: any) => {
             // Only keep essential fields and ensure proper date format
             let startDate = task.start_date;
@@ -1002,6 +1016,8 @@ const ProjectDetail: React.FC = () => {
               resource_work_hours: task.resource_work_hours || {},
               resource_allocations: task.resource_allocations || {},
               sortorder: task.sortorder, // Preserve sortorder
+              actual_start: task.actual_start || null, // Preserve actual start date from JSON
+              actual_finish: task.actual_finish || null, // Preserve actual finish date from JSON
               ...customFields  // Spread all custom fields
             };
 
@@ -1414,6 +1430,38 @@ const ProjectDetail: React.FC = () => {
               }
             }
 
+            // Handle actual_start and actual_finish based on progress
+            const currentProgress = task.progress || 0;
+            let actualStart = task.actual_start;
+            let actualFinish = task.actual_finish;
+
+            // Convert actual_start to string format if it's a Date object
+            if (actualStart && ganttInstance) {
+              if (actualStart instanceof Date) {
+                actualStart = ganttInstance.date.date_to_str("%Y-%m-%d")(actualStart);
+              }
+            }
+
+            // Convert actual_finish to string format if it's a Date object
+            if (actualFinish && ganttInstance) {
+              if (actualFinish instanceof Date) {
+                actualFinish = ganttInstance.date.date_to_str("%Y-%m-%d")(actualFinish);
+              }
+            }
+
+            // Set actual_start to task's start_date when task begins (progress > 0) if not already set
+            if (currentProgress > 0 && !actualStart) {
+              actualStart = formattedStartDate; // Use the task's planned start_date
+            }
+
+            // Set actual_finish to end_date when task completes (progress = 100%)
+            if (currentProgress >= 1) {
+              actualFinish = calculatedEndDate; // Use the task's planned end_date
+            } else if (currentProgress < 1) {
+              // Clear actual_finish if progress drops below 100%
+              actualFinish = null;
+            }
+
             // Build the task object for storage
             // Save end_date along with start_date and duration for consistency
             const taskToSave: any = {
@@ -1422,7 +1470,7 @@ const ProjectDetail: React.FC = () => {
               start_date: formattedStartDate,
               end_date: calculatedEndDate, // Save the exclusive end_date as expected by Gantt
               duration: duration,
-              progress: task.progress || 0,
+              progress: currentProgress,
               type: task.type || 'task',
               parent: task.$original_parent !== undefined ? task.$original_parent : (task.parent || 0),
               owner_id: task.owner_id,
@@ -1432,6 +1480,14 @@ const ProjectDetail: React.FC = () => {
               sortorder: index, // Add explicit sort order
               ...extraFields // Include custom fields and baseline fields
             };
+
+            // Add actual dates if they exist (already in string format)
+            if (actualStart) {
+              taskToSave.actual_start = actualStart;
+            }
+            if (actualFinish) {
+              taskToSave.actual_finish = actualFinish;
+            }
 
             console.log(`Saving task ${taskId} to DB: duration=${taskToSave.duration}, sortorder=${taskToSave.sortorder}, start_date=${taskToSave.start_date}`);
             taskMap.set(taskId, taskToSave);
