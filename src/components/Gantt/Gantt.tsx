@@ -1866,6 +1866,17 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         };
         console.log(`Stored values before editing actual_start for task ${state.id}:`, taskValuesBeforeEdit[state.id]);
       }
+
+      // Prevent editing start_date if progress is 100%
+      if (state.id && state.columnName === "start_date") {
+        const task = gantt.getTask(state.id);
+        const progress = task.progress || 0;
+        if (progress >= 1.0) {
+          console.log(`Cannot edit start_date for task ${state.id}: progress is 100%`);
+          return false; // Prevent editing
+        }
+      }
+
       return true;
     });
 
@@ -1910,13 +1921,28 @@ export default class Gantt extends Component<GanttProps, GanttState> {
 
         // Set Actual Start when progress > 0 (only if not already set)
         if (progress > 0 && !task.actual_start) {
-          task.actual_start = task.start_date;
+          // Format the date properly to avoid timezone issues
+          // Convert to string in YYYY-MM-DD format using the date's local components
+          const startDate = task.start_date instanceof Date ? task.start_date : new Date(task.start_date);
+          const year = startDate.getFullYear();
+          const month = String(startDate.getMonth() + 1).padStart(2, '0');
+          const day = String(startDate.getDate()).padStart(2, '0');
+          task.actual_start = `${year}-${month}-${day}`;
           needsUpdate = true;
         }
 
         // Set Actual Finish to end_date when progress = 100% (1.0 in DHTMLX)
         if (progress >= 1.0 && !task.actual_finish) {
-          task.actual_finish = task.end_date;
+          // Format the date properly to avoid timezone issues
+          // Convert to string in YYYY-MM-DD format using the date's local components
+          // Subtract one day from end_date to get the correct actual finish date
+          const endDate = task.end_date instanceof Date ? task.end_date : new Date(task.end_date);
+          const adjustedDate = new Date(endDate);
+          adjustedDate.setDate(adjustedDate.getDate() - 1);
+          const year = adjustedDate.getFullYear();
+          const month = String(adjustedDate.getMonth() + 1).padStart(2, '0');
+          const day = String(adjustedDate.getDate()).padStart(2, '0');
+          task.actual_finish = `${year}-${month}-${day}`;
           needsUpdate = true;
         }
 
