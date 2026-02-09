@@ -20,18 +20,50 @@ interface TeamMember {
   resource: Resource;
 }
 
+interface Project {
+  id: string;
+  name: string;
+  status: string;
+}
+
 export default function Teams() {
   console.log('=== TEAMS PAGE COMPONENT RENDERING ===');
 
   const { showConfirm, showNotification } = useNotification();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAddMember, setShowAddMember] = useState(false);
 
   useEffect(() => {
-    console.log('=== TEAMS PAGE useEffect - fetching team members ===');
-    fetchTeamMembers();
+    console.log('=== TEAMS PAGE useEffect - fetching data ===');
+    fetchData();
   }, []);
+
+  const fetchData = async () => {
+    await Promise.all([fetchTeamMembers(), fetchProjects()]);
+  };
+
+  const fetchProjects = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name, status')
+        .eq('status', 'In-Progress')
+        .order('name');
+
+      if (error) throw error;
+      setProjects(data || []);
+
+      // Set first project as default selection
+      if (data && data.length > 0 && !selectedProjectId) {
+        setSelectedProjectId(data[0].id);
+      }
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+    }
+  };
 
   const fetchTeamMembers = async () => {
     try {
@@ -118,7 +150,30 @@ export default function Teams() {
         </button>
       </div>
 
-      <ResourceAllocationHeatMap />
+      <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Project Selection
+        </label>
+        <select
+          value={selectedProjectId || ''}
+          onChange={(e) => setSelectedProjectId(e.target.value || null)}
+          className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+          <option value="">All Projects</option>
+          {projects.map((project) => (
+            <option key={project.id} value={project.id}>
+              {project.name}
+            </option>
+          ))}
+        </select>
+        <p className="text-xs text-gray-500 mt-2">
+          {selectedProjectId
+            ? "Showing resources allocated to this project (with hours from all their projects)"
+            : "Showing all resources from all In-Progress projects"}
+        </p>
+      </div>
+
+      <ResourceAllocationHeatMap projectId={selectedProjectId} />
 
       <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200">
         <div className="p-6 border-b border-gray-200">
