@@ -406,11 +406,25 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
       const month = String(weekDate.getMonth() + 1).padStart(2, '0');
       const dayOfMonth = String(weekDate.getDate()).padStart(2, '0');
       const weekKey = `${year}-${month}-${dayOfMonth}`;
-      const monthDay = `${weekDate.getMonth() + 1}/${weekDate.getDate()}`;
+
+      // Calculate end of week (Friday - 4 days later from Monday)
+      const endDate = new Date(weekDate);
+      endDate.setDate(endDate.getDate() + 4);
+
+      // Format: "9 Feb - 13 Feb" (Monday - Friday)
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const startDay = weekDate.getDate();
+      const startMonth = monthNames[weekDate.getMonth()];
+      const endDay = endDate.getDate();
+      const endMonth = monthNames[endDate.getMonth()];
+
+      const label = startMonth === endMonth
+        ? `${startDay} - ${endDay} ${startMonth}`
+        : `${startDay} ${startMonth} - ${endDay} ${endMonth}`;
 
       weeks.push({
         key: weekKey,
-        label: monthDay,
+        label: label,
         date: new Date(weekDate)
       });
 
@@ -421,21 +435,17 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
   }, [startDate, weeksToShow]);
 
   const getHeatColor = (hours: number): string => {
-    if (hours === 0) return 'bg-gray-50';
-    if (hours <= 10) return 'bg-gradient-to-br from-[#4DB8AA] to-[#88D4CA] text-white';
+    if (hours === 0) return 'bg-gray-300';
     if (hours <= 30) return 'bg-gradient-to-br from-[#276A6C] to-[#5DB6B8] text-white';
-    if (hours <= 39) return 'bg-gradient-to-br from-[#C76F21] to-[#FAAF65] text-white';
+    if (hours <= 40) return 'bg-gradient-to-br from-[#C76F21] to-[#FAAF65] text-white';
     return 'bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A] text-white';
   };
 
   const getCapacityIndicator = (hours: number): string => {
     if (hours === 0) return '';
-    if (hours <= 10) return '🟢';
-    if (hours <= 30) return '🟡';
-    if (hours <= 39) return '🟠';
-    if (hours <= 60) return '🔴';
-    if (hours <= 100) return '🔴🔴';
-    return '⚠️';
+    if (hours <= 30) return '🟢';
+    if (hours <= 40) return '🟡';
+    return '🔴';
   };
 
   const navigateWeeks = (offset: number) => {
@@ -529,12 +539,9 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
                 {weekColumns.map((week, index) => (
                   <th
                     key={week.key}
-                    className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[80px]"
+                    className="px-3 py-3 text-center text-xs font-medium text-gray-500 tracking-wider min-w-[100px]"
                   >
-                    <div className="flex flex-col">
-                      <span className="text-[10px]">Week of</span>
-                      <span>{week.label}</span>
-                    </div>
+                    <span>{week.label}</span>
                   </th>
                 ))}
               </tr>
@@ -567,7 +574,6 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
                       >
                         {hours > 0 ? (
                           <div className="flex flex-col items-center">
-                            <span className="text-xs">{indicator}</span>
                             <span className="font-medium">{hours.toFixed(1)}</span>
                           </div>
                         ) : (
@@ -587,16 +593,16 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
         <h3 className="text-sm font-medium text-gray-900 mb-3">Legend</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-gradient-to-br from-[#4DB8AA] to-[#88D4CA] border border-[#6BC8BD] rounded"></div>
-            <span className="text-sm text-gray-600">0-10 hrs/week</span>
+            <div className="w-4 h-4 bg-gray-300 border border-gray-400 rounded"></div>
+            <span className="text-sm text-gray-600">0 hrs/week</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-gradient-to-br from-[#276A6C] to-[#5DB6B8] border border-[#349698] rounded"></div>
-            <span className="text-sm text-gray-600">11-30 hrs/week</span>
+            <span className="text-sm text-gray-600">1-30 hrs/week</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-gradient-to-br from-[#C76F21] to-[#FAAF65] border border-[#F89D43] rounded"></div>
-            <span className="text-sm text-gray-600">31-39 hrs/week</span>
+            <span className="text-sm text-gray-600">31-40 hrs/week</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A] border border-[#FD5D5D] rounded"></div>
