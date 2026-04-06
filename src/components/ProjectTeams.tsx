@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Search, Trash2, Calendar, User, Users, Edit2, Check, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNotification } from '../lib/useNotification';
+import ResourceAllocationHeatMap from './ResourceAllocationHeatMap';
 
 interface Resource {
   id: string;
@@ -180,7 +181,7 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
         </button>
       </div>
 
-      {teamMembers.length > 0 && <ResourceAllocationHeatmap teamMembers={teamMembers} />}
+      <ResourceAllocationHeatMap projectId={projectId} />
 
       <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200">
         {teamMembers.length === 0 ? (

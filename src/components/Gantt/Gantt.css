@@ -9,6 +9,22 @@
   width: 100%;
 }
 
+/* Ensure timeline area is visible */
+.gantt_task_bg {
+  background-color: #fff;
+}
+
+.gantt_task {
+  background-color: transparent;
+}
+
+/* Make sure task content is visible */
+.gantt_task_content {
+  color: #fff;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
 /* Grid resizer styling - the vertical line between grid and timeline */
 .gantt_grid_resize_wrap {
   cursor: col-resize !important;
@@ -139,31 +155,42 @@
   padding-left: 15px;
 }
 
-/* Regular task bar styling - purple gradient theme */
+/* Regular task bar styling - blue theme for better visibility */
 .gantt_task_line {
-  background: linear-gradient(135deg, #e9d5ff 0%, #7c3aed 100%) !important;
-  border: 1px solid #6b21a8 !important;
+  background: #3b82f6 !important;
+  border: 1px solid #1e40af !important;
+  height: 100%;
+  min-height: 20px;
+  opacity: 1 !important;
 }
 
-/* Task progress bar - darker purple gradient */
+/* Task progress bar - darker blue */
 .gantt_task_progress {
-  background: linear-gradient(135deg, #a855f7 0%, #581c87 100%) !important;
+  background: #1e3a8a !important;
+  opacity: 1 !important;
 }
 
-/* Project/Summary task styling - sky blue theme */
+/* Project/Summary task styling - green theme */
 .gantt_task_line.gantt_project {
-  background: #7dd3fc !important;
-  border: 2px solid #0284c7 !important;
+  background: #10b981 !important;
+  border: 2px solid #059669 !important;
+  height: 100%;
+  min-height: 24px;
+  opacity: 1 !important;
 }
 
 .gantt_task_line.gantt_project_task {
-  background: #7dd3fc !important;
-  border: 2px solid #0284c7 !important;
+  background: #10b981 !important;
+  border: 2px solid #059669 !important;
+  height: 100%;
+  min-height: 24px;
+  opacity: 1 !important;
 }
 
 .gantt_task_line.gantt_project .gantt_task_progress,
 .gantt_task_line.gantt_project_task .gantt_task_progress {
-  background: #0284c7 !important;
+  background: #047857 !important;
+  opacity: 1 !important;
 }
 
 /* Milestone styling - diamond shape in yellow - MUST COME AFTER regular task styling */

@@ -13,6 +13,8 @@ interface Task {
   progress?: number;
   parent?: number;
   type?: string;
+  actual_start?: string;
+  actual_finish?: string;
 }
 
 interface Link {
@@ -66,6 +68,7 @@ interface GanttProps {
   showResourcePanel?: boolean;
   projectStartDate?: string;
   projectId?: string;
+  viewMode?: 'summary' | 'baseline';
 }
 
 interface GanttState {}
@@ -303,6 +306,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
         task[`baseline${baselineNum}_startDate`] = startDateStr;
         task[`baseline${baselineNum}_endDate`] = endDateStr;
         task[`baseline${baselineNum}_duration`] = task.duration;
+        task[`baseline${baselineNum}_work`] = task.work_hours || 0;
 
         // Store baseline data for return (for logging purposes)
         baselineData.push({
@@ -310,12 +314,13 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           baseline_number: baselineNum,
           [`baseline${baselineNum}_startDate`]: startDateStr,
           [`baseline${baselineNum}_endDate`]: endDateStr,
-          [`baseline${baselineNum}_duration`]: task.duration
+          [`baseline${baselineNum}_duration`]: task.duration,
+          [`baseline${baselineNum}_work`]: task.work_hours || 0
         });
       });
     });
 
-    console.log(`Setting baseline ${baselineNum} with fields: baseline${baselineNum}_startDate, baseline${baselineNum}_endDate, baseline${baselineNum}_duration`);
+    console.log(`Setting baseline ${baselineNum} with fields: baseline${baselineNum}_startDate, baseline${baselineNum}_endDate, baseline${baselineNum}_duration, baseline${baselineNum}_work`);
     console.log('Baseline data:', baselineData);
     console.log(`Successfully set baseline for ${baselineData.length} tasks`);
 
@@ -530,15 +535,321 @@ export default class Gantt extends Component<GanttProps, GanttState> {
     // See gantt.init() for the addTaskLayer implementation
   };
 
+  private buildBaselineColumns = () => {
+    // Define editors
+    const textEditor = { type: "text", map_to: "text" };
+    const actualStartEditor = { type: "date", map_to: "actual_start" };
+    const actualFinishEditor = { type: "date", map_to: "actual_finish" };
+
+    const baselineColumns: any[] = [
+      {
+        name: "edit",
+        label: "",
+        width: 40,
+        align: "center",
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          return `<div class="gantt_edit_btn" data-task-id="${task.$original_id || task.id}" title="Edit task">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </div>`;
+        }
+      },
+      {
+        name: "task_no",
+        label: "#",
+        width: 50,
+        align: "center",
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          // Get all tasks and count non-group tasks before this one
+          const allTasks = gantt.getTaskByTime();
+          let taskNumber = 0;
+          for (let i = 0; i < allTasks.length; i++) {
+            const t = allTasks[i];
+            if (!t.$group_header) {
+              taskNumber++;
+              if (t.id === task.id) break;
+            }
+          }
+          return taskNumber;
+        }
+      },
+      {
+        name: "wbs",
+        label: "WBS",
+        width: 60,
+        resize: true,
+        template: gantt.getWBSCode
+      },
+      { name: "text", label: "Task Name", tree: true, width: 200, min_width: 150, max_width: 500, resize: true, editor: textEditor },
+      {
+        name: "owner_name",
+        label: "Owners",
+        align: "center",
+        width: 120,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+
+          // Handle resource_ids array (multi-resource assignments)
+          if (task.resource_ids && Array.isArray(task.resource_ids) && task.resource_ids.length > 0) {
+            const owners = task.resource_names || [];
+            if (owners.length === 0) return "Unassigned";
+
+            const badges = owners.map((name: string, index: number) => {
+              const initial = name.charAt(0).toUpperCase();
+              const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+              const color = colors[index % colors.length];
+              return `<span class="owner-badge" style="background-color: ${color};" title="${name}">${initial}</span>`;
+            }).join('');
+
+            return `<div class="owner-badges-container">${badges}</div>`;
+          }
+
+          // Handle owner_name as array
+          if (task.owner_name && Array.isArray(task.owner_name) && task.owner_name.length > 0) {
+            const owners = task.owner_name;
+            const badges = owners
+              .filter((name: any) => name && typeof name === 'string')
+              .map((name: string, index: number) => {
+                const initial = name.charAt(0).toUpperCase();
+                const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+                const color = colors[index % colors.length];
+                return `<span class="owner-badge" style="background-color: ${color};" title="${name}">${initial}</span>`;
+              }).join('');
+
+            return badges ? `<div class="owner-badges-container">${badges}</div>` : "Unassigned";
+          }
+
+          // Handle owner_name as string
+          if (task.owner_name && typeof task.owner_name === 'string') {
+            return task.owner_name;
+          }
+
+          return "Unassigned";
+        }
+      },
+      {
+        name: "start_date",
+        label: "Start Date",
+        align: "center",
+        width: 120,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          if (task.start_date) {
+            const startDate = typeof task.start_date === 'string'
+              ? gantt.date.parseDate(task.start_date, "xml_date")
+              : task.start_date;
+            return gantt.date.date_to_str("%m/%d/%y")(startDate);
+          }
+          return "";
+        }
+      },
+      {
+        name: "baseline_start",
+        label: "Baseline Start Date",
+        align: "center",
+        width: 140,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          // Check lowercase property name (baseline0_startDate)
+          if (task.baseline0_startDate) {
+            try {
+              // Parse the date string format YYYY-MM-DD
+              const dateStr = task.baseline0_startDate;
+              if (typeof dateStr === 'string') {
+                const parts = dateStr.split('-');
+                if (parts.length === 3) {
+                  const year = parseInt(parts[0]);
+                  const month = parseInt(parts[1]) - 1; // JS months are 0-indexed
+                  const day = parseInt(parts[2]);
+                  const date = new Date(year, month, day);
+                  return gantt.date.date_to_str("%m/%d/%y")(date);
+                }
+              }
+              return dateStr;
+            } catch (e) {
+              return "";
+            }
+          }
+          return "";
+        }
+      },
+      {
+        name: "end_date",
+        label: "End Date",
+        align: "center",
+        width: 120,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          if (task.start_date && task.duration) {
+            const startDate = typeof task.start_date === 'string'
+              ? gantt.date.parseDate(task.start_date, "xml_date")
+              : task.start_date;
+            const exclusiveEndDate = gantt.calculateEndDate(startDate, task.duration);
+            const inclusiveEndDate = gantt.date.add(exclusiveEndDate, -1, "day");
+            return gantt.date.date_to_str("%m/%d/%y")(inclusiveEndDate);
+          }
+          return "";
+        }
+      },
+      {
+        name: "baseline_end",
+        label: "Baseline End Date",
+        align: "center",
+        width: 140,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          // Check lowercase property name (baseline0_endDate)
+          if (task.baseline0_endDate) {
+            try {
+              // Parse the date string format YYYY-MM-DD
+              const dateStr = task.baseline0_endDate;
+              if (typeof dateStr === 'string') {
+                const parts = dateStr.split('-');
+                if (parts.length === 3) {
+                  const year = parseInt(parts[0]);
+                  const month = parseInt(parts[1]) - 1; // JS months are 0-indexed
+                  const day = parseInt(parts[2]);
+                  const date = new Date(year, month, day);
+                  return gantt.date.date_to_str("%m/%d/%y")(date);
+                }
+              }
+              return dateStr;
+            } catch (e) {
+              return "";
+            }
+          }
+          return "";
+        }
+      },
+      {
+        name: "actual_start",
+        label: "Actual Start",
+        align: "center",
+        width: 120,
+        resize: true,
+        editor: actualStartEditor,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          if (task.actual_start) {
+            const actualStart = typeof task.actual_start === 'string'
+              ? gantt.date.parseDate(task.actual_start, "%Y-%m-%d")
+              : task.actual_start;
+            if (actualStart && actualStart instanceof Date && !isNaN(actualStart.getTime())) {
+              return gantt.date.date_to_str("%m/%d/%y")(actualStart);
+            }
+          }
+          return "-";
+        }
+      },
+      {
+        name: "actual_finish",
+        label: "Actual Finish",
+        align: "center",
+        width: 120,
+        resize: true,
+        editor: actualFinishEditor,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          if (task.actual_finish) {
+            const actualFinish = typeof task.actual_finish === 'string'
+              ? gantt.date.parseDate(task.actual_finish, "%Y-%m-%d")
+              : task.actual_finish;
+            if (actualFinish && actualFinish instanceof Date && !isNaN(actualFinish.getTime())) {
+              return gantt.date.date_to_str("%m/%d/%y")(actualFinish);
+            }
+          }
+          return "-";
+        }
+      },
+      {
+        name: "duration",
+        label: "Duration",
+        align: "center",
+        width: 80,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          return task.duration || 0;
+        }
+      },
+      {
+        name: "baseline_duration",
+        label: "Baseline Duration",
+        align: "center",
+        width: 120,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          // Check lowercase property name (baseline0_duration)
+          if (task.baseline0_duration !== undefined && task.baseline0_duration !== null) {
+            return task.baseline0_duration;
+          }
+          return "";
+        }
+      },
+      {
+        name: "work_hours",
+        label: "Work",
+        align: "center",
+        width: 90,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          if (task.work_hours !== undefined && task.work_hours !== null) {
+            return task.work_hours.toFixed(2);
+          }
+          return "";
+        }
+      },
+      {
+        name: "baseline_work",
+        label: "Baseline Work",
+        align: "center",
+        width: 110,
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          // Check lowercase property name (baseline0_work)
+          if (task.baseline0_work !== undefined && task.baseline0_work !== null) {
+            return task.baseline0_work.toFixed(2);
+          }
+          return "";
+        }
+      }
+    ];
+
+    // Add the "add" button column at the end
+    baselineColumns.push({ name: "add", label: "", width: 44 });
+
+    gantt.config.columns = baselineColumns;
+  };
+
   private buildGanttColumns = () => {
-    const { selectedTaskFields = [], taskCustomFields = [] } = this.props;
+    const { selectedTaskFields = [], taskCustomFields = [], viewMode = 'summary' } = this.props;
 
     // Define text and date editors
     const textEditor = { type: "text", map_to: "text" };
     const dateEditor = { type: "date", map_to: "start_date" };
     const durationEditor = { type: "number", map_to: "duration", min: 0, max: 100 };
+    const actualStartEditor = { type: "date", map_to: "actual_start" };
+    const actualFinishEditor = { type: "date", map_to: "actual_finish" };
 
-    // Base columns
+    // Build columns based on view mode
+    if (viewMode === 'baseline') {
+      return this.buildBaselineColumns();
+    }
+
+    // Base columns for summary view
     const baseColumns: any[] = [
       {
         name: "edit",
@@ -553,6 +864,27 @@ export default class Gantt extends Component<GanttProps, GanttState> {
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
             </svg>
           </div>`;
+        }
+      },
+      {
+        name: "task_no",
+        label: "#",
+        width: 50,
+        align: "center",
+        resize: true,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          // Get all tasks and count non-group tasks before this one
+          const allTasks = gantt.getTaskByTime();
+          let taskNumber = 0;
+          for (let i = 0; i < allTasks.length; i++) {
+            const t = allTasks[i];
+            if (!t.$group_header) {
+              taskNumber++;
+              if (t.id === task.id) break;
+            }
+          }
+          return taskNumber;
         }
       },
       {
@@ -612,7 +944,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       },
       {
         name: "start_date",
-        label: "Start time",
+        label: "Start Date",
         align: "center",
         width: 150,
         resize: true,
@@ -631,7 +963,7 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       },
       {
         name: "end_date",
-        label: "End time",
+        label: "End Date",
         align: "center",
         width: 150,
         resize: true,
@@ -650,6 +982,48 @@ export default class Gantt extends Component<GanttProps, GanttState> {
             return gantt.date.date_to_str("%D %m/%d/%y")(inclusiveEndDate);
           }
           return "";
+        }
+      },
+      {
+        name: "actual_start",
+        label: "Actual Start",
+        align: "center",
+        width: 150,
+        resize: true,
+        editor: actualStartEditor,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          if (task.actual_start) {
+            // Parse date-only format (YYYY-MM-DD) if string, otherwise use Date object
+            const actualStart = typeof task.actual_start === 'string'
+              ? gantt.date.parseDate(task.actual_start, "%Y-%m-%d")
+              : task.actual_start;
+            if (actualStart instanceof Date && !isNaN(actualStart.getTime())) {
+              return gantt.date.date_to_str("%D %m/%d/%y")(actualStart);
+            }
+          }
+          return "-";
+        }
+      },
+      {
+        name: "actual_finish",
+        label: "Actual Finish",
+        align: "center",
+        width: 150,
+        resize: true,
+        editor: actualFinishEditor,
+        template: (task: any) => {
+          if (task.$group_header) return "";
+          if (task.actual_finish) {
+            // Parse date-only format (YYYY-MM-DD) if string, otherwise use Date object
+            const actualFinish = typeof task.actual_finish === 'string'
+              ? gantt.date.parseDate(task.actual_finish, "%Y-%m-%d")
+              : task.actual_finish;
+            if (actualFinish instanceof Date && !isNaN(actualFinish.getTime())) {
+              return gantt.date.date_to_str("%D %m/%d/%y")(actualFinish);
+            }
+          }
+          return "-";
         }
       },
       {
@@ -1479,6 +1853,33 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       return true;
     });
 
+    // Store task values before inline editor starts to detect changes later
+    const taskValuesBeforeEdit: { [key: string]: any } = {};
+
+    gantt.attachEvent("onBeforeInlineEditorStart", (state: any) => {
+      if (state.id && state.columnName === "actual_start") {
+        const task = gantt.getTask(state.id);
+        taskValuesBeforeEdit[state.id] = {
+          actual_start: task.actual_start,
+          start_date: task.start_date,
+          duration: task.duration
+        };
+        console.log(`Stored values before editing actual_start for task ${state.id}:`, taskValuesBeforeEdit[state.id]);
+      }
+
+      // Prevent editing start_date if progress is 100%
+      if (state.id && state.columnName === "start_date") {
+        const task = gantt.getTask(state.id);
+        const progress = task.progress || 0;
+        if (progress >= 1.0) {
+          console.log(`Cannot edit start_date for task ${state.id}: progress is 100%`);
+          return false; // Prevent editing
+        }
+      }
+
+      return true;
+    });
+
     // Validate and normalize duration before task is updated
     gantt.attachEvent("onBeforeTaskUpdate", (id: any, task: any) => {
       // Ensure duration is a valid positive number
@@ -1508,6 +1909,82 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       });
 
       gantt.attachEvent("onAfterTaskUpdate", (id: any, task: any) => {
+        // Store a flag to prevent infinite loops when we update the task
+        if (task.$updating) {
+          return true;
+        }
+
+        let needsUpdate = false;
+
+        // Auto-set Actual Start and Actual Finish dates based on progress
+        const progress = task.progress || 0;
+
+        // Set Actual Start when progress > 0 (only if not already set)
+        if (progress > 0 && !task.actual_start) {
+          // Format the date properly to avoid timezone issues
+          // Convert to string in YYYY-MM-DD format using the date's local components
+          const startDate = task.start_date instanceof Date ? task.start_date : new Date(task.start_date);
+          const year = startDate.getFullYear();
+          const month = String(startDate.getMonth() + 1).padStart(2, '0');
+          const day = String(startDate.getDate()).padStart(2, '0');
+          task.actual_start = `${year}-${month}-${day}`;
+          needsUpdate = true;
+        }
+
+        // Set Actual Finish to end_date when progress = 100% (1.0 in DHTMLX)
+        if (progress >= 1.0 && !task.actual_finish) {
+          // Format the date properly to avoid timezone issues
+          // Convert to string in YYYY-MM-DD format using the date's local components
+          // Subtract one day from end_date to get the correct actual finish date
+          const endDate = task.end_date instanceof Date ? task.end_date : new Date(task.end_date);
+          const adjustedDate = new Date(endDate);
+          adjustedDate.setDate(adjustedDate.getDate() - 1);
+          const year = adjustedDate.getFullYear();
+          const month = String(adjustedDate.getMonth() + 1).padStart(2, '0');
+          const day = String(adjustedDate.getDate()).padStart(2, '0');
+          task.actual_finish = `${year}-${month}-${day}`;
+          needsUpdate = true;
+        }
+
+        // Clear Actual Finish if progress drops below 100%
+        if (progress < 1.0 && task.actual_finish) {
+          task.actual_finish = null;
+          needsUpdate = true;
+        }
+
+        // If actual_start is set and different from start_date, update start_date to match
+        if (task.actual_start) {
+          const actualStartDate = task.actual_start instanceof Date
+            ? task.actual_start
+            : new Date(task.actual_start);
+
+          const currentStartDate = task.start_date instanceof Date
+            ? task.start_date
+            : new Date(task.start_date);
+
+          // Check if dates are different (comparing just the date part)
+          if (actualStartDate.toDateString() !== currentStartDate.toDateString()) {
+            console.log(`Updating start_date to match actual_start for task ${id}`);
+            const originalDuration = task.duration;
+
+            // Update start_date to match actual_start
+            task.start_date = new Date(actualStartDate.getTime());
+
+            // Recalculate end_date based on new start_date and original duration
+            task.end_date = gantt.calculateEndDate(task.start_date, originalDuration);
+            task.duration = originalDuration; // Preserve duration
+
+            needsUpdate = true;
+          }
+        }
+
+        // If we made changes, mark the task as updating and update it
+        if (needsUpdate) {
+          task.$updating = true;
+          gantt.updateTask(id);
+          delete task.$updating;
+        }
+
         // Check if task has successors (tasks that depend on this one)
         const links = gantt.getLinks();
         const hasSuccessors = links.some((link: any) => link.source === id);
@@ -1550,6 +2027,49 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           task.end_date = calculatedEndDate;
           // Restore the original duration to prevent recalculation
           task.duration = originalDuration;
+        }
+
+        // If actual_start was edited, update start_date to match
+        if (state.columnName === "actual_start" && state.id) {
+          const task = gantt.getTask(state.id);
+          const oldValues = taskValuesBeforeEdit[state.id];
+
+          console.log(`=== onAfterInlineEditorSave: actual_start edited for task ${state.id} ===`);
+          console.log(`Old values:`, oldValues);
+          console.log(`New actual_start:`, task.actual_start);
+          console.log(`Current start_date:`, task.start_date);
+
+          if (task.actual_start) {
+            // Store the original duration
+            const originalDuration = oldValues?.duration || task.duration;
+            console.log(`Original duration: ${originalDuration}`);
+
+            // Ensure actual_start is a Date object
+            const newStartDate = task.actual_start instanceof Date
+              ? new Date(task.actual_start.getTime())
+              : new Date(task.actual_start);
+
+            console.log(`Setting start_date to match actual_start: ${newStartDate}`);
+
+            // Update task properties
+            task.start_date = newStartDate;
+
+            // Recalculate end_date based on new start_date and duration
+            const calculatedEndDate = gantt.calculateEndDate(newStartDate, originalDuration);
+            task.end_date = calculatedEndDate;
+            console.log(`Recalculated end_date: ${calculatedEndDate}`);
+
+            // Preserve the original duration
+            task.duration = originalDuration;
+            console.log(`Duration preserved: ${originalDuration}`);
+
+            // Update the task in the gantt
+            gantt.updateTask(state.id);
+            console.log(`=== Task ${state.id} updated successfully ===`);
+          }
+
+          // Clean up stored values
+          delete taskValuesBeforeEdit[state.id];
         }
 
         // Refresh the Gantt chart to show updated values
@@ -1737,11 +2257,13 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       const { onTaskSelect, onTaskMultiSelect } = this.props;
       if (onTaskSelect) {
         gantt.attachEvent("onTaskSelected", (id: number) => {
+          console.log('Gantt onTaskSelected event fired, task ID:', id);
           onTaskSelect(id);
           return true;
         });
 
         gantt.attachEvent("onTaskUnselected", (id: number) => {
+          console.log('Gantt onTaskUnselected event fired, task ID:', id);
           onTaskSelect(null);
           return true;
         });
@@ -1842,8 +2364,10 @@ export default class Gantt extends Component<GanttProps, GanttState> {
           if (b.parent === 0) return 1;
           return a.parent - b.parent;
         }
-        // Within same parent, sort by ID
-        return a.id - b.id;
+        // Within same parent, sort by sortorder (not ID) to preserve user-defined order
+        const orderA = a.sortorder !== undefined ? a.sortorder : a.id;
+        const orderB = b.sortorder !== undefined ? b.sortorder : b.id;
+        return orderA - orderB;
       });
 
       // Open all parent tasks to show subtasks
@@ -1963,8 +2487,15 @@ export default class Gantt extends Component<GanttProps, GanttState> {
   }
 
   componentDidUpdate(prevProps: GanttProps): void {
-    const { projecttasks, searchQuery, selectedTaskFields = [], taskCustomFields = [], showResourcePanel } = this.props;
+    const { projecttasks, searchQuery, selectedTaskFields = [], taskCustomFields = [], showResourcePanel, viewMode } = this.props;
     const prevSelectedFields = prevProps.selectedTaskFields || [];
+
+    // Check if viewMode changed
+    if (prevProps.viewMode !== viewMode) {
+      console.log("viewMode changed from", prevProps.viewMode, "to", viewMode);
+      this.buildGanttColumns();
+      gantt.render();
+    }
 
     // Check if showResourcePanel changed
     if (prevProps.showResourcePanel !== showResourcePanel) {
@@ -2427,8 +2958,10 @@ export default class Gantt extends Component<GanttProps, GanttState> {
               if (b.parent === 0) return 1;
               return a.parent - b.parent;
             }
-            // Within same parent, sort by ID
-            return a.id - b.id;
+            // Within same parent, sort by sortorder (not ID) to preserve user-defined order
+            const orderA = a.sortorder !== undefined ? a.sortorder : a.id;
+            const orderB = b.sortorder !== undefined ? b.sortorder : b.id;
+            return orderA - orderB;
           });
 
           // Open all parent tasks to show subtasks
@@ -2614,10 +3147,27 @@ export default class Gantt extends Component<GanttProps, GanttState> {
    * Remove end_date from tasks to prevent DHTMLX from prioritizing it over duration.
    * DHTMLX will calculate end_date automatically based on start_date + duration.
    * This fixes the bug where old end_date from database causes incorrect duration recalculation.
+   * Also converts actual_start and actual_finish from string to Date format.
    */
   private prepareTasksForParsing(tasks: any[]): any[] {
-    return tasks.map(task => {
+    console.log('=== prepareTasksForParsing: Processing tasks ===');
+    console.log(`Total tasks to process: ${tasks.length}`);
+
+    // Count tasks with actual dates
+    const tasksWithActualStart = tasks.filter(t => t.actual_start).length;
+    const tasksWithActualFinish = tasks.filter(t => t.actual_finish).length;
+    console.log(`Tasks with actual_start: ${tasksWithActualStart}, with actual_finish: ${tasksWithActualFinish}`);
+
+    return tasks.map((task, index) => {
       const { end_date, ...taskWithoutEndDate } = task;
+
+      // Debug log for first few tasks
+      if (index < 3) {
+        console.log(`Task ${task.id} (${task.text}):`);
+        console.log(`  actual_start BEFORE: ${task.actual_start} (type: ${typeof task.actual_start})`);
+        console.log(`  actual_finish BEFORE: ${task.actual_finish} (type: ${typeof task.actual_finish})`);
+        console.log(`  progress: ${task.progress}`);
+      }
 
       // Ensure duration is a valid number
       if (taskWithoutEndDate.duration !== undefined && taskWithoutEndDate.duration !== null) {
@@ -2632,6 +3182,31 @@ export default class Gantt extends Component<GanttProps, GanttState> {
       } else if (!taskWithoutEndDate.$group_header) {
         // Set default duration for non-group tasks
         taskWithoutEndDate.duration = 1;
+      }
+
+      // Convert actual_start from string to Date if needed
+      if (taskWithoutEndDate.actual_start && typeof taskWithoutEndDate.actual_start === 'string') {
+        // Parse date-only format (YYYY-MM-DD) instead of xml_date format
+        const parsed = gantt.date.parseDate(taskWithoutEndDate.actual_start, "%Y-%m-%d");
+        if (index < 3) {
+          console.log(`  Converting actual_start "${taskWithoutEndDate.actual_start}" to Date: ${parsed}`);
+        }
+        taskWithoutEndDate.actual_start = parsed;
+      }
+
+      // Convert actual_finish from string to Date if needed
+      if (taskWithoutEndDate.actual_finish && typeof taskWithoutEndDate.actual_finish === 'string') {
+        // Parse date-only format (YYYY-MM-DD) instead of xml_date format
+        const parsed = gantt.date.parseDate(taskWithoutEndDate.actual_finish, "%Y-%m-%d");
+        if (index < 3) {
+          console.log(`  Converting actual_finish "${taskWithoutEndDate.actual_finish}" to Date: ${parsed}`);
+        }
+        taskWithoutEndDate.actual_finish = parsed;
+      }
+
+      if (index < 3) {
+        console.log(`  actual_start AFTER: ${taskWithoutEndDate.actual_start} (type: ${typeof taskWithoutEndDate.actual_start})`);
+        console.log(`  actual_finish AFTER: ${taskWithoutEndDate.actual_finish} (type: ${typeof taskWithoutEndDate.actual_finish})`);
       }
 
       return taskWithoutEndDate;

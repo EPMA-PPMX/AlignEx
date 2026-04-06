@@ -18,6 +18,10 @@ interface Task {
   owner_name?: string | string[];
   resource_names?: string[];
   parent: string | number;
+  actual_start?: string;
+  actual_finish?: string;
+  baseline0_startDate?: string;
+  baseline0_endDate?: string;
 }
 
 interface TeamMember {
@@ -177,6 +181,8 @@ export default function StepTasks({ reportData, updateReportData }: Props) {
       progress: task.progress,
       owner_name: ownerNames,
       resource_names: task.resource_names || [],
+      actual_start: task.actual_start || '',
+      actual_finish: task.actual_finish || '',
     });
   };
 
@@ -201,6 +207,14 @@ export default function StepTasks({ reportData, updateReportData }: Props) {
           }
           if (editForm.duration !== undefined) updatedTask.duration = editForm.duration;
           if (editForm.progress !== undefined) updatedTask.progress = editForm.progress;
+
+          // Update actual dates
+          if (editForm.actual_start !== undefined) {
+            updatedTask.actual_start = editForm.actual_start || undefined;
+          }
+          if (editForm.actual_finish !== undefined) {
+            updatedTask.actual_finish = editForm.actual_finish || undefined;
+          }
 
           // Update owner_name and clear resource_ids/resource_names to ensure consistency
           if (editForm.owner_name !== undefined) {
@@ -377,6 +391,42 @@ export default function StepTasks({ reportData, updateReportData }: Props) {
                               </div>
                             </div>
 
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Actual Start Date
+                                </label>
+                                <input
+                                  type="date"
+                                  value={editForm.actual_start || ''}
+                                  onChange={(e) =>
+                                    setEditForm({ ...editForm, actual_start: e.target.value })
+                                  }
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                  The date work actually started on this task
+                                </p>
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Actual Finish Date
+                                </label>
+                                <input
+                                  type="date"
+                                  value={editForm.actual_finish || ''}
+                                  onChange={(e) =>
+                                    setEditForm({ ...editForm, actual_finish: e.target.value })
+                                  }
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                  The date work actually finished on this task
+                                </p>
+                              </div>
+                            </div>
+
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">Owners</label>
                               {teamMembers.length > 0 ? (
@@ -517,6 +567,50 @@ export default function StepTasks({ reportData, updateReportData }: Props) {
                               </div>
                             </div>
                           </div>
+
+                          {(task.actual_start || task.actual_finish || task.baseline0_startDate || task.baseline0_endDate) && (
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm pt-3 border-t border-gray-100">
+                              {task.actual_start && (
+                                <div>
+                                  <p className="text-gray-500 text-xs mb-1">Actual Start</p>
+                                  <div className="flex items-center gap-1 text-gray-900">
+                                    <Calendar className="w-3 h-3" />
+                                    <span>{new Date(task.actual_start).toLocaleDateString()}</span>
+                                  </div>
+                                </div>
+                              )}
+
+                              {task.actual_finish && (
+                                <div>
+                                  <p className="text-gray-500 text-xs mb-1">Actual Finish</p>
+                                  <div className="flex items-center gap-1 text-gray-900">
+                                    <Calendar className="w-3 h-3" />
+                                    <span>{new Date(task.actual_finish).toLocaleDateString()}</span>
+                                  </div>
+                                </div>
+                              )}
+
+                              {task.baseline0_startDate && (
+                                <div>
+                                  <p className="text-gray-500 text-xs mb-1">Baseline Start</p>
+                                  <div className="flex items-center gap-1 text-gray-900">
+                                    <Calendar className="w-3 h-3" />
+                                    <span>{new Date(task.baseline0_startDate).toLocaleDateString()}</span>
+                                  </div>
+                                </div>
+                              )}
+
+                              {task.baseline0_endDate && (
+                                <div>
+                                  <p className="text-gray-500 text-xs mb-1">Baseline End</p>
+                                  <div className="flex items-center gap-1 text-gray-900">
+                                    <Calendar className="w-3 h-3" />
+                                    <span>{new Date(task.baseline0_endDate).toLocaleDateString()}</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
 
                           {task.resource_names && task.resource_names.length > 0 && (
                             <div>
