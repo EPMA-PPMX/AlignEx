@@ -1564,7 +1564,10 @@ const ProjectDetail: React.FC = () => {
         }
       }
     } catch (error) {
-      console.error('Error saving project tasks:', error);
+      console.error('Error saving schedule template:', error);
+      showNotification('Failed to save schedule template', 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
