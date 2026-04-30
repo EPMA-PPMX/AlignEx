@@ -9,6 +9,9 @@ const { createClient } = require('@supabase/supabase-js');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+app.use(cors());
+app.use(express.json());
+
 // ---------------------------------------------------------------------------
 // Table whitelist (Step 4)
 // ---------------------------------------------------------------------------
@@ -367,11 +370,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY
 );
 
-// ---------------------------------------------------------------------------
-// Middleware
-// ---------------------------------------------------------------------------
-app.use(cors());
-app.use(express.json());
 
 // ---------------------------------------------------------------------------
 // Custom Fields Routes
