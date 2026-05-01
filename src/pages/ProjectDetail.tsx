@@ -627,44 +627,17 @@ const ProjectDetail: React.FC = () => {
     if (!id) return;
 
     try {
-      const { data: existingTask, error: fetchError } = await supabase
+      const { error } = await supabase
         .from('project_tasks')
-        .select('id')
-        .eq('project_id', id)
-        .maybeSingle();
+        .upsert({
+          project_id: id,
+          task_data: taskData
+        }, { onConflict: 'project_id' });
 
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        console.error('Error checking existing tasks:', fetchError);
-        return;
-      }
-
-      if (existingTask) {
-        const { error } = await supabase
-          .from('project_tasks')
-          .update({
-            task_data: taskData,
-            updated_at: new Date().toISOString()
-          })
-          .eq('project_id', id);
-
-        if (error) {
-          console.error('Error updating tasks:', error);
-        } else {
-          setProjectTasks(taskData);
-        }
+      if (error) {
+        console.error('Error saving tasks:', error);
       } else {
-        const { error } = await supabase
-          .from('project_tasks')
-          .insert({
-            project_id: id,
-            task_data: taskData
-          });
-
-        if (error) {
-          console.error('Error creating tasks:', error);
-        } else {
-          setProjectTasks(taskData);
-        }
+        setProjectTasks(taskData);
       }
     } catch (error) {
       console.error('Error saving tasks:', error);
@@ -1515,53 +1488,19 @@ const ProjectDetail: React.FC = () => {
 
       console.log("Cleaned data:", cleanedData);
 
-      // Check if project_tasks record exists (get the most recent one)
-      const { data: existingData } = await supabase
+      const { error } = await supabase
         .from('project_tasks')
-        .select('id')
-        .eq('project_id', id)
-        .order('created_at', { ascending: false })
-        .limit(1);
+        .upsert({
+          project_id: id,
+          task_data: cleanedData
+        }, { onConflict: 'project_id' });
 
-      if (existingData && existingData.length > 0) {
-        // Update the most recent record
-        console.log("Updating existing record:", existingData[0].id);
-        const { error } = await supabase
-          .from('project_tasks')
-          .update({
-            task_data: cleanedData,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingData[0].id);
-
-        if (error) {
-          console.error('Error updating tasks:', error);
-        } else {
-          console.log("Tasks updated successfully");
-          // Update project schedule dates based on tasks
-          await updateProjectScheduleDates();
-          // Refresh data from database to ensure UI shows latest values
-          await fetchProjectTasks();
-        }
+      if (error) {
+        console.error('Error saving tasks:', error);
       } else {
-        // Insert new record only if none exists
-        console.log("Inserting new record");
-        const { error } = await supabase
-          .from('project_tasks')
-          .insert({
-            project_id: id,
-            task_data: cleanedData
-          });
-
-        if (error) {
-          console.error('Error inserting tasks:', error);
-        } else {
-          console.log("Tasks inserted successfully");
-          // Update project schedule dates based on tasks
-          await updateProjectScheduleDates();
-          // Refresh data from database to ensure UI shows latest values
-          await fetchProjectTasks();
-        }
+        console.log("Tasks saved successfully");
+        await updateProjectScheduleDates();
+        await fetchProjectTasks();
       }
     } catch (error) {
       console.error('Error saving project tasks:', error);
@@ -3242,34 +3181,12 @@ const ProjectDetail: React.FC = () => {
           // Show progress notification
           showNotification(`Processing ${newTasks.length} tasks...`, 'info');
 
-          // Check if record exists for this project
-          const { data: existingRecord } = await supabase
+          const { error: updateError } = await supabase
             .from('project_tasks')
-            .select('id')
-            .eq('project_id', id)
-            .maybeSingle();
-
-          let updateError;
-          if (existingRecord) {
-            // Update existing record
-            const { error } = await supabase
-              .from('project_tasks')
-              .update({
-                task_data: updatedTaskData,
-                updated_at: new Date().toISOString()
-              })
-              .eq('project_id', id);
-            updateError = error;
-          } else {
-            // Insert new record
-            const { error } = await supabase
-              .from('project_tasks')
-              .insert({
-                project_id: id,
-                task_data: updatedTaskData
-              });
-            updateError = error;
-          }
+            .upsert({
+              project_id: id,
+              task_data: updatedTaskData
+            }, { onConflict: 'project_id' });
 
           if (updateError) {
             throw updateError;

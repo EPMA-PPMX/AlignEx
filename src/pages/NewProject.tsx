@@ -163,10 +163,10 @@ const NewProject: React.FC = () => {
 
                 const { error: tasksError } = await supabase
                   .from('project_tasks')
-                  .insert({
+                  .upsert({
                     project_id: projectId,
                     task_data: taskData
-                  });
+                  }, { onConflict: 'project_id' });
 
                 if (tasksError) {
                   console.error('Error creating project tasks from template:', tasksError);
