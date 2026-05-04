@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Trash2, Calendar, User, Users, Edit2, Check, X } from 'lucide-react';
+import { Plus, Search, Trash2, Calendar, User, Users, CreditCard as Edit2, Check, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNotification } from '../lib/useNotification';
 import ResourceAllocationHeatMap from './ResourceAllocationHeatMap';
@@ -54,34 +54,29 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
   const fetchTeamMembers = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data: memberData, error } = await supabase
         .from('project_team_members')
-        .select(`
-          id,
-          project_id,
-          resource_id,
-          role,
-          allocation_percentage,
-          start_date,
-          end_date,
-          resources (
-            id,
-            display_name,
-            email,
-            department,
-            roles,
-            status
-          )
-        `)
+        .select('id, project_id, resource_id, role, allocation_percentage, start_date, end_date')
         .eq('project_id', projectId)
         .order('start_date', { ascending: false });
 
       if (error) throw error;
 
-      const formattedData = data?.map(item => ({
+      const resourceIds = (memberData || []).map((m: any) => m.resource_id).filter(Boolean);
+      let resourceMap = new Map<string, any>();
+      if (resourceIds.length > 0) {
+        const { data: resData } = await supabase
+          .from('resources')
+          .select('id, display_name, email, department, roles, status')
+          .in('id', resourceIds);
+        (resData || []).forEach((r: any) => resourceMap.set(r.id, r));
+      }
+
+      const formattedData = (memberData || []).map((item: any) => ({
         ...item,
-        resource: item.resources as any
-      })) || [];
+        resources: resourceMap.get(item.resource_id) || null,
+        resource: resourceMap.get(item.resource_id) || null
+      }));
 
       setTeamMembers(formattedData);
     } catch (error) {

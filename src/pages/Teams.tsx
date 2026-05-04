@@ -69,31 +69,29 @@ export default function Teams() {
     try {
       setLoading(true);
       console.log('=== Fetching team members from database ===');
-      const { data, error } = await supabase
+      const { data: memberData, error } = await supabase
         .from('organization_team_members')
-        .select(`
-          id,
-          resource_id,
-          added_at,
-          resources (
-            id,
-            display_name,
-            email,
-            department,
-            roles,
-            status
-          )
-        `)
+        .select('id, resource_id, added_at')
         .order('added_at', { ascending: false });
 
       if (error) throw error;
 
-      const formattedData = data?.map(item => ({
+      const resourceIds = (memberData || []).map((m: any) => m.resource_id).filter(Boolean);
+      let resourceMap = new Map<string, any>();
+      if (resourceIds.length > 0) {
+        const { data: resData } = await supabase
+          .from('resources')
+          .select('id, display_name, email, department, roles, status')
+          .in('id', resourceIds);
+        (resData || []).forEach((r: any) => resourceMap.set(r.id, r));
+      }
+
+      const formattedData = (memberData || []).map((item: any) => ({
         id: item.id,
         resource_id: item.resource_id,
         added_at: item.added_at,
-        resource: item.resources as any
-      })) || [];
+        resource: resourceMap.get(item.resource_id) || null
+      }));
 
       console.log('=== Team members fetched:', formattedData.length, '===');
       setTeamMembers(formattedData);
