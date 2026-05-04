@@ -30,27 +30,31 @@ export default function PendingApprovalsWidget() {
     try {
       setLoading(true);
 
-      const { data, error } = await supabase
+      const { data: crData, error: crError } = await supabase
         .from('change_requests')
-        .select(`
-          id,
-          project_id,
-          request_title,
-          status,
-          type,
-          created_at,
-          projects (
-            id,
-            name
-          )
-        `)
+        .select('id, project_id, request_title, status, type, created_at')
         .in('status', ['Pending', 'In Review'])
         .order('created_at', { ascending: false })
         .limit(10);
 
-      if (error) throw error;
+      if (crError) throw crError;
 
-      setRequests(data || []);
+      const rows = (crData as ChangeRequest[]) || [];
+
+      if (rows.length > 0) {
+        const projectIds = [...new Set(rows.map(r => r.project_id).filter(Boolean))];
+        const { data: projData } = await supabase
+          .from('projects')
+          .select('id, name')
+          .in('id', projectIds);
+
+        const projectMap = new Map<string, { id: string; name: string }>();
+        ((projData as { id: string; name: string }[]) || []).forEach(p => projectMap.set(p.id, p));
+
+        setRequests(rows.map(r => ({ ...r, projects: projectMap.get(r.project_id) })));
+      } else {
+        setRequests([]);
+      }
     } catch (error) {
       console.error('Error fetching pending approvals:', error);
     } finally {
