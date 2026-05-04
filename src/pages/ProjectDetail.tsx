@@ -1032,24 +1032,31 @@ const ProjectDetail: React.FC = () => {
 
     try {
       // Fetch only resources that are members of this project
-      const { data, error } = await supabase
+      const { data: memberData, error } = await supabase
         .from('project_team_members')
-        .select(`
-          resource_id,
-          resources (
-            id,
-            display_name,
-            cost_rate,
-            rate_type,
-            status
-          )
-        `)
+        .select('resource_id')
         .eq('project_id', id);
 
       if (error) {
         console.error('Error fetching project team resources:', error);
         return [];
       }
+
+      const resourceIds = (memberData || []).map((m: any) => m.resource_id).filter(Boolean);
+      let resourceRows: any[] = [];
+      if (resourceIds.length > 0) {
+        const { data: resData } = await supabase
+          .from('resources')
+          .select('id, display_name, cost_rate, rate_type, status')
+          .in('id', resourceIds);
+        resourceRows = resData || [];
+      }
+
+      const resourceMap = new Map(resourceRows.map((r: any) => [r.id, r]));
+      const data = (memberData || []).map((m: any) => ({
+        resource_id: m.resource_id,
+        resources: resourceMap.get(m.resource_id) || null
+      }));
 
       // Filter out null resources and transform to Gantt resource format
       const resources = (data || [])
@@ -1155,24 +1162,29 @@ const ProjectDetail: React.FC = () => {
     if (!id) return;
 
     try {
-      const { data, error } = await supabase
+      const { data: memberData, error } = await supabase
         .from('project_team_members')
-        .select(`
-          id,
-          resource_id,
-          allocation_percentage,
-          resources (
-            id,
-            display_name
-          )
-        `)
+        .select('id, resource_id, allocation_percentage')
         .eq('project_id', id);
 
       if (error) {
         console.error('Error fetching project team members:', error);
       } else {
+        const resourceIds = (memberData || []).map((m: any) => m.resource_id).filter(Boolean);
+        let resourceMap = new Map();
+        if (resourceIds.length > 0) {
+          const { data: resData } = await supabase
+            .from('resources')
+            .select('id, display_name')
+            .in('id', resourceIds);
+          (resData || []).forEach((r: any) => resourceMap.set(r.id, r));
+        }
+        const data = (memberData || []).map((m: any) => ({
+          ...m,
+          resources: resourceMap.get(m.resource_id) || null
+        }));
         console.log('Fetched project team members with allocations:', data);
-        setProjectTeamMembers(data || []);
+        setProjectTeamMembers(data);
 
         // Refresh Gantt resources when team members change
         const resourcesData = await fetchResourcesForGantt();
