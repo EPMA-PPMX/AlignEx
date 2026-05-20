@@ -81,34 +81,42 @@ export default function TeamCapacityWidget() {
       // Get team members from those projects
       const { data: projectTeams, error: teamsError } = await supabase
         .from('project_team_members')
-        .select(`
-          id,
-          resource_id,
-          projects:projects!inner (
-            id,
-            status
-          ),
-          resources (
-            id,
-            display_name
-          )
-        `)
+        .select('id, resource_id, project_id')
         .in('project_id', projectIds);
 
       if (teamsError) throw teamsError;
 
-      const activeTeams = (projectTeams || []).filter(
-        (team: any) => team.projects?.status !== 'Completed' && team.projects?.status !== 'Cancelled'
+      // Filter to active projects only
+      const { data: projectsData } = await supabase
+        .from('projects')
+        .select('id, status')
+        .in('id', projectIds);
+      const activeProjectIds = new Set(
+        (projectsData || [])
+          .filter((p: any) => p.status !== 'Completed' && p.status !== 'Cancelled')
+          .map((p: any) => p.id)
       );
+      const activeTeams = (projectTeams || []).filter((t: any) => activeProjectIds.has(t.project_id));
+
+      // Fetch resource display names
+      const teamResourceIds = [...new Set(activeTeams.map((t: any) => t.resource_id).filter(Boolean))];
+      let resourceDisplayMap = new Map<string, string>();
+      if (teamResourceIds.length > 0) {
+        const { data: resData } = await supabase
+          .from('resources')
+          .select('id, display_name')
+          .in('id', teamResourceIds);
+        (resData || []).forEach((r: any) => resourceDisplayMap.set(r.id, r.display_name));
+      }
 
       // Get unique resources
       const uniqueResources = new Map<string, TeamMember>();
       activeTeams.forEach((team: any) => {
-        if (team.resource_id && team.resources && !uniqueResources.has(team.resource_id)) {
+        if (team.resource_id && resourceDisplayMap.has(team.resource_id) && !uniqueResources.has(team.resource_id)) {
           uniqueResources.set(team.resource_id, {
             id: team.id,
             resource_id: team.resource_id,
-            display_name: team.resources.display_name
+            display_name: resourceDisplayMap.get(team.resource_id) || ''
           });
         }
       });

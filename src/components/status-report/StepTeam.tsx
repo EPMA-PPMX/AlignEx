@@ -37,18 +37,27 @@ export default function StepTeam({ reportData, updateReportData }: Props) {
   const loadTeamMembers = async () => {
     try {
       setLoading(true);
-      const { data, error} = await supabase
+      const { data: memberData, error} = await supabase
         .from('project_team_members')
-        .select(`
-          *,
-          resource:resources(display_name, resource_name, first_name, last_name, email)
-        `)
+        .select('*')
         .eq('project_id', reportData.projectId)
         .order('created_at');
 
       if (error) throw error;
-      setTeamMembers((data || []).map((tm: any) => ({
+
+      const resourceIds = (memberData || []).map((m: any) => m.resource_id).filter(Boolean);
+      let resourceMap = new Map<string, any>();
+      if (resourceIds.length > 0) {
+        const { data: resData } = await supabase
+          .from('resources')
+          .select('id, display_name, resource_name, first_name, last_name, email')
+          .in('id', resourceIds);
+        (resData || []).forEach((r: any) => resourceMap.set(r.id, r));
+      }
+
+      setTeamMembers((memberData || []).map((tm: any) => ({
         ...tm,
+        resource: resourceMap.get(tm.resource_id) || null,
         out_of_office_start: '',
         out_of_office_end: '',
         notes: '',

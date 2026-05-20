@@ -627,44 +627,17 @@ const ProjectDetail: React.FC = () => {
     if (!id) return;
 
     try {
-      const { data: existingTask, error: fetchError } = await supabase
+      const { error } = await supabase
         .from('project_tasks')
-        .select('id')
-        .eq('project_id', id)
-        .maybeSingle();
+        .upsert({
+          project_id: id,
+          task_data: taskData
+        }, { onConflict: 'project_id' });
 
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        console.error('Error checking existing tasks:', fetchError);
-        return;
-      }
-
-      if (existingTask) {
-        const { error } = await supabase
-          .from('project_tasks')
-          .update({
-            task_data: taskData,
-            updated_at: new Date().toISOString()
-          })
-          .eq('project_id', id);
-
-        if (error) {
-          console.error('Error updating tasks:', error);
-        } else {
-          setProjectTasks(taskData);
-        }
+      if (error) {
+        console.error('Error saving tasks:', error);
       } else {
-        const { error } = await supabase
-          .from('project_tasks')
-          .insert({
-            project_id: id,
-            task_data: taskData
-          });
-
-        if (error) {
-          console.error('Error creating tasks:', error);
-        } else {
-          setProjectTasks(taskData);
-        }
+        setProjectTasks(taskData);
       }
     } catch (error) {
       console.error('Error saving tasks:', error);
@@ -1059,24 +1032,31 @@ const ProjectDetail: React.FC = () => {
 
     try {
       // Fetch only resources that are members of this project
-      const { data, error } = await supabase
+      const { data: memberData, error } = await supabase
         .from('project_team_members')
-        .select(`
-          resource_id,
-          resources (
-            id,
-            display_name,
-            cost_rate,
-            rate_type,
-            status
-          )
-        `)
+        .select('resource_id')
         .eq('project_id', id);
 
       if (error) {
         console.error('Error fetching project team resources:', error);
         return [];
       }
+
+      const resourceIds = (memberData || []).map((m: any) => m.resource_id).filter(Boolean);
+      let resourceRows: any[] = [];
+      if (resourceIds.length > 0) {
+        const { data: resData } = await supabase
+          .from('resources')
+          .select('id, display_name, cost_rate, rate_type, status')
+          .in('id', resourceIds);
+        resourceRows = resData || [];
+      }
+
+      const resourceMap = new Map(resourceRows.map((r: any) => [r.id, r]));
+      const data = (memberData || []).map((m: any) => ({
+        resource_id: m.resource_id,
+        resources: resourceMap.get(m.resource_id) || null
+      }));
 
       // Filter out null resources and transform to Gantt resource format
       const resources = (data || [])
@@ -1182,24 +1162,29 @@ const ProjectDetail: React.FC = () => {
     if (!id) return;
 
     try {
-      const { data, error } = await supabase
+      const { data: memberData, error } = await supabase
         .from('project_team_members')
-        .select(`
-          id,
-          resource_id,
-          allocation_percentage,
-          resources (
-            id,
-            display_name
-          )
-        `)
+        .select('id, resource_id, allocation_percentage')
         .eq('project_id', id);
 
       if (error) {
         console.error('Error fetching project team members:', error);
       } else {
+        const resourceIds = (memberData || []).map((m: any) => m.resource_id).filter(Boolean);
+        let resourceMap = new Map();
+        if (resourceIds.length > 0) {
+          const { data: resData } = await supabase
+            .from('resources')
+            .select('id, display_name')
+            .in('id', resourceIds);
+          (resData || []).forEach((r: any) => resourceMap.set(r.id, r));
+        }
+        const data = (memberData || []).map((m: any) => ({
+          ...m,
+          resources: resourceMap.get(m.resource_id) || null
+        }));
         console.log('Fetched project team members with allocations:', data);
-        setProjectTeamMembers(data || []);
+        setProjectTeamMembers(data);
 
         // Refresh Gantt resources when team members change
         const resourcesData = await fetchResourcesForGantt();
@@ -1515,53 +1500,19 @@ const ProjectDetail: React.FC = () => {
 
       console.log("Cleaned data:", cleanedData);
 
-      // Check if project_tasks record exists (get the most recent one)
-      const { data: existingData } = await supabase
+      const { error } = await supabase
         .from('project_tasks')
-        .select('id')
-        .eq('project_id', id)
-        .order('created_at', { ascending: false })
-        .limit(1);
+        .upsert({
+          project_id: id,
+          task_data: cleanedData
+        }, { onConflict: 'project_id' });
 
-      if (existingData && existingData.length > 0) {
-        // Update the most recent record
-        console.log("Updating existing record:", existingData[0].id);
-        const { error } = await supabase
-          .from('project_tasks')
-          .update({
-            task_data: cleanedData,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingData[0].id);
-
-        if (error) {
-          console.error('Error updating tasks:', error);
-        } else {
-          console.log("Tasks updated successfully");
-          // Update project schedule dates based on tasks
-          await updateProjectScheduleDates();
-          // Refresh data from database to ensure UI shows latest values
-          await fetchProjectTasks();
-        }
+      if (error) {
+        console.error('Error saving tasks:', error);
       } else {
-        // Insert new record only if none exists
-        console.log("Inserting new record");
-        const { error } = await supabase
-          .from('project_tasks')
-          .insert({
-            project_id: id,
-            task_data: cleanedData
-          });
-
-        if (error) {
-          console.error('Error inserting tasks:', error);
-        } else {
-          console.log("Tasks inserted successfully");
-          // Update project schedule dates based on tasks
-          await updateProjectScheduleDates();
-          // Refresh data from database to ensure UI shows latest values
-          await fetchProjectTasks();
-        }
+        console.log("Tasks saved successfully");
+        await updateProjectScheduleDates();
+        await fetchProjectTasks();
       }
     } catch (error) {
       console.error('Error saving project tasks:', error);
@@ -3242,34 +3193,12 @@ const ProjectDetail: React.FC = () => {
           // Show progress notification
           showNotification(`Processing ${newTasks.length} tasks...`, 'info');
 
-          // Check if record exists for this project
-          const { data: existingRecord } = await supabase
+          const { error: updateError } = await supabase
             .from('project_tasks')
-            .select('id')
-            .eq('project_id', id)
-            .maybeSingle();
-
-          let updateError;
-          if (existingRecord) {
-            // Update existing record
-            const { error } = await supabase
-              .from('project_tasks')
-              .update({
-                task_data: updatedTaskData,
-                updated_at: new Date().toISOString()
-              })
-              .eq('project_id', id);
-            updateError = error;
-          } else {
-            // Insert new record
-            const { error } = await supabase
-              .from('project_tasks')
-              .insert({
-                project_id: id,
-                task_data: updatedTaskData
-              });
-            updateError = error;
-          }
+            .upsert({
+              project_id: id,
+              task_data: updatedTaskData
+            }, { onConflict: 'project_id' });
 
           if (updateError) {
             throw updateError;
