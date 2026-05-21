@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Plus, Search, Trash2, Calendar, User, Users, CreditCard as Edit2, Check, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNotification } from '../lib/useNotification';
-import ResourceAllocationHeatMap from './ResourceAllocationHeatMap';
 
 interface Resource {
   id: string;
@@ -175,8 +174,6 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
           Add Team Members
         </button>
       </div>
-
-      <ResourceAllocationHeatMap projectId={projectId} />
 
       <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200">
         {teamMembers.length === 0 ? (
