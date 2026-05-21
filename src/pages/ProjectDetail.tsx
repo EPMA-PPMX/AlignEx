@@ -5365,20 +5365,18 @@ const ProjectDetail: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Owner</label>
-                  <input
-                    type="text"
+                  <PeoplePicker
                     value={riskForm.owner}
-                    onChange={(e) => setRiskForm({ ...riskForm, owner: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onChange={(resourceId) => setRiskForm({ ...riskForm, owner: resourceId })}
+                    placeholder="Search for owner..."
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Assigned To</label>
-                  <input
-                    type="text"
+                  <PeoplePicker
                     value={riskForm.assigned_to}
-                    onChange={(e) => setRiskForm({ ...riskForm, assigned_to: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onChange={(resourceId) => setRiskForm({ ...riskForm, assigned_to: resourceId })}
+                    placeholder="Search for assignee..."
                   />
                 </div>
               </div>
@@ -5519,20 +5517,18 @@ const ProjectDetail: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Owner</label>
-                  <input
-                    type="text"
+                  <PeoplePicker
                     value={issueForm.owner}
-                    onChange={(e) => setIssueForm({ ...issueForm, owner: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onChange={(resourceId) => setIssueForm({ ...issueForm, owner: resourceId })}
+                    placeholder="Search for owner..."
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Assigned To</label>
-                  <input
-                    type="text"
+                  <PeoplePicker
                     value={issueForm.assigned_to}
-                    onChange={(e) => setIssueForm({ ...issueForm, assigned_to: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onChange={(resourceId) => setIssueForm({ ...issueForm, assigned_to: resourceId })}
+                    placeholder="Search for assignee..."
                   />
                 </div>
               </div>
