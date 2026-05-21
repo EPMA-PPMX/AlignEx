@@ -81,7 +81,6 @@ export default function PeoplePicker({ value, onChange, placeholder = 'Select a 
       const { data, error } = await supabase
         .from('resources')
         .select('id, display_name, email, first_name, last_name')
-        .eq('resource_type', 'person')
         .eq('status', 'active')
         .order('display_name');
 
