@@ -178,105 +178,94 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
 
       <ResourceAllocationHeatMap projectId={projectId} />
 
-      <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200">
-        {teamMembers.length === 0 ? (
-          <div className="p-12 text-center text-gray-500">
-            <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p>No team members assigned yet. Click "Add Team Members" to get started.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gradient-dark">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                    Email
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                    Project Role
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200" style={{ backgroundColor: '#F9F7FC' }}>
-                {teamMembers.map((member) => {
-                  const isEditing = editingMemberId === member.id;
-
-                  return (
-                    <tr key={member.id} className={isEditing ? 'bg-blue-50' : 'hover:bg-gray-50'}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <User className="w-4 h-4 text-gray-400" />
-                          <div className="text-sm font-medium text-gray-900">
-                            {member.resource?.display_name || 'Unknown'}
-                          </div>
+      {teamMembers.length === 0 ? (
+        <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-12 text-center text-gray-500">
+          <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <p>No team members assigned yet. Click "Add Team Members" to get started.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {teamMembers.map((member) => {
+            const isEditing = editingMemberId === member.id;
+            return (
+              <div
+                key={member.id}
+                className={`bg-widget-bg rounded-xl shadow-sm border transition-all ${isEditing ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-200 hover:shadow-md'}`}
+              >
+                <div className="p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center flex-shrink-0">
+                        <User className="w-5 h-5 text-slate-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-semibold text-gray-900 text-sm truncate">
+                          {member.resource?.display_name || 'Unknown'}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">{member.resource?.email || '-'}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            value={editValues.role}
-                            onChange={(e) => setEditValues({ ...editValues, role: e.target.value })}
-                            className="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        ) : (
-                          <div className="text-sm text-gray-900">{member.role}</div>
+                        {member.resource?.email && (
+                          <div className="text-xs text-gray-500 truncate">{member.resource.email}</div>
                         )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        {isEditing ? (
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => handleSaveEdit(member.id)}
-                              className="p-1 text-green-600 hover:text-green-900 hover:bg-green-100 rounded transition-colors"
-                              title="Save changes"
-                            >
-                              <Check className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={handleCancelEdit}
-                              className="p-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
-                              title="Cancel"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => handleStartEdit(member)}
-                              className="p-1 text-blue-600 hover:text-blue-900 hover:bg-blue-100 rounded transition-colors"
-                              title="Edit"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleRemoveMember(member.id)}
-                              className="p-1 text-red-600 hover:text-red-900 hover:bg-red-100 rounded transition-colors"
-                              title="Remove"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {isEditing ? (
+                        <>
+                          <button
+                            onClick={() => handleSaveEdit(member.id)}
+                            className="p-1.5 text-green-600 hover:text-green-900 hover:bg-green-100 rounded-lg transition-colors"
+                            title="Save changes"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={handleCancelEdit}
+                            className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                            title="Cancel"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => handleStartEdit(member)}
+                            className="p-1.5 text-blue-600 hover:text-blue-900 hover:bg-blue-100 rounded-lg transition-colors"
+                            title="Edit role"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleRemoveMember(member.id)}
+                            className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded-lg transition-colors"
+                            title="Remove"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editValues.role}
+                        onChange={(e) => setEditValues({ ...editValues, role: e.target.value })}
+                        placeholder="Project role"
+                        className="w-full px-2 py-1.5 text-sm border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    ) : (
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+                        {member.role || 'No role assigned'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {showAddMember && (
         <AddTeamMemberModal
