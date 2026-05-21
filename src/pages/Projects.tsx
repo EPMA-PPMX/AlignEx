@@ -502,7 +502,7 @@ const Projects: React.FC = () => {
           <p className="text-gray-600 mt-2">Manage and track all your projects in one place.</p>
         </div>
         <button
-          onClick={() => window.location.href = '/projects/new'}
+          onClick={() => navigate('/projects/new')}
           className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
         >
           <Plus className="w-5 h-5" />
