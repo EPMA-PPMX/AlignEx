@@ -5,9 +5,9 @@ import { supabase } from '../lib/supabase';
 interface Resource {
   id: string;
   display_name: string;
-  email: string;
-  first_name: string;
-  last_name: string;
+  email: string | null;
+  first_name: string | null;
+  last_name: string | null;
 }
 
 interface PeoplePickerProps {
@@ -66,10 +66,10 @@ export default function PeoplePicker({ value, onChange, placeholder = 'Select a 
     } else {
       const term = searchTerm.toLowerCase();
       const filtered = resources.filter(resource =>
-        resource.display_name.toLowerCase().includes(term) ||
-        resource.first_name.toLowerCase().includes(term) ||
-        resource.last_name.toLowerCase().includes(term) ||
-        resource.email.toLowerCase().includes(term)
+        resource.display_name?.toLowerCase().includes(term) ||
+        resource.first_name?.toLowerCase().includes(term) ||
+        resource.last_name?.toLowerCase().includes(term) ||
+        resource.email?.toLowerCase().includes(term)
       );
       setFilteredResources(filtered);
     }
