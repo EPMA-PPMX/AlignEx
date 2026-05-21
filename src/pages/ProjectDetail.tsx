@@ -5345,147 +5345,168 @@ const ProjectDetail: React.FC = () => {
 
       {/* Risk Modal */}
       {showRiskModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              {editingRisk ? 'Edit Risk' : 'Add New Risk'}
-            </h3>
-            <form onSubmit={handleRiskSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-6 z-50">
+          <div className="bg-white rounded-xl max-w-2xl w-full shadow-2xl flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-8 py-5 border-b border-gray-200">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
-                <input
-                  type="text"
-                  value={riskForm.title}
-                  onChange={(e) => setRiskForm({ ...riskForm, title: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
+                <h3 className="text-xl font-semibold text-gray-900">
+                  {editingRisk ? 'Edit Risk' : 'Add New Risk'}
+                </h3>
+                <p className="text-sm text-gray-500 mt-0.5">Fill in the details below to {editingRisk ? 'update the' : 'log a new'} risk</p>
               </div>
+              <button
+                type="button"
+                onClick={() => setShowRiskModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Owner</label>
-                  <PeoplePicker
-                    value={riskForm.owner}
-                    onChange={(resourceId) => setRiskForm({ ...riskForm, owner: resourceId })}
-                    placeholder="Search for owner..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Assigned To</label>
-                  <PeoplePicker
-                    value={riskForm.assigned_to}
-                    onChange={(resourceId) => setRiskForm({ ...riskForm, assigned_to: resourceId })}
-                    placeholder="Search for assignee..."
-                  />
-                </div>
-              </div>
+            {/* Scrollable body */}
+            <form onSubmit={handleRiskSubmit} className="flex flex-col flex-1 min-h-0">
+              <div className="px-8 py-6 overflow-y-auto flex-1 space-y-6">
 
-              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                  <select
-                    value={riskForm.status}
-                    onChange={(e) => setRiskForm({ ...riskForm, status: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Closed">Closed</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                  <select
-                    value={riskForm.category}
-                    onChange={(e) => setRiskForm({ ...riskForm, category: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="Resource">Resource</option>
-                    <option value="Management">Management</option>
-                    <option value="Technical">Technical</option>
-                    <option value="Vendor">Vendor</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Probability (0-100)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Title <span className="text-red-500">*</span></label>
                   <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={riskForm.probability}
-                    onChange={(e) => setRiskForm({ ...riskForm, probability: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    type="text"
+                    value={riskForm.title}
+                    onChange={(e) => setRiskForm({ ...riskForm, title: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Brief risk title"
+                    required
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Impact</label>
-                  <select
-                    value={riskForm.impact}
-                    onChange={(e) => setRiskForm({ ...riskForm, impact: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                    <option value="Critical">Critical</option>
-                  </select>
+
+                <div className="grid grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Owner</label>
+                    <PeoplePicker
+                      value={riskForm.owner}
+                      onChange={(resourceId) => setRiskForm({ ...riskForm, owner: resourceId })}
+                      placeholder="Search for owner..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Assigned To</label>
+                    <PeoplePicker
+                      value={riskForm.assigned_to}
+                      onChange={(resourceId) => setRiskForm({ ...riskForm, assigned_to: resourceId })}
+                      placeholder="Search for assignee..."
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Cost</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={riskForm.cost}
-                  onChange={(e) => setRiskForm({ ...riskForm, cost: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                <div className="grid grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                    <select
+                      value={riskForm.status}
+                      onChange={(e) => setRiskForm({ ...riskForm, status: e.target.value })}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Closed">Closed</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                    <select
+                      value={riskForm.category}
+                      onChange={(e) => setRiskForm({ ...riskForm, category: e.target.value })}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="Resource">Resource</option>
+                      <option value="Management">Management</option>
+                      <option value="Technical">Technical</option>
+                      <option value="Vendor">Vendor</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-5">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Probability (0–100)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={riskForm.probability}
+                      onChange={(e) => setRiskForm({ ...riskForm, probability: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Impact</label>
+                    <select
+                      value={riskForm.impact}
+                      onChange={(e) => setRiskForm({ ...riskForm, impact: e.target.value })}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="Low">Low</option>
+                      <option value="Medium">Medium</option>
+                      <option value="High">High</option>
+                      <option value="Critical">Critical</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Cost</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={riskForm.cost}
+                      onChange={(e) => setRiskForm({ ...riskForm, cost: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Description <span className="text-red-500">*</span></label>
+                  <textarea
+                    value={riskForm.description}
+                    onChange={(e) => setRiskForm({ ...riskForm, description: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    rows={3}
+                    placeholder="Describe the risk in detail..."
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                  <textarea
+                    value={riskForm.notes}
+                    onChange={(e) => setRiskForm({ ...riskForm, notes: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    rows={3}
+                    placeholder="Additional notes or mitigation steps..."
+                  />
+                </div>
+
+                <CustomFieldsRenderer
+                  entityType="risk"
+                  entityId={editingRisk?.id}
+                  values={riskCustomFieldValues}
+                  onChange={(fieldName, value) => setRiskCustomFieldValues({ ...riskCustomFieldValues, [fieldName]: value })}
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                <textarea
-                  value={riskForm.description}
-                  onChange={(e) => setRiskForm({ ...riskForm, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  rows={3}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
-                <textarea
-                  value={riskForm.notes}
-                  onChange={(e) => setRiskForm({ ...riskForm, notes: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  rows={3}
-                />
-              </div>
-
-              <CustomFieldsRenderer
-                entityType="risk"
-                entityId={editingRisk?.id}
-                values={riskCustomFieldValues}
-                onChange={(fieldName, value) => setRiskCustomFieldValues({ ...riskCustomFieldValues, [fieldName]: value })}
-              />
-
-              <div className="flex space-x-4 pt-4">
+              {/* Footer */}
+              <div className="px-8 py-5 border-t border-gray-200 flex gap-3 bg-gray-50 rounded-b-xl">
                 <button
                   type="button"
                   onClick={() => setShowRiskModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
                 >
                   {editingRisk ? 'Update Risk' : 'Add Risk'}
                 </button>
@@ -5497,122 +5518,143 @@ const ProjectDetail: React.FC = () => {
 
       {/* Issue Modal */}
       {showIssueModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              {editingIssue ? 'Edit Issue' : 'Add New Issue'}
-            </h3>
-            <form onSubmit={handleIssueSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-6 z-50">
+          <div className="bg-white rounded-xl max-w-2xl w-full shadow-2xl flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-8 py-5 border-b border-gray-200">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
-                <input
-                  type="text"
-                  value={issueForm.title}
-                  onChange={(e) => setIssueForm({ ...issueForm, title: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  required
-                />
+                <h3 className="text-xl font-semibold text-gray-900">
+                  {editingIssue ? 'Edit Issue' : 'Add New Issue'}
+                </h3>
+                <p className="text-sm text-gray-500 mt-0.5">Fill in the details below to {editingIssue ? 'update the' : 'log a new'} issue</p>
               </div>
+              <button
+                type="button"
+                onClick={() => setShowIssueModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-              <div className="grid grid-cols-2 gap-4">
+            {/* Scrollable body */}
+            <form onSubmit={handleIssueSubmit} className="flex flex-col flex-1 min-h-0">
+              <div className="px-8 py-6 overflow-y-auto flex-1 space-y-6">
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Owner</label>
-                  <PeoplePicker
-                    value={issueForm.owner}
-                    onChange={(resourceId) => setIssueForm({ ...issueForm, owner: resourceId })}
-                    placeholder="Search for owner..."
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Title <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={issueForm.title}
+                    onChange={(e) => setIssueForm({ ...issueForm, title: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Brief issue title"
+                    required
                   />
                 </div>
+
+                <div className="grid grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Owner</label>
+                    <PeoplePicker
+                      value={issueForm.owner}
+                      onChange={(resourceId) => setIssueForm({ ...issueForm, owner: resourceId })}
+                      placeholder="Search for owner..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Assigned To</label>
+                    <PeoplePicker
+                      value={issueForm.assigned_to}
+                      onChange={(resourceId) => setIssueForm({ ...issueForm, assigned_to: resourceId })}
+                      placeholder="Search for assignee..."
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-5">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                    <select
+                      value={issueForm.status}
+                      onChange={(e) => setIssueForm({ ...issueForm, status: e.target.value })}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Closed">Closed</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                    <select
+                      value={issueForm.category}
+                      onChange={(e) => setIssueForm({ ...issueForm, category: e.target.value })}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="Resource">Resource</option>
+                      <option value="Management">Management</option>
+                      <option value="Technical">Technical</option>
+                      <option value="Vendor">Vendor</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+                    <select
+                      value={issueForm.priority}
+                      onChange={(e) => setIssueForm({ ...issueForm, priority: e.target.value })}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="Low">Low</option>
+                      <option value="Medium">Medium</option>
+                      <option value="High">High</option>
+                      <option value="Critical">Critical</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Assigned To</label>
-                  <PeoplePicker
-                    value={issueForm.assigned_to}
-                    onChange={(resourceId) => setIssueForm({ ...issueForm, assigned_to: resourceId })}
-                    placeholder="Search for assignee..."
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Description <span className="text-red-500">*</span></label>
+                  <textarea
+                    value={issueForm.description}
+                    onChange={(e) => setIssueForm({ ...issueForm, description: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    rows={3}
+                    placeholder="Describe the issue in detail..."
+                    required
                   />
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                  <select
-                    value={issueForm.status}
-                    onChange={(e) => setIssueForm({ ...issueForm, status: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Closed">Closed</option>
-                  </select>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Resolution</label>
+                  <textarea
+                    value={issueForm.resolution}
+                    onChange={(e) => setIssueForm({ ...issueForm, resolution: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    rows={3}
+                    placeholder="Proposed or applied resolution..."
+                  />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                  <select
-                    value={issueForm.category}
-                    onChange={(e) => setIssueForm({ ...issueForm, category: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="Resource">Resource</option>
-                    <option value="Management">Management</option>
-                    <option value="Technical">Technical</option>
-                    <option value="Vendor">Vendor</option>
-                  </select>
-                </div>
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
-                <select
-                  value={issueForm.priority}
-                  onChange={(e) => setIssueForm({ ...issueForm, priority: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="Low">Low</option>
-                  <option value="Medium">Medium</option>
-                  <option value="High">High</option>
-                  <option value="Critical">Critical</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                <textarea
-                  value={issueForm.description}
-                  onChange={(e) => setIssueForm({ ...issueForm, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  rows={3}
-                  required
+                <CustomFieldsRenderer
+                  entityType="issue"
+                  entityId={editingIssue?.id}
+                  values={issueCustomFieldValues}
+                  onChange={(fieldName, value) => setIssueCustomFieldValues({ ...issueCustomFieldValues, [fieldName]: value })}
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Resolution</label>
-                <textarea
-                  value={issueForm.resolution}
-                  onChange={(e) => setIssueForm({ ...issueForm, resolution: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  rows={3}
-                />
-              </div>
-
-              <CustomFieldsRenderer
-                entityType="issue"
-                entityId={editingIssue?.id}
-                values={issueCustomFieldValues}
-                onChange={(fieldName, value) => setIssueCustomFieldValues({ ...issueCustomFieldValues, [fieldName]: value })}
-              />
-
-              <div className="flex space-x-4 pt-4">
+              {/* Footer */}
+              <div className="px-8 py-5 border-t border-gray-200 flex gap-3 bg-gray-50 rounded-b-xl">
                 <button
                   type="button"
                   onClick={() => setShowIssueModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                  className="flex-1 px-4 py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium"
                 >
                   {editingIssue ? 'Update Issue' : 'Add Issue'}
                 </button>
