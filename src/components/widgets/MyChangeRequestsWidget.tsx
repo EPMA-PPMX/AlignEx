@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { FileEdit, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { File as FileEdit, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { DEMO_USER_ID } from '../../lib/useCurrentUser';
 import { Link } from 'react-router-dom';
 
 interface ChangeRequest {
@@ -45,7 +44,6 @@ export default function MyChangeRequestsWidget() {
             name
           )
         `)
-        .eq('requested_by', DEMO_USER_ID)
         .order('created_at', { ascending: false })
         .limit(10);
 
