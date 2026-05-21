@@ -572,9 +572,9 @@ function AddTeamMemberModal({ projectId, onClose, onSave, existingMemberResource
   const [selectedResources, setSelectedResources] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [defaultAllocation, setDefaultAllocation] = useState(50);
-  const [defaultStartDate, setDefaultStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [defaultRole, setDefaultRole] = useState('Team Member');
+  const defaultAllocation = 50;
+  const defaultStartDate = new Date().toISOString().split('T')[0];
+  const defaultRole = 'Team Member';
 
   useEffect(() => {
     fetchResources();
@@ -657,53 +657,6 @@ function AddTeamMemberModal({ projectId, onClose, onSave, existingMemberResource
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-900">Add Team Members</h2>
           <p className="text-sm text-gray-500 mt-1">Select resources to add to the project team</p>
-        </div>
-
-        <div className="p-6 border-b border-gray-200 bg-gray-50">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Default Settings for New Members</h3>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Project Role
-              </label>
-              <input
-                type="text"
-                value={defaultRole}
-                onChange={(e) => setDefaultRole(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="e.g., Team Member"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Allocation %
-              </label>
-              <div className="flex items-center gap-1">
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="5"
-                  value={defaultAllocation}
-                  onChange={(e) => setDefaultAllocation(parseInt(e.target.value) || 0)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <span className="text-sm text-gray-600">%</span>
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Start Date
-              </label>
-              <input
-                type="date"
-                value={defaultStartDate}
-                onChange={(e) => setDefaultStartDate(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-          <p className="text-xs text-gray-500 mt-2">These settings will be applied to all selected members. You can edit them individually after adding.</p>
         </div>
 
         <div className="p-6 border-b border-gray-200">
