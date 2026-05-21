@@ -198,15 +198,6 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
                   <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Project Role
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                    Allocation
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                    Start Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                    End Date
-                  </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">
                     Actions
                   </th>
@@ -239,52 +230,6 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
                           />
                         ) : (
                           <div className="text-sm text-gray-900">{member.role}</div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {isEditing ? (
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="5"
-                              value={editValues.allocation_percentage}
-                              onChange={(e) => setEditValues({ ...editValues, allocation_percentage: parseInt(e.target.value) || 0 })}
-                              className="w-20 px-2 py-1 text-sm border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
-                            <span className="text-sm text-gray-600">%</span>
-                          </div>
-                        ) : (
-                          <div className="text-sm text-gray-900">{member.allocation_percentage}%</div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {isEditing ? (
-                          <input
-                            type="date"
-                            value={editValues.start_date}
-                            onChange={(e) => setEditValues({ ...editValues, start_date: e.target.value })}
-                            className="px-2 py-1 text-sm border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        ) : (
-                          <div className="text-sm text-gray-500">
-                            {new Date(member.start_date).toLocaleDateString()}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {isEditing ? (
-                          <input
-                            type="date"
-                            value={editValues.end_date}
-                            onChange={(e) => setEditValues({ ...editValues, end_date: e.target.value })}
-                            className="px-2 py-1 text-sm border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        ) : (
-                          <div className="text-sm text-gray-500">
-                            {member.end_date ? new Date(member.end_date).toLocaleDateString() : '-'}
-                          </div>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
