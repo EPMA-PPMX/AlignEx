@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Trash2, Calendar, User, Users, CreditCard as Edit2, Check, X } from 'lucide-react';
+import { Plus, Search, Calendar, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { useNotification } from '../lib/useNotification';
 import ResourceAllocationHeatMap from './ResourceAllocationHeatMap';
 
 interface Resource {
@@ -30,22 +29,9 @@ interface ProjectTeamsProps {
 }
 
 export default function ProjectTeams({ projectId, onTeamMembersChange }: ProjectTeamsProps) {
-  const { showConfirm } = useNotification();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddMember, setShowAddMember] = useState(false);
-  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState<{
-    allocation_percentage: number;
-    start_date: string;
-    end_date: string;
-    role: string;
-  }>({
-    allocation_percentage: 0,
-    start_date: '',
-    end_date: '',
-    role: ''
-  });
 
   useEffect(() => {
     fetchTeamMembers();
@@ -86,72 +72,6 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
     }
   };
 
-  const handleRemoveMember = async (id: string) => {
-    const confirmed = await showConfirm({
-      title: 'Remove Team Member',
-      message: 'Are you sure you want to remove this team member from the project?',
-      confirmText: 'Remove'
-    });
-    if (!confirmed) return;
-
-    try {
-      const { error } = await supabase
-        .from('project_team_members')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-      fetchTeamMembers();
-      onTeamMembersChange?.();
-    } catch (error) {
-      console.error('Error removing team member:', error);
-      alert('Failed to remove team member');
-    }
-  };
-
-  const handleStartEdit = (member: TeamMember) => {
-    setEditingMemberId(member.id);
-    setEditValues({
-      allocation_percentage: member.allocation_percentage,
-      start_date: member.start_date,
-      end_date: member.end_date || '',
-      role: member.role
-    });
-  };
-
-  const handleCancelEdit = () => {
-    setEditingMemberId(null);
-    setEditValues({
-      allocation_percentage: 0,
-      start_date: '',
-      end_date: '',
-      role: ''
-    });
-  };
-
-  const handleSaveEdit = async (memberId: string) => {
-    try {
-      const { error } = await supabase
-        .from('project_team_members')
-        .update({
-          allocation_percentage: editValues.allocation_percentage,
-          start_date: editValues.start_date,
-          end_date: editValues.end_date || null,
-          role: editValues.role
-        })
-        .eq('id', memberId);
-
-      if (error) throw error;
-
-      setEditingMemberId(null);
-      fetchTeamMembers();
-      onTeamMembersChange?.();
-    } catch (error) {
-      console.error('Error updating team member:', error);
-      alert('Failed to update team member');
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -177,95 +97,6 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
       </div>
 
       <ResourceAllocationHeatMap projectId={projectId} />
-
-      {teamMembers.length === 0 ? (
-        <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-12 text-center text-gray-500">
-          <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <p>No team members assigned yet. Click "Add Team Members" to get started.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {teamMembers.map((member) => {
-            const isEditing = editingMemberId === member.id;
-            return (
-              <div
-                key={member.id}
-                className={`bg-widget-bg rounded-xl shadow-sm border transition-all ${isEditing ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-200 hover:shadow-md'}`}
-              >
-                <div className="p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center flex-shrink-0">
-                        <User className="w-5 h-5 text-slate-600" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="font-semibold text-gray-900 text-sm truncate">
-                          {member.resource?.display_name || 'Unknown'}
-                        </div>
-                        {member.resource?.email && (
-                          <div className="text-xs text-gray-500 truncate">{member.resource.email}</div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      {isEditing ? (
-                        <>
-                          <button
-                            onClick={() => handleSaveEdit(member.id)}
-                            className="p-1.5 text-green-600 hover:text-green-900 hover:bg-green-100 rounded-lg transition-colors"
-                            title="Save changes"
-                          >
-                            <Check className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={handleCancelEdit}
-                            className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-                            title="Cancel"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => handleStartEdit(member)}
-                            className="p-1.5 text-blue-600 hover:text-blue-900 hover:bg-blue-100 rounded-lg transition-colors"
-                            title="Edit role"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleRemoveMember(member.id)}
-                            className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded-lg transition-colors"
-                            title="Remove"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <div className="mt-3 pt-3 border-t border-gray-100">
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={editValues.role}
-                        onChange={(e) => setEditValues({ ...editValues, role: e.target.value })}
-                        placeholder="Project role"
-                        className="w-full px-2 py-1.5 text-sm border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    ) : (
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
-                        {member.role || 'No role assigned'}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
 
       {showAddMember && (
         <AddTeamMemberModal
