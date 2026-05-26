@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Save, Send, Loader } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { DEMO_TENANT_NAME } from '../../lib/useCurrentUser';
 import { formatCurrencyInput, extractNumericValue, formatCurrency } from '../../lib/utils';
 import { useNotification } from '../../lib/useNotification';
 
@@ -205,7 +206,7 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
     try {
       setLoading(true);
 
-      const requestData = {
+      const requestData: Record<string, any> = {
         project_name: formData.project_name.trim(),
         description: formData.description.trim() || null,
         project_type: formData.project_type.trim(),
@@ -219,6 +220,10 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
         status: isDraft ? 'Draft' : 'Pending Approval',
         submitted_at: isDraft ? null : new Date().toISOString(),
       };
+
+      if (!request) {
+        requestData.tenant_name = DEMO_TENANT_NAME;
+      }
 
       let requestId = request?.id;
 

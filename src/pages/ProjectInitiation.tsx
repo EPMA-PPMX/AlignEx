@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye, Edit2, Trash2, Calendar, DollarSign, TrendingUp, BarChart3 } from 'lucide-react';
+import { Plus, Search, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye, CreditCard as Edit2, Trash2, Calendar, DollarSign, TrendingUp, BarChart3 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
 import { formatCurrency, formatDate as utilFormatDate, formatCurrencyWithK } from '../lib/utils';
 import { useNotification } from '../lib/useNotification';
 import ProjectRequestForm from '../components/initiation/ProjectRequestForm';
@@ -47,6 +48,7 @@ export default function ProjectInitiation() {
       const { data, error } = await supabase
         .from('project_initiation_requests')
         .select('*')
+        .eq('tenant_name', DEMO_TENANT_NAME)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
