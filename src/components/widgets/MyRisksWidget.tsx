@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import { AlertTriangle, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { DEMO_USER_ID } from '../../lib/useCurrentUser';
 import { Link } from 'react-router-dom';
+
+interface Props {
+  userId: string;
+  resourceId: string | null;
+}
 
 interface Risk {
   id: string;
@@ -16,28 +20,20 @@ interface Risk {
   project_name: string;
 }
 
-export default function MyRisksWidget() {
+export default function MyRisksWidget({ resourceId }: Props) {
   const [risks, setRisks] = useState<Risk[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchRisks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [resourceId]);
 
   const fetchRisks = async () => {
     try {
       setLoading(true);
 
-      // Get user's resource_id
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('resource_id')
-        .eq('id', DEMO_USER_ID)
-        .maybeSingle();
-
-      if (userError || !userData?.resource_id) {
-        console.log('MyRisksWidget: User has no resource_id, cannot fetch risks');
+      if (!resourceId) {
         setRisks([]);
         setLoading(false);
         return;
@@ -59,7 +55,7 @@ export default function MyRisksWidget() {
           .from('project_field_values')
           .select('project_id')
           .eq('field_id', pmField.id)
-          .eq('value', userData.resource_id);
+          .eq('value', resourceId);
 
         if (pfvError) throw pfvError;
 
@@ -69,7 +65,7 @@ export default function MyRisksWidget() {
       const { data: teamData, error: teamError } = await supabase
         .from('project_team_members')
         .select('project_id')
-        .eq('resource_id', userData.resource_id);
+        .eq('resource_id', resourceId);
 
       if (teamError) throw teamError;
 

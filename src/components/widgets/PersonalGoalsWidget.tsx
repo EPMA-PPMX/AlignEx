@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Target, Calendar, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { DEMO_USER_ID } from '../../lib/useCurrentUser';
 import { Link } from 'react-router-dom';
+
+interface Props {
+  userId: string;
+  resourceId: string | null;
+}
 
 interface SkillGoal {
   id: string;
@@ -18,7 +22,7 @@ interface GoalTask {
   completed: boolean;
 }
 
-export default function PersonalGoalsWidget() {
+export default function PersonalGoalsWidget({ userId }: Props) {
   const [goals, setGoals] = useState<SkillGoal[]>([]);
   const [tasks, setTasks] = useState<{ [goalId: string]: GoalTask[] }>({});
   const [loading, setLoading] = useState(true);
@@ -26,7 +30,7 @@ export default function PersonalGoalsWidget() {
   useEffect(() => {
     fetchGoals();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [userId]);
 
   const fetchGoals = async () => {
     try {
@@ -35,7 +39,7 @@ export default function PersonalGoalsWidget() {
       const { data: goalsData, error: goalsError } = await supabase
         .from('skill_goals')
         .select('id, title, status, target_date, goal_type')
-        .eq('user_id', DEMO_USER_ID)
+        .eq('user_id', userId)
         .in('status', ['not_started', 'in_progress'])
         .order('target_date', { ascending: true, nullsLast: true });
 

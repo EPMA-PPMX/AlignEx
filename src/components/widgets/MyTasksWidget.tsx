@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import { CheckSquare, AlertCircle, FolderOpen, Clock, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { DEMO_USER_ID } from '../../lib/useCurrentUser';
 import { Link } from 'react-router-dom';
+
+interface Props {
+  userId: string;
+  resourceId: string | null;
+}
 
 interface Task {
   id: string;
@@ -30,28 +34,20 @@ interface GroupedTasks {
   };
 }
 
-export default function MyTasksWidget() {
+export default function MyTasksWidget({ resourceId }: Props) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchTasks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [resourceId]);
 
   const fetchTasks = async () => {
     try {
       setLoading(true);
 
-      // Get user's resource_id
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('resource_id')
-        .eq('id', DEMO_USER_ID)
-        .maybeSingle();
-
-      if (userError || !userData?.resource_id) {
-        console.log('MyTasksWidget: User has no resource_id, cannot fetch tasks');
+      if (!resourceId) {
         setTasks([]);
         setLoading(false);
         return;
@@ -81,7 +77,7 @@ export default function MyTasksWidget() {
 
         ganttData.forEach((task: any) => {
           // Check if the task is assigned to the user's resource_id using owner_id
-          const isAssignedToMe = task.owner_id === userData.resource_id;
+          const isAssignedToMe = task.owner_id === resourceId;
           const isNotCompleted = task.status !== 'Completed' && task.status !== 'Cancelled';
           const isNotFullyComplete = !task.progress || task.progress < 1;
 

@@ -56,19 +56,22 @@ const Dashboard: React.FC = () => {
     return 'Good evening';
   };
 
+  const userId = user?.id ?? '';
+  const resourceId = user?.resource_id ?? null;
+
   const widgetComponents: { [key: string]: React.ReactNode } = {
-    personal_goals: <PersonalGoalsWidget key="personal_goals" />,
-    my_tasks: <MyTasksWidget key="my_tasks" />,
-    my_projects: <MyProjectsWidget key="my_projects" />,
-    my_risks: <MyRisksWidget key="my_risks" />,
-    my_issues: <MyIssuesWidget key="my_issues" />,
+    personal_goals: <PersonalGoalsWidget key="personal_goals" userId={userId} resourceId={resourceId} />,
+    my_tasks: <MyTasksWidget key="my_tasks" userId={userId} resourceId={resourceId} />,
+    my_projects: <MyProjectsWidget key="my_projects" userId={userId} resourceId={resourceId} />,
+    my_risks: <MyRisksWidget key="my_risks" userId={userId} resourceId={resourceId} />,
+    my_issues: <MyIssuesWidget key="my_issues" userId={userId} resourceId={resourceId} />,
     my_change_requests: <MyChangeRequestsWidget key="my_change_requests" />,
-    deadlines: <DeadlinesWidget key="deadlines" />,
+    deadlines: <DeadlinesWidget key="deadlines" userId={userId} resourceId={resourceId} />,
     timesheet_quick: <TimesheetQuickWidget key="timesheet_quick" />,
     recent_activity: <RecentActivityWidget key="recent_activity" />,
     pending_approvals: <PendingApprovalsWidget key="pending_approvals" />,
     project_health: <ProjectHealthWidget key="project_health" />,
-    team_capacity: <TeamCapacityWidget key="team_capacity" />,
+    team_capacity: <TeamCapacityWidget key="team_capacity" userId={userId} resourceId={resourceId} />,
   };
 
   return (

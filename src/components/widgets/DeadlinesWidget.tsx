@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Calendar, AlertCircle, Target, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { DEMO_USER_ID } from '../../lib/useCurrentUser';
+interface Props {
+  userId: string;
+  resourceId: string | null;
+}
 
 interface Deadline {
   id: string;
@@ -13,14 +16,14 @@ interface Deadline {
   priority?: string;
 }
 
-export default function DeadlinesWidget() {
+export default function DeadlinesWidget({ userId }: Props) {
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchDeadlines();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [userId]);
 
   const fetchDeadlines = async () => {
     try {
@@ -41,7 +44,7 @@ export default function DeadlinesWidget() {
 
       (tasks || []).forEach((task: any) => {
         const taskData = task.task_data || {};
-        if (taskData.assigned_to === DEMO_USER_ID && taskData.due_date) {
+        if (taskData.assigned_to === userId && taskData.due_date) {
           allDeadlines.push({
             id: task.id,
             title: taskData.title || 'Untitled Task',
@@ -57,7 +60,7 @@ export default function DeadlinesWidget() {
       const { data: goals, error: goalsError } = await supabase
         .from('skill_goals')
         .select('id, title, target_date, goal_type')
-        .eq('user_id', DEMO_USER_ID)
+        .eq('user_id', userId)
         .not('target_date', 'is', null)
         .in('status', ['not_started', 'in_progress']);
 
