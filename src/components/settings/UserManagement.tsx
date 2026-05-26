@@ -10,6 +10,7 @@ interface User {
   avatar_url: string | null;
   is_active: boolean;
   bio: string | null;
+  tenant_name: string | null;
   created_at: string;
 }
 
@@ -21,6 +22,7 @@ const emptyForm = {
   system_role: 'Team Member' as User['system_role'],
   avatar_url: '',
   bio: '',
+  tenant_name: '',
   is_active: true,
 };
 
@@ -43,7 +45,7 @@ export default function UserManagement() {
     setLoading(true);
     const { data, error } = await supabase
       .from('users')
-      .select('id, email, full_name, system_role, avatar_url, is_active, bio, created_at')
+      .select('id, email, full_name, system_role, avatar_url, is_active, bio, tenant_name, created_at')
       .order('full_name');
     if (!error) setUsers(data || []);
     setLoading(false);
@@ -64,6 +66,7 @@ export default function UserManagement() {
       system_role: user.system_role,
       avatar_url: user.avatar_url || '',
       bio: user.bio || '',
+      tenant_name: user.tenant_name || '',
       is_active: user.is_active,
     });
     setError(null);
@@ -90,6 +93,7 @@ export default function UserManagement() {
       system_role: form.system_role,
       avatar_url: form.avatar_url.trim() || null,
       bio: form.bio.trim() || null,
+      tenant_name: form.tenant_name.trim() || null,
       is_active: form.is_active,
       updated_at: new Date().toISOString(),
     };
@@ -124,7 +128,8 @@ export default function UserManagement() {
   const filtered = users.filter(u =>
     u.full_name.toLowerCase().includes(search.toLowerCase()) ||
     u.email.toLowerCase().includes(search.toLowerCase()) ||
-    u.system_role.toLowerCase().includes(search.toLowerCase())
+    u.system_role.toLowerCase().includes(search.toLowerCase()) ||
+    (u.tenant_name || '').toLowerCase().includes(search.toLowerCase())
   );
 
   const roleColor = (role: string) => {
@@ -199,6 +204,7 @@ export default function UserManagement() {
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="text-left px-4 py-3 font-semibold text-gray-600">User</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600">Tenant</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-600">Role</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-600">Status</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-600">Added</th>
@@ -218,6 +224,13 @@ export default function UserManagement() {
                         <p className="text-xs text-gray-500">{user.email}</p>
                       </div>
                     </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    {user.tenant_name ? (
+                      <span className="text-sm text-gray-700">{user.tenant_name}</span>
+                    ) : (
+                      <span className="text-xs text-gray-400 italic">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${roleColor(user.system_role)}`}>
@@ -325,6 +338,17 @@ export default function UserManagement() {
                 >
                   {SYSTEM_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tenant Name</label>
+                <input
+                  type="text"
+                  value={form.tenant_name}
+                  onChange={e => setForm({ ...form, tenant_name: e.target.value })}
+                  placeholder="e.g. Acme Corporation"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
               </div>
 
               <div>
