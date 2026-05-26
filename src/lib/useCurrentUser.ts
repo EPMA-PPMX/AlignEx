@@ -21,7 +21,8 @@ export interface DashboardWidget {
   settings: Record<string, any>;
 }
 
-export const DEMO_USER_ID = '53eaeaf7-b9ab-47be-be4b-9e6f57a81dea'; 
+export const DEMO_USER_ID = '53eaeaf7-b9ab-47be-be4b-9e6f57a81dea';
+export const DEMO_TENANT_NAME = 'Demo Tenant';
 
 export function useCurrentUser() {
   const [user, setUser] = useState<User | null>(null);

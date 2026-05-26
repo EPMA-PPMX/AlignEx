@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, ArrowLeft, Loader } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
 import { formatCurrencyInput, formatCurrency } from '../lib/utils';
 import { useNotification } from '../lib/useNotification';
 
@@ -107,7 +108,8 @@ const NewProject: React.FC = () => {
           description: formData.description.trim() || null,
           template_id: formData.template_id || null,
           start_date: formData.start_date || null,
-          status: 'In-Progress'
+          status: 'In-Progress',
+          tenant_name: DEMO_TENANT_NAME
         }])
         .select();
 

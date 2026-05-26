@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, MoreHorizontal, Grid3x3 as Grid3X3, List, Calendar, User, Settings2, X, Check, Layers, ChevronDown, ChevronRight, Archive, ArchiveRestore } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { DEMO_USER_ID } from '../lib/useCurrentUser';
+import { DEMO_USER_ID, DEMO_TENANT_NAME } from '../lib/useCurrentUser';
 import { formatDate, formatCurrencyWithK } from '../lib/utils';
 import { useNotification } from '../lib/useNotification';
 
@@ -237,6 +237,7 @@ const Projects: React.FC = () => {
       const { data, error } = await supabase
         .from('projects')
         .select('*')
+        .eq('tenant_name', DEMO_TENANT_NAME)
         .order('created_at', { ascending: false });
 
       if (error) {
