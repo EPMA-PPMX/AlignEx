@@ -27,6 +27,7 @@ interface ProjectRequest {
   review_comments: string | null;
   created_at: string;
   updated_at: string;
+  tenant_name: string | null;
 }
 
 export default function ProjectInitiation() {
@@ -162,7 +163,8 @@ export default function ProjectInitiation() {
           template_id: templateData?.id || null,
           status: 'Planning',
           state: 'Active',
-          project_status: 'On Track'
+          health_status: 'On Track',
+          tenant_name: request.tenant_name || null,
         }])
         .select();
 
