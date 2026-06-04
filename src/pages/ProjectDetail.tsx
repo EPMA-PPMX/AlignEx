@@ -96,6 +96,7 @@ interface Issue {
   status: string;
   category?: string;
   priority?: string;
+  impact?: string;
   description: string;
   resolution?: string;
   created_at: string;
@@ -338,6 +339,7 @@ const ProjectDetail: React.FC = () => {
     status: 'Active',
     category: 'Resource',
     priority: 'Medium',
+    impact: 'Medium',
     description: '',
     resolution: ''
   });
@@ -2548,6 +2550,7 @@ const ProjectDetail: React.FC = () => {
       status: issue.status,
       category: issue.category || 'Resource',
       priority: issue.priority || 'Medium',
+      impact: issue.impact || issue.priority || 'Medium',
       description: issue.description,
       resolution: issue.resolution || ''
     });
@@ -2590,6 +2593,7 @@ const ProjectDetail: React.FC = () => {
       status: 'Active',
       category: 'Resource',
       priority: 'Medium',
+      impact: 'Medium',
       description: '',
       resolution: ''
     });
@@ -5598,10 +5602,10 @@ const ProjectDetail: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Impact</label>
                     <select
-                      value={issueForm.priority}
-                      onChange={(e) => setIssueForm({ ...issueForm, priority: e.target.value })}
+                      value={issueForm.impact}
+                      onChange={(e) => setIssueForm({ ...issueForm, impact: e.target.value })}
                       className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="Low">Low</option>

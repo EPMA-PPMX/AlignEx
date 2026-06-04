@@ -13,6 +13,7 @@ interface Issue {
   project_id: string;
   title: string;
   priority: string;
+  impact?: string;
   status: string;
   category: string;
   assigned_to: string;
@@ -128,7 +129,7 @@ export default function MyIssuesWidget({ resourceId }: Props) {
   };
 
   const criticalCount = issues.filter(i =>
-    i.priority?.toLowerCase() === 'critical' || i.priority?.toLowerCase() === 'high'
+    (i.impact || i.priority)?.toLowerCase() === 'critical' || (i.impact || i.priority)?.toLowerCase() === 'high'
   ).length;
 
   if (loading) {
@@ -185,13 +186,13 @@ export default function MyIssuesWidget({ resourceId }: Props) {
                   <h4 className="text-gray-900 font-medium text-sm mb-1 truncate">{issue.title}</h4>
                   <p className="text-xs text-gray-600 truncate">{issue.project_name}</p>
                 </div>
-                <div className={`w-2 h-2 rounded-full ${getPriorityColor(issue.priority)} flex-shrink-0 ml-2 mt-1`} />
+                <div className={`w-2 h-2 rounded-full ${getPriorityColor(issue.impact || issue.priority)} flex-shrink-0 ml-2 mt-1`} />
               </div>
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className={`text-xs font-medium ${getPriorityTextColor(issue.priority)}`}>
-                    {issue.priority} Priority
+                  <span className={`text-xs font-medium ${getPriorityTextColor(issue.impact || issue.priority)}`}>
+                    {issue.impact || issue.priority} Impact
                   </span>
                 </div>
                 <span className="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700">
