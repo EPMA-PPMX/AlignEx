@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Users, Plus, Pencil, Trash2, X, Check, Search, UserCheck, UserX } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useNotification } from '../../lib/useNotification';
 
 interface User {
   id: string;
@@ -27,6 +28,7 @@ const emptyForm = {
 };
 
 export default function UserManagement() {
+  const { showConfirm, showNotification } = useNotification();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -34,7 +36,6 @@ export default function UserManagement() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [form, setForm] = useState({ ...emptyForm });
   const [saving, setSaving] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -108,6 +109,7 @@ export default function UserManagement() {
     if (err) {
       setError(err.message);
     } else {
+      showNotification(editingUser ? 'User updated successfully' : 'User added successfully', 'success');
       await fetchUsers();
       closeModal();
     }
@@ -115,14 +117,31 @@ export default function UserManagement() {
   };
 
   const handleToggleActive = async (user: User) => {
-    await supabase.from('users').update({ is_active: !user.is_active, updated_at: new Date().toISOString() }).eq('id', user.id);
-    setUsers(users.map(u => u.id === user.id ? { ...u, is_active: !u.is_active } : u));
+    const { error } = await supabase.from('users').update({ is_active: !user.is_active, updated_at: new Date().toISOString() }).eq('id', user.id);
+    if (error) {
+      showNotification('Failed to update user status', 'error');
+    } else {
+      setUsers(users.map(u => u.id === user.id ? { ...u, is_active: !u.is_active } : u));
+      showNotification(`User ${!user.is_active ? 'activated' : 'deactivated'} successfully`, 'success');
+    }
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from('users').delete().eq('id', id);
-    setUsers(users.filter(u => u.id !== id));
-    setDeleteConfirm(null);
+    const confirmed = await showConfirm({
+      title: 'Delete User',
+      message: 'Are you sure you want to delete this user?',
+      confirmText: 'Delete'
+    });
+    if (!confirmed) return;
+
+    const { error } = await supabase.from('users').delete().eq('id', id);
+    if (error) {
+      showNotification('Failed to delete user', 'error');
+    } else {
+      setUsers(users.filter(u => u.id !== id));
+      setDeleteConfirm(null);
+      showNotification('User deleted successfully', 'success');
+    }
   };
 
   const filtered = users.filter(u =>
@@ -262,23 +281,12 @@ export default function UserManagement() {
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
-                      {deleteConfirm === user.id ? (
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => handleDelete(user.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors">
-                            <Check className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => setDeleteConfirm(null)} className="p-1.5 text-gray-400 hover:bg-gray-100 rounded transition-colors">
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setDeleteConfirm(user.id)}
+                      <button
+                          onClick={() => handleDelete(user.id)}
                           className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
-                      )}
                     </div>
                   </td>
                 </tr>

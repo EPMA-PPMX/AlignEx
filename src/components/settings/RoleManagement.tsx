@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Save, X, Users } from 'lucide-react';
+import { Plus, CreditCard as Edit2, Trash2, Save, X, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useNotification } from '../../lib/useNotification';
 
@@ -33,7 +33,7 @@ interface RoleSkillRequirement {
 const PROFICIENCY_LEVELS = ['None', 'Basic', 'Intermediate', 'Expert'];
 
 export default function RoleManagement() {
-  const { showConfirm } = useNotification();
+  const { showConfirm, showNotification } = useNotification();
   const [roles, setRoles] = useState<Role[]>([]);
   const [categories, setCategories] = useState<SkillCategory[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -112,7 +112,7 @@ export default function RoleManagement() {
 
   const handleAdd = async () => {
     if (!formData.name.trim()) {
-      alert('Role name is required');
+      showNotification('Role name is required', 'error');
       return;
     }
 
@@ -129,9 +129,10 @@ export default function RoleManagement() {
       setFormData({ name: '', description: '' });
       setShowAddForm(false);
       fetchRoles();
+      showNotification('Role added successfully', 'success');
     } catch (error) {
       console.error('Error adding role:', error);
-      alert('Failed to add role');
+      showNotification('Failed to add role', 'error');
     }
   };
 
@@ -153,9 +154,10 @@ export default function RoleManagement() {
 
       setEditingId(null);
       fetchRoles();
+      showNotification('Role updated successfully', 'success');
     } catch (error) {
       console.error('Error updating role:', error);
-      alert('Failed to update role');
+      showNotification('Failed to update role', 'error');
     }
   };
 
@@ -172,9 +174,10 @@ export default function RoleManagement() {
 
       if (error) throw error;
       fetchRoles();
+      showNotification('Role deleted successfully', 'success');
     } catch (error) {
       console.error('Error deleting role:', error);
-      alert('Failed to delete role');
+      showNotification('Failed to delete role', 'error');
     }
   };
 
@@ -230,9 +233,10 @@ export default function RoleManagement() {
       await fetchRoleRequirements(managingSkillsFor);
       setManagingSkillsFor(null);
       setSelectedSkills({});
+      showNotification('Skill requirements saved successfully', 'success');
     } catch (error: any) {
       console.error('Error saving skill requirements:', error);
-      alert(`Failed to save skill requirements: ${error.message || 'Unknown error'}`);
+      showNotification(`Failed to save skill requirements: ${error.message || 'Unknown error'}`, 'error');
     }
   };
 

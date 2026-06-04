@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Save, X, GripVertical } from 'lucide-react';
+import { Plus, CreditCard as Edit2, Trash2, Save, X, GripVertical } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useNotification } from '../../lib/useNotification';
 
@@ -26,7 +26,7 @@ interface FormFieldsManagementProps {
 }
 
 const FormFieldsManagement: React.FC<FormFieldsManagementProps> = ({ entityType, title, description }) => {
-  const { showConfirm } = useNotification();
+  const { showConfirm, showNotification } = useNotification();
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -94,7 +94,7 @@ const FormFieldsManagement: React.FC<FormFieldsManagementProps> = ({ entityType,
     e.preventDefault();
 
     if (!formData.field_name || !formData.field_label) {
-      alert('Field name and label are required');
+      showNotification('Field name and label are required', 'error');
       return;
     }
 
@@ -117,7 +117,9 @@ const FormFieldsManagement: React.FC<FormFieldsManagementProps> = ({ entityType,
 
         if (error) {
           console.error('Error updating custom field:', error);
-          alert('Failed to update field');
+          showNotification('Failed to update field', 'error');
+        } else {
+          showNotification('Field updated successfully', 'success');
         }
       } else {
         const { error } = await supabase
@@ -126,7 +128,9 @@ const FormFieldsManagement: React.FC<FormFieldsManagementProps> = ({ entityType,
 
         if (error) {
           console.error('Error creating custom field:', error);
-          alert('Failed to create field');
+          showNotification('Failed to create field', 'error');
+        } else {
+          showNotification('Field created successfully', 'success');
         }
       }
 
@@ -159,10 +163,11 @@ const FormFieldsManagement: React.FC<FormFieldsManagementProps> = ({ entityType,
   };
 
   const handleDelete = async (fieldId: string) => {
-    const confirmed = await showConfirm(
-      'Delete Field',
-      'Are you sure you want to delete this field? This action cannot be undone.'
-    );
+    const confirmed = await showConfirm({
+      title: 'Delete Field',
+      message: 'Are you sure you want to delete this field? This action cannot be undone.',
+      confirmText: 'Delete'
+    });
 
     if (confirmed) {
       try {
@@ -174,9 +179,10 @@ const FormFieldsManagement: React.FC<FormFieldsManagementProps> = ({ entityType,
 
         if (error) {
           console.error('Error deleting custom field:', error);
-          alert('Failed to delete field');
+          showNotification('Failed to delete field', 'error');
         } else {
           fetchCustomFields();
+          showNotification('Field deleted successfully', 'success');
         }
       } catch (error) {
         console.error('Error deleting custom field:', error);

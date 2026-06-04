@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Save, X, Award, TrendingUp, Star } from 'lucide-react';
+import { Plus, CreditCard as Edit2, Trash2, Save, X, Award, TrendingUp, Star } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useNotification } from '../../lib/useNotification';
 
@@ -21,7 +21,7 @@ interface Skill {
 }
 
 export default function SkillsManagement() {
-  const { showConfirm } = useNotification();
+  const { showConfirm, showNotification } = useNotification();
   const [categories, setCategories] = useState<SkillCategory[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -83,12 +83,12 @@ export default function SkillsManagement() {
 
   const handleAdd = async () => {
     if (!formData.name.trim()) {
-      alert('Skill name is required');
+      showNotification('Skill name is required', 'error');
       return;
     }
 
     if (!selectedCategory) {
-      alert('Please select a category first');
+      showNotification('Please select a category first', 'error');
       return;
     }
 
@@ -106,18 +106,13 @@ export default function SkillsManagement() {
 
       if (error) throw error;
 
-      setFormData({
-        name: '',
-        description: '',
-        is_core: false,
-        is_certifiable: false,
-        is_in_demand: false,
-      });
+      setFormData({ name: '', description: '', is_core: false, is_certifiable: false, is_in_demand: false });
       setShowAddForm(false);
       fetchSkills();
+      showNotification('Skill added successfully', 'success');
     } catch (error) {
       console.error('Error adding skill:', error);
-      alert('Failed to add skill');
+      showNotification('Failed to add skill', 'error');
     }
   };
 
@@ -142,9 +137,10 @@ export default function SkillsManagement() {
 
       setEditingId(null);
       fetchSkills();
+      showNotification('Skill updated successfully', 'success');
     } catch (error) {
       console.error('Error updating skill:', error);
-      alert('Failed to update skill');
+      showNotification('Failed to update skill', 'error');
     }
   };
 
@@ -161,9 +157,10 @@ export default function SkillsManagement() {
 
       if (error) throw error;
       fetchSkills();
+      showNotification('Skill deleted successfully', 'success');
     } catch (error) {
       console.error('Error deleting skill:', error);
-      alert('Failed to delete skill');
+      showNotification('Failed to delete skill', 'error');
     }
   };
 

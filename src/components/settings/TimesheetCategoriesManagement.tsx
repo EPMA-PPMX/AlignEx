@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Plus, Edit2, Trash2, Save, X } from 'lucide-react';
+import { Plus, CreditCard as Edit2, Trash2, Save, X } from 'lucide-react';
 import { useNotification } from '../../lib/useNotification';
 
 interface Category {
@@ -11,7 +11,7 @@ interface Category {
 }
 
 const TimesheetCategoriesManagement: React.FC = () => {
-  const { showConfirm } = useNotification();
+  const { showConfirm, showNotification } = useNotification();
   const [categories, setCategories] = useState<Category[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -40,7 +40,7 @@ const TimesheetCategoriesManagement: React.FC = () => {
 
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
-      alert('Category name is required');
+      showNotification('Category name is required', 'error');
       return;
     }
 
@@ -52,11 +52,12 @@ const TimesheetCategoriesManagement: React.FC = () => {
 
       if (error) {
         console.error('Error updating category:', error);
-        alert('Error updating category');
+        showNotification('Error updating category', 'error');
       } else {
         setEditingId(null);
         setFormData({ name: '', description: '', is_active: true });
         fetchCategories();
+        showNotification('Category updated successfully', 'success');
       }
     } else {
       const { error } = await supabase
@@ -65,11 +66,12 @@ const TimesheetCategoriesManagement: React.FC = () => {
 
       if (error) {
         console.error('Error adding category:', error);
-        alert('Error adding category');
+        showNotification('Error adding category', 'error');
       } else {
         setShowAddModal(false);
         setFormData({ name: '', description: '', is_active: true });
         fetchCategories();
+        showNotification('Category added successfully', 'success');
       }
     }
   };
@@ -103,9 +105,10 @@ const TimesheetCategoriesManagement: React.FC = () => {
 
     if (error) {
       console.error('Error deleting category:', error);
-      alert('Error deleting category');
+      showNotification('Error deleting category', 'error');
     } else {
       fetchCategories();
+      showNotification('Category deleted successfully', 'success');
     }
   };
 

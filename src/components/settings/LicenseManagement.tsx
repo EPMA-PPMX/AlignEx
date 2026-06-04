@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Users, Zap, Plus, Edit2, Check, X, Key, Calendar, TrendingUp } from 'lucide-react';
+import { Shield, Users, Zap, Plus, CreditCard as Edit2, Check, X, Key, Calendar, TrendingUp } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { permissionService } from '../../lib/permissionService';
 import { useNotification } from '../../lib/useNotification';
@@ -27,7 +27,7 @@ interface OrganizationModule {
 const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000001';
 
 export default function LicenseManagement() {
-  const { showConfirm } = useNotification();
+  const { showConfirm, showNotification } = useNotification();
   const [userLicenses, setUserLicenses] = useState<UserLicense[]>([]);
   const [modules, setModules] = useState<OrganizationModule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,7 +74,7 @@ export default function LicenseManagement() {
       setModules(modulesResult.data || []);
     } catch (error) {
       console.error('Error loading license data:', error);
-      alert('Failed to load license data');
+      showNotification('Failed to load license data', 'error');
     } finally {
       setLoading(false);
     }
@@ -84,7 +84,7 @@ export default function LicenseManagement() {
     e.preventDefault();
 
     if (!newUserEmail.trim()) {
-      alert('Please enter a user email');
+      showNotification('Please enter a user email', 'error');
       return;
     }
 
@@ -102,14 +102,14 @@ export default function LicenseManagement() {
 
       if (error) {
         if (error.code === '23505') {
-          alert('This user already has a license. Use the edit function to update it.');
+          showNotification('This user already has a license. Use the edit function to update it.', 'error');
         } else {
           throw error;
         }
         return;
       }
 
-      alert('User license added successfully!');
+      showNotification('User license added successfully', 'success');
       setShowAddUser(false);
       setNewUserEmail('');
       setNewUserTier('team_member');
@@ -118,7 +118,7 @@ export default function LicenseManagement() {
       loadData();
     } catch (error: any) {
       console.error('Error adding user license:', error);
-      alert(`Error: ${error.message}`);
+      showNotification(`Error: ${error.message}`, 'error');
     }
   };
 
@@ -134,13 +134,13 @@ export default function LicenseManagement() {
 
       if (error) throw error;
 
-      alert('User license updated successfully!');
+      showNotification('User license updated successfully', 'success');
       setEditingUserId(null);
       permissionService.clearCache();
       loadData();
     } catch (error: any) {
       console.error('Error updating user license:', error);
-      alert(`Error: ${error.message}`);
+      showNotification(`Error: ${error.message}`, 'error');
     }
   };
 
@@ -156,12 +156,12 @@ export default function LicenseManagement() {
 
       if (error) throw error;
 
-      alert(`User license ${!currentStatus ? 'activated' : 'deactivated'} successfully!`);
+      showNotification(`User license ${!currentStatus ? 'activated' : 'deactivated'} successfully`, 'success');
       permissionService.clearCache();
       loadData();
     } catch (error: any) {
       console.error('Error toggling user status:', error);
-      alert(`Error: ${error.message}`);
+      showNotification(`Error: ${error.message}`, 'error');
     }
   };
 
@@ -185,7 +185,7 @@ export default function LicenseManagement() {
 
       if (error) throw error;
 
-      alert('Module activated successfully!');
+      showNotification('Module activated successfully', 'success');
       setShowActivateModule(false);
       setSelectedModule(null);
       setLicenseKey('');
@@ -194,7 +194,7 @@ export default function LicenseManagement() {
       loadData();
     } catch (error: any) {
       console.error('Error activating module:', error);
-      alert(`Error: ${error.message}`);
+      showNotification(`Error: ${error.message}`, 'error');
     }
   };
 
@@ -218,12 +218,12 @@ export default function LicenseManagement() {
 
       if (error) throw error;
 
-      alert('Module deactivated successfully!');
+      showNotification('Module deactivated successfully', 'success');
       permissionService.clearCache();
       loadData();
     } catch (error: any) {
       console.error('Error deactivating module:', error);
-      alert(`Error: ${error.message}`);
+      showNotification(`Error: ${error.message}`, 'error');
     }
   };
 

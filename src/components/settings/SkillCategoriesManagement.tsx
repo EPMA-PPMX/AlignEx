@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Save, X } from 'lucide-react';
+import { Plus, CreditCard as Edit2, Trash2, Save, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useNotification } from '../../lib/useNotification';
 
@@ -13,7 +13,7 @@ interface SkillCategory {
 }
 
 export default function SkillCategoriesManagement() {
-  const { showConfirm } = useNotification();
+  const { showConfirm, showNotification } = useNotification();
   const [categories, setCategories] = useState<SkillCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -47,7 +47,7 @@ export default function SkillCategoriesManagement() {
 
   const handleAdd = async () => {
     if (!formData.name.trim()) {
-      alert('Category name is required');
+      showNotification('Category name is required', 'error');
       return;
     }
 
@@ -62,7 +62,7 @@ export default function SkillCategoriesManagement() {
 
       if (error) {
         console.error('Supabase error:', error);
-        alert(`Failed to add category: ${error.message}`);
+        showNotification(`Failed to add category: ${error.message}`, 'error');
         return;
       }
 
@@ -70,9 +70,10 @@ export default function SkillCategoriesManagement() {
       setFormData({ name: '', description: '', manager: '' });
       setShowAddForm(false);
       fetchCategories();
+      showNotification('Category added successfully', 'success');
     } catch (error: any) {
       console.error('Error adding category:', error);
-      alert(`Failed to add category: ${error.message || 'Unknown error'}`);
+      showNotification(`Failed to add category: ${error.message || 'Unknown error'}`, 'error');
     }
   };
 
@@ -95,9 +96,10 @@ export default function SkillCategoriesManagement() {
 
       setEditingId(null);
       fetchCategories();
+      showNotification('Category updated successfully', 'success');
     } catch (error) {
       console.error('Error updating category:', error);
-      alert('Failed to update category');
+      showNotification('Failed to update category', 'error');
     }
   };
 
@@ -114,9 +116,10 @@ export default function SkillCategoriesManagement() {
 
       if (error) throw error;
       fetchCategories();
+      showNotification('Category deleted successfully', 'success');
     } catch (error) {
       console.error('Error deleting category:', error);
-      alert('Failed to delete category');
+      showNotification('Failed to delete category', 'error');
     }
   };
 

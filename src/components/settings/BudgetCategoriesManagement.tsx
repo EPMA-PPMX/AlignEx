@@ -13,7 +13,7 @@ interface BudgetCategory {
 }
 
 export default function BudgetCategoriesManagement() {
-  const { showConfirm } = useNotification();
+  const { showConfirm, showNotification } = useNotification();
   const [categories, setCategories] = useState<BudgetCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -47,7 +47,7 @@ export default function BudgetCategoriesManagement() {
     e.preventDefault();
 
     if (!formData.name.trim()) {
-      alert('Category name is required');
+      showNotification('Category name is required', 'error');
       return;
     }
 
@@ -63,6 +63,7 @@ export default function BudgetCategoriesManagement() {
           .eq('id', editingId);
 
         if (error) throw error;
+        showNotification('Category updated successfully', 'success');
       } else {
         const { error } = await supabase
           .from('budget_categories')
@@ -72,6 +73,7 @@ export default function BudgetCategoriesManagement() {
           });
 
         if (error) throw error;
+        showNotification('Category added successfully', 'success');
       }
 
       setFormData({ name: '', description: '' });
@@ -81,9 +83,9 @@ export default function BudgetCategoriesManagement() {
     } catch (error: any) {
       console.error('Error saving budget category:', error);
       if (error.code === '23505') {
-        alert('A category with this name already exists');
+        showNotification('A category with this name already exists', 'error');
       } else {
-        alert('Error saving category: ' + error.message);
+        showNotification('Error saving category: ' + error.message, 'error');
       }
     }
   };
@@ -113,9 +115,10 @@ export default function BudgetCategoriesManagement() {
 
       if (error) throw error;
       fetchCategories();
+      showNotification('Category deleted successfully', 'success');
     } catch (error: any) {
       console.error('Error deleting budget category:', error);
-      alert('Error deleting category: ' + error.message);
+      showNotification('Error deleting category: ' + error.message, 'error');
     }
   };
 
@@ -131,9 +134,10 @@ export default function BudgetCategoriesManagement() {
 
       if (error) throw error;
       fetchCategories();
+      showNotification(`Category ${!currentStatus ? 'activated' : 'deactivated'} successfully`, 'success');
     } catch (error: any) {
       console.error('Error toggling category status:', error);
-      alert('Error updating category: ' + error.message);
+      showNotification('Error updating category: ' + error.message, 'error');
     }
   };
 
