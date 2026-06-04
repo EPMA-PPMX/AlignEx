@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Plus, Search, Filter, Download, Upload, Edit2, Trash2, UserPlus, Package } from 'lucide-react';
+import { Users, Plus, Search, Filter, Download, Upload, CreditCard as Edit2, Trash2, UserPlus, Package } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNotification } from '../lib/useNotification';
 import ResourceImportModal from '../components/ResourceImportModal';
@@ -82,6 +82,7 @@ export default function Resources() {
         .eq('id', id);
 
       if (error) throw error;
+      showNotification('Resource deleted successfully', 'success');
       fetchResources();
     } catch (error) {
       console.error('Error deleting resource:', error);
@@ -488,6 +489,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
       }
 
       onSave();
+      showNotification(resource ? 'Resource updated successfully' : 'Resource added successfully', 'success');
     } catch (error) {
       console.error('Error saving resource:', error);
       showNotification('Failed to save resource', 'error');
