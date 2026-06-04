@@ -81,7 +81,6 @@ export default function MyProjectsWidget({ resourceId }: Props) {
         .from('projects')
         .select('id, name, state, status, health_status, description')
         .in('id', projectIds)
-        .in('state', ['Active', 'Planning'])
         .neq('health_status', 'Completed')
         .order('name');
 
