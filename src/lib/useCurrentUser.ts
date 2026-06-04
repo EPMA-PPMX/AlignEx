@@ -1,0 +1,175 @@
+import { useState, useEffect } from 'react';
+import { supabase } from './supabase';
+
+export interface User {
+  id: string;
+  email: string;
+  full_name: string;
+  system_role: 'Project Manager' | 'Team Member' | 'Portfolio Manager';
+  resource_id: string | null;
+  avatar_url: string | null;
+  is_active: boolean;
+}
+
+export interface DashboardWidget {
+  id: string;
+  user_id: string;
+  widget_type: string;
+  is_enabled: boolean;
+  position_order: number;
+  size: 'small' | 'medium' | 'large';
+  settings: Record<string, any>;
+}
+
+export const DEMO_USER_ID = '53eaeaf7-b9ab-47be-be4b-9e6f57a81dea';
+export const DEMO_TENANT_NAME = 'albamarle';
+
+const DEFAULT_WIDGETS: Omit<DashboardWidget, 'id' | 'user_id'>[] = [
+  { widget_type: 'team_capacity',      is_enabled: true,  position_order: 1,  size: 'medium', settings: {} },
+  { widget_type: 'my_projects',        is_enabled: true,  position_order: 2,  size: 'medium', settings: {} },
+  { widget_type: 'my_risks',           is_enabled: true,  position_order: 3,  size: 'small',  settings: {} },
+  { widget_type: 'my_issues',          is_enabled: true,  position_order: 4,  size: 'small',  settings: {} },
+  { widget_type: 'my_tasks',           is_enabled: true,  position_order: 5,  size: 'small',  settings: {} },
+  { widget_type: 'personal_goals',     is_enabled: true,  position_order: 6,  size: 'small',  settings: {} },
+  { widget_type: 'pending_approvals',  is_enabled: true,  position_order: 7,  size: 'small',  settings: {} },
+  { widget_type: 'deadlines',          is_enabled: false, position_order: 8,  size: 'small',  settings: {} },
+  { widget_type: 'timesheet_quick',    is_enabled: true,  position_order: 9,  size: 'small',  settings: {} },
+  { widget_type: 'recent_activity',    is_enabled: false, position_order: 10, size: 'medium', settings: {} },
+  { widget_type: 'project_health',     is_enabled: false, position_order: 11, size: 'medium', settings: {} },
+  { widget_type: 'my_change_requests', is_enabled: true,  position_order: 12, size: 'medium', settings: {} },
+];
+
+export function useCurrentUser() {
+  const [user, setUser] = useState<User | null>(null);
+  const [widgets, setWidgets] = useState<DashboardWidget[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchCurrentUser();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const seedDefaultWidgets = async (userId: string): Promise<DashboardWidget[]> => {
+    const rows = DEFAULT_WIDGETS.map(w => ({ ...w, user_id: userId }));
+    const { data, error } = await supabase
+      .from('user_dashboard_widgets')
+      .insert(rows)
+      .select();
+    if (error) throw error;
+    return (data || []).sort((a, b) => a.position_order - b.position_order);
+  };
+
+  const fetchCurrentUser = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', DEMO_USER_ID)
+        .maybeSingle();
+
+      if (userError) throw userError;
+
+      if (userData) {
+        setUser(userData);
+
+        const { data: widgetsData, error: widgetsError } = await supabase
+          .from('user_dashboard_widgets')
+          .select('*')
+          .eq('user_id', userData.id)
+          .order('position_order');
+
+        if (widgetsError) throw widgetsError;
+
+        if (widgetsData && widgetsData.length > 0) {
+          setWidgets(widgetsData);
+        } else {
+          const seeded = await seedDefaultWidgets(userData.id);
+          setWidgets(seeded);
+        }
+      }
+    } catch (err: any) {
+      console.error('Error fetching user:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateWidgetSettings = async (widgetId: string, settings: Record<string, any>) => {
+    try {
+      const { error } = await supabase
+        .from('user_dashboard_widgets')
+        .update({ settings, updated_at: new Date().toISOString() })
+        .eq('id', widgetId);
+
+      if (error) throw error;
+
+      setWidgets(widgets.map(w => w.id === widgetId ? { ...w, settings } : w));
+    } catch (err: any) {
+      console.error('Error updating widget settings:', err);
+    }
+  };
+
+  const toggleWidget = async (widgetId: string, isEnabled: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('user_dashboard_widgets')
+        .update({ is_enabled: isEnabled, updated_at: new Date().toISOString() })
+        .eq('id', widgetId);
+
+      if (error) throw error;
+
+      fetchCurrentUser();
+    } catch (err: any) {
+      console.error('Error toggling widget:', err);
+    }
+  };
+
+  const reorderWidgets = async (reorderedWidgets: DashboardWidget[]) => {
+    try {
+      for (const widget of reorderedWidgets) {
+        const { error } = await supabase
+          .from('user_dashboard_widgets')
+          .update({ position_order: widget.position_order, updated_at: new Date().toISOString() })
+          .eq('id', widget.id);
+
+        if (error) throw error;
+      }
+
+      fetchCurrentUser();
+    } catch (err: any) {
+      console.error('Error reordering widgets:', err);
+    }
+  };
+
+  const changeWidgetSize = async (widgetId: string, size: 'small' | 'medium' | 'large') => {
+    try {
+      const { error } = await supabase
+        .from('user_dashboard_widgets')
+        .update({ size, updated_at: new Date().toISOString() })
+        .eq('id', widgetId);
+
+      if (error) throw error;
+
+      fetchCurrentUser();
+    } catch (err: any) {
+      console.error('Error changing widget size:', err);
+    }
+  };
+
+  return {
+    user,
+    widgets,
+    loading,
+    error,
+    updateWidgetSettings,
+    toggleWidget,
+    reorderWidgets,
+    changeWidgetSize,
+    refetch: fetchCurrentUser
+  };
+}
