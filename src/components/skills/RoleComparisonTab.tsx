@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, AlertCircle, Star, Target } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useNotification } from '../../lib/useNotification';
 
 interface Role {
   id: string;
@@ -47,6 +48,7 @@ interface SkillComparison {
 const PROFICIENCY_ORDER = ['None', 'Basic', 'Intermediate', 'Expert'];
 
 export default function RoleComparisonTab({ userId }: { userId: string }) {
+  const { showNotification } = useNotification();
   const [roles, setRoles] = useState<Role[]>([]);
   const [selectedRole, setSelectedRole] = useState<string>('');
   const [comparisons, setComparisons] = useState<SkillComparison[]>([]);
@@ -212,11 +214,11 @@ export default function RoleComparisonTab({ userId }: { userId: string }) {
 
       if (error) throw error;
 
-      alert('Goal added successfully! Check the "My Goals" tab to track your progress.');
+      showNotification('Goal added successfully! Check the "My Goals" tab to track your progress.', 'success');
       resetGoalForm();
     } catch (error: any) {
       console.error('Error adding goal:', error);
-      alert(`Error: ${error.message}`);
+      showNotification(`Error: ${error.message}`, 'error');
     }
   };
 

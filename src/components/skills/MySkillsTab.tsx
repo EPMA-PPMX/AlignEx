@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Award, TrendingUp, Save, Calendar, ChevronRight, Search } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useNotification } from '../../lib/useNotification';
 
 interface SkillCategory {
   id: string;
@@ -41,6 +42,7 @@ interface MySkillsTabProps {
 }
 
 export default function MySkillsTab({ categories, allSkills, userSkills, userId, onRefresh }: MySkillsTabProps) {
+  const { showNotification } = useNotification();
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [editingSkill, setEditingSkill] = useState<string | null>(null);
@@ -81,9 +83,10 @@ export default function MySkillsTab({ categories, allSkills, userSkills, userId,
 
       setEditingSkill(null);
       onRefresh();
+      showNotification('Skill rating saved successfully', 'success');
     } catch (error) {
       console.error('Error saving user skill:', error);
-      alert('Failed to save skill rating');
+      showNotification('Failed to save skill rating', 'error');
     } finally {
       setSaving(false);
     }

@@ -44,7 +44,7 @@ interface GoalTask {
 }
 
 export default function MyGoalsTab({ userId }: { userId: string }) {
-  const { showConfirm } = useNotification();
+  const { showConfirm, showNotification } = useNotification();
   const [goals, setGoals] = useState<SkillGoal[]>([]);
   const [tasks, setTasks] = useState<{ [goalId: string]: GoalTask[] }>({});
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -159,7 +159,7 @@ export default function MyGoalsTab({ userId }: { userId: string }) {
           .eq('id', editingGoal.id);
 
         if (error) throw error;
-        alert('Goal updated successfully!');
+        showNotification('Goal updated successfully', 'success');
       } else {
         const { error } = await supabase
           .from('skill_goals')
@@ -170,14 +170,14 @@ export default function MyGoalsTab({ userId }: { userId: string }) {
           }]);
 
         if (error) throw error;
-        alert('Goal created successfully!');
+        showNotification('Goal created successfully', 'success');
       }
 
       resetGoalForm();
       loadData();
     } catch (error: any) {
       console.error('Error saving goal:', error);
-      alert(`Error: ${error.message}`);
+      showNotification(`Error: ${error.message}`, 'error');
     }
   };
 
@@ -196,11 +196,11 @@ export default function MyGoalsTab({ userId }: { userId: string }) {
         .eq('id', id);
 
       if (error) throw error;
-      alert('Goal deleted successfully!');
+      showNotification('Goal deleted successfully', 'success');
       loadData();
     } catch (error: any) {
       console.error('Error deleting goal:', error);
-      alert(`Error: ${error.message}`);
+      showNotification(`Error: ${error.message}`, 'error');
     }
   };
 
@@ -254,9 +254,10 @@ export default function MyGoalsTab({ userId }: { userId: string }) {
 
       resetTaskForm();
       loadData();
+      showNotification('Task added successfully', 'success');
     } catch (error: any) {
       console.error('Error adding task:', error);
-      alert(`Error: ${error.message}`);
+      showNotification(`Error: ${error.message}`, 'error');
     }
   };
 
@@ -275,7 +276,7 @@ export default function MyGoalsTab({ userId }: { userId: string }) {
       loadData();
     } catch (error: any) {
       console.error('Error updating task:', error);
-      alert(`Error: ${error.message}`);
+      showNotification(`Error: ${error.message}`, 'error');
     }
   };
 
@@ -297,7 +298,7 @@ export default function MyGoalsTab({ userId }: { userId: string }) {
       loadData();
     } catch (error: any) {
       console.error('Error deleting task:', error);
-      alert(`Error: ${error.message}`);
+      showNotification(`Error: ${error.message}`, 'error');
     }
   };
 
