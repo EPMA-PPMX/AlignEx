@@ -40,7 +40,6 @@ export default function PersonalGoalsWidget({ userId }: Props) {
         .from('skill_goals')
         .select('id, title, status, target_date, goal_type')
         .eq('user_id', userId)
-        .in('status', ['not_started', 'in_progress'])
         .order('target_date', { ascending: true, nullsLast: true });
 
       if (goalsError) throw goalsError;
@@ -132,7 +131,7 @@ export default function PersonalGoalsWidget({ userId }: Props) {
       {goals.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center py-6">
           <Target className="w-10 h-10 text-gray-400 mb-2" />
-          <p className="text-sm text-gray-600 mb-2">No active goals</p>
+          <p className="text-sm text-gray-600 mb-2">No goals yet</p>
           <Link
             to="/skills?tab=my-goals"
             className="text-xs text-[#5B2C91] hover:text-[#4a2377]"
@@ -152,7 +151,11 @@ export default function PersonalGoalsWidget({ userId }: Props) {
               <Link
                 key={goal.id}
                 to={`/skills?tab=my-goals&goalId=${goal.id}`}
-                className="block bg-gray-50 p-3 rounded-lg border border-gray-200 hover:border-[#26D0CE] transition-all"
+                className={`block p-3 rounded-lg border transition-all ${
+                  goal.status === 'completed'
+                    ? 'bg-gray-50 border-gray-200 opacity-70 hover:opacity-100'
+                    : 'bg-gray-50 border-gray-200 hover:border-[#26D0CE]'
+                }`}
               >
                 <div className="flex items-start justify-between mb-1.5">
                   <div className="flex-1">
@@ -198,7 +201,7 @@ export default function PersonalGoalsWidget({ userId }: Props) {
         <div className="mt-3 pt-3 border-t border-gray-200">
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-600">
-              {goals.filter(g => g.status === 'in_progress').length} active goals
+              {goals.filter(g => g.status === 'in_progress').length} active · {goals.filter(g => g.status === 'completed').length} completed
             </span>
             <Link
               to="/skills?tab=my-goals"
