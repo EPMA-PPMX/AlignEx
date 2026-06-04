@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Target, CheckCircle, Circle, Pause, XCircle, Calendar, Trash2, Edit2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Target, CheckCircle, Circle, Pause, XCircle, Calendar, Trash2, CreditCard as Edit2, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useNotification } from '../../lib/useNotification';
 
@@ -43,7 +43,7 @@ interface GoalTask {
   updated_at: string;
 }
 
-export default function MyGoalsTab() {
+export default function MyGoalsTab({ userId }: { userId: string }) {
   const { showConfirm } = useNotification();
   const [goals, setGoals] = useState<SkillGoal[]>([]);
   const [tasks, setTasks] = useState<{ [goalId: string]: GoalTask[] }>({});
@@ -74,7 +74,8 @@ export default function MyGoalsTab() {
 
   useEffect(() => {
     loadData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   const loadData = async () => {
     try {
@@ -87,6 +88,7 @@ export default function MyGoalsTab() {
             *,
             skill:skills(id, name, category_id)
           `)
+          .eq('user_id', userId)
           .order('created_at', { ascending: false }),
         supabase
           .from('skills')
@@ -163,6 +165,7 @@ export default function MyGoalsTab() {
           .from('skill_goals')
           .insert([{
             ...goalForm,
+            user_id: userId,
             skill_id: goalForm.skill_id || null
           }]);
 

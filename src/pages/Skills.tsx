@@ -6,6 +6,7 @@ import MySkillsTab from '../components/skills/MySkillsTab';
 import RoleComparisonTab from '../components/skills/RoleComparisonTab';
 import MyGoalsTab from '../components/skills/MyGoalsTab';
 import RequiresModule from '../components/RequiresModule';
+import { DEMO_USER_ID } from '../lib/useCurrentUser';
 
 interface SkillCategory {
   id: string;
@@ -35,7 +36,7 @@ interface UserSkill {
   comments: string;
 }
 
-const USER_ID = 'current-user';
+const USER_ID = DEMO_USER_ID;
 
 type TabType = 'my-skills' | 'role-comparison' | 'my-goals';
 
@@ -143,11 +144,12 @@ export default function Skills() {
               categories={categories}
               allSkills={allSkills}
               userSkills={userSkills}
+              userId={USER_ID}
               onRefresh={fetchData}
             />
           )}
-          {activeTab === 'role-comparison' && <RoleComparisonTab />}
-          {activeTab === 'my-goals' && <MyGoalsTab />}
+          {activeTab === 'role-comparison' && <RoleComparisonTab userId={USER_ID} />}
+          {activeTab === 'my-goals' && <MyGoalsTab userId={USER_ID} />}
         </div>
       </div>
     </RequiresModule>

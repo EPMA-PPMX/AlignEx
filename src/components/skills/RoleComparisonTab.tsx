@@ -45,9 +45,8 @@ interface SkillComparison {
 }
 
 const PROFICIENCY_ORDER = ['None', 'Basic', 'Intermediate', 'Expert'];
-const USER_ID = 'current-user';
 
-export default function RoleComparisonTab() {
+export default function RoleComparisonTab({ userId }: { userId: string }) {
   const [roles, setRoles] = useState<Role[]>([]);
   const [selectedRole, setSelectedRole] = useState<string>('');
   const [comparisons, setComparisons] = useState<SkillComparison[]>([]);
@@ -72,7 +71,8 @@ export default function RoleComparisonTab() {
     if (selectedRole) {
       fetchComparison();
     }
-  }, [selectedRole]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRole, userId]);
 
   const fetchRoles = async () => {
     try {
@@ -98,7 +98,7 @@ export default function RoleComparisonTab() {
 
       const [reqResult, userSkillsResult, skillsResult, categoriesResult] = await Promise.all([
         supabase.from('role_skill_requirements').select('*').eq('role_id', selectedRole),
-        supabase.from('user_skills').select('*').eq('user_id', USER_ID),
+        supabase.from('user_skills').select('*').eq('user_id', userId),
         supabase.from('skills').select('*'),
         supabase.from('skill_categories').select('*'),
       ]);
@@ -200,6 +200,7 @@ export default function RoleComparisonTab() {
       const { error } = await supabase
         .from('skill_goals')
         .insert([{
+          user_id: userId,
           skill_id: selectedSkillForGoal.skill.id,
           title: goalForm.title,
           description: goalForm.description,

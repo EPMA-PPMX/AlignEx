@@ -31,16 +31,16 @@ interface UserSkill {
 }
 
 const PROFICIENCY_LEVELS = ['None', 'Basic', 'Intermediate', 'Expert'];
-const USER_ID = 'current-user';
 
 interface MySkillsTabProps {
   categories: SkillCategory[];
   allSkills: Skill[];
   userSkills: Record<string, UserSkill>;
+  userId: string;
   onRefresh: () => void;
 }
 
-export default function MySkillsTab({ categories, allSkills, userSkills, onRefresh }: MySkillsTabProps) {
+export default function MySkillsTab({ categories, allSkills, userSkills, userId, onRefresh }: MySkillsTabProps) {
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [editingSkill, setEditingSkill] = useState<string | null>(null);
@@ -55,7 +55,7 @@ export default function MySkillsTab({ categories, allSkills, userSkills, onRefre
       if (!userSkill) return;
 
       const dataToSave = {
-        user_id: USER_ID,
+        user_id: userId,
         skill_id: skillId,
         proficiency_level: userSkill.proficiency_level,
         years_of_experience: userSkill.years_of_experience || 0,
@@ -95,7 +95,7 @@ export default function MySkillsTab({ categories, allSkills, userSkills, onRefre
       [skillId]: {
         ...(prev[skillId] || {
           id: '',
-          user_id: USER_ID,
+          user_id: userId,
           skill_id: skillId,
           proficiency_level: 'None',
           years_of_experience: 0,
