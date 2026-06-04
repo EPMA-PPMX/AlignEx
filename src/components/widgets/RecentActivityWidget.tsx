@@ -13,62 +13,46 @@ interface ActivityItem {
 }
 
 export default function RecentActivityWidget() {
-  const { user } = useCurrentUser();
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      fetchRecentActivity();
-    }
+    fetchRecentActivity();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, []);
 
   const fetchRecentActivity = async () => {
-    if (!user) return;
-
     try {
       setLoading(true);
       const allActivities: ActivityItem[] = [];
 
-      // Get project IDs the user belongs to via project_team_members
-      let userProjectIds: string[] = [];
-      if (user.resource_id) {
-        const { data: memberRows } = await supabase
-          .from('project_team_members')
-          .select('project_id')
-          .eq('resource_id', user.resource_id);
-        userProjectIds = (memberRows || []).map((r: any) => r.project_id);
-      }
+      const { data: projects, error: projectsError } = await supabase
+        .from('projects')
+        .select('id, name, updated_at, state')
+        .order('updated_at', { ascending: false })
+        .limit(5);
 
-      // Projects the user is a team member of
-      if (userProjectIds.length > 0) {
-        const { data: projects, error: projectsError } = await supabase
-          .from('projects')
-          .select('id, name, updated_at, state')
-          .in('id', userProjectIds)
-          .order('updated_at', { ascending: false })
-          .limit(5);
-
-        if (!projectsError && projects) {
-          projects.forEach(p => {
-            allActivities.push({
-              id: p.id,
-              type: 'project',
-              title: p.name,
-              action: `Status updated to ${p.state || 'unknown'}`,
-              timestamp: p.updated_at,
-              project_name: p.name,
-            });
+      if (!projectsError && projects) {
+        projects.forEach(p => {
+          allActivities.push({
+            id: p.id,
+            type: 'project',
+            title: p.name,
+            action: `Status updated to ${p.state}`,
+            timestamp: p.updated_at,
+            project_name: p.name
           });
-        }
+        });
       }
 
-      // Risks assigned to or owned by the current user
       const { data: risks, error: risksError } = await supabase
         .from('project_risks')
-        .select('id, title, updated_at, assigned_to, owner, projects(name)')
-        .or(`assigned_to.eq.${user.full_name},owner.eq.${user.full_name}`)
+        .select(`
+          id,
+          title,
+          updated_at,
+          projects (name)
+        `)
         .order('updated_at', { ascending: false })
         .limit(5);
 
@@ -78,18 +62,21 @@ export default function RecentActivityWidget() {
             id: r.id,
             type: 'risk',
             title: r.title,
-            action: r.assigned_to === user.full_name ? 'Risk assigned to you' : 'Risk you own updated',
+            action: 'Risk updated',
             timestamp: r.updated_at,
-            project_name: r.projects?.name,
+            project_name: r.projects?.name
           });
         });
       }
 
-      // Issues assigned to or owned by the current user
       const { data: issues, error: issuesError } = await supabase
         .from('project_issues')
-        .select('id, title, updated_at, assigned_to, owner, projects(name)')
-        .or(`assigned_to.eq.${user.full_name},owner.eq.${user.full_name}`)
+        .select(`
+          id,
+          title,
+          updated_at,
+          projects (name)
+        `)
         .order('updated_at', { ascending: false })
         .limit(5);
 
@@ -99,9 +86,9 @@ export default function RecentActivityWidget() {
             id: i.id,
             type: 'issue',
             title: i.title,
-            action: i.assigned_to === user.full_name ? 'Issue assigned to you' : 'Issue you own updated',
+            action: 'Issue updated',
             timestamp: i.updated_at,
-            project_name: i.projects?.name,
+            project_name: i.projects?.name
           });
         });
       }

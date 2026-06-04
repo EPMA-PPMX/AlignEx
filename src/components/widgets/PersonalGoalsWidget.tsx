@@ -40,8 +40,8 @@ export default function PersonalGoalsWidget({ userId }: Props) {
         .from('skill_goals')
         .select('id, title, status, target_date, goal_type')
         .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(10);
+        .in('status', ['not_started', 'in_progress'])
+        .order('target_date', { ascending: true, nullsLast: true });
 
       if (goalsError) throw goalsError;
 
@@ -198,7 +198,7 @@ export default function PersonalGoalsWidget({ userId }: Props) {
         <div className="mt-3 pt-3 border-t border-gray-200">
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-600">
-              {goals.filter(g => g.status === 'in_progress').length} in progress
+              {goals.filter(g => g.status === 'in_progress').length} active goals
             </span>
             <Link
               to="/skills?tab=my-goals"
