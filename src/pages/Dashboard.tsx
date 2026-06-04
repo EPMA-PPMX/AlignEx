@@ -65,7 +65,7 @@ const Dashboard: React.FC = () => {
     my_projects: <MyProjectsWidget key="my_projects" userId={userId} resourceId={resourceId} />,
     my_risks: <MyRisksWidget key="my_risks" userId={userId} resourceId={resourceId} />,
     my_issues: <MyIssuesWidget key="my_issues" userId={userId} resourceId={resourceId} />,
-    my_change_requests: <MyChangeRequestsWidget key="my_change_requests" />,
+    my_change_requests: <MyChangeRequestsWidget key="my_change_requests" userId={userId} resourceId={resourceId} />,
     deadlines: <DeadlinesWidget key="deadlines" userId={userId} resourceId={resourceId} />,
     timesheet_quick: <TimesheetQuickWidget key="timesheet_quick" />,
     recent_activity: <RecentActivityWidget key="recent_activity" />,

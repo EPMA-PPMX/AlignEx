@@ -3,6 +3,11 @@ import { File as FileEdit, Clock, CheckCircle, XCircle, AlertCircle } from 'luci
 import { supabase } from '../../lib/supabase';
 import { Link } from 'react-router-dom';
 
+interface Props {
+  userId: string;
+  resourceId: string | null;
+}
+
 interface ChangeRequest {
   id: string;
   project_id: string;
@@ -10,24 +15,30 @@ interface ChangeRequest {
   status: string;
   type: string;
   created_at: string;
-  priority: string;
   projects?: {
     id: string;
     name: string;
   };
 }
 
-export default function MyChangeRequestsWidget() {
+export default function MyChangeRequestsWidget({ userId }: Props) {
   const [requests, setRequests] = useState<ChangeRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchMyChangeRequests();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   const fetchMyChangeRequests = async () => {
     try {
       setLoading(true);
+
+      if (!userId) {
+        setRequests([]);
+        setLoading(false);
+        return;
+      }
 
       const { data, error } = await supabase
         .from('change_requests')
@@ -37,13 +48,13 @@ export default function MyChangeRequestsWidget() {
           request_title,
           status,
           type,
-          priority,
           created_at,
           projects (
             id,
             name
           )
         `)
+        .eq('requested_by', userId)
         .order('created_at', { ascending: false })
         .limit(10);
 
@@ -96,21 +107,6 @@ export default function MyChangeRequestsWidget() {
         return 'text-[#1ABC9C] bg-[#1ABC9C] bg-opacity-20';
       default:
         return 'text-[#7F8C8D] bg-[#7F8C8D] bg-opacity-20';
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'Critical':
-        return 'text-[#E74C3C]';
-      case 'High':
-        return 'text-[#F39C12]';
-      case 'Medium':
-        return 'text-[#26D0CE]';
-      case 'Low':
-        return 'text-[#2ECC71]';
-      default:
-        return 'text-[#7F8C8D]';
     }
   };
 
@@ -170,11 +166,6 @@ export default function MyChangeRequestsWidget() {
                     </p>
                   </div>
                 </div>
-                {request.priority && (
-                  <span className={`text-xs font-bold ${getPriorityColor(request.priority)}`}>
-                    {request.priority}
-                  </span>
-                )}
               </div>
               <div className="flex items-center justify-between text-xs">
                 <span className={`px-2 py-0.5 rounded-full font-medium ${getStatusColor(request.status)}`}>

@@ -17,6 +17,7 @@ import CustomFieldsRenderer from '../components/CustomFieldsRenderer';
 import SearchableMultiSelect from '../components/SearchableMultiSelect';
 import DocumentUpload from '../components/DocumentUpload';
 import { loadCustomFieldValues, saveCustomFieldValues } from '../lib/customFieldHelpers';
+import { DEMO_USER_ID } from '../lib/useCurrentUser';
 
 interface Project {
   id: string;
@@ -2613,7 +2614,8 @@ const ProjectDetail: React.FC = () => {
         ...restForm,
         request_title: title,
         attachments: attachmentsData,
-        project_id: id
+        project_id: id,
+        requested_by: DEMO_USER_ID
       };
 
       if (editingChangeRequest) {
