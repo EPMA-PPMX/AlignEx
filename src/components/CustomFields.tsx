@@ -18,7 +18,7 @@ interface CustomField {
 }
 
 const CustomFields: React.FC = () => {
-  const { showConfirm } = useNotification();
+  const { showConfirm, showNotification } = useNotification();
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -77,7 +77,7 @@ const CustomFields: React.FC = () => {
     e.preventDefault();
     
     if (!formData.field_name || !formData.field_label) {
-      alert('Field name and label are required');
+      showNotification('Field name and label are required', 'error');
       return;
     }
 
@@ -98,11 +98,11 @@ const CustomFields: React.FC = () => {
           .eq('id', editingField);
 
         if (error) {
-          alert(`Error: ${error.message}`);
+          showNotification(`Error: ${error.message}`, 'error');
         } else {
           await fetchCustomFields();
           resetForm();
-          alert('Custom field updated successfully!');
+          showNotification('Custom field updated successfully', 'success');
         }
       } else {
         const { error } = await supabase
@@ -110,16 +110,16 @@ const CustomFields: React.FC = () => {
           .insert([payload]);
 
         if (error) {
-          alert(`Error: ${error.message}`);
+          showNotification(`Error: ${error.message}`, 'error');
         } else {
           await fetchCustomFields();
           resetForm();
-          alert('Custom field created successfully!');
+          showNotification('Custom field created successfully', 'success');
         }
       }
     } catch (error) {
       console.error('Error saving custom field:', error);
-      alert('Error saving custom field');
+      showNotification('Error saving custom field', 'error');
     } finally {
       setLoading(false);
     }
@@ -158,14 +158,14 @@ const CustomFields: React.FC = () => {
         .eq('id', id);
 
       if (error) {
-        alert(`Error: ${error.message}`);
+        showNotification(`Error: ${error.message}`, 'error');
       } else {
         await fetchCustomFields();
-        alert('Custom field deleted successfully!');
+        showNotification('Custom field deleted successfully', 'success');
       }
     } catch (error) {
       console.error('Error deleting custom field:', error);
-      alert('Error deleting custom field');
+      showNotification('Error deleting custom field', 'error');
     } finally {
       setLoading(false);
     }
