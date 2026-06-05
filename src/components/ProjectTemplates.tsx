@@ -20,7 +20,7 @@ interface ScheduleTemplate {
 }
 
 const ProjectTemplates: React.FC = () => {
-  const { showConfirm } = useNotification();
+  const { showConfirm, showNotification } = useNotification();
   const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
   const [scheduleTemplates, setScheduleTemplates] = useState<ScheduleTemplate[]>([]);
   const [loading, setLoading] = useState(false);
@@ -47,13 +47,13 @@ const ProjectTemplates: React.FC = () => {
 
       if (error) {
         console.error('Error fetching project types:', error);
-        alert('Error loading project types: ' + error.message);
+        showNotification('Error loading project types: ' + error.message, 'error');
       } else {
         setTemplates(data || []);
       }
     } catch (error) {
       console.error('Error fetching project types:', error);
-      alert('Error loading project types. Please try again.');
+      showNotification('Error loading project types. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -80,7 +80,7 @@ const ProjectTemplates: React.FC = () => {
     e.preventDefault();
     
     if (!formData.template_name.trim()) {
-      alert('Template name is required');
+      showNotification('Template name is required', 'error');
       return;
     }
 
@@ -101,11 +101,11 @@ const ProjectTemplates: React.FC = () => {
           .eq('id', editingTemplate);
 
         if (error) {
-          alert(`Error: ${error.message}`);
+          showNotification(`Error: ${error.message}`, 'error');
         } else {
           await fetchTemplates();
           resetForm();
-          alert('Project type updated successfully!');
+          showNotification('Project type updated successfully', 'success');
         }
       } else {
         const { error } = await supabase
@@ -113,16 +113,16 @@ const ProjectTemplates: React.FC = () => {
           .insert([payload]);
 
         if (error) {
-          alert(`Error: ${error.message}`);
+          showNotification(`Error: ${error.message}`, 'error');
         } else {
           await fetchTemplates();
           resetForm();
-          alert('Project type created successfully!');
+          showNotification('Project type created successfully', 'success');
         }
       }
     } catch (error) {
       console.error('Error saving project type:', error);
-      alert('Error saving project type. Please try again.');
+      showNotification('Error saving project type. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -154,14 +154,14 @@ const ProjectTemplates: React.FC = () => {
         .eq('id', id);
 
       if (error) {
-        alert(`Error: ${error.message}`);
+        showNotification(`Error: ${error.message}`, 'error');
       } else {
         await fetchTemplates();
-        alert('Project type deleted successfully!');
+        showNotification('Project type deleted successfully', 'success');
       }
     } catch (error) {
       console.error('Error deleting project type:', error);
-      alert('Error deleting project type');
+      showNotification('Error deleting project type', 'error');
     } finally {
       setLoading(false);
     }
