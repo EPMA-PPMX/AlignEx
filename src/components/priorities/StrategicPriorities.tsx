@@ -3,6 +3,7 @@ import { Plus, Edit2, Trash2, CheckCircle, Circle, Pause, XCircle } from 'lucide
 import { supabase } from '../../lib/supabase';
 import { formatCurrencyInput, extractNumericValue } from '../../lib/utils';
 import { useNotification } from '../../lib/useNotification';
+import PeoplePicker from '../PeoplePicker';
 
 interface Priority {
   id: string;
@@ -237,13 +238,10 @@ export default function StrategicPriorities() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Owner <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  required
+                <PeoplePicker
                   value={formData.owner}
-                  onChange={(e) => setFormData({ ...formData, owner: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Owner name"
+                  onChange={(_id, displayName) => setFormData({ ...formData, owner: displayName })}
+                  placeholder="Search for owner..."
                 />
               </div>
             </div>

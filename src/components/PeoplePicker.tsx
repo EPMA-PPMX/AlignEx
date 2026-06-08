@@ -32,10 +32,12 @@ export default function PeoplePicker({ value, onChange, placeholder = 'Select a 
 
   useEffect(() => {
     if (value && resources.length > 0 && !selectedResource) {
-      const resource = resources.find(r => r.id === value);
+      const resource = resources.find(r => r.id === value) || resources.find(r => r.display_name === value);
       if (resource) {
         setSelectedResource(resource);
         setSearchTerm(resource.display_name);
+      } else {
+        setSearchTerm(value);
       }
     }
   }, [value, resources, selectedResource]);
