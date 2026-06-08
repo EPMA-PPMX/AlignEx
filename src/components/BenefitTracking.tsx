@@ -34,7 +34,7 @@ interface BenefitTrackingProps {
 }
 
 export default function BenefitTracking({ projectId }: BenefitTrackingProps) {
-  const { showConfirm } = useNotification();
+  const { showConfirm, showNotification } = useNotification();
   const [priorityImpacts, setPriorityImpacts] = useState<PriorityImpact[]>([]);
   const [monthlyBenefits, setMonthlyBenefits] = useState<MonthlyBenefit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,7 +97,7 @@ export default function BenefitTracking({ projectId }: BenefitTrackingProps) {
     e.preventDefault();
 
     if (!selectedPriority || !selectedMonth || !actualValue) {
-      alert('Please fill in all required fields');
+      showNotification('Please fill in all required fields', 'error');
       return;
     }
 
@@ -118,7 +118,7 @@ export default function BenefitTracking({ projectId }: BenefitTrackingProps) {
           .eq('id', editingBenefit);
 
         if (error) throw error;
-        alert('Benefit tracking updated successfully!');
+        showNotification('Benefit tracking updated successfully', 'success');
       } else {
         const { error } = await supabase
           .from('monthly_benefit_tracking')
@@ -132,14 +132,14 @@ export default function BenefitTracking({ projectId }: BenefitTrackingProps) {
           }]);
 
         if (error) throw error;
-        alert('Benefit tracking added successfully!');
+        showNotification('Benefit tracking added successfully', 'success');
       }
 
       resetForm();
       loadData();
     } catch (error: any) {
       console.error('Error saving benefit tracking:', error);
-      alert(`Error: ${error.message}`);
+      showNotification(`Error: ${error.message}`, 'error');
     }
   };
 
@@ -167,11 +167,11 @@ export default function BenefitTracking({ projectId }: BenefitTrackingProps) {
         .eq('id', id);
 
       if (error) throw error;
-      alert('Benefit tracking deleted successfully!');
+      showNotification('Benefit tracking deleted successfully', 'success');
       loadData();
     } catch (error: any) {
       console.error('Error deleting benefit tracking:', error);
-      alert(`Error: ${error.message}`);
+      showNotification(`Error: ${error.message}`, 'error');
     }
   };
 
