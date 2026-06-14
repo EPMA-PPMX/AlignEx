@@ -1,9 +1,15 @@
 /**
- * Re-exports the backend API client as `supabase` so all existing imports
- * (`import { supabase } from '../lib/supabase'`) continue to work unchanged.
- *
- * The apiClient implements the same fluent interface as the Supabase JS client
- * but routes every query through the backend /api/query endpoint instead of
- * calling Supabase PostgREST directly.
+ * Exports `supabase` — the real Supabase JS client when no backend API URL is
+ * configured (local dev / Bolt preview), or the apiClient proxy when
+ * VITE_API_URL is set (production Azure deployment).
  */
-export { apiClient as supabase } from './apiClient';
+import { createClient } from '@supabase/supabase-js';
+import { apiClient } from './apiClient';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+const apiUrl = (import.meta.env.VITE_API_URL as string) || '';
+
+export const supabase = apiUrl
+  ? (apiClient as unknown as ReturnType<typeof createClient>)
+  : createClient(supabaseUrl, supabaseAnonKey);
