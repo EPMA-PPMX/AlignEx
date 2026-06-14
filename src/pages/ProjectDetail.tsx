@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp, Search, Group, Flag, ZoomIn, ZoomOut, Maximize2, Minimize2, History, ChevronRight, ChevronLeft, Undo, Redo, Link2, Unlink } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNotification } from '../lib/useNotification';
+
+const API_BASE = (import.meta.env.VITE_API_URL as string) || '';
 import { trackFieldHistory, shouldTrackFieldHistory } from '../lib/fieldHistoryTracker';
 import { MonthlyBudgetGrid } from '../components/MonthlyBudgetGrid';
 import { BudgetSummaryTiles } from '../components/BudgetSummaryTiles';
@@ -2774,23 +2776,22 @@ const ProjectDetail: React.FC = () => {
     setUploading(true);
     try {
       const uploadPromises = Array.from(files).map(async (file) => {
-        const timestamp = Date.now();
-        const fileName = `${timestamp}-${file.name}`;
-        const filePath = fileName;
+        const formData = new FormData();
+        formData.append('file', file);
 
-        const { error: uploadError } = await supabase.storage
-          .from('change-request-attachments')
-          .upload(filePath, file);
+        const res = await fetch(`${API_BASE}/api/upload/change-request-attachment`, {
+          method: 'POST',
+          body: formData,
+        });
 
-        if (uploadError) {
-          throw new Error(uploadError.message || 'Upload failed');
-        }
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Upload failed');
 
         return {
-          fileName: file.name,
-          path: filePath,
-          fileSize: file.size,
-          mimeType: file.type
+          fileName: json.data.fileName,
+          path: json.data.path,
+          fileSize: json.data.fileSize,
+          mimeType: json.data.mimeType
         };
       });
 
@@ -2888,34 +2889,17 @@ const ProjectDetail: React.FC = () => {
     if (!confirmed) return;
 
     try {
-      const doc = documents.find(d => d.id === documentId);
-      if (!doc) {
-        showNotification('Document not found', 'error');
-        return;
-      }
-
-      const { error: storageError } = await supabase.storage
-        .from('project-documents')
-        .remove([doc.file_path]);
-
-      if (storageError) {
-        console.error('Storage error:', storageError);
-      }
-
-      const { error: dbError } = await supabase
-        .from('project_documents')
-        .delete()
-        .eq('id', documentId);
-
-      if (dbError) {
-        throw dbError;
-      }
+      const res = await fetch(`${API_BASE}/api/projects/${id}/documents/${documentId}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Delete failed');
 
       setDocuments(prevDocs => prevDocs.filter(d => d.id !== documentId));
       showNotification('Document deleted successfully!', 'success');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting document:', error);
-      showNotification(`Error deleting document: ${error.message}`, 'error');
+      showNotification(`Error deleting document: ${(error as Error).message}`, 'error');
     }
   };
 

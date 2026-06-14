@@ -59,6 +59,7 @@ const ALLOWED_TABLES = [
   'form_field_values',
   'custom_field_history',
   'users',
+  'user_dashboard_widgets',
 ];
 
 // ---------------------------------------------------------------------------

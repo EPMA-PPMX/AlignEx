@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Upload } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+
+const API_BASE = (import.meta.env.VITE_API_URL as string) || '';
 
 interface DocumentUploadProps {
   projectId: string;
@@ -13,80 +14,39 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({ projectId, onUploadSucc
   const [uploading, setUploading] = useState(false);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    // Immediately stop any propagation
     event.stopPropagation();
     event.preventDefault();
 
     const file = event.target.files?.[0];
-    if (!file || uploading) {
-      console.log('[DocumentUpload] No file selected or already uploading');
-      return;
-    }
+    if (!file || uploading) return;
 
-    console.log('[DocumentUpload] File selected:', file.name);
     setUploading(true);
 
     try {
+      const formData = new FormData();
+      formData.append('file', file);
 
-      const timestamp = Date.now();
-      const fileName = `${timestamp}-${file.name}`;
-      const filePath = `${projectId}/${fileName}`;
+      const res = await fetch(`${API_BASE}/api/projects/${projectId}/documents/upload`, {
+        method: 'POST',
+        body: formData,
+      });
 
-      console.log('[DocumentUpload] Uploading to storage...');
-      const { error: uploadError } = await supabase.storage
-        .from('project-documents')
-        .upload(filePath, file);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Upload failed');
 
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      console.log('[DocumentUpload] Inserting database record...');
-      const { error: insertError } = await supabase
-        .from('project_documents')
-        .insert([{
-          project_id: projectId,
-          file_name: file.name,
-          file_path: filePath,
-          file_size: file.size,
-          mime_type: file.type
-        }]);
-
-      if (insertError) {
-        console.log('[DocumentUpload] Insert failed, cleaning up...');
-        await supabase.storage
-          .from('project-documents')
-          .remove([filePath]);
-        throw insertError;
-      }
-
-      console.log('[DocumentUpload] Upload successful!');
-
-      // Clear the input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-
-      // Notify parent of success
+      if (fileInputRef.current) fileInputRef.current.value = '';
       onUploadSuccess();
-    } catch (error: any) {
-      console.error('[DocumentUpload] Upload failed:', error);
-      onUploadError(error.message || 'Upload failed');
+    } catch (error: unknown) {
+      onUploadError((error as Error).message || 'Upload failed');
     } finally {
       setUploading(false);
-      console.log('[DocumentUpload] Upload process complete');
     }
   };
 
   const handleButtonClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
-
-    console.log('[DocumentUpload] Button clicked');
-
-    if (!uploading && fileInputRef.current) {
-      fileInputRef.current.click();
-    }
+    if (!uploading && fileInputRef.current) fileInputRef.current.click();
   };
 
   return (
