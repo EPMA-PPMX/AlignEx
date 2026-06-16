@@ -35,7 +35,7 @@ const Settings: React.FC = () => {
     { id: 'organisation-modules', name: 'Organisation Modules', icon: Building2, adminOnly: true },
     { id: 'notifications', name: 'Notifications', icon: Bell },
     { id: 'security', name: 'Security', icon: Shield },
-    { id: 'license-management', name: 'License Management', icon: Key },
+    { id: 'license-management', name: 'License Management', icon: Building2, adminOnly: true},
     { id: 'appearance', name: 'Appearance', icon: Palette },
     { id: 'integrations', name: 'Integrations', icon: Database },
     { id: 'general', name: 'General', icon: Globe },
