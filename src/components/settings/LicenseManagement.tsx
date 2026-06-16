@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Shield, Users, Zap, Plus, CreditCard as Edit2, Check, X, Key, Calendar, TrendingUp, Building2, Filter } from 'lucide-react';
+import { Shield, Users, Zap, Plus, CreditCard as Edit2, Check, X, Key, Calendar, TrendingUp, Building2, Filter, Briefcase } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { permissionService } from '../../lib/permissionService';
 import { useNotification } from '../../lib/useNotification';
@@ -13,6 +13,12 @@ interface UserLicense {
   assigned_date: string;
   last_access_date: string | null;
   notes: string | null;
+  system_role_id: string | null;
+}
+
+interface Role {
+  id: string;
+  name: string;
 }
 
 interface OrganizationModule {
@@ -37,6 +43,7 @@ export default function LicenseManagement() {
   const [userLicenses, setUserLicenses] = useState<UserLicense[]>([]);
   const [modules, setModules] = useState<OrganizationModule[]>([]);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddUser, setShowAddUser] = useState(false);
   const [showActivateModule, setShowActivateModule] = useState(false);
@@ -47,12 +54,14 @@ export default function LicenseManagement() {
   const [newUserTier, setNewUserTier] = useState<'read_only' | 'team_member' | 'full_license'>('team_member');
   const [newUserNotes, setNewUserNotes] = useState('');
   const [newUserOrgId, setNewUserOrgId] = useState(DEFAULT_ORG_ID);
+  const [newUserRoleId, setNewUserRoleId] = useState('');
   const [licenseKey, setLicenseKey] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
 
   // Edit mode
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editTier, setEditTier] = useState<'read_only' | 'team_member' | 'full_license'>('team_member');
+  const [editSystemRoleId, setEditSystemRoleId] = useState('');
 
   // Filter
   const [orgFilter, setOrgFilter] = useState<string>('all');
@@ -65,7 +74,7 @@ export default function LicenseManagement() {
     try {
       setLoading(true);
 
-      const [licensesResult, modulesResult, orgsResult] = await Promise.all([
+      const [licensesResult, modulesResult, orgsResult, rolesResult] = await Promise.all([
         supabase
           .from('user_licenses')
           .select('*')
@@ -79,6 +88,10 @@ export default function LicenseManagement() {
           .from('organizations')
           .select('id, name')
           .eq('is_active', true)
+          .order('name'),
+        supabase
+          .from('roles')
+          .select('id, name')
           .order('name')
       ]);
 
@@ -88,6 +101,7 @@ export default function LicenseManagement() {
       setUserLicenses(licensesResult.data || []);
       setModules(modulesResult.data || []);
       setOrganizations(orgsResult.data || []);
+      setRoles(rolesResult.data || []);
     } catch (error) {
       console.error('Error loading license data:', error);
       showNotification('Failed to load license data', 'error');
@@ -113,7 +127,8 @@ export default function LicenseManagement() {
           license_tier: newUserTier,
           is_active: true,
           assigned_date: new Date().toISOString().split('T')[0],
-          notes: newUserNotes.trim() || null
+          notes: newUserNotes.trim() || null,
+          system_role_id: newUserRoleId || null
         }]);
 
       if (error) {
@@ -131,6 +146,7 @@ export default function LicenseManagement() {
       setNewUserTier('team_member');
       setNewUserNotes('');
       setNewUserOrgId(DEFAULT_ORG_ID);
+      setNewUserRoleId('');
       permissionService.clearCache();
       loadData();
     } catch (error: any) {
@@ -145,6 +161,7 @@ export default function LicenseManagement() {
         .from('user_licenses')
         .update({
           license_tier: editTier,
+          system_role_id: editSystemRoleId || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', userId);
@@ -502,6 +519,9 @@ export default function LicenseManagement() {
                   Organisation
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  System Role
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   License Tier
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -521,7 +541,7 @@ export default function LicenseManagement() {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredLicenses.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                     No user licenses found{orgFilter !== 'all' ? ' for this organisation' : ''}.
                   </td>
                 </tr>
@@ -533,6 +553,29 @@ export default function LicenseManagement() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {organizations.find(o => o.id === license.organization_id)?.name || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    {editingUserId === license.id ? (
+                      <select
+                        value={editSystemRoleId}
+                        onChange={(e) => setEditSystemRoleId(e.target.value)}
+                        className="border border-gray-300 rounded px-2 py-1 text-sm"
+                      >
+                        <option value="">— No Role —</option>
+                        {roles.map(r => (
+                          <option key={r.id} value={r.id}>{r.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      license.system_role_id ? (
+                        <div className="flex items-center gap-1.5">
+                          <Briefcase className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                          <span className="text-gray-700">{roles.find(r => r.id === license.system_role_id)?.name || '-'}</span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-xs">—</span>
+                      )
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     {editingUserId === license.id ? (
@@ -586,6 +629,7 @@ export default function LicenseManagement() {
                           onClick={() => {
                             setEditingUserId(license.id);
                             setEditTier(license.license_tier);
+                            setEditSystemRoleId(license.system_role_id || '');
                           }}
                           className="text-blue-600 hover:text-blue-900"
                         >
@@ -665,6 +709,25 @@ export default function LicenseManagement() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  System Role
+                </label>
+                <div className="relative">
+                  <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <select
+                    value={newUserRoleId}
+                    onChange={(e) => setNewUserRoleId(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">— No Role —</option>
+                    {roles.map(r => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Notes (Optional)
                 </label>
                 <textarea
@@ -691,6 +754,7 @@ export default function LicenseManagement() {
                     setNewUserTier('team_member');
                     setNewUserNotes('');
                     setNewUserOrgId(DEFAULT_ORG_ID);
+                    setNewUserRoleId('');
                   }}
                   className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
                 >
