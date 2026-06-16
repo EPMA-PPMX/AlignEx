@@ -34,7 +34,7 @@ const Settings: React.FC = () => {
     { id: 'organisation', name: 'Organisation Details', icon: Building2, adminOnly: true },
     { id: 'organisation-modules', name: 'Organisation Modules', icon: Building2, adminOnly: true },
     { id: 'notifications', name: 'Notifications', icon: Bell },
-    { id: 'security', name: 'Security', icon: Shield },
+    { id: 'security', name: 'Security', icon: Building2, adminOnly: true},
     { id: 'license-management', name: 'License Management', icon: Building2, adminOnly: true},
     { id: 'appearance', name: 'Appearance', icon: Palette },
     { id: 'integrations', name: 'Integrations', icon: Database },
@@ -49,7 +49,7 @@ const Settings: React.FC = () => {
     { id: 'budget-categories', name: 'Budget Categories', icon: DollarSign },
     { id: 'timesheet-categories', name: 'Timesheet Categories', icon: Clock },
     { id: 'skills-settings', name: 'Skills Settings', icon: Award },
-    { id: 'menu-management', name: 'Menu Management', icon: Globe },
+    { id: 'menu-management', name: 'Menu Management', icon: Building2, adminOnly: true},
   ];
 
   const isSuperUser = !permLoading && licenseTier === 'Super User license';
