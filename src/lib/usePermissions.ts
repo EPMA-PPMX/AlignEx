@@ -70,7 +70,9 @@ export function usePermissions(userEmail?: string): UsePermissionsResult {
       setLicenseTier(tier);
       setOrganizationId(orgId);
 
-      const modules = await permissionService.getAvailableModules(orgId);
+      const modules = tier === 'Super User license'
+        ? (['base', 'skills', 'benefits'] as ModuleKey[])
+        : await permissionService.getAvailableModules(orgId);
       setAvailableModules(modules);
 
       const [

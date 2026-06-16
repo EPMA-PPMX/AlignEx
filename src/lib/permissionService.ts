@@ -135,6 +135,9 @@ class PermissionService {
 
   async canPerformAction(userEmail: string, permissionKey: string): Promise<boolean> {
     const licenseTier = await this.getUserLicenseTier(userEmail);
+
+    if (licenseTier === 'Super User license') return true;
+
     const cacheKey = `perms_${licenseTier}`;
 
     let permissions: Permission[];
@@ -168,7 +171,6 @@ class PermissionService {
 
   async getAvailableModules(organizationId: string): Promise<ModuleKey[]> {
     const cacheKey = `org_${organizationId}`;
-
     let modules: OrganizationModule[];
 
     if (this.isCacheValid(cacheKey) && this.orgModulesCache.has(cacheKey)) {
