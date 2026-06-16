@@ -30,7 +30,7 @@ const MenuManagement: React.FC = () => {
 
   const fetchLicenseTypes = async () => {
     const { data } = await supabase
-      .from('TypeOflicense')
+      .from('typeoflicense')
       .select('licensetype')
       .order('licensetype', { ascending: true });
     if (data) setLicenseTypes(data.map((r) => r.licensetype));
