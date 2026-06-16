@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Calendar, Users } from 'lucide-react';
+import { Plus, Search, Trash2, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import ResourceAllocationHeatMap from './ResourceAllocationHeatMap';
 
@@ -80,6 +80,18 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
     );
   }
 
+  const handleRemoveMember = async (id: string) => {
+    if (!confirm('Remove this team member from the project?')) return;
+    try {
+      const { error } = await supabase.from('project_team_members').delete().eq('id', id);
+      if (error) throw error;
+      fetchTeamMembers();
+      onTeamMembersChange?.();
+    } catch (error) {
+      console.error('Error removing team member:', error);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -98,6 +110,72 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
 
       <ResourceAllocationHeatMap projectId={projectId} />
 
+      <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200">
+        <div className="p-4 border-b border-gray-200">
+          <h4 className="text-base font-semibold text-gray-900">Team Members</h4>
+        </div>
+        {teamMembers.length === 0 ? (
+          <div className="p-12 text-center text-gray-500">
+            No team members yet. Click "Add Team Members" to get started.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gradient-dark">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Email</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Department</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Role</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Allocation</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Start Date</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200" style={{ backgroundColor: '#F9F7FC' }}>
+                {teamMembers.map((member) => (
+                  <tr key={member.id} className="hover:bg-gray-100">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-gray-400" />
+                        <span className="text-sm font-medium text-gray-900">
+                          {member.resource?.display_name || 'Unknown'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {member.resource?.email || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {member.resource?.department || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {member.role || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {member.allocation_percentage}%
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {member.start_date ? new Date(member.start_date).toLocaleDateString() : '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onClick={() => handleRemoveMember(member.id)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {showAddMember && (
         <AddTeamMemberModal
           projectId={projectId}
@@ -114,17 +192,8 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
   );
 }
 
-interface Task {
-  id: number;
-  text: string;
-  start_date: string;
-  duration: number;
-  owner_id?: string;
-  owner_name?: string;
-  parent?: number;
-}
-
-function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] }) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _unused_ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] }) {
   const weeks = 12;
   const [allocations, setAllocations] = useState<Map<string, Map<string, number>>>(new Map());
   const [weekStartDates, setWeekStartDates] = useState<Date[]>([]);
