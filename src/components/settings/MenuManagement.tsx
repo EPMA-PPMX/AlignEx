@@ -16,6 +16,7 @@ const emptyForm = { menu_item: '', visibility: true, license_type: '' };
 const MenuManagement: React.FC = () => {
   const [records, setRecords] = useState<MenuRecord[]>([]);
   const [licenseTypes, setLicenseTypes] = useState<string[]>([]);
+  const [menuItemOptions, setMenuItemOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -26,6 +27,7 @@ const MenuManagement: React.FC = () => {
   useEffect(() => {
     fetchRecords();
     fetchLicenseTypes();
+    fetchMenuItemOptions();
   }, []);
 
   const fetchLicenseTypes = async () => {
@@ -34,6 +36,14 @@ const MenuManagement: React.FC = () => {
       .select('licensetype')
       .order('licensetype', { ascending: true });
     if (data) setLicenseTypes(data.map((r) => r.licensetype));
+  };
+
+  const fetchMenuItemOptions = async () => {
+    const { data } = await supabase
+      .from('menuitems')
+      .select('menunames')
+      .order('menunames', { ascending: true });
+    if (data) setMenuItemOptions(data.map((r) => r.menunames));
   };
 
   const fetchRecords = async () => {
@@ -144,13 +154,16 @@ const MenuManagement: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Menu Item Name <span className="text-red-500">*</span></label>
-              <input
-                type="text"
+              <select
                 value={form.menu_item}
                 onChange={(e) => setForm({ ...form, menu_item: e.target.value })}
-                placeholder="e.g. Dashboard"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
+              >
+                <option value="">Select menu item...</option>
+                {menuItemOptions.map((name) => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">License Type <span className="text-red-500">*</span></label>
