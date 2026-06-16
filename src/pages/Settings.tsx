@@ -14,6 +14,7 @@ import ProjectManagement from '../components/settings/ProjectManagement';
 import UserManagement from '../components/settings/UserManagement';
 import OrganizationManagement from '../components/settings/OrganizationManagement';
 import OrganizationModulesManagement from '../components/settings/OrganizationModulesManagement';
+import MenuManagement from '../components/settings/MenuManagement';
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('profile');
@@ -39,6 +40,7 @@ const Settings: React.FC = () => {
     { id: 'budget-categories', name: 'Budget Categories', icon: DollarSign },
     { id: 'timesheet-categories', name: 'Timesheet Categories', icon: Clock },
     { id: 'skills-settings', name: 'Skills Settings', icon: Award },
+    { id: 'menu-management', name: 'Menu Management', icon: Globe },
   ];
 
   return (
@@ -269,6 +271,10 @@ const Settings: React.FC = () => {
 
             {activeTab === 'project-management' && (
               <ProjectManagement />
+            )}
+
+            {activeTab === 'menu-management' && (
+              <MenuManagement />
             )}
 
             {(activeTab === 'integrations' || activeTab === 'general') && (
