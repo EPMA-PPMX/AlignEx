@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Bell, Shield, Database, Palette, Globe, Settings2, Award, Clock, DollarSign, Key, AlertTriangle, AlertCircle, File as FileEdit, FolderOpen, Users, Building2 } from 'lucide-react';
+import { User, Bell, Shield, Database, Palette, Globe, Settings2, Award, Clock, DollarSign, Key, AlertTriangle, AlertCircle, File as FileEdit, FolderOpen, Users, Building2, Package } from 'lucide-react';
 import CustomFields from '../components/CustomFields';
 import ProjectTemplates from '../components/ProjectTemplates';
 import OverviewPageDesigner from '../components/OverviewPageDesigner';
@@ -13,6 +13,7 @@ import ChangeRequestFieldsManagement from '../components/settings/ChangeRequestF
 import ProjectManagement from '../components/settings/ProjectManagement';
 import UserManagement from '../components/settings/UserManagement';
 import OrganizationManagement from '../components/settings/OrganizationManagement';
+import OrganizationModulesManagement from '../components/settings/OrganizationModulesManagement';
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('profile');
@@ -21,6 +22,7 @@ const Settings: React.FC = () => {
     { id: 'profile', name: 'Profile', icon: User },
     { id: 'user-management', name: 'User Management', icon: Users },
     { id: 'organisation', name: 'Organisation Details', icon: Building2 },
+    { id: 'organisation-modules', name: 'Organisation Modules', icon: Package },
     { id: 'notifications', name: 'Notifications', icon: Bell },
     { id: 'security', name: 'Security', icon: Shield },
     { id: 'license-management', name: 'License Management', icon: Key },
@@ -239,6 +241,10 @@ const Settings: React.FC = () => {
 
             {activeTab === 'organisation' && (
               <OrganizationManagement />
+            )}
+
+            {activeTab === 'organisation-modules' && (
+              <OrganizationModulesManagement />
             )}
 
             {activeTab === 'issue-fields' && (
