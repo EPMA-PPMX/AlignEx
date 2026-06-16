@@ -7,6 +7,7 @@ import { useNotification } from '../../lib/useNotification';
 interface UserLicense {
   id: string;
   user_email: string;
+  organization_id: string;
   license_tier: 'read_only' | 'team_member' | 'full_license';
   is_active: boolean;
   assigned_date: string;
@@ -24,12 +25,18 @@ interface OrganizationModule {
   expiry_date: string | null;
 }
 
+interface Organization {
+  id: string;
+  name: string;
+}
+
 const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000001';
 
 export default function LicenseManagement() {
   const { showConfirm, showNotification } = useNotification();
   const [userLicenses, setUserLicenses] = useState<UserLicense[]>([]);
   const [modules, setModules] = useState<OrganizationModule[]>([]);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddUser, setShowAddUser] = useState(false);
   const [showActivateModule, setShowActivateModule] = useState(false);
@@ -39,6 +46,7 @@ export default function LicenseManagement() {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserTier, setNewUserTier] = useState<'read_only' | 'team_member' | 'full_license'>('team_member');
   const [newUserNotes, setNewUserNotes] = useState('');
+  const [newUserOrgId, setNewUserOrgId] = useState(DEFAULT_ORG_ID);
   const [licenseKey, setLicenseKey] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
 
@@ -54,7 +62,7 @@ export default function LicenseManagement() {
     try {
       setLoading(true);
 
-      const [licensesResult, modulesResult] = await Promise.all([
+      const [licensesResult, modulesResult, orgsResult] = await Promise.all([
         supabase
           .from('user_licenses')
           .select('*')
@@ -64,7 +72,12 @@ export default function LicenseManagement() {
           .from('organization_modules')
           .select('*')
           .eq('organization_id', DEFAULT_ORG_ID)
-          .order('module_key')
+          .order('module_key'),
+        supabase
+          .from('organizations')
+          .select('id, name')
+          .eq('is_active', true)
+          .order('name')
       ]);
 
       if (licensesResult.error) throw licensesResult.error;
@@ -72,6 +85,7 @@ export default function LicenseManagement() {
 
       setUserLicenses(licensesResult.data || []);
       setModules(modulesResult.data || []);
+      setOrganizations(orgsResult.data || []);
     } catch (error) {
       console.error('Error loading license data:', error);
       showNotification('Failed to load license data', 'error');
@@ -93,7 +107,7 @@ export default function LicenseManagement() {
         .from('user_licenses')
         .insert([{
           user_email: newUserEmail.trim().toLowerCase(),
-          organization_id: DEFAULT_ORG_ID,
+          organization_id: newUserOrgId,
           license_tier: newUserTier,
           is_active: true,
           assigned_date: new Date().toISOString().split('T')[0],
@@ -114,6 +128,7 @@ export default function LicenseManagement() {
       setNewUserEmail('');
       setNewUserTier('team_member');
       setNewUserNotes('');
+      setNewUserOrgId(DEFAULT_ORG_ID);
       permissionService.clearCache();
       loadData();
     } catch (error: any) {
@@ -428,6 +443,9 @@ export default function LicenseManagement() {
                   User Email
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Organisation
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   License Tier
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -449,6 +467,9 @@ export default function LicenseManagement() {
                 <tr key={license.id} className={!license.is_active ? 'bg-gray-50' : ''}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {license.user_email}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    {organizations.find(o => o.id === license.organization_id)?.name || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     {editingUserId === license.id ? (
@@ -545,6 +566,22 @@ export default function LicenseManagement() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Organisation *
+                </label>
+                <select
+                  value={newUserOrgId}
+                  onChange={(e) => setNewUserOrgId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                >
+                  {organizations.map((org) => (
+                    <option key={org.id} value={org.id}>{org.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   License Tier *
                 </label>
                 <select
@@ -590,6 +627,7 @@ export default function LicenseManagement() {
                     setNewUserEmail('');
                     setNewUserTier('team_member');
                     setNewUserNotes('');
+                    setNewUserOrgId(DEFAULT_ORG_ID);
                   }}
                   className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
                 >
