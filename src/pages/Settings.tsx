@@ -52,8 +52,8 @@ const Settings: React.FC = () => {
     { id: 'menu-management', name: 'Menu Management', icon: Globe },
   ];
 
-  const isFullLicense = !permLoading && licenseTier === 'Full license';
-  const visibleTabs = tabs.filter(tab => !(tab.adminOnly && isFullLicense));
+  const isSuperUser = !permLoading && licenseTier === 'Super User license';
+  const visibleTabs = tabs.filter(tab => !tab.adminOnly || isSuperUser);
 
   return (
     <div className="p-8">

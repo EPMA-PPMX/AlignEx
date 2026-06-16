@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-export type LicenseTier = 'Read Only' | 'Team Member' | 'Full license';
+export type LicenseTier = 'Read Only' | 'Team Member' | 'Full license' | 'Super User license';
 export type ModuleKey = 'base' | 'skills' | 'benefits';
 
 interface UserLicense {
