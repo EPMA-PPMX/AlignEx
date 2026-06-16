@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Shield, Users, Zap, Plus, CreditCard as Edit2, Check, X, Key, Calendar, TrendingUp } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Shield, Users, Zap, Plus, CreditCard as Edit2, Check, X, Key, Calendar, TrendingUp, Building2, Filter } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { permissionService } from '../../lib/permissionService';
 import { useNotification } from '../../lib/useNotification';
@@ -54,6 +54,9 @@ export default function LicenseManagement() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editTier, setEditTier] = useState<'read_only' | 'team_member' | 'full_license'>('team_member');
 
+  // Filter
+  const [orgFilter, setOrgFilter] = useState<string>('all');
+
   useEffect(() => {
     loadData();
   }, []);
@@ -66,7 +69,6 @@ export default function LicenseManagement() {
         supabase
           .from('user_licenses')
           .select('*')
-          .eq('organization_id', DEFAULT_ORG_ID)
           .order('user_email'),
         supabase
           .from('organization_modules')
@@ -282,6 +284,19 @@ export default function LicenseManagement() {
     return { readOnly, teamMember, fullLicense, inactive, total: userLicenses.length };
   };
 
+  const filteredLicenses = useMemo(() => {
+    if (orgFilter === 'all') return userLicenses;
+    return userLicenses.filter(l => l.organization_id === orgFilter);
+  }, [userLicenses, orgFilter]);
+
+  const orgUserCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const l of userLicenses) {
+      counts[l.organization_id] = (counts[l.organization_id] || 0) + 1;
+    }
+    return counts;
+  }, [userLicenses]);
+
   const stats = calculateUsageStats();
 
   if (loading) {
@@ -424,16 +439,57 @@ export default function LicenseManagement() {
 
       {/* User Licenses */}
       <div className="bg-widget-bg rounded-lg shadow-md p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-semibold text-gray-900">User Licenses</h3>
-          <button
-            onClick={() => setShowAddUser(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Add User
-          </button>
+        <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
+          <div className="flex items-center gap-3">
+            <h3 className="text-xl font-semibold text-gray-900">User Licenses</h3>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+              {filteredLicenses.length} user{filteredLicenses.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-gray-400" />
+              <select
+                value={orgFilter}
+                onChange={(e) => setOrgFilter(e.target.value)}
+                className="pl-2 pr-8 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">All Organisations ({userLicenses.length})</option>
+                {organizations.map((org) => (
+                  <option key={org.id} value={org.id}>
+                    {org.name} ({orgUserCounts[org.id] || 0})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={() => setShowAddUser(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Add User
+            </button>
+          </div>
         </div>
+
+        {/* Per-org user count cards (shown when filtering by All) */}
+        {orgFilter === 'all' && organizations.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {organizations.map((org) => (
+              <button
+                key={org.id}
+                onClick={() => setOrgFilter(org.id)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-300 transition-colors text-sm text-gray-700"
+              >
+                <Building2 className="w-3.5 h-3.5 text-gray-400" />
+                <span className="font-medium">{org.name}</span>
+                <span className="ml-1 bg-white border border-gray-200 text-gray-600 text-xs px-1.5 py-0.5 rounded-full">
+                  {orgUserCounts[org.id] || 0}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -463,7 +519,14 @@ export default function LicenseManagement() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {userLicenses.map((license) => (
+              {filteredLicenses.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                    No user licenses found{orgFilter !== 'all' ? ' for this organisation' : ''}.
+                  </td>
+                </tr>
+              ) : (
+                filteredLicenses.map((license) => (
                 <tr key={license.id} className={!license.is_active ? 'bg-gray-50' : ''}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {license.user_email}
@@ -538,7 +601,7 @@ export default function LicenseManagement() {
                     )}
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>
