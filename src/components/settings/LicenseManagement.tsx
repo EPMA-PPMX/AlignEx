@@ -8,7 +8,7 @@ interface UserLicense {
   id: string;
   user_email: string;
   organization_id: string;
-  license_tier: 'read_only' | 'team_member' | 'full_license';
+  license_tier: string;
   is_active: boolean;
   assigned_date: string;
   last_access_date: string | null;
@@ -44,6 +44,7 @@ export default function LicenseManagement() {
   const [modules, setModules] = useState<OrganizationModule[]>([]);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [licenseTierOptions, setLicenseTierOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddUser, setShowAddUser] = useState(false);
   const [showActivateModule, setShowActivateModule] = useState(false);
@@ -51,7 +52,7 @@ export default function LicenseManagement() {
 
   // Form state
   const [newUserEmail, setNewUserEmail] = useState('');
-  const [newUserTier, setNewUserTier] = useState<'read_only' | 'team_member' | 'full_license'>('team_member');
+  const [newUserTier, setNewUserTier] = useState('');
   const [newUserNotes, setNewUserNotes] = useState('');
   const [newUserOrgId, setNewUserOrgId] = useState(DEFAULT_ORG_ID);
   const [newUserRoleId, setNewUserRoleId] = useState('');
@@ -60,7 +61,7 @@ export default function LicenseManagement() {
 
   // Edit mode
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
-  const [editTier, setEditTier] = useState<'read_only' | 'team_member' | 'full_license'>('team_member');
+  const [editTier, setEditTier] = useState('');
   const [editSystemRoleId, setEditSystemRoleId] = useState('');
 
   // Filter
@@ -74,7 +75,7 @@ export default function LicenseManagement() {
     try {
       setLoading(true);
 
-      const [licensesResult, modulesResult, orgsResult, rolesResult] = await Promise.all([
+      const [licensesResult, modulesResult, orgsResult, rolesResult, tierResult] = await Promise.all([
         supabase
           .from('user_licenses')
           .select('*')
@@ -92,16 +93,24 @@ export default function LicenseManagement() {
         supabase
           .from('roles')
           .select('id, name')
-          .order('name')
+          .order('name'),
+        supabase
+          .from('typeoflicense')
+          .select('licensetype')
+          .order('licensetype', { ascending: true })
       ]);
 
       if (licensesResult.error) throw licensesResult.error;
       if (modulesResult.error) throw modulesResult.error;
 
+      const tiers = (tierResult.data || []).map((r: any) => r.licensetype as string);
+
       setUserLicenses(licensesResult.data || []);
       setModules(modulesResult.data || []);
       setOrganizations(orgsResult.data || []);
       setRoles(rolesResult.data || []);
+      setLicenseTierOptions(tiers);
+      if (tiers.length > 0) setNewUserTier((prev) => prev || tiers[0]);
     } catch (error) {
       console.error('Error loading license data:', error);
       showNotification('Failed to load license data', 'error');
@@ -143,7 +152,7 @@ export default function LicenseManagement() {
       showNotification('User license added successfully', 'success');
       setShowAddUser(false);
       setNewUserEmail('');
-      setNewUserTier('team_member');
+      setNewUserTier(licenseTierOptions[0] || '');
       setNewUserNotes('');
       setNewUserOrgId(DEFAULT_ORG_ID);
       setNewUserRoleId('');
@@ -261,22 +270,15 @@ export default function LicenseManagement() {
     }
   };
 
-  const getLicenseTierLabel = (tier: string) => {
-    const labels: Record<string, string> = {
-      read_only: 'Read Only',
-      team_member: 'Team Member',
-      full_license: 'Full License'
-    };
-    return labels[tier] || tier;
-  };
+  const getLicenseTierLabel = (tier: string) => tier || '—';
 
   const getLicenseTierColor = (tier: string) => {
-    const colors: Record<string, string> = {
-      read_only: 'bg-gray-100 text-gray-800',
-      team_member: 'bg-blue-100 text-blue-800',
-      full_license: 'bg-green-100 text-green-800'
-    };
-    return colors[tier] || 'bg-gray-100 text-gray-800';
+    const t = tier.toLowerCase();
+    if (t.includes('read')) return 'bg-gray-100 text-gray-800';
+    if (t.includes('team')) return 'bg-blue-100 text-blue-800';
+    if (t.includes('full')) return 'bg-green-100 text-green-800';
+    if (t.includes('super')) return 'bg-purple-100 text-purple-800';
+    return 'bg-gray-100 text-gray-800';
   };
 
   const getModuleIcon = (moduleKey: string) => {
@@ -293,12 +295,16 @@ export default function LicenseManagement() {
   };
 
   const calculateUsageStats = () => {
-    const readOnly = userLicenses.filter(l => l.license_tier === 'read_only' && l.is_active).length;
-    const teamMember = userLicenses.filter(l => l.license_tier === 'team_member' && l.is_active).length;
-    const fullLicense = userLicenses.filter(l => l.license_tier === 'full_license' && l.is_active).length;
+    const byTier: Record<string, number> = {};
+    for (const l of userLicenses) {
+      if (l.is_active) byTier[l.license_tier] = (byTier[l.license_tier] || 0) + 1;
+    }
     const inactive = userLicenses.filter(l => !l.is_active).length;
-
-    return { readOnly, teamMember, fullLicense, inactive, total: userLicenses.length };
+    // legacy named stats kept for stat tiles
+    const readOnly = userLicenses.filter(l => l.license_tier.toLowerCase().includes('read') && l.is_active).length;
+    const teamMember = userLicenses.filter(l => l.license_tier.toLowerCase().includes('team') && l.is_active).length;
+    const fullLicense = userLicenses.filter(l => l.license_tier.toLowerCase().includes('full') && l.is_active).length;
+    return { readOnly, teamMember, fullLicense, inactive, total: userLicenses.length, byTier };
   };
 
   const filteredLicenses = useMemo(() => {
@@ -581,12 +587,12 @@ export default function LicenseManagement() {
                     {editingUserId === license.id ? (
                       <select
                         value={editTier}
-                        onChange={(e) => setEditTier(e.target.value as any)}
+                        onChange={(e) => setEditTier(e.target.value)}
                         className="border border-gray-300 rounded px-2 py-1 text-sm"
                       >
-                        <option value="read_only">Read Only</option>
-                        <option value="team_member">Team Member</option>
-                        <option value="full_license">Full License</option>
+                        {licenseTierOptions.map((t) => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
                       </select>
                     ) : (
                       <span className={`px-2 py-1 text-xs font-medium rounded ${getLicenseTierColor(license.license_tier)}`}>
@@ -693,17 +699,16 @@ export default function LicenseManagement() {
                 </label>
                 <select
                   value={newUserTier}
-                  onChange={(e) => setNewUserTier(e.target.value as any)}
+                  onChange={(e) => setNewUserTier(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="read_only">Read Only</option>
-                  <option value="team_member">Team Member</option>
-                  <option value="full_license">Full License</option>
+                  {licenseTierOptions.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
                 </select>
                 <p className="mt-1 text-xs text-gray-500">
-                  {newUserTier === 'read_only' && 'View-only access to all data'}
-
-                  {newUserTier === 'full_license' && 'Complete access including project management'}
+                  {newUserTier.toLowerCase().includes('read') && 'View-only access to all data'}
+                  {newUserTier.toLowerCase().includes('full') && 'Complete access including project management'}
                 </p>
               </div>
 
@@ -751,7 +756,7 @@ export default function LicenseManagement() {
                   onClick={() => {
                     setShowAddUser(false);
                     setNewUserEmail('');
-                    setNewUserTier('team_member');
+                    setNewUserTier(licenseTierOptions[0] || '');
                     setNewUserNotes('');
                     setNewUserOrgId(DEFAULT_ORG_ID);
                     setNewUserRoleId('');
