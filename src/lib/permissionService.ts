@@ -56,7 +56,7 @@ class PermissionService {
 
       if (error) {
         console.error('Error fetching user license:', error);
-        return 'full_license'; // Default to full license for backward compatibility
+        return 'Full license'; // Default to full license for backward compatibility
       }
 
       if (data) {
@@ -65,10 +65,10 @@ class PermissionService {
         return data.license_tier as LicenseTier;
       }
 
-      return 'full_license'; // Default for users without license record
+      return 'Full license'; // Default for users without license record
     } catch (err) {
       console.error('Error in getUserLicenseTier:', err);
-      return 'full_license';
+      return 'Full license';
     }
   }
 
