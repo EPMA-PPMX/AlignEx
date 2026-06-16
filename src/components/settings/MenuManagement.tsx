@@ -11,12 +11,11 @@ interface MenuRecord {
   updated_on: string | null;
 }
 
-const LICENSE_TYPES = ['admin', 'manager', 'team_member', 'viewer'];
-
-const emptyForm = { menu_item: '', visibility: true, license_type: 'team_member' };
+const emptyForm = { menu_item: '', visibility: true, license_type: '' };
 
 const MenuManagement: React.FC = () => {
   const [records, setRecords] = useState<MenuRecord[]>([]);
+  const [licenseTypes, setLicenseTypes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -26,7 +25,16 @@ const MenuManagement: React.FC = () => {
 
   useEffect(() => {
     fetchRecords();
+    fetchLicenseTypes();
   }, []);
+
+  const fetchLicenseTypes = async () => {
+    const { data } = await supabase
+      .from('TypeOflicense')
+      .select('licensetype')
+      .order('licensetype', { ascending: true });
+    if (data) setLicenseTypes(data.map((r) => r.licensetype));
+  };
 
   const fetchRecords = async () => {
     setLoading(true);
@@ -151,7 +159,8 @@ const MenuManagement: React.FC = () => {
                 onChange={(e) => setForm({ ...form, license_type: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
-                {LICENSE_TYPES.map((lt) => (
+                <option value="">Select license type...</option>
+                {licenseTypes.map((lt) => (
                   <option key={lt} value={lt}>{lt}</option>
                 ))}
               </select>
@@ -261,3 +270,6 @@ const MenuManagement: React.FC = () => {
 };
 
 export default MenuManagement;
+
+
+export default MenuManagement
