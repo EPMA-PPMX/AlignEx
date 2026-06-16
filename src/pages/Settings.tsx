@@ -15,14 +15,23 @@ import UserManagement from '../components/settings/UserManagement';
 import OrganizationManagement from '../components/settings/OrganizationManagement';
 import OrganizationModulesManagement from '../components/settings/OrganizationModulesManagement';
 import MenuManagement from '../components/settings/MenuManagement';
+import { usePermissions } from '../lib/usePermissions';
+
+interface Tab {
+  id: string;
+  name: string;
+  icon: React.ElementType;
+  adminOnly?: boolean;
+}
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('profile');
+  const { licenseTier, loading: permLoading } = usePermissions();
 
-  const tabs = [
+  const tabs: Tab[] = [
     { id: 'profile', name: 'Profile', icon: User },
     { id: 'user-management', name: 'User Management', icon: Users },
-    { id: 'organisation', name: 'Organisation Details', icon: Building2 },
+    { id: 'organisation', name: 'Organisation Details', icon: Building2, adminOnly: true },
     { id: 'organisation-modules', name: 'Organisation Modules', icon: Package },
     { id: 'notifications', name: 'Notifications', icon: Bell },
     { id: 'security', name: 'Security', icon: Shield },
@@ -43,6 +52,9 @@ const Settings: React.FC = () => {
     { id: 'menu-management', name: 'Menu Management', icon: Globe },
   ];
 
+  const isFullLicense = !permLoading && licenseTier === 'Full license';
+  const visibleTabs = tabs.filter(tab => !(tab.adminOnly && isFullLicense));
+
   return (
     <div className="p-8">
       <div className="mb-8">
@@ -54,7 +66,7 @@ const Settings: React.FC = () => {
         {/* Settings Navigation */}
         <div className="lg:w-64">
           <nav className="space-y-2">
-            {tabs.map((tab) => {
+            {visibleTabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
