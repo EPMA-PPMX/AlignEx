@@ -232,7 +232,18 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
           }
 
           const resourceName = task.resource_names?.[index] || 'Unknown';
-          const workHours = task.resource_work_hours?.[resourceId] || 0;
+          const explicitHours = task.resource_work_hours?.[resourceId];
+
+          // Fall back to duration-based estimate (8h/day) when no explicit hours are set
+          let workHours: number;
+          if (explicitHours != null && explicitHours > 0) {
+            workHours = explicitHours;
+          } else {
+            const workingDayCount = task.duration && task.duration > 0
+              ? task.duration
+              : (task.end_date ? calculateWorkingDays(taskStartDate, parseDate(task.end_date)) : 0);
+            workHours = workingDayCount * 8;
+          }
 
           if (workHours === 0) {
             console.log(`  ⚠️ Task "${task.text}" resource "${resourceName}": 0 work hours, skipping`);
