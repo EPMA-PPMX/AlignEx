@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Save, X } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Plus, Pencil, Trash2, Save, X, Filter } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface MenuRecord {
@@ -23,6 +23,14 @@ const MenuManagement: React.FC = () => {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [filterLicenseType, setFilterLicenseType] = useState('');
+
+  const filteredRecords = useMemo(() =>
+    filterLicenseType
+      ? records.filter((r) => r.license_type === filterLicenseType)
+      : records,
+    [records, filterLicenseType]
+  );
 
   useEffect(() => {
     fetchRecords();
@@ -145,6 +153,35 @@ const MenuManagement: React.FC = () => {
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
       )}
 
+      {/* Filter bar */}
+      <div className="flex items-center gap-3 mb-4">
+        <Filter className="w-4 h-4 text-gray-400 flex-shrink-0" />
+        <select
+          value={filterLicenseType}
+          onChange={(e) => setFilterLicenseType(e.target.value)}
+          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent min-w-[200px]"
+        >
+          <option value="">All License Types</option>
+          {licenseTypes.map((lt) => (
+            <option key={lt} value={lt}>{lt}</option>
+          ))}
+        </select>
+        {filterLicenseType && (
+          <button
+            onClick={() => setFilterLicenseType('')}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <X className="w-3 h-3" />
+            Clear
+          </button>
+        )}
+        {filterLicenseType && (
+          <span className="text-xs text-gray-400 ml-1">
+            {filteredRecords.length} of {records.length} items
+          </span>
+        )}
+      </div>
+
       {/* Add / Edit Form */}
       {showForm && (
         <div className="mb-6 p-5 border border-gray-200 rounded-lg bg-gray-50">
@@ -216,9 +253,11 @@ const MenuManagement: React.FC = () => {
       {/* Table */}
       {loading ? (
         <div className="text-center py-12 text-gray-400 text-sm">Loading...</div>
-      ) : records.length === 0 ? (
+      ) : filteredRecords.length === 0 ? (
         <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg">
-          <p className="text-gray-400 text-sm">No menu items yet. Click "Add Menu Item" to create one.</p>
+          <p className="text-gray-400 text-sm">
+            {filterLicenseType ? `No menu items for "${filterLicenseType}".` : 'No menu items yet. Click "Add Menu Item" to create one.'}
+          </p>
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -233,7 +272,7 @@ const MenuManagement: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {records.map((rec) => (
+              {filteredRecords.map((rec) => (
                 <tr key={rec.id} className="border-b border-gray-100 hover:bg-gray-50">
                   <td className="py-3 px-4 font-medium text-gray-900">{rec.menu_item}</td>
                   <td className="py-3 px-4">
