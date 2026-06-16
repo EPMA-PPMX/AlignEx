@@ -32,7 +32,7 @@ const Settings: React.FC = () => {
     { id: 'profile', name: 'Profile', icon: User },
     { id: 'user-management', name: 'User Management', icon: Users },
     { id: 'organisation', name: 'Organisation Details', icon: Building2, adminOnly: true },
-    { id: 'organisation-modules', name: 'Organisation Modules', icon: Package },
+    { id: 'organisation-modules', name: 'Organisation Modules', icon: Building2, adminOnly: true },
     { id: 'notifications', name: 'Notifications', icon: Bell },
     { id: 'security', name: 'Security', icon: Shield },
     { id: 'license-management', name: 'License Management', icon: Key },
