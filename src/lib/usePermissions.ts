@@ -129,7 +129,7 @@ export function usePermissions(userEmail?: string): UsePermissionsResult {
       setError(err.message || 'Failed to load permissions');
 
       // Default to full permissions on error for backward compatibility
-      setLicenseTier('full_license');
+      setLicenseTier('Full license');
       setAvailableModules(['base', 'skills', 'benefits']);
       setCan({
         view: true,
