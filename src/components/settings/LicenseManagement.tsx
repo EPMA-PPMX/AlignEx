@@ -702,7 +702,7 @@ export default function LicenseManagement() {
                 </select>
                 <p className="mt-1 text-xs text-gray-500">
                   {newUserTier === 'read_only' && 'View-only access to all data'}
-                  {newUserTier === 'team_member' && 'Can enter timesheets and create requests'}
+
                   {newUserTier === 'full_license' && 'Complete access including project management'}
                 </p>
               </div>
