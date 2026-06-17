@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye, CreditCard as Edit2, Trash2, Calendar, DollarSign, TrendingUp, BarChart3 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
+import { DEMO_TENANT_NAME, useCurrentUser } from '../lib/useCurrentUser';
 import { formatCurrency, formatDate as utilFormatDate, formatCurrencyWithK } from '../lib/utils';
 import { useNotification } from '../lib/useNotification';
 import ProjectRequestForm from '../components/initiation/ProjectRequestForm';
@@ -32,12 +32,14 @@ interface ProjectRequest {
 
 export default function ProjectInitiation() {
   const { showConfirm, showNotification } = useNotification();
+  const { user } = useCurrentUser();
   const [requests, setRequests] = useState<ProjectRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [viewingRequest, setViewingRequest] = useState<ProjectRequest | null>(null);
   const [editingRequest, setEditingRequest] = useState<ProjectRequest | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showMyRequests, setShowMyRequests] = useState(false);
 
   useEffect(() => {
     fetchRequests();
@@ -210,6 +212,10 @@ export default function ProjectInitiation() {
       request.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       request.project_type.toLowerCase().includes(searchQuery.toLowerCase());
 
+    if (showMyRequests && user?.email) {
+      return matchesSearch && request.submitted_by === user.email;
+    }
+
     return matchesSearch;
   });
 
@@ -272,6 +278,30 @@ export default function ProjectInitiation() {
 
       {/* Analytics Dashboard */}
       <RequestAnalytics requests={requests} />
+
+      {/* My Requests / All Requests Toggle */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setShowMyRequests(false)}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            !showMyRequests
+              ? 'bg-[#5B2C91] text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          All Requests
+        </button>
+        <button
+          onClick={() => setShowMyRequests(true)}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            showMyRequests
+              ? 'bg-[#5B2C91] text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          My Requests
+        </button>
+      </div>
 
       <div className="bg-white border border-slate-200 rounded-lg p-4">
         <div className="flex gap-4 items-center">

@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, MoreHorizontal, Grid3x3 as Grid3X3, List, Calendar, User, Settings2, X, Check, Layers, ChevronDown, ChevronRight, Archive, ArchiveRestore } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { DEMO_USER_ID, DEMO_TENANT_NAME } from '../lib/useCurrentUser';
+import { DEMO_USER_ID, DEMO_TENANT_NAME, useCurrentUser } from '../lib/useCurrentUser';
 import { formatDate, formatCurrencyWithK } from '../lib/utils';
 import { useNotification } from '../lib/useNotification';
 
@@ -43,6 +43,7 @@ interface ColumnConfig {
 const Projects: React.FC = () => {
   const navigate = useNavigate();
   const { showNotification } = useNotification();
+  const { user } = useCurrentUser();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [viewMode, setViewMode] = useState<'tile' | 'list'>('tile');
@@ -57,6 +58,7 @@ const Projects: React.FC = () => {
   const [groupBy, setGroupBy] = useState<string>('none');
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [showArchived, setShowArchived] = useState(false);
+  const [showMyProjects, setShowMyProjects] = useState(true);
 
   useEffect(() => {
     fetchResources();
@@ -311,6 +313,15 @@ const Projects: React.FC = () => {
                          (project.description && project.description.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesFilter = filterStatus === 'all' || (project.health_status && project.health_status.toLowerCase().replace(/[^a-z]/g, '') === filterStatus);
     const matchesArchived = showArchived ? project.archived === true : project.archived !== true;
+
+    if (showMyProjects && user?.resource_id) {
+      const pmField = customFields.find(f => f.field_name === 'Project Manager');
+      if (pmField) {
+        const pmValue = projectFieldValues[project.id]?.[pmField.id];
+        if (pmValue !== user.resource_id) return false;
+      }
+    }
+
     return matchesSearch && matchesFilter && matchesArchived;
   });
 
@@ -512,7 +523,7 @@ const Projects: React.FC = () => {
       </div>
 
       {/* Active/Archived Toggle */}
-      <div className="flex items-center gap-2 mb-6">
+      <div className="flex items-center gap-2 mb-4">
         <button
           onClick={() => setShowArchived(false)}
           className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
@@ -539,6 +550,30 @@ const Projects: React.FC = () => {
           <span className="ml-1 text-xs bg-white/20 px-2 py-0.5 rounded-full">
             {projects.filter(p => p.archived).length}
           </span>
+        </button>
+      </div>
+
+      {/* My Projects / All Projects Toggle */}
+      <div className="flex items-center gap-2 mb-6">
+        <button
+          onClick={() => setShowMyProjects(true)}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            showMyProjects
+              ? 'bg-[#5B2C91] text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          My Projects
+        </button>
+        <button
+          onClick={() => setShowMyProjects(false)}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            !showMyProjects
+              ? 'bg-[#5B2C91] text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          All Projects
         </button>
       </div>
 
