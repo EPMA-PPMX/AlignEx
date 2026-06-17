@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Clock, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { DEMO_USER_ID } from '../../lib/useCurrentUser';
 import { Link } from 'react-router-dom';
 
 interface ChangeRequest {

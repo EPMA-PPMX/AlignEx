@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { permissionService } from '../../lib/permissionService';
 import { usePermissions } from '../../lib/usePermissions';
 import { useNotification } from '../../lib/useNotification';
-import { DEMO_USER_ID, DEMO_TENANT_NAME } from '../../lib/useCurrentUser';
+import { DEMO_TENANT_NAME } from '../../lib/useCurrentUser';
 
 interface UserLicense {
   id: string;
@@ -88,13 +88,7 @@ export default function LicenseManagement() {
     try {
       setTenantOrgLoading(true);
 
-      const { data: userData } = await supabase
-        .from('users')
-        .select('tenant_name')
-        .eq('id', DEMO_USER_ID)
-        .maybeSingle();
-
-      const tenantName = userData?.tenant_name || DEMO_TENANT_NAME;
+      const tenantName = DEMO_TENANT_NAME;
 
       // Always resolve tenant org
       const { data: orgData } = await supabase

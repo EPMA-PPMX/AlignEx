@@ -5,10 +5,12 @@ export interface User {
   id: string;
   email: string;
   full_name: string;
-  system_role: 'Project Manager' | 'Team Member' | 'Portfolio Manager';
+  system_role: string;
   resource_id: string | null;
   avatar_url: string | null;
   is_active: boolean;
+  organization_id: string;
+  license_tier: string;
 }
 
 export interface DashboardWidget {
@@ -21,8 +23,8 @@ export interface DashboardWidget {
   settings: Record<string, any>;
 }
 
-export const DEMO_USER_ID = '65340f6a-cf92-4490-b36a-57b5452688f8';
 export const DEMO_USER_EMAILID = 'parthiv.bhuta@epmainc.com';
+export const DEMO_USER_ID = 'e0322539-2fca-463e-8191-34efcec1fb5a';
 export const DEMO_TENANT_NAME = 'epma';
 
 const DEFAULT_WIDGETS: Omit<DashboardWidget, 'id' | 'user_id'>[] = [
@@ -66,21 +68,38 @@ export function useCurrentUser() {
       setLoading(true);
       setError(null);
 
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', DEMO_USER_ID)
+      const { data: licenseData, error: licenseError } = await supabase
+        .from('user_licenses')
+        .select('id, user_email, first_name, last_name, organization_id, license_tier, is_active, system_role_id')
+        .eq('user_email', DEMO_USER_EMAILID)
+        .eq('is_active', true)
         .maybeSingle();
 
-      if (userError) throw userError;
+      if (licenseError) throw licenseError;
 
-      if (userData) {
+      if (licenseData) {
+        const fullName = [licenseData.first_name, licenseData.last_name]
+          .filter(Boolean)
+          .join(' ') || licenseData.user_email;
+
+        const userData: User = {
+          id: licenseData.id,
+          email: licenseData.user_email,
+          full_name: fullName,
+          system_role: licenseData.license_tier,
+          resource_id: null,
+          avatar_url: null,
+          is_active: licenseData.is_active,
+          organization_id: licenseData.organization_id,
+          license_tier: licenseData.license_tier,
+        };
+
         setUser(userData);
 
         const { data: widgetsData, error: widgetsError } = await supabase
           .from('user_dashboard_widgets')
           .select('*')
-          .eq('user_id', userData.id)
+          .eq('user_id', licenseData.id)
           .order('position_order');
 
         if (widgetsError) throw widgetsError;
@@ -88,7 +107,7 @@ export function useCurrentUser() {
         if (widgetsData && widgetsData.length > 0) {
           setWidgets(widgetsData);
         } else {
-          const seeded = await seedDefaultWidgets(userData.id);
+          const seeded = await seedDefaultWidgets(licenseData.id);
           setWidgets(seeded);
         }
       }

@@ -83,7 +83,9 @@ const Dashboard: React.FC = () => {
           </h1>
           <p className="text-gray-600 flex items-center gap-2">
             <span className="px-3 py-1 bg-[#5B2C91] text-white rounded-full text-sm font-medium">
-              {user?.system_role}
+              {user?.license_tier
+                ? user.license_tier.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+                : 'User'}
             </span>
             <span className="text-gray-500">
               {new Date().toLocaleDateString('en-US', {
