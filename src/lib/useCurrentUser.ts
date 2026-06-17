@@ -23,9 +23,9 @@ export interface DashboardWidget {
   settings: Record<string, any>;
 }
 
-export const DEMO_USER_EMAILID = '';
+export const DEMO_USER_EMAILID = 'parthiv.bhuta@epmainc.com';
 export const DEMO_USER_ID = '0';
-export const DEMO_TENANT_NAME = '';
+export const DEMO_TENANT_NAME = 'epma';
 
 const DEFAULT_WIDGETS: Omit<DashboardWidget, 'id' | 'user_id'>[] = [
   { widget_type: 'team_capacity',      is_enabled: true,  position_order: 1,  size: 'medium', settings: {} },
