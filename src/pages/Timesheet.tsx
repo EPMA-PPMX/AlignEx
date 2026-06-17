@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNotification } from '../lib/useNotification';
+import { DEMO_USER_EMAILID } from '../lib/useCurrentUser';
 import { Plus, Trash2, ChevronLeft, ChevronRight, CheckCircle, Send, RotateCcw, ChevronDown, ChevronUp, FileText, X, MoreVertical } from 'lucide-react';
 
 interface TimesheetEntry {
@@ -98,7 +99,7 @@ const Timesheet: React.FC = () => {
     const weekEnd = new Date(currentWeekStart);
     weekEnd.setDate(weekEnd.getDate() + 6);
 
-    const USER_EMAIL = 'demo@alignex.com';
+    const USER_EMAIL = DEMO_USER_EMAILID;
 
     const [entriesRes, projectsRes, requestsRes, categoriesRes, persistentItemsRes, submissionRes] = await Promise.all([
       supabase
@@ -293,7 +294,7 @@ const Timesheet: React.FC = () => {
       return;
     }
 
-    const USER_EMAIL = 'demo@alignex.com';
+    const USER_EMAIL = DEMO_USER_EMAILID;
 
     let exists = false;
     if (newRowForm.type === 'project') {
@@ -384,7 +385,7 @@ const Timesheet: React.FC = () => {
   };
 
   const handleSubmitTimesheet = async () => {
-    const USER_EMAIL = 'demo@alignex.com';
+    const USER_EMAIL = DEMO_USER_EMAILID;
     const weekEnd = new Date(currentWeekStart);
     weekEnd.setDate(weekEnd.getDate() + 6);
 

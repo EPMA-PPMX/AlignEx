@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { permissionService, LicenseTier, ModuleKey } from './permissionService';
+import { DEMO_USER_EMAILID } from './useCurrentUser';
 
 interface PermissionActions {
   view: boolean;
@@ -29,7 +30,7 @@ interface UsePermissionsResult {
   refresh: () => void;
 }
 
-const DEFAULT_USER_EMAIL = 'demo@alignex.com'; // Replace with actual user email from auth
+const DEFAULT_USER_EMAIL = DEMO_USER_EMAILID;
 
 export function usePermissions(userEmail?: string): UsePermissionsResult {
   const email = userEmail || DEFAULT_USER_EMAIL;

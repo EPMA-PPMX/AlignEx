@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { permissionService, ModuleKey } from './permissionService';
+import { DEMO_USER_EMAILID } from './useCurrentUser';
 
 interface UseModuleAccessResult {
   isAvailable: boolean;
@@ -10,7 +11,7 @@ interface UseModuleAccessResult {
   error: string | null;
 }
 
-const DEFAULT_USER_EMAIL = 'demo@alignex.com'; // Replace with actual user email from auth
+const DEFAULT_USER_EMAIL = DEMO_USER_EMAILID;
 
 export function useModuleAccess(moduleKey: ModuleKey, userEmail?: string): UseModuleAccessResult {
   const email = userEmail || DEFAULT_USER_EMAIL;

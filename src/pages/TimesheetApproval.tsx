@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNotification } from '../lib/useNotification';
+import { DEMO_USER_EMAILID } from '../lib/useCurrentUser';
 import { CheckCircle, XCircle, Eye, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface TimesheetSubmission {
@@ -54,7 +55,7 @@ const TimesheetApproval: React.FC = () => {
 
   const fetchTimesheets = async () => {
     setLoading(true);
-    const PM_EMAIL = 'demo@alignex.com';
+    const PM_EMAIL = DEMO_USER_EMAILID;
 
     try {
       const { data: projectsData, error: projectsError } = await supabase
@@ -182,7 +183,7 @@ const TimesheetApproval: React.FC = () => {
     setProcessingAction(submissionId);
 
     try {
-      const PM_EMAIL = 'demo@alignex.com';
+      const PM_EMAIL = DEMO_USER_EMAILID;
 
       const { error } = await supabase
         .from('timesheet_submissions')
@@ -228,7 +229,7 @@ const TimesheetApproval: React.FC = () => {
     setProcessingAction(submissionId);
 
     try {
-      const PM_EMAIL = 'demo@alignex.com';
+      const PM_EMAIL = DEMO_USER_EMAILID;
 
       const { error } = await supabase
         .from('timesheet_submissions')
