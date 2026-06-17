@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Building2, Plus, Pencil, Trash2, Check, X, Globe, Mail,
   ToggleLeft, ToggleRight, ChevronDown, ChevronRight,
-  Shield, TrendingUp, Zap, Key, Calendar, Package
+  Shield, TrendingUp, Zap, Key, Calendar, Package, Users
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useNotification } from '../../lib/useNotification';
@@ -40,6 +40,7 @@ export default function OrganizationManagement() {
   const { showConfirm, showNotification } = useNotification();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [modules, setModules] = useState<OrgModule[]>([]);
+  const [licenseCounts, setLicenseCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [expandedOrg, setExpandedOrg] = useState<string | null>(null);
 
@@ -61,14 +62,21 @@ export default function OrganizationManagement() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [orgsResult, modulesResult] = await Promise.all([
+      const [orgsResult, modulesResult, licensesResult] = await Promise.all([
         supabase.from('organizations').select('*').order('name'),
         supabase.from('organization_modules').select('*').order('module_key'),
+        supabase.from('user_licenses').select('organization_id'),
       ]);
       if (orgsResult.error) throw orgsResult.error;
       if (modulesResult.error) throw modulesResult.error;
       setOrganizations(orgsResult.data || []);
       setModules(modulesResult.data || []);
+
+      const counts: Record<string, number> = {};
+      for (const row of (licensesResult.data || [])) {
+        counts[row.organization_id] = (counts[row.organization_id] || 0) + 1;
+      }
+      setLicenseCounts(counts);
     } catch (error: any) {
       showNotification('Failed to load organisations', 'error');
     } finally {
@@ -331,6 +339,10 @@ export default function OrganizationManagement() {
                             {orgMods.filter(m => m.is_active).length}/{orgMods.length} modules active
                           </span>
                         )}
+                        <span className="flex items-center gap-1 text-xs font-medium bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-100">
+                          <Users className="w-3 h-3" />
+                          {licenseCounts[org.id] ?? 0} assigned license{(licenseCounts[org.id] ?? 0) !== 1 ? 's' : ''}
+                        </span>
                       </div>
                       <div className="flex items-center gap-4 mt-0.5">
                         {org.domain && (
