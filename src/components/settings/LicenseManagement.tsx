@@ -9,6 +9,8 @@ import { DEMO_TENANT_NAME } from '../../lib/useCurrentUser';
 interface UserLicense {
   id: string;
   user_email: string;
+  first_name: string | null;
+  last_name: string | null;
   organization_id: string;
   license_tier: string;
   is_active: boolean;
@@ -79,6 +81,8 @@ export default function LicenseManagement() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editTier, setEditTier] = useState('');
   const [editSystemRoleId, setEditSystemRoleId] = useState('');
+  const [editFirstName, setEditFirstName] = useState('');
+  const [editLastName, setEditLastName] = useState('');
 
   // Resolve tenant org on mount (runs for all users; super users also load all orgs)
   useEffect(() => {
@@ -247,6 +251,8 @@ export default function LicenseManagement() {
       const { error } = await supabase.from('user_licenses').update({
         license_tier: editTier,
         system_role_id: editSystemRoleId || null,
+        first_name: editFirstName.trim() || null,
+        last_name: editLastName.trim() || null,
         updated_at: new Date().toISOString(),
       }).eq('id', userId);
 
@@ -557,6 +563,8 @@ export default function LicenseManagement() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User Email</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">First Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Name</th>
                   {isSuperUser && (
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Organisation</th>
                   )}
@@ -571,13 +579,39 @@ export default function LicenseManagement() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredLicenses.length === 0 ? (
                   <tr>
-                    <td colSpan={isSuperUser ? 8 : 7} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={isSuperUser ? 10 : 9} className="px-6 py-12 text-center text-gray-500">
                       No user licenses match the current filters.
                     </td>
                   </tr>
                 ) : filteredLicenses.map((license) => (
                   <tr key={license.id} className={!license.is_active ? 'bg-gray-50' : ''}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{license.user_email}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      {editingUserId === license.id ? (
+                        <input
+                          type="text"
+                          value={editFirstName}
+                          onChange={(e) => setEditFirstName(e.target.value)}
+                          placeholder="First name"
+                          className="border border-gray-300 rounded px-2 py-1 text-sm w-28 focus:ring-1 focus:ring-blue-500"
+                        />
+                      ) : (
+                        <span>{license.first_name || <span className="text-gray-400">—</span>}</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      {editingUserId === license.id ? (
+                        <input
+                          type="text"
+                          value={editLastName}
+                          onChange={(e) => setEditLastName(e.target.value)}
+                          placeholder="Last name"
+                          className="border border-gray-300 rounded px-2 py-1 text-sm w-28 focus:ring-1 focus:ring-blue-500"
+                        />
+                      ) : (
+                        <span>{license.last_name || <span className="text-gray-400">—</span>}</span>
+                      )}
+                    </td>
                     {isSuperUser && (
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                         <div className="flex items-center gap-1.5">
@@ -631,7 +665,7 @@ export default function LicenseManagement() {
                         </div>
                       ) : (
                         <div className="flex gap-3">
-                          <button onClick={() => { setEditingUserId(license.id); setEditTier(license.license_tier); setEditSystemRoleId(license.system_role_id || ''); }} className="text-blue-600 hover:text-blue-900">
+                          <button onClick={() => { setEditingUserId(license.id); setEditTier(license.license_tier); setEditSystemRoleId(license.system_role_id || ''); setEditFirstName(license.first_name || ''); setEditLastName(license.last_name || ''); }} className="text-blue-600 hover:text-blue-900">
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button onClick={() => handleToggleUserStatus(license.id, license.is_active)} className={`text-xs ${license.is_active ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'}`}>
