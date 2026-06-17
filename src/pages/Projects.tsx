@@ -58,7 +58,7 @@ const Projects: React.FC = () => {
   const [groupBy, setGroupBy] = useState<string>('none');
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [showArchived, setShowArchived] = useState(false);
-  const [showMyProjects, setShowMyProjects] = useState(true);
+  const [showMyProjects, setShowMyProjects] = useState(false);
 
   useEffect(() => {
     fetchResources();
