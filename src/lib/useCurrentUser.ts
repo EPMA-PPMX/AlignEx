@@ -24,7 +24,7 @@ export interface DashboardWidget {
 }
 
 export const DEMO_USER_EMAILID = 'rakesh@epmainc.com';
-export const DEMO_USER_ID = 'e0322539-2fca-463e-8191-34efcec1fb5a';
+export const DEMO_USER_ID = '0';
 export const DEMO_TENANT_NAME = 'epma';
 
 const DEFAULT_WIDGETS: Omit<DashboardWidget, 'id' | 'user_id'>[] = [
