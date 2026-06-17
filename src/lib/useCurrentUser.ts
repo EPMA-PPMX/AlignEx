@@ -47,6 +47,7 @@ export function useCurrentUser() {
   const [widgets, setWidgets] = useState<DashboardWidget[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [unauthorized, setUnauthorized] = useState(false);
 
   useEffect(() => {
     fetchCurrentUser();
@@ -67,6 +68,7 @@ export function useCurrentUser() {
     try {
       setLoading(true);
       setError(null);
+      setUnauthorized(false);
 
       const { data: licenseData, error: licenseError } = await supabase
         .from('user_licenses')
@@ -77,46 +79,48 @@ export function useCurrentUser() {
 
       if (licenseError) throw licenseError;
 
-      if (licenseData) {
-        const fullName = [licenseData.first_name, licenseData.last_name]
-          .filter(Boolean)
-          .join(' ') || licenseData.user_email;
+      if (!licenseData) {
+        setUnauthorized(true);
+        return;
+      }
 
-        // Resolve the matching resource record so widgets can filter by resource_id
-        const { data: resourceData } = await supabase
-          .from('resources')
-          .select('id')
-          .eq('email', licenseData.user_email)
-          .maybeSingle();
+      const fullName = [licenseData.first_name, licenseData.last_name]
+        .filter(Boolean)
+        .join(' ') || licenseData.user_email;
 
-        const userData: User = {
-          id: licenseData.id,
-          email: licenseData.user_email,
-          full_name: fullName,
-          system_role: licenseData.license_tier,
-          resource_id: resourceData?.id ?? null,
-          avatar_url: null,
-          is_active: licenseData.is_active,
-          organization_id: licenseData.organization_id,
-          license_tier: licenseData.license_tier,
-        };
+      const { data: resourceData } = await supabase
+        .from('resources')
+        .select('id')
+        .eq('email', licenseData.user_email)
+        .maybeSingle();
 
-        setUser(userData);
+      const userData: User = {
+        id: licenseData.id,
+        email: licenseData.user_email,
+        full_name: fullName,
+        system_role: licenseData.license_tier,
+        resource_id: resourceData?.id ?? null,
+        avatar_url: null,
+        is_active: licenseData.is_active,
+        organization_id: licenseData.organization_id,
+        license_tier: licenseData.license_tier,
+      };
 
-        const { data: widgetsData, error: widgetsError } = await supabase
-          .from('user_dashboard_widgets')
-          .select('*')
-          .eq('user_id', licenseData.id)
-          .order('position_order');
+      setUser(userData);
 
-        if (widgetsError) throw widgetsError;
+      const { data: widgetsData, error: widgetsError } = await supabase
+        .from('user_dashboard_widgets')
+        .select('*')
+        .eq('user_id', licenseData.id)
+        .order('position_order');
 
-        if (widgetsData && widgetsData.length > 0) {
-          setWidgets(widgetsData);
-        } else {
-          const seeded = await seedDefaultWidgets(licenseData.id);
-          setWidgets(seeded);
-        }
+      if (widgetsError) throw widgetsError;
+
+      if (widgetsData && widgetsData.length > 0) {
+        setWidgets(widgetsData);
+      } else {
+        const seeded = await seedDefaultWidgets(licenseData.id);
+        setWidgets(seeded);
       }
     } catch (err: any) {
       console.error('Error fetching user:', err);
@@ -193,6 +197,7 @@ export function useCurrentUser() {
     widgets,
     loading,
     error,
+    unauthorized,
     updateWidgetSettings,
     toggleWidget,
     reorderWidgets,
