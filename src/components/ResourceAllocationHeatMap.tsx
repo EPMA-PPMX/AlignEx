@@ -85,14 +85,14 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
     const { data: projects, error: projectsError } = await supabase
       .from('projects')
       .select('id, name, status')
-      .eq('status', 'In-Progress');
+      .not('status', 'in', '("Completed","Cancelled","Archived")');
 
     if (projectsError) {
       console.error('❌ HEAT MAP: Error fetching projects:', projectsError);
       return;
     }
 
-    console.log('🔥 HEAT MAP: Found In-Progress projects:', projects?.length || 0);
+    console.log('🔥 HEAT MAP: Found active projects:', projects?.length || 0);
     if (projects && projects.length > 0) {
       console.log('🔥 HEAT MAP: Projects:', projects.map(p => `${p.name} (${p.id})`).join(', '));
     }
@@ -486,7 +486,7 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
           <p className="text-gray-500">
             {projectId
               ? "No resources are allocated to the selected project."
-              : "No resources are currently allocated to In-Progress projects with task assignments."}
+              : "No resources are currently allocated to active projects with task assignments."}
           </p>
         </div>
       </div>
