@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Shield, Users, Zap, Plus, CreditCard as Edit2, Check, X, Calendar, TrendingUp, Briefcase, Building2, Filter } from 'lucide-react';
+import { Shield, Users, Zap, Plus, CreditCard as Edit2, Check, X, Calendar, TrendingUp, Briefcase, Building2, Filter, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { permissionService } from '../../lib/permissionService';
 import { usePermissions } from '../../lib/usePermissions';
@@ -36,6 +36,7 @@ interface OrganizationModule {
 interface Organization {
   id: string;
   name: string;
+  total_licenses: number | null;
 }
 
 export default function LicenseManagement() {
@@ -98,7 +99,7 @@ export default function LicenseManagement() {
       // Always resolve tenant org
       const { data: orgData } = await supabase
         .from('organizations')
-        .select('id, name')
+        .select('id, name, total_licenses')
         .ilike('name', tenantName)
         .eq('is_active', true)
         .maybeSingle();
@@ -109,7 +110,7 @@ export default function LicenseManagement() {
         // Super user also loads all orgs for the filter
         const { data: allOrgs } = await supabase
           .from('organizations')
-          .select('id, name')
+          .select('id, name, total_licenses')
           .eq('is_active', true)
           .order('name');
         setAllOrganizations(allOrgs || []);
@@ -177,6 +178,20 @@ export default function LicenseManagement() {
     const orgId = isSuperUser ? newUserOrgId : tenantOrg!.id;
     if (!orgId) { showNotification('No organisation selected', 'error'); return; }
 
+    // Check license cap for the selected organisation
+    const allOrgs = [...allOrganizations, ...(tenantOrg ? [tenantOrg] : [])];
+    const selectedOrg = allOrgs.find(o => o.id === orgId);
+    if (selectedOrg?.total_licenses != null) {
+      const currentCount = userLicenses.filter(l => l.organization_id === orgId).length;
+      if (currentCount >= selectedOrg.total_licenses) {
+        showNotification(
+          `This organisation has reached its license limit of ${selectedOrg.total_licenses}. Please contact EPMA to extend your number of licenses.`,
+          'error'
+        );
+        return;
+      }
+    }
+
     try {
       const { error } = await supabase.from('user_licenses').insert([{
         user_email: newUserEmail.trim().toLowerCase(),
@@ -201,6 +216,25 @@ export default function LicenseManagement() {
       setNewUserTier(licenseTierOptions[0] || '');
       setNewUserNotes('');
       setNewUserRoleId('');
+      permissionService.clearCache();
+      loadData();
+    } catch (error: any) {
+      showNotification(`Error: ${error.message}`, 'error');
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, userEmail: string) => {
+    const confirmed = await showConfirm({
+      title: 'Delete User License',
+      message: `Are you sure you want to permanently delete the license for ${userEmail}? This action cannot be undone.`,
+      confirmText: 'Delete',
+    });
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase.from('user_licenses').delete().eq('id', userId);
+      if (error) throw error;
+      showNotification('User license deleted successfully', 'success');
       permissionService.clearCache();
       loadData();
     } catch (error: any) {
@@ -603,6 +637,9 @@ export default function LicenseManagement() {
                           <button onClick={() => handleToggleUserStatus(license.id, license.is_active)} className={`text-xs ${license.is_active ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'}`}>
                             {license.is_active ? 'Deactivate' : 'Activate'}
                           </button>
+                          <button onClick={() => handleDeleteUser(license.id, license.user_email)} className="text-gray-400 hover:text-red-600 transition-colors" title="Delete license">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       )}
                     </td>
@@ -625,6 +662,25 @@ export default function LicenseManagement() {
                 Organisation: <span className="font-medium text-gray-700">{tenantOrg?.name}</span>
               </p>
             )}
+            {/* License cap indicator */}
+            {(() => {
+              const orgId = isSuperUser ? newUserOrgId : tenantOrg?.id;
+              const allOrgs = [...allOrganizations, ...(tenantOrg ? [tenantOrg] : [])];
+              const selectedOrg = orgId ? allOrgs.find(o => o.id === orgId) : null;
+              if (!selectedOrg?.total_licenses) return null;
+              const used = userLicenses.filter(l => l.organization_id === orgId).length;
+              const remaining = selectedOrg.total_licenses - used;
+              const isAtLimit = remaining <= 0;
+              return (
+                <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm mb-2 ${isAtLimit ? 'bg-red-50 border border-red-200 text-red-800' : 'bg-blue-50 border border-blue-200 text-blue-800'}`}>
+                  <Users className="w-4 h-4 flex-shrink-0" />
+                  {isAtLimit
+                    ? <span>License limit reached ({used}/{selectedOrg.total_licenses}). Contact EPMA to extend your number of licenses.</span>
+                    : <span>{remaining} of {selectedOrg.total_licenses} licenses remaining</span>
+                  }
+                </div>
+              );
+            })()}
             <form onSubmit={handleAddUser} className="space-y-4 mt-4">
               {isSuperUser && (
                 <div>
