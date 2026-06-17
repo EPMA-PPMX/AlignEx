@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Upload, X, AlertCircle, CheckCircle, FileSpreadsheet } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
 import ExcelJS from 'exceljs';
 
 interface CustomField {
@@ -317,6 +318,10 @@ export default function ResourceImportModal({ onClose, onImportComplete }: Impor
             dataToInsert.first_name = null;
             dataToInsert.last_name = null;
             dataToInsert.email = null;
+          }
+
+          if (DEMO_TENANT_NAME) {
+            dataToInsert.tenant_name = DEMO_TENANT_NAME;
           }
 
           const { data: insertedResource, error: insertError } = await supabase

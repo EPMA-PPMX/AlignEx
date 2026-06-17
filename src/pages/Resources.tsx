@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Users, Plus, Search, Filter, Download, Upload, CreditCard as Edit2, Trash2, UserPlus, Package } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
 import { useNotification } from '../lib/useNotification';
 import ResourceImportModal from '../components/ResourceImportModal';
 
@@ -42,10 +43,16 @@ export default function Resources() {
 
   const fetchResources = async () => {
     try {
-      const { data, error } = await supabase
+      const query = supabase
         .from('resources')
         .select('*')
         .order('display_name');
+
+      if (DEMO_TENANT_NAME) {
+        query.eq('tenant_name', DEMO_TENANT_NAME);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setResources(data || []);
@@ -437,6 +444,10 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
         status: formData.status,
         notes: formData.notes || null,
       };
+
+      if (!resource && DEMO_TENANT_NAME) {
+        dataToSave.tenant_name = DEMO_TENANT_NAME;
+      }
 
       if (formData.resource_type === 'person') {
         dataToSave.first_name = formData.first_name;
