@@ -66,6 +66,8 @@ export default function LicenseManagement() {
   const [showActivateModule, setShowActivateModule] = useState(false);
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
   const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserFirstName, setNewUserFirstName] = useState('');
+  const [newUserLastName, setNewUserLastName] = useState('');
   const [newUserTier, setNewUserTier] = useState('');
   const [newUserNotes, setNewUserNotes] = useState('');
   const [newUserRoleId, setNewUserRoleId] = useState('');
@@ -189,6 +191,8 @@ export default function LicenseManagement() {
     try {
       const { error } = await supabase.from('user_licenses').insert([{
         user_email: newUserEmail.trim().toLowerCase(),
+        first_name: newUserFirstName.trim() || null,
+        last_name: newUserLastName.trim() || null,
         organization_id: orgId,
         license_tier: newUserTier,
         is_active: true,
@@ -207,6 +211,8 @@ export default function LicenseManagement() {
       showNotification('User license added successfully', 'success');
       setShowAddUser(false);
       setNewUserEmail('');
+      setNewUserFirstName('');
+      setNewUserLastName('');
       setNewUserTier(licenseTierOptions[0] || '');
       setNewUserNotes('');
       setNewUserRoleId('');
@@ -703,6 +709,28 @@ export default function LicenseManagement() {
                   required
                 />
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                  <input
+                    type="text"
+                    value={newUserFirstName}
+                    onChange={(e) => setNewUserFirstName(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Jane"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                  <input
+                    type="text"
+                    value={newUserLastName}
+                    onChange={(e) => setNewUserLastName(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Smith"
+                  />
+                </div>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">License Tier *</label>
                 <select value={newUserTier} onChange={(e) => setNewUserTier(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
@@ -725,7 +753,7 @@ export default function LicenseManagement() {
               </div>
               <div className="flex gap-3 mt-6">
                 <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Add User</button>
-                <button type="button" onClick={() => { setShowAddUser(false); setNewUserEmail(''); setNewUserTier(licenseTierOptions[0] || ''); setNewUserNotes(''); setNewUserRoleId(''); }} className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors">Cancel</button>
+                <button type="button" onClick={() => { setShowAddUser(false); setNewUserEmail(''); setNewUserFirstName(''); setNewUserLastName(''); setNewUserTier(licenseTierOptions[0] || ''); setNewUserNotes(''); setNewUserRoleId(''); }} className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors">Cancel</button>
               </div>
             </form>
           </div>
