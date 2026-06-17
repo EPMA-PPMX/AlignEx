@@ -1,0 +1,1 @@
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS total_licenses integer DEFAULT NULL;

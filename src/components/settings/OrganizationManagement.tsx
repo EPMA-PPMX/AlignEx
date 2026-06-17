@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useNotification } from '../../lib/useNotification';
+import { usePermissions } from '../../lib/usePermissions';
 
 interface Organization {
   id: string;
@@ -13,6 +14,7 @@ interface Organization {
   domain: string | null;
   billing_email: string | null;
   is_active: boolean;
+  total_licenses: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -34,10 +36,12 @@ const MODULE_DEFS = [
   { key: 'benefits', name: 'Benefit Realization', icon: Zap, description: 'Monitor and report on project benefit outcomes.' },
 ] as const;
 
-const emptyOrgForm = { name: '', domain: '', billing_email: '' };
+const emptyOrgForm = { name: '', domain: '', billing_email: '', total_licenses: '' };
 
 export default function OrganizationManagement() {
   const { showConfirm, showNotification } = useNotification();
+  const { licenseTier, loading: permLoading } = usePermissions();
+  const isSuperUser = !permLoading && licenseTier === 'Super User license';
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [modules, setModules] = useState<OrgModule[]>([]);
   const [licenseCounts, setLicenseCounts] = useState<Record<string, number>>({});
@@ -93,7 +97,12 @@ export default function OrganizationManagement() {
   };
 
   const openEditOrg = (org: Organization) => {
-    setOrgForm({ name: org.name, domain: org.domain || '', billing_email: org.billing_email || '' });
+    setOrgForm({
+      name: org.name,
+      domain: org.domain || '',
+      billing_email: org.billing_email || '',
+      total_licenses: org.total_licenses != null ? String(org.total_licenses) : '',
+    });
     setEditingOrg(org);
     setShowOrgModal(true);
   };
@@ -107,6 +116,7 @@ export default function OrganizationManagement() {
         name: orgForm.name.trim(),
         domain: orgForm.domain.trim() || null,
         billing_email: orgForm.billing_email.trim() || null,
+        total_licenses: isSuperUser && orgForm.total_licenses !== '' ? parseInt(orgForm.total_licenses, 10) : undefined,
         updated_at: new Date().toISOString(),
       };
 
@@ -355,6 +365,12 @@ export default function OrganizationManagement() {
                             <Mail className="w-3 h-3" />{org.billing_email}
                           </span>
                         )}
+                        {org.total_licenses != null && (
+                          <span className="flex items-center gap-1 text-xs text-gray-500">
+                            <Users className="w-3 h-3" />
+                            <span>Total licenses: <strong>{org.total_licenses}</strong></span>
+                          </span>
+                        )}
                         <span className="text-xs text-gray-400">
                           Created {new Date(org.created_at).toLocaleDateString()}
                         </span>
@@ -563,6 +579,25 @@ export default function OrganizationManagement() {
                   />
                 </div>
               </div>
+
+              {isSuperUser && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Total No. Licenses Assigned <span className="text-gray-400 text-xs">(optional)</span>
+                  </label>
+                  <div className="relative">
+                    <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="number"
+                      min="0"
+                      value={orgForm.total_licenses}
+                      onChange={(e) => setOrgForm(f => ({ ...f, total_licenses: e.target.value }))}
+                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="e.g. 50"
+                    />
+                  </div>
+                </div>
+              )}
 
               {!editingOrg && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
