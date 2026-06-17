@@ -82,12 +82,19 @@ export function useCurrentUser() {
           .filter(Boolean)
           .join(' ') || licenseData.user_email;
 
+        // Resolve the matching resource record so widgets can filter by resource_id
+        const { data: resourceData } = await supabase
+          .from('resources')
+          .select('id')
+          .eq('email', licenseData.user_email)
+          .maybeSingle();
+
         const userData: User = {
           id: licenseData.id,
           email: licenseData.user_email,
           full_name: fullName,
           system_role: licenseData.license_tier,
-          resource_id: null,
+          resource_id: resourceData?.id ?? null,
           avatar_url: null,
           is_active: licenseData.is_active,
           organization_id: licenseData.organization_id,
