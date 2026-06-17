@@ -23,7 +23,7 @@ export interface DashboardWidget {
   settings: Record<string, any>;
 }
 
-export const DEMO_USER_EMAILID = 'rakesh@epmainc.com';
+export const DEMO_USER_EMAILID = 'rakesh@343.com';
 export const DEMO_USER_ID = '0';
 export const DEMO_TENANT_NAME = 'epmas';
 
