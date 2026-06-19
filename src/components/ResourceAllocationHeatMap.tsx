@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
-import { supabase } from '../lib/supabase';
-import { Calendar, TrendingUp, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useMemo } from "react";
+import { supabase } from "../lib/supabase";
+import { Calendar, TrendingUp, AlertCircle } from "lucide-react";
 
 interface Resource {
   id: string;
@@ -38,7 +38,9 @@ interface ResourceAllocationHeatMapProps {
   projectId?: string | null;
 }
 
-export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocationHeatMapProps) {
+export default function ResourceAllocationHeatMap({
+  projectId,
+}: ResourceAllocationHeatMapProps) {
   const [loading, setLoading] = useState(true);
   const [resources, setResources] = useState<Resource[]>([]);
   const [allocations, setAllocations] = useState<ResourceAllocation[]>([]);
@@ -54,10 +56,10 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
     try {
       await Promise.all([
         fetchResources(),
-        fetchProjectTasksAndCalculateAllocations()
+        fetchProjectTasksAndCalculateAllocations(),
       ]);
     } catch (error) {
-      console.error('Error fetching heat map data:', error);
+      console.error("Error fetching heat map data:", error);
     } finally {
       setLoading(false);
     }
@@ -65,13 +67,13 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
 
   const fetchResources = async () => {
     const { data, error } = await supabase
-      .from('resources')
-      .select('id, display_name, status')
-      .eq('status', 'active')
-      .order('display_name');
+      .from("resources")
+      .select("id, display_name, status")
+      .eq("status", "active")
+      .order("display_name");
 
     if (error) {
-      console.error('Error fetching resources:', error);
+      console.error("Error fetching resources:", error);
       return;
     }
 
@@ -79,96 +81,122 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
   };
 
   const fetchProjectTasksAndCalculateAllocations = async () => {
-    console.log('🔥 HEAT MAP: fetchProjectTasksAndCalculateAllocations called');
-    console.log('🔥 HEAT MAP: projectId filter =', projectId);
+    console.log("🔥 HEAT MAP: fetchProjectTasksAndCalculateAllocations called");
+    console.log("🔥 HEAT MAP: projectId filter =", projectId);
 
     const { data: projects, error: projectsError } = await supabase
-      .from('projects')
-      .select('id, name, status')
-      .not('status', 'in', '("Completed","Cancelled","Archived")');
+      .from("projects")
+      .select("id, name, status")
+      .neq("status", "Completed")
+      .neq("status", "Cancelled")
+      .neq("status", "Archived");
 
     if (projectsError) {
-      console.error('❌ HEAT MAP: Error fetching projects:', projectsError);
+      console.error("❌ HEAT MAP: Error fetching projects:", projectsError);
       return;
     }
 
-    console.log('🔥 HEAT MAP: Found active projects:', projects?.length || 0);
+    console.log("🔥 HEAT MAP: Found active projects:", projects?.length || 0);
     if (projects && projects.length > 0) {
-      console.log('🔥 HEAT MAP: Projects:', projects.map(p => `${p.name} (${p.id})`).join(', '));
+      console.log(
+        "🔥 HEAT MAP: Projects:",
+        projects.map((p) => `${p.name} (${p.id})`).join(", "),
+      );
     }
 
     if (!projects || projects.length === 0) {
-      console.log('No In-Progress projects found');
+      console.log("No In-Progress projects found");
       setAllocations([]);
       return;
     }
 
-    const projectIds = projects.map(p => p.id);
+    const projectIds = projects.map((p) => p.id);
 
     // Fetch ALL project tasks from all In-Progress projects
     const { data: projectTasks, error: tasksError } = await supabase
-      .from('project_tasks')
-      .select('project_id, task_data')
-      .in('project_id', projectIds);
+      .from("project_tasks")
+      .select("project_id, task_data")
+      .in("project_id", projectIds);
 
     if (tasksError) {
-      console.error('Error fetching project tasks:', tasksError);
+      console.error("Error fetching project tasks:", tasksError);
       return;
     }
 
-    console.log('🔥 HEAT MAP: Project Tasks Retrieved:', projectTasks?.length || 0);
+    console.log(
+      "🔥 HEAT MAP: Project Tasks Retrieved:",
+      projectTasks?.length || 0,
+    );
 
-    const projectTasksData: ProjectTaskData[] = (projectTasks || []).map(pt => ({
-      project_id: pt.project_id,
-      project_name: projects.find(p => p.id === pt.project_id)?.name || 'Unknown',
-      task_data: pt.task_data
-    }));
+    const projectTasksData: ProjectTaskData[] = (projectTasks || []).map(
+      (pt) => ({
+        project_id: pt.project_id,
+        project_name:
+          projects.find((p) => p.id === pt.project_id)?.name || "Unknown",
+        task_data: pt.task_data,
+      }),
+    );
 
-    console.log('🔥 HEAT MAP: Project tasks data:', projectTasksData.map(p =>
-      `${p.project_name}: ${p.task_data?.data?.length || 0} tasks`
-    ).join(', '));
+    console.log(
+      "🔥 HEAT MAP: Project tasks data:",
+      projectTasksData
+        .map(
+          (p) => `${p.project_name}: ${p.task_data?.data?.length || 0} tasks`,
+        )
+        .join(", "),
+    );
 
     // Step 1: If a specific project is selected, find which resources are allocated to it
     let resourceIdsInSelectedProject: Set<string> | null = null;
 
     if (projectId) {
       resourceIdsInSelectedProject = new Set<string>();
-      const selectedProjectTasks = projectTasksData.find(p => p.project_id === projectId);
+      const selectedProjectTasks = projectTasksData.find(
+        (p) => p.project_id === projectId,
+      );
 
       if (selectedProjectTasks?.task_data?.data) {
-        selectedProjectTasks.task_data.data.forEach(task => {
+        selectedProjectTasks.task_data.data.forEach((task) => {
           if (task.resource_ids && task.resource_ids.length > 0) {
-            task.resource_ids.forEach(resourceId => {
+            task.resource_ids.forEach((resourceId) => {
               resourceIdsInSelectedProject!.add(resourceId);
             });
           }
         });
       }
 
-      console.log(`=== HEAT MAP: Resources in selected project ${projectId} ===`, Array.from(resourceIdsInSelectedProject));
+      console.log(
+        `=== HEAT MAP: Resources in selected project ${projectId} ===`,
+        Array.from(resourceIdsInSelectedProject),
+      );
 
       if (resourceIdsInSelectedProject.size === 0) {
-        console.log('No resources allocated to selected project');
+        console.log("No resources allocated to selected project");
         setAllocations([]);
         return;
       }
     }
 
     // Step 2: Calculate hours for resources (filtered by project if specified)
-    console.log('=== HEAT MAP: Starting Resource Allocation Calculation ===');
+    console.log("=== HEAT MAP: Starting Resource Allocation Calculation ===");
     const resourceAllocationsMap = new Map<string, ResourceAllocation>();
 
     // Parse dates manually to avoid timezone issues
     const parseDate = (dateStr: string): Date => {
-      const datePart = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr.split(' ')[0];
-      const [year, month, day] = datePart.split('-').map(Number);
+      const datePart = dateStr.includes("T")
+        ? dateStr.split("T")[0]
+        : dateStr.split(" ")[0];
+      const [year, month, day] = datePart.split("-").map(Number);
       return new Date(year, month - 1, day);
     };
 
     // Calculate end date from start date and duration (accounting for weekends)
     // Duration represents working days (Mon-Fri only)
     // Returns the date AFTER the last working day (consistent with DHTMLX Gantt)
-    const calculateEndDate = (startDate: Date, durationInWorkingDays: number): Date => {
+    const calculateEndDate = (
+      startDate: Date,
+      durationInWorkingDays: number,
+    ): Date => {
       if (durationInWorkingDays === 0) return new Date(startDate);
 
       const endDate = new Date(startDate);
@@ -196,17 +224,27 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
       return endDate;
     };
 
-    projectTasksData.forEach(project => {
+    projectTasksData.forEach((project) => {
       if (!project.task_data?.data) {
-        console.log(`🔥 HEAT MAP: Project "${project.project_name}" has no task data`);
+        console.log(
+          `🔥 HEAT MAP: Project "${project.project_name}" has no task data`,
+        );
         return;
       }
 
-      console.log(`🔥 HEAT MAP: Processing project "${project.project_name}" with ${project.task_data.data.length} tasks`);
+      console.log(
+        `🔥 HEAT MAP: Processing project "${project.project_name}" with ${project.task_data.data.length} tasks`,
+      );
 
-      project.task_data.data.forEach(task => {
-        if (!task.start_date || !task.resource_ids || task.resource_ids.length === 0) {
-          console.log(`  ⚠️ Skipping task "${task.text}": start_date=${!!task.start_date}, resource_ids=${task.resource_ids?.length || 0}`);
+      project.task_data.data.forEach((task) => {
+        if (
+          !task.start_date ||
+          !task.resource_ids ||
+          task.resource_ids.length === 0
+        ) {
+          console.log(
+            `  ⚠️ Skipping task "${task.text}": start_date=${!!task.start_date}, resource_ids=${task.resource_ids?.length || 0}`,
+          );
           return;
         }
 
@@ -216,22 +254,31 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
         let taskEndDate: Date;
         if (task.end_date) {
           taskEndDate = parseDate(task.end_date);
-          console.log(`  📅 Task "${task.text}": Using provided end_date: ${taskEndDate.toDateString()}`);
+          console.log(
+            `  📅 Task "${task.text}": Using provided end_date: ${taskEndDate.toDateString()}`,
+          );
         } else if (task.duration !== undefined && task.duration > 0) {
           taskEndDate = calculateEndDate(taskStartDate, task.duration);
-          console.log(`  📅 Task "${task.text}": Calculated end date from duration ${task.duration} days: ${taskStartDate.toDateString()} -> ${taskEndDate.toDateString()}`);
+          console.log(
+            `  📅 Task "${task.text}": Calculated end date from duration ${task.duration} days: ${taskStartDate.toDateString()} -> ${taskEndDate.toDateString()}`,
+          );
         } else {
-          console.warn(`  ❌ Task "${task.text}" has no end_date or duration, skipping`);
+          console.warn(
+            `  ❌ Task "${task.text}" has no end_date or duration, skipping`,
+          );
           return;
         }
 
         task.resource_ids.forEach((resourceId, index) => {
           // Skip this resource if we're filtering by project and it's not in the selected project
-          if (resourceIdsInSelectedProject && !resourceIdsInSelectedProject.has(resourceId)) {
+          if (
+            resourceIdsInSelectedProject &&
+            !resourceIdsInSelectedProject.has(resourceId)
+          ) {
             return;
           }
 
-          const resourceName = task.resource_names?.[index] || 'Unknown';
+          const resourceName = task.resource_names?.[index] || "Unknown";
           const explicitHours = task.resource_work_hours?.[resourceId];
 
           // Fall back to duration-based estimate (8h/day) when no explicit hours are set
@@ -239,33 +286,54 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
           if (explicitHours != null && explicitHours > 0) {
             workHours = explicitHours;
           } else {
-            const workingDayCount = task.duration && task.duration > 0
-              ? task.duration
-              : (task.end_date ? calculateWorkingDays(taskStartDate, parseDate(task.end_date)) : 0);
+            const workingDayCount =
+              task.duration && task.duration > 0
+                ? task.duration
+                : task.end_date
+                  ? calculateWorkingDays(
+                      taskStartDate,
+                      parseDate(task.end_date),
+                    )
+                  : 0;
             workHours = workingDayCount * 8;
           }
 
           if (workHours === 0) {
-            console.log(`  ⚠️ Task "${task.text}" resource "${resourceName}": 0 work hours, skipping`);
+            console.log(
+              `  ⚠️ Task "${task.text}" resource "${resourceName}": 0 work hours, skipping`,
+            );
             return;
           }
 
-          console.log(`  ✅ Task "${task.text}", Resource: ${resourceName}, Work Hours: ${workHours}`);
+          console.log(
+            `  ✅ Task "${task.text}", Resource: ${resourceName}, Work Hours: ${workHours}`,
+          );
 
           if (!resourceAllocationsMap.has(resourceId)) {
             resourceAllocationsMap.set(resourceId, {
               resourceId,
               resourceName,
               weeklyAllocations: new Map<string, number>(),
-              totalHours: 0
+              totalHours: 0,
             });
           }
 
           const allocation = resourceAllocationsMap.get(resourceId)!;
-          console.log(`  🔄 Distributing ${workHours}h from ${taskStartDate.toDateString()} to ${taskEndDate.toDateString()}`);
-          const weeklyHours = distributeHoursAcrossWeeks(taskStartDate, taskEndDate, workHours);
+          console.log(
+            `  🔄 Distributing ${workHours}h from ${taskStartDate.toDateString()} to ${taskEndDate.toDateString()}`,
+          );
+          const weeklyHours = distributeHoursAcrossWeeks(
+            taskStartDate,
+            taskEndDate,
+            workHours,
+          );
 
-          console.log(`  📊 Weekly distribution result:`, Array.from(weeklyHours.entries()).map(([week, hours]) => `${week}: ${hours.toFixed(2)}h`).join(', '));
+          console.log(
+            `  📊 Weekly distribution result:`,
+            Array.from(weeklyHours.entries())
+              .map(([week, hours]) => `${week}: ${hours.toFixed(2)}h`)
+              .join(", "),
+          );
 
           weeklyHours.forEach((hours, weekKey) => {
             const currentHours = allocation.weeklyAllocations.get(weekKey) || 0;
@@ -277,16 +345,21 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
       });
     });
 
-    const finalAllocations = Array.from(resourceAllocationsMap.values()).sort((a, b) =>
-      a.resourceName.localeCompare(b.resourceName)
+    const finalAllocations = Array.from(resourceAllocationsMap.values()).sort(
+      (a, b) => a.resourceName.localeCompare(b.resourceName),
     );
 
-    console.log('=== HEAT MAP: Final Allocations ===', finalAllocations.length);
-    finalAllocations.forEach(allocation => {
-      console.log(`Resource: ${allocation.resourceName}, Total Hours: ${allocation.totalHours}`);
-      console.log('  Weekly breakdown:', Array.from(allocation.weeklyAllocations.entries())
-        .map(([week, hours]) => `${week}: ${hours.toFixed(2)}h`)
-        .join(', '));
+    console.log("=== HEAT MAP: Final Allocations ===", finalAllocations.length);
+    finalAllocations.forEach((allocation) => {
+      console.log(
+        `Resource: ${allocation.resourceName}, Total Hours: ${allocation.totalHours}`,
+      );
+      console.log(
+        "  Weekly breakdown:",
+        Array.from(allocation.weeklyAllocations.entries())
+          .map(([week, hours]) => `${week}: ${hours.toFixed(2)}h`)
+          .join(", "),
+      );
     });
 
     setAllocations(finalAllocations);
@@ -295,7 +368,7 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
   const distributeHoursAcrossWeeks = (
     startDate: Date,
     endDate: Date,
-    totalHours: number
+    totalHours: number,
   ): Map<string, number> => {
     const weeklyHours = new Map<string, number>();
 
@@ -310,15 +383,22 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
 
     // If task duration is specified and it's reasonable, use duration-based distribution
     // Otherwise, use capacity-based distribution
-    const useCapacityBased = workingDays === 0 || (totalHours / workingDays) > MAX_HOURS_PER_DAY;
+    const useCapacityBased =
+      workingDays === 0 || totalHours / workingDays > MAX_HOURS_PER_DAY;
 
     if (useCapacityBased) {
       // Capacity-based: Distribute hours starting from start date, allocating up to 8 hours per working day
       // This ensures tasks span multiple weeks if they exceed weekly capacity
       let remainingHours = totalHours;
-      const currentDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+      const currentDate = new Date(
+        startDate.getFullYear(),
+        startDate.getMonth(),
+        startDate.getDate(),
+      );
 
-      console.log(`  Using capacity-based distribution for ${totalHours} hours from ${startDate.toDateString()}`);
+      console.log(
+        `  Using capacity-based distribution for ${totalHours} hours from ${startDate.toDateString()}`,
+      );
 
       // Keep allocating until all hours are distributed
       while (remainingHours > 0) {
@@ -334,24 +414,35 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
 
           remainingHours -= hoursToAllocate;
 
-          console.log(`    ${currentDate.toDateString()}: allocated ${hoursToAllocate.toFixed(2)}h to week ${weekKey}, remaining: ${remainingHours.toFixed(2)}h`);
+          console.log(
+            `    ${currentDate.toDateString()}: allocated ${hoursToAllocate.toFixed(2)}h to week ${weekKey}, remaining: ${remainingHours.toFixed(2)}h`,
+          );
         }
 
         currentDate.setDate(currentDate.getDate() + 1);
 
         // Safety check to prevent infinite loops (max 1 year allocation)
-        if (currentDate.getTime() > startDate.getTime() + (365 * 24 * 60 * 60 * 1000)) {
-          console.warn('Distribution exceeded 1 year, stopping allocation');
+        if (
+          currentDate.getTime() >
+          startDate.getTime() + 365 * 24 * 60 * 60 * 1000
+        ) {
+          console.warn("Distribution exceeded 1 year, stopping allocation");
           break;
         }
       }
     } else {
       // Duration-based: Distribute hours evenly across the specified task duration
       const hoursPerDay = totalHours / workingDays;
-      const currentDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+      const currentDate = new Date(
+        startDate.getFullYear(),
+        startDate.getMonth(),
+        startDate.getDate(),
+      );
       const endDateTime = endDate.getTime();
 
-      console.log(`  Using duration-based distribution: ${hoursPerDay.toFixed(2)}h per day across ${workingDays} working days`);
+      console.log(
+        `  Using duration-based distribution: ${hoursPerDay.toFixed(2)}h per day across ${workingDays} working days`,
+      );
 
       while (currentDate.getTime() < endDateTime) {
         const dayOfWeek = currentDate.getDay();
@@ -372,7 +463,11 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
   const calculateWorkingDays = (startDate: Date, endDate: Date): number => {
     let days = 0;
     const workingDaysList: string[] = [];
-    const current = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    const current = new Date(
+      startDate.getFullYear(),
+      startDate.getMonth(),
+      startDate.getDate(),
+    );
     const endDateTime = endDate.getTime();
 
     while (current.getTime() < endDateTime) {
@@ -384,19 +479,23 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
       current.setDate(current.getDate() + 1);
     }
 
-    console.log(`    Working days (${days}):`, workingDaysList.join(', '));
+    console.log(`    Working days (${days}):`, workingDaysList.join(", "));
     return days;
   };
 
   const getWeekKey = (date: Date): string => {
-    const startOfWeek = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const startOfWeek = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+    );
     const day = startOfWeek.getDay();
     const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
     startOfWeek.setDate(diff);
 
     const year = startOfWeek.getFullYear();
-    const month = String(startOfWeek.getMonth() + 1).padStart(2, '0');
-    const dayOfMonth = String(startOfWeek.getDate()).padStart(2, '0');
+    const month = String(startOfWeek.getMonth() + 1).padStart(2, "0");
+    const dayOfMonth = String(startOfWeek.getDate()).padStart(2, "0");
 
     return `${year}-${month}-${dayOfMonth}`;
   };
@@ -414,8 +513,8 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
       const weekDate = new Date(current);
       // Use same formatting method as getWeekKey to ensure consistency
       const year = weekDate.getFullYear();
-      const month = String(weekDate.getMonth() + 1).padStart(2, '0');
-      const dayOfMonth = String(weekDate.getDate()).padStart(2, '0');
+      const month = String(weekDate.getMonth() + 1).padStart(2, "0");
+      const dayOfMonth = String(weekDate.getDate()).padStart(2, "0");
       const weekKey = `${year}-${month}-${dayOfMonth}`;
 
       // Calculate end of week (Friday - 4 days later from Monday)
@@ -423,20 +522,34 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
       endDate.setDate(endDate.getDate() + 4);
 
       // Format: "9 Feb - 13 Feb" (Monday - Friday)
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const monthNames = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
       const startDay = weekDate.getDate();
       const startMonth = monthNames[weekDate.getMonth()];
       const endDay = endDate.getDate();
       const endMonth = monthNames[endDate.getMonth()];
 
-      const label = startMonth === endMonth
-        ? `${startDay} - ${endDay} ${startMonth}`
-        : `${startDay} ${startMonth} - ${endDay} ${endMonth}`;
+      const label =
+        startMonth === endMonth
+          ? `${startDay} - ${endDay} ${startMonth}`
+          : `${startDay} ${startMonth} - ${endDay} ${endMonth}`;
 
       weeks.push({
         key: weekKey,
         label: label,
-        date: new Date(weekDate)
+        date: new Date(weekDate),
       });
 
       current.setDate(current.getDate() + 7);
@@ -446,22 +559,24 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
   }, [startDate, weeksToShow]);
 
   const getHeatColor = (hours: number): string => {
-    if (hours === 0) return 'bg-gray-300';
-    if (hours <= 30) return 'bg-gradient-to-br from-[#276A6C] to-[#5DB6B8] text-white';
-    if (hours <= 40) return 'bg-gradient-to-br from-[#C76F21] to-[#FAAF65] text-white';
-    return 'bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A] text-white';
+    if (hours === 0) return "bg-gray-300";
+    if (hours <= 30)
+      return "bg-gradient-to-br from-[#276A6C] to-[#5DB6B8] text-white";
+    if (hours <= 40)
+      return "bg-gradient-to-br from-[#C76F21] to-[#FAAF65] text-white";
+    return "bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A] text-white";
   };
 
   const getCapacityIndicator = (hours: number): string => {
-    if (hours === 0) return '';
-    if (hours <= 30) return '🟢';
-    if (hours <= 40) return '🟡';
-    return '🔴';
+    if (hours === 0) return "";
+    if (hours <= 30) return "🟢";
+    if (hours <= 40) return "🟡";
+    return "🔴";
   };
 
   const navigateWeeks = (offset: number) => {
     const newDate = new Date(startDate);
-    newDate.setDate(newDate.getDate() + (offset * 7));
+    newDate.setDate(newDate.getDate() + offset * 7);
     setStartDate(newDate);
   };
 
@@ -482,7 +597,9 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
       <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-8">
         <div className="flex flex-col items-center justify-center text-center">
           <AlertCircle className="w-12 h-12 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Resource Allocations</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            No Resource Allocations
+          </h3>
           <p className="text-gray-500">
             {projectId
               ? "No resources are allocated to the selected project."
@@ -544,7 +661,9 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
                 <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200 min-w-[100px]">
                   <div className="flex flex-col">
                     <span>Total Hours</span>
-                    <span className="text-[10px] normal-case">(visible weeks)</span>
+                    <span className="text-[10px] normal-case">
+                      (visible weeks)
+                    </span>
                   </div>
                 </th>
                 {weekColumns.map((week, index) => (
@@ -566,15 +685,21 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
                   <td className="px-4 py-3 text-center text-sm text-gray-900 border-r border-gray-200">
                     <div className="flex flex-col items-center">
                       <span className="font-semibold">
-                        {weekColumns.reduce((sum, week) => {
-                          return sum + (allocation.weeklyAllocations.get(week.key) || 0);
-                        }, 0).toFixed(1)}
+                        {weekColumns
+                          .reduce((sum, week) => {
+                            return (
+                              sum +
+                              (allocation.weeklyAllocations.get(week.key) || 0)
+                            );
+                          }, 0)
+                          .toFixed(1)}
                       </span>
                       <span className="text-xs text-gray-500">hrs</span>
                     </div>
                   </td>
                   {weekColumns.map((week) => {
-                    const hours = allocation.weeklyAllocations.get(week.key) || 0;
+                    const hours =
+                      allocation.weeklyAllocations.get(week.key) || 0;
                     const indicator = getCapacityIndicator(hours);
 
                     return (
@@ -585,7 +710,9 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
                       >
                         {hours > 0 ? (
                           <div className="flex flex-col items-center">
-                            <span className="font-medium">{hours.toFixed(1)}</span>
+                            <span className="font-medium">
+                              {hours.toFixed(1)}
+                            </span>
                           </div>
                         ) : (
                           <span className="text-gray-300">-</span>
@@ -627,7 +754,9 @@ export default function ResourceAllocationHeatMap({ projectId }: ResourceAllocat
               : "All hours shown are actual calculated allocations from task assignments. Hours are distributed based on an 8-hour workday capacity, spanning multiple weeks as needed. Tasks are allocated across working days (Mon-Fri) with a maximum of 40 hours per week. Standard capacity reference: 40 hrs/week."}
           </p>
           <p className="text-xs text-blue-600 font-medium">
-            Note: Only hours within the visible date range are displayed. Use Previous/Next buttons or adjust the weeks dropdown to view allocations in other time periods.
+            Note: Only hours within the visible date range are displayed. Use
+            Previous/Next buttons or adjust the weeks dropdown to view
+            allocations in other time periods.
           </p>
         </div>
       </div>
