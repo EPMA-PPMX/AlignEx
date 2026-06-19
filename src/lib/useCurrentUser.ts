@@ -23,23 +23,23 @@ export interface DashboardWidget {
   settings: Record<string, any>;
 }
 
-export const DEMO_USER_EMAILID = 'colon@albemarle.com';
+export const DEMO_USER_EMAILID = localStorage.getItem('email')?.toLocaleLowerCase() || '';
 export const DEMO_USER_ID = '0';
-export const DEMO_TENANT_NAME = 'albemarle';
+export const DEMO_TENANT_NAME = localStorage.getItem('domain')?.replace('inc.com', '') || '';
 
 const DEFAULT_WIDGETS: Omit<DashboardWidget, 'id' | 'user_id'>[] = [
-  { widget_type: 'team_capacity',      is_enabled: true,  position_order: 1,  size: 'medium', settings: {} },
-  { widget_type: 'my_projects',        is_enabled: true,  position_order: 2,  size: 'medium', settings: {} },
-  { widget_type: 'my_risks',           is_enabled: true,  position_order: 3,  size: 'small',  settings: {} },
-  { widget_type: 'my_issues',          is_enabled: true,  position_order: 4,  size: 'small',  settings: {} },
-  { widget_type: 'my_tasks',           is_enabled: true,  position_order: 5,  size: 'small',  settings: {} },
-  { widget_type: 'personal_goals',     is_enabled: true,  position_order: 6,  size: 'small',  settings: {} },
-  { widget_type: 'pending_approvals',  is_enabled: true,  position_order: 7,  size: 'small',  settings: {} },
-  { widget_type: 'deadlines',          is_enabled: false, position_order: 8,  size: 'small',  settings: {} },
-  { widget_type: 'timesheet_quick',    is_enabled: true,  position_order: 9,  size: 'small',  settings: {} },
-  { widget_type: 'recent_activity',    is_enabled: false, position_order: 10, size: 'medium', settings: {} },
-  { widget_type: 'project_health',     is_enabled: false, position_order: 11, size: 'medium', settings: {} },
-  { widget_type: 'my_change_requests', is_enabled: true,  position_order: 12, size: 'medium', settings: {} },
+  { widget_type: 'team_capacity', is_enabled: true, position_order: 1, size: 'medium', settings: {} },
+  { widget_type: 'my_projects', is_enabled: true, position_order: 2, size: 'medium', settings: {} },
+  { widget_type: 'my_risks', is_enabled: true, position_order: 3, size: 'small', settings: {} },
+  { widget_type: 'my_issues', is_enabled: true, position_order: 4, size: 'small', settings: {} },
+  { widget_type: 'my_tasks', is_enabled: true, position_order: 5, size: 'small', settings: {} },
+  { widget_type: 'personal_goals', is_enabled: true, position_order: 6, size: 'small', settings: {} },
+  { widget_type: 'pending_approvals', is_enabled: true, position_order: 7, size: 'small', settings: {} },
+  { widget_type: 'deadlines', is_enabled: false, position_order: 8, size: 'small', settings: {} },
+  { widget_type: 'timesheet_quick', is_enabled: true, position_order: 9, size: 'small', settings: {} },
+  { widget_type: 'recent_activity', is_enabled: false, position_order: 10, size: 'medium', settings: {} },
+  { widget_type: 'project_health', is_enabled: false, position_order: 11, size: 'medium', settings: {} },
+  { widget_type: 'my_change_requests', is_enabled: true, position_order: 12, size: 'medium', settings: {} },
 ];
 
 export function useCurrentUser() {
@@ -61,7 +61,7 @@ export function useCurrentUser() {
       .insert(rows)
       .select();
     if (error) throw error;
-    return (data || []).sort((a, b) => a.position_order - b.position_order);
+    return (data || []).sort((a: { position_order: number; }, b: { position_order: number; }) => a.position_order - b.position_order);
   };
 
   const fetchCurrentUser = async () => {
@@ -110,7 +110,7 @@ export function useCurrentUser() {
 
       const { data: widgetsData, error: widgetsError } = await supabase
         .from('user_dashboard_widgets')
-        .select('*')
+        .select('id, user_id, widget_type, is_enabled, position_order, size, settings')
         .eq('user_id', licenseData.id)
         .order('position_order');
 
