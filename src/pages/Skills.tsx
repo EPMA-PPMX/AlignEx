@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { User, Target, Trophy } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
-import MySkillsTab from '../components/skills/MySkillsTab';
-import RoleComparisonTab from '../components/skills/RoleComparisonTab';
-import MyGoalsTab from '../components/skills/MyGoalsTab';
-import RequiresModule from '../components/RequiresModule';
-import { DEMO_USER_ID } from '../lib/useCurrentUser';
+import React, { useState, useEffect } from "react";
+import { User, Target, Trophy } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { supabase } from "../lib/supabase";
+import MySkillsTab from "../components/skills/MySkillsTab";
+import RoleComparisonTab from "../components/skills/RoleComparisonTab";
+import MyGoalsTab from "../components/skills/MyGoalsTab";
+import RequiresModule from "../components/RequiresModule";
+import { DEMO_USER_ID } from "../lib/useCurrentUser";
 
 interface SkillCategory {
   id: string;
@@ -38,19 +38,22 @@ interface UserSkill {
 
 const USER_ID = DEMO_USER_ID;
 
-type TabType = 'my-skills' | 'role-comparison' | 'my-goals';
+type TabType = "my-skills" | "role-comparison" | "my-goals";
 
 export default function Skills() {
   const [searchParams] = useSearchParams();
-  const tabParam = searchParams.get('tab') as TabType | null;
-  const [activeTab, setActiveTab] = useState<TabType>(tabParam || 'my-skills');
+  const tabParam = searchParams.get("tab") as TabType | null;
+  const [activeTab, setActiveTab] = useState<TabType>(tabParam || "my-skills");
   const [categories, setCategories] = useState<SkillCategory[]>([]);
   const [allSkills, setAllSkills] = useState<Skill[]>([]);
   const [userSkills, setUserSkills] = useState<Record<string, UserSkill>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (tabParam && ['my-skills', 'role-comparison', 'my-goals'].includes(tabParam)) {
+    if (
+      tabParam &&
+      ["my-skills", "role-comparison", "my-goals"].includes(tabParam)
+    ) {
       setActiveTab(tabParam);
     }
   }, [tabParam]);
@@ -63,11 +66,25 @@ export default function Skills() {
     try {
       setLoading(true);
 
-      const [categoriesResult, skillsResult, userSkillsResult] = await Promise.all([
-        supabase.from('skill_categories').select('*').order('name'),
-        supabase.from('skills').select('*').order('name'),
-        supabase.from('user_skills').select('*').eq('user_id', USER_ID),
-      ]);
+      const [categoriesResult, skillsResult, userSkillsResult] =
+        await Promise.all([
+          supabase
+            .from("skill_categories")
+            .select("id, name, description, created_at, updated_at, manager")
+            .order("name"),
+          supabase
+            .from("skills")
+            .select(
+              "id, name, category_id, description, created_at, updated_at, is_core, is_certifiable, is_in_demand",
+            )
+            .order("name"),
+          supabase
+            .from("user_skills")
+            .select(
+              "id, user_id, skill_id, proficiency_level, years_of_experience, certification_name, certification_date, certification_expiry, comments, created_at, updated_at",
+            )
+            .eq("user_id", USER_ID),
+        ]);
 
       if (categoriesResult.error) throw categoriesResult.error;
       if (skillsResult.error) throw skillsResult.error;
@@ -77,19 +94,21 @@ export default function Skills() {
       setAllSkills(skillsResult.data || []);
 
       const skillsMap: Record<string, UserSkill> = {};
-      (userSkillsResult.data || []).forEach((us) => {
+      (userSkillsResult.data || []).forEach((us: any) => {
         skillsMap[us.skill_id] = us;
       });
       setUserSkills(skillsMap);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error("Error fetching data:", error);
     } finally {
       setLoading(false);
     }
   };
 
   if (loading) {
-    return <div className="text-center py-12 text-gray-600">Loading skills...</div>;
+    return (
+      <div className="text-center py-12 text-gray-600">Loading skills...</div>
+    );
   }
 
   return (
@@ -97,39 +116,41 @@ export default function Skills() {
       <div className="p-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">My Skills</h1>
-          <p className="text-gray-600">Rate your proficiency in each skill area</p>
+          <p className="text-gray-600">
+            Rate your proficiency in each skill area
+          </p>
         </div>
 
         <div className="mb-6 border-b border-gray-200">
           <div className="flex gap-1">
             <button
-              onClick={() => setActiveTab('my-skills')}
+              onClick={() => setActiveTab("my-skills")}
               className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors border-b-2 ${
-                activeTab === 'my-skills'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                activeTab === "my-skills"
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-gray-600 hover:text-gray-900"
               }`}
             >
               <User className="w-5 h-5" />
               My Skills
             </button>
             <button
-              onClick={() => setActiveTab('role-comparison')}
+              onClick={() => setActiveTab("role-comparison")}
               className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors border-b-2 ${
-                activeTab === 'role-comparison'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                activeTab === "role-comparison"
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-gray-600 hover:text-gray-900"
               }`}
             >
               <Target className="w-5 h-5" />
               Role Comparison
             </button>
             <button
-              onClick={() => setActiveTab('my-goals')}
+              onClick={() => setActiveTab("my-goals")}
               className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors border-b-2 ${
-                activeTab === 'my-goals'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                activeTab === "my-goals"
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-gray-600 hover:text-gray-900"
               }`}
             >
               <Trophy className="w-5 h-5" />
@@ -139,7 +160,7 @@ export default function Skills() {
         </div>
 
         <div className="mt-6">
-          {activeTab === 'my-skills' && (
+          {activeTab === "my-skills" && (
             <MySkillsTab
               categories={categories}
               allSkills={allSkills}
@@ -148,8 +169,10 @@ export default function Skills() {
               onRefresh={fetchData}
             />
           )}
-          {activeTab === 'role-comparison' && <RoleComparisonTab userId={USER_ID} />}
-          {activeTab === 'my-goals' && <MyGoalsTab userId={USER_ID} />}
+          {activeTab === "role-comparison" && (
+            <RoleComparisonTab userId={USER_ID} />
+          )}
+          {activeTab === "my-goals" && <MyGoalsTab userId={USER_ID} />}
         </div>
       </div>
     </RequiresModule>
