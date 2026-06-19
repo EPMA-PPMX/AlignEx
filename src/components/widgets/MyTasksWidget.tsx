@@ -1,7 +1,13 @@
-import { useState, useEffect } from 'react';
-import { CheckSquare, AlertCircle, FolderOpen, Clock, ChevronRight } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import {
+  CheckSquare,
+  AlertCircle,
+  FolderOpen,
+  Clock,
+  ChevronRight,
+} from "lucide-react";
+import { supabase } from "../../lib/supabase";
+import { Link } from "react-router-dom";
 
 interface Props {
   userId: string;
@@ -53,17 +59,33 @@ export default function MyTasksWidget({ resourceId }: Props) {
         return;
       }
 
-      const { data, error } = await supabase
-        .from('project_tasks')
-        .select(`
+      /*const { data, error } = await supabase.from("project_tasks").select(`
           id,
           project_id,
           task_data,
-          projects (
-            id,
-            name
-          )
-        `);
+         projects(id,name)`);*/
+
+      const { data: tasks } = await supabase.from("project_tasks").select("*");
+
+      const projectIds = [
+        ...new Set(tasks?.map((t: any) => t.project_id) || []),
+      ];
+
+      const { data: projects, error } = await supabase
+        .from("projects")
+        .select("id,name")
+        .in("id", projectIds);
+
+      // Create lookup dictionary
+      const projectMap = Object.fromEntries(
+        (projects || []).map((project: any) => [project.id, project]),
+      );
+
+      // Join data
+      const tasksWithProjects = (tasks || []).map((task: any) => ({
+        ...task,
+        project: projectMap[task.project_id] || null,
+      }));
 
       if (error) throw error;
 
@@ -72,13 +94,14 @@ export default function MyTasksWidget({ resourceId }: Props) {
 
       const myTasks: Task[] = [];
 
-      (data || []).forEach((projectTask: any) => {
+      (tasksWithProjects || []).forEach((projectTask: any) => {
         const ganttData = projectTask.task_data?.data || [];
 
         ganttData.forEach((task: any) => {
           // Check if the task is assigned to the user's resource_id using owner_id
           const isAssignedToMe = task.owner_id === resourceId;
-          const isNotCompleted = task.status !== 'Completed' && task.status !== 'Cancelled';
+          const isNotCompleted =
+            task.status !== "Completed" && task.status !== "Cancelled";
           const isNotFullyComplete = !task.progress || task.progress < 1;
 
           // Show all tasks assigned to me that aren't completed or at 100% progress
@@ -88,22 +111,24 @@ export default function MyTasksWidget({ resourceId }: Props) {
 
             // Log warning if end_date is missing for data quality monitoring
             if (!endDate && task.start_date) {
-              console.warn(`Task "${task.text}" (ID: ${task.id}) is missing end_date in project ${projectTask.project_id}`);
+              console.warn(
+                `Task "${task.text}" (ID: ${task.id}) is missing end_date in project ${projectTask.project_id}`,
+              );
             }
 
             myTasks.push({
               id: projectTask.id,
               task_id: task.id,
               project_id: projectTask.project_id,
-              title: task.text || 'Untitled Task',
-              status: task.status || 'Not Started',
-              priority: task.priority || 'Medium',
+              title: task.text || "Untitled Task",
+              status: task.status || "Not Started",
+              priority: task.priority || "Medium",
               start_date: task.start_date,
               end_date: endDate || null,
               duration: task.duration || 0,
               progress: task.progress || 0,
               assigned_to: task.owner_id,
-              project: projectTask.projects
+              project: projectTask.projects,
             });
           }
         });
@@ -117,7 +142,7 @@ export default function MyTasksWidget({ resourceId }: Props) {
 
       setTasks(myTasks.slice(0, 10));
     } catch (err) {
-      console.error('Error fetching tasks:', err);
+      console.error("Error fetching tasks:", err);
     } finally {
       setLoading(false);
     }
@@ -129,7 +154,9 @@ export default function MyTasksWidget({ resourceId }: Props) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     target.setHours(0, 0, 0, 0);
-    const diff = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const diff = Math.ceil(
+      (target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+    );
     return diff;
   };
 
@@ -137,21 +164,21 @@ export default function MyTasksWidget({ resourceId }: Props) {
     const projectId = task.project_id;
     if (!acc[projectId]) {
       acc[projectId] = {
-        projectName: task.project?.name || 'Unknown Project',
+        projectName: task.project?.name || "Unknown Project",
         projectId: projectId,
-        tasks: []
+        tasks: [],
       };
     }
     acc[projectId].tasks.push(task);
     return acc;
   }, {} as GroupedTasks);
 
-  const overdueCount = tasks.filter(t => {
+  const overdueCount = tasks.filter((t) => {
     const days = getDaysFromToday(t.start_date);
     return days !== null && days < 0;
   }).length;
 
-  const startingTodayCount = tasks.filter(t => {
+  const startingTodayCount = tasks.filter((t) => {
     const days = getDaysFromToday(t.start_date);
     return days === 0;
   }).length;
@@ -166,7 +193,7 @@ export default function MyTasksWidget({ resourceId }: Props) {
           </h3>
         </div>
         <div className="animate-pulse space-y-2">
-          {[1, 2, 3].map(i => (
+          {[1, 2, 3].map((i) => (
             <div key={i} className="h-20 bg-gray-200 rounded"></div>
           ))}
         </div>
@@ -211,7 +238,9 @@ export default function MyTasksWidget({ resourceId }: Props) {
               >
                 <FolderOpen className="w-4 h-4 text-gray-400 group-hover:text-[#5B2C91]" />
                 <span className="truncate">{group.projectName}</span>
-                <span className="text-xs text-gray-500">({group.tasks.length})</span>
+                <span className="text-xs text-gray-500">
+                  ({group.tasks.length})
+                </span>
               </Link>
 
               <div className="space-y-1.5 ml-6">
@@ -219,7 +248,10 @@ export default function MyTasksWidget({ resourceId }: Props) {
                   const daysFromToday = getDaysFromToday(task.end_date);
                   const isOverdue = daysFromToday !== null && daysFromToday < 0;
                   const isStartingToday = daysFromToday === 0;
-                  const isStartingSoon = daysFromToday !== null && daysFromToday > 0 && daysFromToday <= 3;
+                  const isStartingSoon =
+                    daysFromToday !== null &&
+                    daysFromToday > 0 &&
+                    daysFromToday <= 3;
 
                   return (
                     <Link
@@ -229,7 +261,9 @@ export default function MyTasksWidget({ resourceId }: Props) {
                     >
                       <div className="flex items-start justify-between mb-1.5">
                         <div className="flex-1 min-w-0">
-                          <h4 className="text-gray-900 font-medium text-sm truncate">{task.title}</h4>
+                          <h4 className="text-gray-900 font-medium text-sm truncate">
+                            {task.title}
+                          </h4>
                         </div>
                         {isOverdue && (
                           <AlertCircle className="w-4 h-4 text-[#E74C3C] flex-shrink-0 ml-2" />
@@ -241,24 +275,41 @@ export default function MyTasksWidget({ resourceId }: Props) {
                           <div className="flex items-center gap-3">
                             <div className="flex items-center gap-1">
                               <span className="font-medium">Start:</span>
-                              <span>{task.start_date ? new Date(task.start_date).toLocaleDateString() : 'N/A'}</span>
+                              <span>
+                                {task.start_date
+                                  ? new Date(
+                                      task.start_date,
+                                    ).toLocaleDateString()
+                                  : "N/A"}
+                              </span>
                             </div>
                             <div className="flex items-center gap-1">
                               <span className="font-medium">Finish:</span>
-                              <span>{task.end_date ? new Date(task.end_date).toLocaleDateString() : 'N/A'}</span>
+                              <span>
+                                {task.end_date
+                                  ? new Date(task.end_date).toLocaleDateString()
+                                  : "N/A"}
+                              </span>
                             </div>
                           </div>
                           {task.end_date && (
-                            <div className={`flex items-center gap-1 text-xs font-medium ${
-                              isOverdue ? 'text-[#E74C3C]' :
-                              isStartingToday ? 'text-[#F39C12]' :
-                              isStartingSoon ? 'text-[#F39C12]' :
-                              'text-gray-600'
-                            }`}>
+                            <div
+                              className={`flex items-center gap-1 text-xs font-medium ${
+                                isOverdue
+                                  ? "text-[#E74C3C]"
+                                  : isStartingToday
+                                    ? "text-[#F39C12]"
+                                    : isStartingSoon
+                                      ? "text-[#F39C12]"
+                                      : "text-gray-600"
+                              }`}
+                            >
                               <Clock className="w-3 h-3" />
-                              {isOverdue ? `${Math.abs(daysFromToday!)}d overdue` :
-                               isStartingToday ? 'Due today' :
-                               `Due in ${daysFromToday}d`}
+                              {isOverdue
+                                ? `${Math.abs(daysFromToday!)}d overdue`
+                                : isStartingToday
+                                  ? "Due today"
+                                  : `Due in ${daysFromToday}d`}
                             </div>
                           )}
                         </div>
@@ -267,7 +318,9 @@ export default function MyTasksWidget({ resourceId }: Props) {
                           <div className="flex-1 bg-[#E8E4F1] rounded-full h-2 overflow-hidden">
                             <div
                               className="bg-gradient-dark h-full rounded-full transition-all"
-                              style={{ width: `${(task.progress || 0) * 100}%` }}
+                              style={{
+                                width: `${(task.progress || 0) * 100}%`,
+                              }}
                             />
                           </div>
                           <span className="text-xs font-medium text-gray-700 min-w-[3rem] text-right">
@@ -288,7 +341,10 @@ export default function MyTasksWidget({ resourceId }: Props) {
         <div className="mt-3 pt-3 border-t border-gray-200">
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-600">{tasks.length} active tasks</span>
-            <Link to="/projects" className="text-blue-600 hover:text-blue-700 flex items-center gap-1">
+            <Link
+              to="/projects"
+              className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
+            >
               View All
               <ChevronRight className="w-4 h-4" />
             </Link>

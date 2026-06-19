@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { AlertCircle, ChevronRight } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import { AlertCircle, ChevronRight } from "lucide-react";
+import { supabase } from "../../lib/supabase";
+import { Link } from "react-router-dom";
 
 interface Props {
   userId: string;
@@ -40,10 +40,10 @@ export default function MyIssuesWidget({ resourceId }: Props) {
       }
 
       const { data: pmField, error: pmFieldError } = await supabase
-        .from('custom_fields')
-        .select('id')
-        .eq('field_name', 'Project Manager')
-        .eq('entity_type', 'project')
+        .from("custom_fields")
+        .select("id")
+        .eq("field_name", "Project Manager")
+        .eq("entity_type", "project")
         .maybeSingle();
 
       if (pmFieldError) throw pmFieldError;
@@ -52,24 +52,26 @@ export default function MyIssuesWidget({ resourceId }: Props) {
 
       if (pmField) {
         const { data: projectFieldValues, error: pfvError } = await supabase
-          .from('project_field_values')
-          .select('project_id')
-          .eq('field_id', pmField.id)
-          .eq('value', resourceId);
+          .from("project_field_values")
+          .select("project_id")
+          .eq("field_id", pmField.id)
+          .eq("value", resourceId);
 
         if (pfvError) throw pfvError;
 
-        projectIds = (projectFieldValues || []).map(pfv => pfv.project_id);
+        projectIds = (projectFieldValues || []).map(
+          (pfv: any) => pfv.project_id,
+        );
       }
 
       const { data: teamData, error: teamError } = await supabase
-        .from('project_team_members')
-        .select('project_id')
-        .eq('resource_id', resourceId);
+        .from("project_team_members")
+        .select("project_id")
+        .eq("resource_id", resourceId);
 
       if (teamError) throw teamError;
 
-      const teamProjectIds = (teamData || []).map(t => t.project_id);
+      const teamProjectIds = (teamData || []).map((t: any) => t.project_id);
       projectIds = [...new Set([...projectIds, ...teamProjectIds])];
 
       if (projectIds.length === 0) {
@@ -77,24 +79,75 @@ export default function MyIssuesWidget({ resourceId }: Props) {
         return;
       }
 
+      // Get Issues
       const { data: issuesData, error: issuesError } = await supabase
-        .from('project_issues')
-        .select('*, projects(name)')
-        .in('project_id', projectIds)
-        .eq('status', 'Active')
-        .order('created_at', { ascending: false })
+        .from("project_issues")
+        .select(
+          `
+    id,
+    project_id,
+    title,
+    description,
+    category,
+    priority,
+    status,
+    owner,
+    assigned_to,
+    resolution,
+    created_at,
+    updated_at,
+    impact
+  `,
+        )
+        .in("project_id", projectIds)
+        .eq("status", "Active")
+        .order("created_at", { ascending: false })
         .limit(5);
+
+      if (issuesError) {
+        throw issuesError;
+      }
+
+      // Get unique project IDs
+      const issueProjectIds = [
+        ...new Set(
+          (issuesData || [])
+            .map((issue: any) => issue.project_id)
+            .filter(Boolean),
+        ),
+      ];
+
+      // Get projects
+      const { data: projectsData, error: projectsError } = await supabase
+        .from("projects")
+        .select("id,name")
+        .in("id", issueProjectIds);
+
+      if (projectsError) {
+        throw projectsError;
+      }
+
+      // Create lookup
+      const projectMap = Object.fromEntries(
+        (projectsData || []).map((project: any) => [project.id, project]),
+      );
+
+      // Join data
+      const issuesWithProjects = (issuesData || []).map((issue: any) => ({
+        ...issue,
+        projects: projectMap[issue.project_id] || null,
+      }));
 
       if (issuesError) throw issuesError;
 
-      const formattedIssues = (issuesData || []).map((issue: any) => ({
+      const formattedIssues = (issuesWithProjects || []).map((issue: any) => ({
         ...issue,
-        project_name: issue.projects?.name || 'Unknown Project'
+        project_name: issue.projects?.name || "Unknown Project",
       }));
 
       setIssues(formattedIssues);
     } catch (err) {
-      console.error('Error fetching issues:', err);
+      console.error("Error fetching issues:", err);
     } finally {
       setLoading(false);
     }
@@ -102,34 +155,49 @@ export default function MyIssuesWidget({ resourceId }: Props) {
 
   const getPriorityColor = (priority: string) => {
     switch (priority?.toLowerCase()) {
-      case 'critical': return 'bg-[#A93226]';
-      case 'high': return 'bg-[#D43E3E]';
-      case 'medium': return 'bg-[#C76F21]';
-      case 'low': return 'bg-[#4DB8AA]';
-      default: return 'bg-[#7F8C8D]';
+      case "critical":
+        return "bg-[#A93226]";
+      case "high":
+        return "bg-[#D43E3E]";
+      case "medium":
+        return "bg-[#C76F21]";
+      case "low":
+        return "bg-[#4DB8AA]";
+      default:
+        return "bg-[#7F8C8D]";
     }
   };
 
   const getPriorityTextColor = (priority: string) => {
     switch (priority?.toLowerCase()) {
-      case 'critical': return 'text-[#A93226]';
-      case 'high': return 'text-[#D43E3E]';
-      case 'medium': return 'text-[#C76F21]';
-      case 'low': return 'text-[#4DB8AA]';
-      default: return 'text-[#7F8C8D]';
+      case "critical":
+        return "text-[#A93226]";
+      case "high":
+        return "text-[#D43E3E]";
+      case "medium":
+        return "text-[#C76F21]";
+      case "low":
+        return "text-[#4DB8AA]";
+      default:
+        return "text-[#7F8C8D]";
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
-      case 'active': return 'bg-[#D43E3E] bg-opacity-20 text-[#D43E3E]';
-      case 'closed': return 'bg-[#276A6C] bg-opacity-20 text-[#276A6C]';
-      default: return 'bg-[#7F8C8D] bg-opacity-20 text-[#7F8C8D]';
+      case "active":
+        return "bg-[#D43E3E] bg-opacity-20 text-[#D43E3E]";
+      case "closed":
+        return "bg-[#276A6C] bg-opacity-20 text-[#276A6C]";
+      default:
+        return "bg-[#7F8C8D] bg-opacity-20 text-[#7F8C8D]";
     }
   };
 
-  const criticalCount = issues.filter(i =>
-    (i.impact || i.priority)?.toLowerCase() === 'critical' || (i.impact || i.priority)?.toLowerCase() === 'high'
+  const criticalCount = issues.filter(
+    (i) =>
+      (i.impact || i.priority)?.toLowerCase() === "critical" ||
+      (i.impact || i.priority)?.toLowerCase() === "high",
   ).length;
 
   if (loading) {
@@ -142,7 +210,7 @@ export default function MyIssuesWidget({ resourceId }: Props) {
           </h3>
         </div>
         <div className="animate-pulse space-y-3">
-          {[1, 2, 3].map(i => (
+          {[1, 2, 3].map((i) => (
             <div key={i} className="h-16 bg-gray-200 rounded"></div>
           ))}
         </div>
@@ -183,20 +251,28 @@ export default function MyIssuesWidget({ resourceId }: Props) {
             >
               <div className="flex items-start justify-between mb-2">
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-gray-900 font-medium text-sm mb-1 truncate">{issue.title}</h4>
-                  <p className="text-xs text-gray-600 truncate">{issue.project_name}</p>
+                  <h4 className="text-gray-900 font-medium text-sm mb-1 truncate">
+                    {issue.title}
+                  </h4>
+                  <p className="text-xs text-gray-600 truncate">
+                    {issue.project_name}
+                  </p>
                 </div>
-                <div className={`w-2 h-2 rounded-full ${getPriorityColor(issue.impact || issue.priority)} flex-shrink-0 ml-2 mt-1`} />
+                <div
+                  className={`w-2 h-2 rounded-full ${getPriorityColor(issue.impact || issue.priority)} flex-shrink-0 ml-2 mt-1`}
+                />
               </div>
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className={`text-xs font-medium ${getPriorityTextColor(issue.impact || issue.priority)}`}>
+                  <span
+                    className={`text-xs font-medium ${getPriorityTextColor(issue.impact || issue.priority)}`}
+                  >
                     {issue.impact || issue.priority} Impact
                   </span>
                 </div>
                 <span className="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700">
-                  {issue.category || 'General'}
+                  {issue.category || "General"}
                 </span>
               </div>
             </Link>
