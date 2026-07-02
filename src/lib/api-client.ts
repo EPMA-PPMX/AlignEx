@@ -25,7 +25,7 @@ interface QueryResult<T = unknown> {
 }
 
 const getApiBase = (): string =>
-  (import.meta.env.VITE_API_URL as string | undefined) ?? 'https://ppmx-backendapi-bbduhkauhzegb0aj.centralus-01.azurewebsites.net/';
+  (import.meta.env.VITE_API_URL as string | undefined) ?? 'https://ppmx-backendapi-bbduhkauhzegb0aj.centralus-01.azurewebsites.net';
 
 class QueryBuilder<T = unknown> {
   private _table: string;
