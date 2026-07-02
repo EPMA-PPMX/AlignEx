@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@azure/msal-browser": "^5.14.0",
+    "@azure/msal-react": "^5.4.5",
     "@supabase/supabase-js": "^2.57.4",
     "@types/react-router-dom": "^5.3.3",
     "dhtmlx-gantt": "^9.1.0",
