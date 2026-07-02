@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { from } from './api-client';
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoYmFydnhpbHFubndqbWRxeG9nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2Njk3NDMsImV4cCI6MjA3NzI0NTc0M30.ZXgtWx6qRZ4UChWxlf6CRODlEUTki5p-EGmTpsBfX1Q
-VITE_SUPABASE_URL=https://qhbarvxilqnnwjmdqxog.supabase.co
+VITE_SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoYmFydnhpbHFubndqbWRxeG9nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2Njk3NDMsImV4cCI6MjA3NzI0NTc0M30.ZXgtWx6qRZ4UChWxlf6CRODlEUTki5p-EGmTpsBfX1Q'
+VITE_SUPABASE_URL='https://qhbarvxilqnnwjmdqxog.supabase.co'
 
 //const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 //const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
