@@ -5,7 +5,7 @@ const clientId = "bca71dfb-37c6-4752-bcb4-fa44821631d4";
 // Azure AD Tenant ID
 const tenantId = "4358c64c-489c-44fa-bc81-8830190face2";
 // Redirect URI after login
-const redirectUri = "http://localhost:5173";
+const redirectUri = "https://polite-cliff-0036a9e10.7.azurestaticapps.net";
 
 /**
  * Configuration object to be passed to Msal on creation.
