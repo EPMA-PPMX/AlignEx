@@ -1,7 +1,13 @@
-import { useState, useEffect } from 'react';
-import { File as FileEdit, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import {
+  File as FileEdit,
+  Clock,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+} from "lucide-react";
+import { supabase } from "../../lib/supabase";
+import { Link } from "react-router-dom";
 
 interface Props {
   userId: string;
@@ -40,29 +46,58 @@ export default function MyChangeRequestsWidget({ userId }: Props) {
         return;
       }
 
-      const { data, error } = await supabase
-        .from('change_requests')
-        .select(`
-          id,
-          project_id,
-          request_title,
-          status,
-          type,
-          created_at,
-          projects (
-            id,
-            name
-          )
-        `)
-        .eq('requested_by', userId)
-        .order('created_at', { ascending: false })
+      // Get Change Requests
+      const { data: changeRequests, error: changeRequestError } = await supabase
+        .from("change_requests")
+        .select(
+          `
+      id,
+      project_id,
+      request_title,
+      status,
+      type,
+      created_at
+    `,
+        )
+        .eq("requested_by", userId)
+        .order("created_at", { ascending: false })
         .limit(10);
+
+      if (changeRequestError) {
+        throw changeRequestError;
+      }
+
+      // Get unique Project IDs
+      const projectIds = [
+        ...new Set(
+          (changeRequests || [])
+            .map((cr: any) => cr.project_id)
+            .filter(Boolean),
+        ),
+      ];
+
+      // Get Projects
+      const { data: projects, error } = await supabase
+        .from("projects")
+        .select("id,name")
+        .in("id", projectIds);
+
+      // Create lookup
+      const projectMap = Object.fromEntries(
+        (projects || []).map((project: any) => [project.id, project]),
+      );
+
+      // Join data
+      const data = (changeRequests || []).map((changeRequest: any) => ({
+        ...changeRequest,
+        projects: projectMap[changeRequest.project_id] || null,
+      }));
 
       if (error) throw error;
 
       setRequests(data || []);
     } catch (error) {
-      console.error('Error fetching my change requests:', error);
+      console.error("Error fetching my change requests:", error);
     } finally {
       setLoading(false);
     }
@@ -70,19 +105,19 @@ export default function MyChangeRequestsWidget({ userId }: Props) {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'Draft':
+      case "Draft":
         return <FileEdit className="w-4 h-4 text-[#7F8C8D]" />;
-      case 'Pending':
-      case 'Pending Review':
+      case "Pending":
+      case "Pending Review":
         return <Clock className="w-4 h-4 text-[#F39C12]" />;
-      case 'In Review':
-      case 'Under Review':
+      case "In Review":
+      case "Under Review":
         return <AlertCircle className="w-4 h-4 text-[#26D0CE]" />;
-      case 'Approved':
+      case "Approved":
         return <CheckCircle className="w-4 h-4 text-[#2ECC71]" />;
-      case 'Rejected':
+      case "Rejected":
         return <XCircle className="w-4 h-4 text-[#E74C3C]" />;
-      case 'Implemented':
+      case "Implemented":
         return <CheckCircle className="w-4 h-4 text-[#1ABC9C]" />;
       default:
         return <Clock className="w-4 h-4 text-[#7F8C8D]" />;
@@ -91,22 +126,22 @@ export default function MyChangeRequestsWidget({ userId }: Props) {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Draft':
-        return 'text-[#7F8C8D] bg-[#7F8C8D] bg-opacity-20';
-      case 'Pending':
-      case 'Pending Review':
-        return 'text-[#F39C12] bg-[#F39C12] bg-opacity-20';
-      case 'In Review':
-      case 'Under Review':
-        return 'text-[#26D0CE] bg-[#26D0CE] bg-opacity-20';
-      case 'Approved':
-        return 'text-[#2ECC71] bg-[#2ECC71] bg-opacity-20';
-      case 'Rejected':
-        return 'text-[#E74C3C] bg-[#E74C3C] bg-opacity-20';
-      case 'Implemented':
-        return 'text-[#1ABC9C] bg-[#1ABC9C] bg-opacity-20';
+      case "Draft":
+        return "text-[#7F8C8D] bg-[#7F8C8D] bg-opacity-20";
+      case "Pending":
+      case "Pending Review":
+        return "text-[#F39C12] bg-[#F39C12] bg-opacity-20";
+      case "In Review":
+      case "Under Review":
+        return "text-[#26D0CE] bg-[#26D0CE] bg-opacity-20";
+      case "Approved":
+        return "text-[#2ECC71] bg-[#2ECC71] bg-opacity-20";
+      case "Rejected":
+        return "text-[#E74C3C] bg-[#E74C3C] bg-opacity-20";
+      case "Implemented":
+        return "text-[#1ABC9C] bg-[#1ABC9C] bg-opacity-20";
       default:
-        return 'text-[#7F8C8D] bg-[#7F8C8D] bg-opacity-20';
+        return "text-[#7F8C8D] bg-[#7F8C8D] bg-opacity-20";
     }
   };
 
@@ -120,7 +155,7 @@ export default function MyChangeRequestsWidget({ userId }: Props) {
           </h3>
         </div>
         <div className="animate-pulse space-y-2">
-          {[1, 2, 3].map(i => (
+          {[1, 2, 3].map((i) => (
             <div key={i} className="h-20 bg-gray-200 rounded"></div>
           ))}
         </div>
@@ -144,7 +179,9 @@ export default function MyChangeRequestsWidget({ userId }: Props) {
         <div className="flex-1 flex flex-col items-center justify-center text-center py-8">
           <FileEdit className="w-12 h-12 text-gray-400 mb-3" />
           <p className="text-gray-600 mb-1">No change requests</p>
-          <p className="text-sm text-gray-500">You haven't created any change requests yet</p>
+          <p className="text-sm text-gray-500">
+            You haven't created any change requests yet
+          </p>
         </div>
       ) : (
         <div className="space-y-2 flex-1 overflow-auto">
@@ -168,13 +205,13 @@ export default function MyChangeRequestsWidget({ userId }: Props) {
                 </div>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className={`px-2 py-0.5 rounded-full font-medium ${getStatusColor(request.status)}`}>
+                <span
+                  className={`px-2 py-0.5 rounded-full font-medium ${getStatusColor(request.status)}`}
+                >
                   {request.status}
                 </span>
                 {request.type && (
-                  <span className="text-gray-500">
-                    {request.type}
-                  </span>
+                  <span className="text-gray-500">{request.type}</span>
                 )}
               </div>
             </Link>

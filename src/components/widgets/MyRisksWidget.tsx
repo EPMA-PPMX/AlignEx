@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { AlertTriangle, ChevronRight } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import { AlertTriangle, ChevronRight } from "lucide-react";
+import { supabase } from "../../lib/supabase";
+import { Link } from "react-router-dom";
 
 interface Props {
   userId: string;
@@ -40,10 +40,10 @@ export default function MyRisksWidget({ resourceId }: Props) {
       }
 
       const { data: pmField, error: pmFieldError } = await supabase
-        .from('custom_fields')
-        .select('id')
-        .eq('field_name', 'Project Manager')
-        .eq('entity_type', 'project')
+        .from("custom_fields")
+        .select("id")
+        .eq("field_name", "Project Manager")
+        .eq("entity_type", "project")
         .maybeSingle();
 
       if (pmFieldError) throw pmFieldError;
@@ -52,24 +52,26 @@ export default function MyRisksWidget({ resourceId }: Props) {
 
       if (pmField) {
         const { data: projectFieldValues, error: pfvError } = await supabase
-          .from('project_field_values')
-          .select('project_id')
-          .eq('field_id', pmField.id)
-          .eq('value', resourceId);
+          .from("project_field_values")
+          .select("project_id")
+          .eq("field_id", pmField.id)
+          .eq("value", resourceId);
 
         if (pfvError) throw pfvError;
 
-        projectIds = (projectFieldValues || []).map(pfv => pfv.project_id);
+        projectIds = (projectFieldValues || []).map(
+          (pfv: any) => pfv.project_id,
+        );
       }
 
       const { data: teamData, error: teamError } = await supabase
-        .from('project_team_members')
-        .select('project_id')
-        .eq('resource_id', resourceId);
+        .from("project_team_members")
+        .select("project_id")
+        .eq("resource_id", resourceId);
 
       if (teamError) throw teamError;
 
-      const teamProjectIds = (teamData || []).map(t => t.project_id);
+      const teamProjectIds = (teamData || []).map((t: any) => t.project_id);
       projectIds = [...new Set([...projectIds, ...teamProjectIds])];
 
       if (projectIds.length === 0) {
@@ -77,24 +79,74 @@ export default function MyRisksWidget({ resourceId }: Props) {
         return;
       }
 
+      // Get Risks
       const { data: risksData, error: risksError } = await supabase
-        .from('project_risks')
-        .select('*, projects(name)')
-        .in('project_id', projectIds)
-        .eq('status', 'Active')
-        .order('probability', { ascending: false })
+        .from("project_risks")
+        .select(
+          `
+    id,
+    project_id,
+    title,
+    description,
+    category,
+    impact,
+    owner,
+    status,
+    created_at,
+    updated_at,
+    assigned_to,
+    cost,
+    notes,
+    probability
+  `,
+        )
+        .in("project_id", projectIds)
+        .eq("status", "Active")
+        .order("probability", { ascending: false })
         .limit(5);
+
+      if (risksError) {
+        throw risksError;
+      }
+
+      // Get unique project IDs
+      const riskProjectIds = [
+        ...new Set(
+          (risksData || []).map((risk: any) => risk.project_id).filter(Boolean),
+        ),
+      ];
+
+      // Get Projects
+      const { data: projectsData, error: projectsError } = await supabase
+        .from("projects")
+        .select("id,name")
+        .in("id", riskProjectIds);
+
+      if (projectsError) {
+        throw projectsError;
+      }
+
+      // Create lookup dictionary
+      const projectMap = Object.fromEntries(
+        (projectsData || []).map((project: any) => [project.id, project]),
+      );
+
+      // Join data
+      const risksWithProjects = (risksData || []).map((risk: any) => ({
+        ...risk,
+        projects: projectMap[risk.project_id] || null,
+      }));
 
       if (risksError) throw risksError;
 
-      const formattedRisks = (risksData || []).map((risk: any) => ({
+      const formattedRisks = (risksWithProjects || []).map((risk: any) => ({
         ...risk,
-        project_name: risk.projects?.name || 'Unknown Project'
+        project_name: risk.projects?.name || "Unknown Project",
       }));
 
       setRisks(formattedRisks);
     } catch (err) {
-      console.error('Error fetching risks:', err);
+      console.error("Error fetching risks:", err);
     } finally {
       setLoading(false);
     }
@@ -102,34 +154,49 @@ export default function MyRisksWidget({ resourceId }: Props) {
 
   const getImpactColor = (impact: string) => {
     switch (impact?.toLowerCase()) {
-      case 'critical': return 'bg-[#A93226]';
-      case 'high': return 'bg-[#D43E3E]';
-      case 'medium': return 'bg-[#C76F21]';
-      case 'low': return 'bg-[#4DB8AA]';
-      default: return 'bg-[#7F8C8D]';
+      case "critical":
+        return "bg-[#A93226]";
+      case "high":
+        return "bg-[#D43E3E]";
+      case "medium":
+        return "bg-[#C76F21]";
+      case "low":
+        return "bg-[#4DB8AA]";
+      default:
+        return "bg-[#7F8C8D]";
     }
   };
 
   const getImpactTextColor = (impact: string) => {
     switch (impact?.toLowerCase()) {
-      case 'critical': return 'text-[#A93226]';
-      case 'high': return 'text-[#D43E3E]';
-      case 'medium': return 'text-[#C76F21]';
-      case 'low': return 'text-[#4DB8AA]';
-      default: return 'text-[#7F8C8D]';
+      case "critical":
+        return "text-[#A93226]";
+      case "high":
+        return "text-[#D43E3E]";
+      case "medium":
+        return "text-[#C76F21]";
+      case "low":
+        return "text-[#4DB8AA]";
+      default:
+        return "text-[#7F8C8D]";
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
-      case 'active': return 'bg-[#D43E3E] bg-opacity-20 text-[#D43E3E]';
-      case 'closed': return 'bg-[#276A6C] bg-opacity-20 text-[#276A6C]';
-      default: return 'bg-[#7F8C8D] bg-opacity-20 text-[#7F8C8D]';
+      case "active":
+        return "bg-[#D43E3E] bg-opacity-20 text-[#D43E3E]";
+      case "closed":
+        return "bg-[#276A6C] bg-opacity-20 text-[#276A6C]";
+      default:
+        return "bg-[#7F8C8D] bg-opacity-20 text-[#7F8C8D]";
     }
   };
 
-  const highRiskCount = risks.filter(r =>
-    r.impact?.toLowerCase() === 'critical' || r.impact?.toLowerCase() === 'high'
+  const highRiskCount = risks.filter(
+    (r) =>
+      r.impact?.toLowerCase() === "critical" ||
+      r.impact?.toLowerCase() === "high",
   ).length;
 
   if (loading) {
@@ -142,7 +209,7 @@ export default function MyRisksWidget({ resourceId }: Props) {
           </h3>
         </div>
         <div className="animate-pulse space-y-3">
-          {[1, 2, 3].map(i => (
+          {[1, 2, 3].map((i) => (
             <div key={i} className="h-16 bg-gray-200 rounded"></div>
           ))}
         </div>
@@ -183,15 +250,23 @@ export default function MyRisksWidget({ resourceId }: Props) {
             >
               <div className="flex items-start justify-between mb-2">
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-gray-900 font-medium text-sm mb-1 truncate">{risk.title}</h4>
-                  <p className="text-xs text-gray-600 truncate">{risk.project_name}</p>
+                  <h4 className="text-gray-900 font-medium text-sm mb-1 truncate">
+                    {risk.title}
+                  </h4>
+                  <p className="text-xs text-gray-600 truncate">
+                    {risk.project_name}
+                  </p>
                 </div>
-                <div className={`w-2 h-2 rounded-full ${getImpactColor(risk.impact)} flex-shrink-0 ml-2 mt-1`} />
+                <div
+                  className={`w-2 h-2 rounded-full ${getImpactColor(risk.impact)} flex-shrink-0 ml-2 mt-1`}
+                />
               </div>
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className={`text-xs font-medium ${getImpactTextColor(risk.impact)}`}>
+                  <span
+                    className={`text-xs font-medium ${getImpactTextColor(risk.impact)}`}
+                  >
                     {risk.impact}
                   </span>
                   <span className="text-xs text-gray-600">
@@ -199,7 +274,7 @@ export default function MyRisksWidget({ resourceId }: Props) {
                   </span>
                 </div>
                 <span className="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700">
-                  {risk.category || 'General'}
+                  {risk.category || "General"}
                 </span>
               </div>
             </Link>

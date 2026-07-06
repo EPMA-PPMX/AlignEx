@@ -1,22 +1,25 @@
-import { useState, useEffect } from 'react';
-import { Clock, ChevronRight } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import { Clock, ChevronRight } from "lucide-react";
+import { supabase } from "../../lib/supabase";
+import { Link } from "react-router-dom";
 
 interface TimesheetSummary {
-  totalHours: number;
-  billableHours: number;
-  nonBillableHours: number;
+  totalHours: string;
+  billableHours: string;
+  nonBillableHours: string;
+  billableMinutes: number;
   daysLogged: number;
 }
 
 export default function TimesheetQuickWidget() {
   const [summary, setSummary] = useState<TimesheetSummary>({
-    totalHours: 0,
-    billableHours: 0,
-    nonBillableHours: 0,
-    daysLogged: 0
+    totalHours: "00.00",
+    billableHours: "00.00",
+    nonBillableHours: "00.00",
+    billableMinutes: 0,
+    daysLogged: 0,
   });
+
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -24,11 +27,30 @@ export default function TimesheetQuickWidget() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const timeToMinutes = (time: string): number => {
+    if (!time) return 0;
+
+    const [hours = 0, minutes = 0] = time.toString().split(".").map(Number);
+
+    return hours * 60 + minutes;
+  };
+
+  const minutesToTime = (totalMinutes: number): string => {
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    return `${String(hours).padStart(2, "0")}.${String(minutes).padStart(
+      2,
+      "0",
+    )}`;
+  };
+
   const fetchThisWeekHours = async () => {
     try {
       setLoading(true);
 
       const today = new Date();
+
       const startOfWeek = new Date(today);
       startOfWeek.setDate(today.getDate() - today.getDay());
       startOfWeek.setHours(0, 0, 0, 0);
@@ -38,40 +60,60 @@ export default function TimesheetQuickWidget() {
       endOfWeek.setHours(23, 59, 59, 999);
 
       const { data, error } = await supabase
-        .from('timesheet_entries')
-        .select('hours, is_billable, entry_date')
-        .gte('entry_date', startOfWeek.toISOString().split('T')[0])
-        .lte('entry_date', endOfWeek.toISOString().split('T')[0]);
+        .from("timesheet_entries")
+        .select("hours, is_billable, entry_date")
+        .gte("entry_date", startOfWeek.toISOString().split("T")[0])
+        .lte("entry_date", endOfWeek.toISOString().split("T")[0]);
 
       if (error) throw error;
 
       const entries = data || [];
-      const uniqueDates = new Set(entries.map(e => e.entry_date));
 
-      const totals = entries.reduce((acc, entry) => {
-        acc.totalHours += entry.hours;
-        if (entry.is_billable) {
-          acc.billableHours += entry.hours;
-        } else {
-          acc.nonBillableHours += entry.hours;
-        }
-        return acc;
-      }, { totalHours: 0, billableHours: 0, nonBillableHours: 0 });
+      const uniqueDates = new Set(entries.map((e: any) => e.entry_date));
+
+      const totals = entries.reduce(
+        (acc: any, entry: any) => {
+          const minutes = timeToMinutes(entry.hours);
+
+          acc.totalMinutes += minutes;
+
+          if (entry.is_billable) {
+            acc.billableMinutes += minutes;
+          } else {
+            acc.nonBillableMinutes += minutes;
+          }
+
+          return acc;
+        },
+        {
+          totalMinutes: 0,
+          billableMinutes: 0,
+          nonBillableMinutes: 0,
+        },
+      );
 
       setSummary({
-        ...totals,
-        daysLogged: uniqueDates.size
+        totalHours: minutesToTime(totals.totalMinutes),
+        billableHours: minutesToTime(totals.billableMinutes),
+        nonBillableHours: minutesToTime(totals.nonBillableMinutes),
+        billableMinutes: totals.billableMinutes,
+        daysLogged: uniqueDates.size,
       });
     } catch (err) {
-      console.error('Error fetching timesheet:', err);
+      console.error("Error fetching timesheet:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  const TARGET_BILLABLE_HOURS = 40;
-  const billablePercentage = Math.min(Math.round((summary.billableHours / TARGET_BILLABLE_HOURS) * 100), 100);
-  const isOverTarget = summary.billableHours > TARGET_BILLABLE_HOURS;
+  const TARGET_BILLABLE_MINUTES = 40 * 60;
+
+  const billablePercentage = Math.min(
+    Math.round((summary.billableMinutes / TARGET_BILLABLE_MINUTES) * 100),
+    100,
+  );
+
+  const isOverTarget = summary.billableMinutes > TARGET_BILLABLE_MINUTES;
 
   if (loading) {
     return (
@@ -82,6 +124,7 @@ export default function TimesheetQuickWidget() {
             This Week
           </h3>
         </div>
+
         <div className="animate-pulse space-y-3">
           <div className="h-16 bg-gray-200 rounded"></div>
           <div className="h-12 bg-gray-200 rounded"></div>
@@ -97,6 +140,7 @@ export default function TimesheetQuickWidget() {
           <Clock className="w-5 h-5 text-[#5B2C91]" />
           This Week
         </h3>
+
         <Link
           to="/timesheet"
           className="text-sm text-[#5B2C91] hover:text-[#4a2377]"
@@ -108,7 +152,7 @@ export default function TimesheetQuickWidget() {
       <div className="flex-1">
         <div className="text-center mb-4">
           <div className="text-4xl font-bold text-gray-900 mb-1">
-            {summary.totalHours.toFixed(1)}
+            {summary.totalHours}
           </div>
           <div className="text-sm text-gray-600">hours logged</div>
         </div>
@@ -117,14 +161,26 @@ export default function TimesheetQuickWidget() {
           <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-600">Billable</span>
-              <span className={`text-sm font-semibold ${isOverTarget ? 'text-red-600' : 'text-[#5B2C91]'}`}>
-                {summary.billableHours.toFixed(1)}h / {TARGET_BILLABLE_HOURS}h
+
+              <span
+                className={`text-sm font-semibold ${
+                  isOverTarget ? "text-red-600" : "text-[#5B2C91]"
+                }`}
+              >
+                {summary.billableHours}h / 40h
               </span>
             </div>
+
             <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
               <div
-                className={`h-full transition-all ${isOverTarget ? 'bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A]' : 'bg-gradient-dark'}`}
-                style={{ width: `${billablePercentage}%` }}
+                className={`h-full transition-all ${
+                  isOverTarget
+                    ? "bg-gradient-to-br from-[#D43E3E] to-[#FE8A8A]"
+                    : "bg-gradient-dark"
+                }`}
+                style={{
+                  width: `${billablePercentage}%`,
+                }}
               />
             </div>
           </div>
@@ -132,8 +188,9 @@ export default function TimesheetQuickWidget() {
           <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Non-Billable</span>
+
               <span className="text-sm font-semibold text-gray-700">
-                {summary.nonBillableHours.toFixed(1)}h
+                {summary.nonBillableHours}h
               </span>
             </div>
           </div>
@@ -141,6 +198,7 @@ export default function TimesheetQuickWidget() {
           <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Days Logged</span>
+
               <span className="text-sm font-semibold text-gray-900">
                 {summary.daysLogged} / 7
               </span>

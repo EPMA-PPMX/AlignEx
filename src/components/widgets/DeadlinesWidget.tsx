@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Calendar, AlertCircle, Target, ChevronRight } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { useState, useEffect } from "react";
+import { Calendar, AlertCircle, Target, ChevronRight } from "lucide-react";
+import { supabase } from "../../lib/supabase";
 interface Props {
   userId: string;
   resourceId: string | null;
@@ -10,7 +10,7 @@ interface Deadline {
   id: string;
   title: string;
   date: string;
-  type: 'task' | 'goal' | 'project';
+  type: "task" | "goal" | "project";
   source_id: string;
   project_name?: string;
   priority?: string;
@@ -30,39 +30,63 @@ export default function DeadlinesWidget({ userId }: Props) {
       setLoading(true);
       const allDeadlines: Deadline[] = [];
 
-      const { data: tasks, error: tasksError } = await supabase
-        .from('project_tasks')
-        .select(`
-          id,
-          project_id,
-          task_data,
-          projects (name)
-        `)
-        .not('task_data->due_date', 'is', null);
+      // Fetch tasks
+      const { data: tasks, tasksError } = await supabase
+        .from("project_tasks")
+        .select("id, project_id, task_data");
 
       if (tasksError) throw tasksError;
 
+      const filteredTasks = (tasks || []).filter((task: any) => {
+        const taskData = task.task_data || {};
+
+        return taskData.assigned_to === userId && taskData.due_date;
+      });
+
+      // Get unique project IDs
+      const projectIds = [
+        ...new Set(
+          (filteredTasks || []).map((t: any) => t.project_id).filter(Boolean),
+        ),
+      ];
+
+      // Fetch projects separately
+      const { data: projects, error: projectsError } = await supabase
+        .from("projects")
+        .select("id, name")
+        .in("id", projectIds);
+
+      if (projectsError) throw projectsError;
+
+      // Create lookup map
+      const projectMap = new Map<string, string>(
+        (projects || []).map((p: any) => [String(p.id), p.name]),
+      );
+
+      // Join in JS
       (tasks || []).forEach((task: any) => {
         const taskData = task.task_data || {};
+
         if (taskData.assigned_to === userId && taskData.due_date) {
           allDeadlines.push({
             id: task.id,
-            title: taskData.title || 'Untitled Task',
+            title: taskData.title || "Untitled Task",
             date: taskData.due_date,
-            type: 'task',
+            type: "task",
             source_id: task.project_id,
-            project_name: task.projects?.name,
-            priority: taskData.priority
+            project_name: projectMap.get(String(task.project_id)),
+            priority: taskData.priority,
           });
         }
       });
 
+      // Fetch goals
       const { data: goals, error: goalsError } = await supabase
-        .from('skill_goals')
-        .select('id, title, target_date, goal_type')
-        .eq('user_id', userId)
-        .not('target_date', 'is', null)
-        .in('status', ['not_started', 'in_progress']);
+        .from("skill_goals")
+        .select("id, title, target_date, goal_type")
+        .eq("user_id", userId)
+        .not("target_date", "is", null)
+        .in("status", ["not_started", "in_progress"]);
 
       if (goalsError) throw goalsError;
 
@@ -71,23 +95,25 @@ export default function DeadlinesWidget({ userId }: Props) {
           id: goal.id,
           title: goal.title,
           date: goal.target_date,
-          type: 'goal',
-          source_id: goal.id
+          type: "goal",
+          source_id: goal.id,
         });
       });
 
-      allDeadlines.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      allDeadlines.sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+      );
 
-      const now = new Date();
-      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-      const filtered = allDeadlines.filter(d => {
+      const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+      const filtered = allDeadlines.filter((d) => {
         const deadlineDate = new Date(d.date);
         return deadlineDate <= thirtyDaysFromNow;
       });
 
       setDeadlines(filtered.slice(0, 8));
     } catch (err) {
-      console.error('Error fetching deadlines:', err);
+      console.error("Error fetching deadlines:", err);
     } finally {
       setLoading(false);
     }
@@ -98,34 +124,41 @@ export default function DeadlinesWidget({ userId }: Props) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     target.setHours(0, 0, 0, 0);
-    return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return Math.ceil(
+      (target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+    );
   };
 
   const getDeadlineColor = (days: number) => {
-    if (days < 0) return 'text-[#E74C3C] bg-[#E74C3C] bg-opacity-20';
-    if (days === 0) return 'text-[#F39C12] bg-[#F39C12] bg-opacity-20';
-    if (days <= 3) return 'text-[#F39C12] bg-[#F39C12] bg-opacity-20';
-    if (days <= 7) return 'text-[#26D0CE] bg-[#26D0CE] bg-opacity-20';
-    return 'text-[#7F8C8D] bg-[#7F8C8D] bg-opacity-20';
+    if (days < 0) return "text-[#E74C3C] bg-[#E74C3C] bg-opacity-20";
+    if (days === 0) return "text-[#F39C12] bg-[#F39C12] bg-opacity-20";
+    if (days <= 3) return "text-[#F39C12] bg-[#F39C12] bg-opacity-20";
+    if (days <= 7) return "text-[#26D0CE] bg-[#26D0CE] bg-opacity-20";
+    return "text-[#7F8C8D] bg-[#7F8C8D] bg-opacity-20";
   };
 
   const getDeadlineText = (days: number) => {
     if (days < 0) return `${Math.abs(days)}d overdue`;
-    if (days === 0) return 'Due today';
-    if (days === 1) return 'Due tomorrow';
+    if (days === 0) return "Due today";
+    if (days === 1) return "Due tomorrow";
     return `${days} days`;
   };
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'task': return <AlertCircle className="w-4 h-4" />;
-      case 'goal': return <Target className="w-4 h-4" />;
-      default: return <Calendar className="w-4 h-4" />;
+      case "task":
+        return <AlertCircle className="w-4 h-4" />;
+      case "goal":
+        return <Target className="w-4 h-4" />;
+      default:
+        return <Calendar className="w-4 h-4" />;
     }
   };
 
-  const overdueCount = deadlines.filter(d => getDaysUntil(d.date) < 0).length;
-  const dueTodayCount = deadlines.filter(d => getDaysUntil(d.date) === 0).length;
+  const overdueCount = deadlines.filter((d) => getDaysUntil(d.date) < 0).length;
+  const dueTodayCount = deadlines.filter(
+    (d) => getDaysUntil(d.date) === 0,
+  ).length;
 
   if (loading) {
     return (
@@ -137,7 +170,7 @@ export default function DeadlinesWidget({ userId }: Props) {
           </h3>
         </div>
         <div className="animate-pulse space-y-2">
-          {[1, 2, 3, 4].map(i => (
+          {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-14 bg-gray-200 rounded"></div>
           ))}
         </div>
@@ -183,22 +216,30 @@ export default function DeadlinesWidget({ userId }: Props) {
                 key={`${deadline.type}-${deadline.id}`}
                 className={`bg-gray-50 p-3 rounded-lg border transition-all ${
                   isOverdue
-                    ? 'border-[#E74C3C] border-opacity-30 hover:border-opacity-50'
-                    : 'border-gray-200 hover:border-[#26D0CE]'
+                    ? "border-[#E74C3C] border-opacity-30 hover:border-opacity-50"
+                    : "border-gray-200 hover:border-[#26D0CE]"
                 }`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-gray-600">{getTypeIcon(deadline.type)}</span>
-                      <h4 className="text-gray-900 font-medium text-sm truncate">{deadline.title}</h4>
+                      <span className="text-gray-600">
+                        {getTypeIcon(deadline.type)}
+                      </span>
+                      <h4 className="text-gray-900 font-medium text-sm truncate">
+                        {deadline.title}
+                      </h4>
                     </div>
                     {deadline.project_name && (
-                      <p className="text-xs text-gray-600 truncate">{deadline.project_name}</p>
+                      <p className="text-xs text-gray-600 truncate">
+                        {deadline.project_name}
+                      </p>
                     )}
                   </div>
 
-                  <div className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium flex-shrink-0 ml-2 ${getDeadlineColor(daysUntil)}`}>
+                  <div
+                    className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium flex-shrink-0 ml-2 ${getDeadlineColor(daysUntil)}`}
+                  >
                     {isOverdue && <AlertCircle className="w-3 h-3" />}
                     {getDeadlineText(daysUntil)}
                   </div>
