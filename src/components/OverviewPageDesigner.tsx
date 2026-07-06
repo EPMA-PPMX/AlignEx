@@ -1,7 +1,17 @@
-import React, { useState } from 'react';
-import { Plus, CreditCard as Edit2, Trash2, Save, X, GripVertical, Settings, ChevronDown, ChevronUp } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { useNotification } from '../lib/useNotification';
+import React, { useState } from "react";
+import {
+  Plus,
+  CreditCard as Edit2,
+  Trash2,
+  Save,
+  X,
+  GripVertical,
+  Settings,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
+import { supabase } from "../lib/supabase";
+import { useNotification } from "../lib/useNotification";
 
 interface Section {
   id: string;
@@ -38,12 +48,14 @@ const OverviewPageDesigner: React.FC = () => {
   const { showConfirm } = useNotification();
   const [sections, setSections] = useState<Section[]>([]);
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
-  const [projectTemplates, setProjectTemplates] = useState<ProjectTemplate[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [projectTemplates, setProjectTemplates] = useState<ProjectTemplate[]>(
+    [],
+  );
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingSection, setEditingSection] = useState<string | null>(null);
-  const [editName, setEditName] = useState('');
+  const [editName, setEditName] = useState("");
 
   React.useEffect(() => {
     fetchCustomFields();
@@ -62,18 +74,18 @@ const OverviewPageDesigner: React.FC = () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('custom_fields')
-        .select('*')
-        .eq('entity_type', 'project')
-        .order('created_at', { ascending: false });
+        .from("custom_fields")
+        .select("*")
+        .eq("entity_type", "project")
+        .order("created_at", { ascending: false });
 
       if (error) {
-        console.error('Error fetching custom fields:', error);
+        console.error("Error fetching custom fields:", error);
       } else {
         setCustomFields(data || []);
       }
     } catch (error) {
-      console.error('Error fetching custom fields:', error);
+      console.error("Error fetching custom fields:", error);
     } finally {
       setLoading(false);
     }
@@ -82,17 +94,17 @@ const OverviewPageDesigner: React.FC = () => {
   const fetchProjectTemplates = async () => {
     try {
       const { data, error } = await supabase
-        .from('project_templates')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .from("project_templates")
+        .select("*")
+        .order("created_at", { ascending: false });
 
       if (error) {
-        console.error('Error fetching project templates:', error);
+        console.error("Error fetching project templates:", error);
       } else {
         setProjectTemplates(data || []);
       }
     } catch (error) {
-      console.error('Error fetching project templates:', error);
+      console.error("Error fetching project templates:", error);
     }
   };
 
@@ -102,13 +114,13 @@ const OverviewPageDesigner: React.FC = () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('overview_configurations')
-        .select('*')
-        .eq('template_id', selectedTemplate)
+        .from("overview_configurations")
+        .select("*")
+        .eq("template_id", selectedTemplate)
         .maybeSingle();
 
       if (error) {
-        console.error('Error loading configuration:', error);
+        console.error("Error loading configuration:", error);
         setSections([]);
       } else if (data && data.sections) {
         setSections(data.sections);
@@ -116,7 +128,7 @@ const OverviewPageDesigner: React.FC = () => {
         setSections([]);
       }
     } catch (error) {
-      console.error('Error loading configuration:', error);
+      console.error("Error loading configuration:", error);
       setSections([]);
     } finally {
       setLoading(false);
@@ -125,12 +137,12 @@ const OverviewPageDesigner: React.FC = () => {
 
   const saveConfiguration = async () => {
     if (!selectedTemplate) {
-      alert('Please select a project template first');
+      alert("Please select a project template first");
       return;
     }
 
     if (sections.length === 0) {
-      alert('Please add at least one section before saving');
+      alert("Please add at least one section before saving");
       return;
     }
 
@@ -138,39 +150,43 @@ const OverviewPageDesigner: React.FC = () => {
       setSaving(true);
 
       const { data: existing } = await supabase
-        .from('overview_configurations')
-        .select('id')
-        .eq('template_id', selectedTemplate)
+        .from("overview_configurations")
+        .select("id")
+        .eq("template_id", selectedTemplate)
         .maybeSingle();
 
       if (existing) {
+        console.log(JSON.stringify(sections));
         const { error } = await supabase
-          .from('overview_configurations')
+          .from("overview_configurations")
           .update({ sections })
-          .eq('template_id', selectedTemplate);
+          .eq("template_id", selectedTemplate);
 
         if (error) {
           alert(`Error: ${error.message}`);
         } else {
-          alert('Configuration updated successfully!');
+          alert("Configuration updated successfully!");
         }
       } else {
+        console.log(JSON.stringify(sections));
         const { error } = await supabase
-          .from('overview_configurations')
-          .insert([{
-            template_id: selectedTemplate,
-            sections
-          }]);
+          .from("overview_configurations")
+          .insert([
+            {
+              template_id: selectedTemplate,
+              sections,
+            },
+          ]);
 
         if (error) {
           alert(`Error: ${error.message}`);
         } else {
-          alert('Configuration saved successfully!');
+          alert("Configuration saved successfully!");
         }
       }
     } catch (error) {
-      console.error('Error saving configuration:', error);
-      alert('Error saving configuration. Please try again.');
+      console.error("Error saving configuration:", error);
+      alert("Error saving configuration. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -178,20 +194,21 @@ const OverviewPageDesigner: React.FC = () => {
 
   const resetConfiguration = async () => {
     const confirmed = await showConfirm({
-      title: 'Reset Configuration',
-      message: 'Are you sure you want to reset the configuration? This will clear all sections and fields.',
-      confirmText: 'Reset'
+      title: "Reset Configuration",
+      message:
+        "Are you sure you want to reset the configuration? This will clear all sections and fields.",
+      confirmText: "Reset",
     });
     if (!confirmed) return;
 
     setSections([]);
-    setSelectedTemplate('');
+    setSelectedTemplate("");
   };
 
   const addSection = () => {
     const newSection: Section = {
       id: `section-${Date.now()}`,
-      name: 'Rename Default Section Name',
+      name: "Rename Default Section Name",
       isEditing: false,
       fields: [],
       isExpanded: true,
@@ -206,36 +223,41 @@ const OverviewPageDesigner: React.FC = () => {
 
   const saveEdit = (sectionId: string) => {
     if (editName.trim()) {
-      setSections(sections.map(section => 
-        section.id === sectionId 
-          ? { ...section, name: editName.trim() }
-          : section
-      ));
+      setSections(
+        sections.map((section) =>
+          section.id === sectionId
+            ? { ...section, name: editName.trim() }
+            : section,
+        ),
+      );
     }
     setEditingSection(null);
-    setEditName('');
+    setEditName("");
   };
 
   const cancelEdit = () => {
     setEditingSection(null);
-    setEditName('');
+    setEditName("");
   };
 
   const deleteSection = async (sectionId: string) => {
     const confirmed = await showConfirm({
-      title: 'Delete Section',
-      message: 'Are you sure you want to delete this section?',
-      confirmText: 'Delete'
+      title: "Delete Section",
+      message: "Are you sure you want to delete this section?",
+      confirmText: "Delete",
     });
     if (!confirmed) return;
 
-    setSections(sections.filter(section => section.id !== sectionId));
+    setSections(sections.filter((section) => section.id !== sectionId));
   };
 
   const moveSectionUp = (index: number) => {
     if (index > 0) {
       const newSections = [...sections];
-      [newSections[index], newSections[index - 1]] = [newSections[index - 1], newSections[index]];
+      [newSections[index], newSections[index - 1]] = [
+        newSections[index - 1],
+        newSections[index],
+      ];
       setSections(newSections);
     }
   };
@@ -243,21 +265,28 @@ const OverviewPageDesigner: React.FC = () => {
   const moveSectionDown = (index: number) => {
     if (index < sections.length - 1) {
       const newSections = [...sections];
-      [newSections[index], newSections[index + 1]] = [newSections[index + 1], newSections[index]];
+      [newSections[index], newSections[index + 1]] = [
+        newSections[index + 1],
+        newSections[index],
+      ];
       setSections(newSections);
     }
   };
 
   const toggleSectionExpansion = (sectionId: string) => {
-    setSections(sections.map(section => 
-      section.id === sectionId 
-        ? { ...section, isExpanded: !section.isExpanded }
-        : section
-    ));
+    setSections(
+      sections.map((section) =>
+        section.id === sectionId
+          ? { ...section, isExpanded: !section.isExpanded }
+          : section,
+      ),
+    );
   };
 
   const addFieldToSection = (sectionId: string, customFieldId: string) => {
-    const customField = customFields.find(field => field.id === customFieldId);
+    const customField = customFields.find(
+      (field) => field.id === customFieldId,
+    );
     if (!customField) return;
 
     const newField: SectionField = {
@@ -267,39 +296,73 @@ const OverviewPageDesigner: React.FC = () => {
       order: 0,
     };
 
-    setSections(sections.map(section => {
-      if (section.id === sectionId) {
-        const newFields = [...section.fields, newField];
-        // Update order for all fields
-        newFields.forEach((field, index) => {
-          field.order = index;
-        });
-        return { ...section, fields: newFields };
-      }
-      return section;
-    }));
+    setSections(
+      sections.map((section) => {
+        if (section.id === sectionId) {
+          const newFields = [...section.fields, newField];
+          // Update order for all fields
+          newFields.forEach((field, index) => {
+            field.order = index;
+          });
+          return { ...section, fields: newFields };
+        }
+        return section;
+      }),
+    );
   };
 
   const removeFieldFromSection = (sectionId: string, fieldId: string) => {
-    setSections(sections.map(section => {
-      if (section.id === sectionId) {
-        const newFields = section.fields.filter(field => field.id !== fieldId);
-        // Update order for remaining fields
-        newFields.forEach((field, index) => {
-          field.order = index;
-        });
-        return { ...section, fields: newFields };
-      }
-      return section;
-    }));
+    setSections(
+      sections.map((section) => {
+        if (section.id === sectionId) {
+          const newFields = section.fields.filter(
+            (field) => field.id !== fieldId,
+          );
+          // Update order for remaining fields
+          newFields.forEach((field, index) => {
+            field.order = index;
+          });
+          return { ...section, fields: newFields };
+        }
+        return section;
+      }),
+    );
   };
 
   const moveFieldUp = (sectionId: string, fieldIndex: number) => {
     if (fieldIndex > 0) {
-      setSections(sections.map(section => {
-        if (section.id === sectionId) {
+      setSections(
+        sections.map((section) => {
+          if (section.id === sectionId) {
+            const newFields = [...section.fields];
+            [newFields[fieldIndex], newFields[fieldIndex - 1]] = [
+              newFields[fieldIndex - 1],
+              newFields[fieldIndex],
+            ];
+            // Update order
+            newFields.forEach((field, index) => {
+              field.order = index;
+            });
+            return { ...section, fields: newFields };
+          }
+          return section;
+        }),
+      );
+    }
+  };
+
+  const moveFieldDown = (sectionId: string, fieldIndex: number) => {
+    setSections(
+      sections.map((section) => {
+        if (
+          section.id === sectionId &&
+          fieldIndex < section.fields.length - 1
+        ) {
           const newFields = [...section.fields];
-          [newFields[fieldIndex], newFields[fieldIndex - 1]] = [newFields[fieldIndex - 1], newFields[fieldIndex]];
+          [newFields[fieldIndex], newFields[fieldIndex + 1]] = [
+            newFields[fieldIndex + 1],
+            newFields[fieldIndex],
+          ];
           // Update order
           newFields.forEach((field, index) => {
             field.order = index;
@@ -307,76 +370,69 @@ const OverviewPageDesigner: React.FC = () => {
           return { ...section, fields: newFields };
         }
         return section;
-      }));
-    }
-  };
-
-  const moveFieldDown = (sectionId: string, fieldIndex: number) => {
-    setSections(sections.map(section => {
-      if (section.id === sectionId && fieldIndex < section.fields.length - 1) {
-        const newFields = [...section.fields];
-        [newFields[fieldIndex], newFields[fieldIndex + 1]] = [newFields[fieldIndex + 1], newFields[fieldIndex]];
-        // Update order
-        newFields.forEach((field, index) => {
-          field.order = index;
-        });
-        return { ...section, fields: newFields };
-      }
-      return section;
-    }));
+      }),
+    );
   };
 
   const renderFieldControl = (field: SectionField) => {
     const { customField } = field;
-    const baseClasses = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent";
+    const baseClasses =
+      "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent";
 
     switch (customField.field_type) {
-      case 'text':
-      case 'email':
+      case "text":
+      case "email":
         return (
           <input
             type={customField.field_type}
-            placeholder={customField.default_value || `Enter ${customField.field_label.toLowerCase()}`}
+            placeholder={
+              customField.default_value ||
+              `Enter ${customField.field_label.toLowerCase()}`
+            }
             className={baseClasses}
             disabled
           />
         );
-      case 'number':
+      case "number":
         return (
           <input
             type="number"
-            placeholder={customField.default_value || `Enter ${customField.field_label.toLowerCase()}`}
+            placeholder={
+              customField.default_value ||
+              `Enter ${customField.field_label.toLowerCase()}`
+            }
             className={baseClasses}
             disabled
           />
         );
-      case 'date':
-        return (
-          <input
-            type="date"
-            className={baseClasses}
-            disabled
-          />
-        );
-      case 'textarea':
+      case "date":
+        return <input type="date" className={baseClasses} disabled />;
+      case "textarea":
         return (
           <textarea
             rows={3}
-            placeholder={customField.default_value || `Enter ${customField.field_label.toLowerCase()}`}
+            placeholder={
+              customField.default_value ||
+              `Enter ${customField.field_label.toLowerCase()}`
+            }
             className={`${baseClasses} resize-vertical`}
             disabled
           />
         );
-      case 'dropdown':
+      case "dropdown":
         return (
           <select className={baseClasses} disabled>
-            <option value="">Select {customField.field_label.toLowerCase()}</option>
+            <option value="">
+              Select {customField.field_label.toLowerCase()}
+            </option>
             {customField.options?.map((option, index) => (
-              <option key={index} value={option}>{option}</option>
+              <option key={index} value={option}>
+                {option}
+              </option>
             ))}
           </select>
         );
-      case 'radio':
+      case "radio":
         return (
           <div className="space-y-2">
             {customField.options?.map((option, index) => (
@@ -393,7 +449,7 @@ const OverviewPageDesigner: React.FC = () => {
             ))}
           </div>
         );
-      case 'checkbox':
+      case "checkbox":
         return (
           <label className="flex items-center space-x-2">
             <input
@@ -401,14 +457,19 @@ const OverviewPageDesigner: React.FC = () => {
               className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
               disabled
             />
-            <span className="text-sm text-gray-700">{customField.field_label}</span>
+            <span className="text-sm text-gray-700">
+              {customField.field_label}
+            </span>
           </label>
         );
       default:
         return (
           <input
             type="text"
-            placeholder={customField.default_value || `Enter ${customField.field_label.toLowerCase()}`}
+            placeholder={
+              customField.default_value ||
+              `Enter ${customField.field_label.toLowerCase()}`
+            }
             className={baseClasses}
             disabled
           />
@@ -418,12 +479,18 @@ const OverviewPageDesigner: React.FC = () => {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold text-gray-900 mb-6">Overview Page Designer</h2>
-      <p className="text-gray-600 mb-6">Design your overview page by adding and organizing dynamic sections.</p>
-      
+      <h2 className="text-xl font-semibold text-gray-900 mb-6">
+        Overview Page Designer
+      </h2>
+      <p className="text-gray-600 mb-6">
+        Design your overview page by adding and organizing dynamic sections.
+      </p>
+
       {/* Project Template Selection */}
       <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Project Template</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          Project Template
+        </h3>
         <div className="max-w-md">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Select Project Template
@@ -443,12 +510,18 @@ const OverviewPageDesigner: React.FC = () => {
           {selectedTemplate && (
             <div className="mt-3 p-3 bg-primary-50 rounded-lg">
               {(() => {
-                const template = projectTemplates.find(t => t.id === selectedTemplate);
+                const template = projectTemplates.find(
+                  (t) => t.id === selectedTemplate,
+                );
                 return template ? (
                   <div>
-                    <p className="text-sm font-medium text-blue-900">{template.template_name}</p>
+                    <p className="text-sm font-medium text-blue-900">
+                      {template.template_name}
+                    </p>
                     {template.template_description && (
-                      <p className="text-sm text-primary-700 mt-1">{template.template_description}</p>
+                      <p className="text-sm text-primary-700 mt-1">
+                        {template.template_description}
+                      </p>
                     )}
                   </div>
                 ) : null;
@@ -476,8 +549,12 @@ const OverviewPageDesigner: React.FC = () => {
             <div className="text-gray-400 mb-4">
               <Plus className="w-12 h-12 mx-auto" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No sections added yet</h3>
-            <p className="text-gray-600 mb-4">Click "Add Section" to start designing your overview page.</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              No sections added yet
+            </h3>
+            <p className="text-gray-600 mb-4">
+              Click "Add Section" to start designing your overview page.
+            </p>
           </div>
         ) : (
           sections.map((section, index) => (
@@ -505,7 +582,7 @@ const OverviewPageDesigner: React.FC = () => {
                       <GripVertical className="w-4 h-4" />
                     </button>
                   </div>
-                  
+
                   {editingSection === section.id ? (
                     <div className="flex items-center space-x-2 flex-1">
                       <input
@@ -516,9 +593,9 @@ const OverviewPageDesigner: React.FC = () => {
                         placeholder="Enter section name"
                         autoFocus
                         onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
+                          if (e.key === "Enter") {
                             saveEdit(section.id);
-                          } else if (e.key === 'Escape') {
+                          } else if (e.key === "Escape") {
                             cancelEdit();
                           }
                         }}
@@ -540,9 +617,15 @@ const OverviewPageDesigner: React.FC = () => {
                     </div>
                   ) : (
                     <div className="flex items-center space-x-3 flex-1">
-                      <h3 className="text-lg font-medium text-gray-900">{section.name}</h3>
-                      <span className="text-sm text-gray-500">Section {index + 1}</span>
-                      <span className="text-xs text-gray-400">({section.fields.length} fields)</span>
+                      <h3 className="text-lg font-medium text-gray-900">
+                        {section.name}
+                      </h3>
+                      <span className="text-sm text-gray-500">
+                        Section {index + 1}
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        ({section.fields.length} fields)
+                      </span>
                     </div>
                   )}
                 </div>
@@ -552,9 +635,17 @@ const OverviewPageDesigner: React.FC = () => {
                     <button
                       onClick={() => toggleSectionExpansion(section.id)}
                       className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-lg"
-                      title={section.isExpanded ? "Collapse section" : "Expand section"}
+                      title={
+                        section.isExpanded
+                          ? "Collapse section"
+                          : "Expand section"
+                      }
                     >
-                      {section.isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      {section.isExpanded ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )}
                     </button>
                     <button
                       onClick={() => startEditing(section)}
@@ -583,7 +674,7 @@ const OverviewPageDesigner: React.FC = () => {
                         onChange={(e) => {
                           if (e.target.value) {
                             addFieldToSection(section.id, e.target.value);
-                            e.target.value = '';
+                            e.target.value = "";
                           }
                         }}
                         className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -591,7 +682,13 @@ const OverviewPageDesigner: React.FC = () => {
                       >
                         <option value="">Add field to section...</option>
                         {customFields
-                          .filter(field => !section.fields.some(sectionField => sectionField.customFieldId === field.id))
+                          .filter(
+                            (field) =>
+                              !section.fields.some(
+                                (sectionField) =>
+                                  sectionField.customFieldId === field.id,
+                              ),
+                          )
                           .map((field) => (
                             <option key={field.id} value={field.id}>
                               {field.field_name} ({field.field_type})
@@ -599,7 +696,9 @@ const OverviewPageDesigner: React.FC = () => {
                           ))}
                       </select>
                       {customFields.length === 0 && (
-                        <span className="text-sm text-gray-500">No custom fields available</span>
+                        <span className="text-sm text-gray-500">
+                          No custom fields available
+                        </span>
                       )}
                     </div>
                   </div>
@@ -608,18 +707,24 @@ const OverviewPageDesigner: React.FC = () => {
                   {section.fields.length === 0 ? (
                     <div className="bg-gray-50 rounded-lg p-4 border-2 border-dashed border-gray-300">
                       <p className="text-sm text-gray-500 text-center">
-                        No fields added yet. Select a field from the dropdown above to add it to this section.
+                        No fields added yet. Select a field from the dropdown
+                        above to add it to this section.
                       </p>
                     </div>
                   ) : (
                     <div className="space-y-4">
                       {section.fields.map((field, fieldIndex) => (
-                        <div key={field.id} className="bg-white border border-gray-200 rounded-lg p-4">
+                        <div
+                          key={field.id}
+                          className="bg-white border border-gray-200 rounded-lg p-4"
+                        >
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center space-x-3">
                               <div className="flex flex-col space-y-1">
                                 <button
-                                  onClick={() => moveFieldUp(section.id, fieldIndex)}
+                                  onClick={() =>
+                                    moveFieldUp(section.id, fieldIndex)
+                                  }
                                   disabled={fieldIndex === 0}
                                   className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
                                   title="Move field up"
@@ -627,8 +732,12 @@ const OverviewPageDesigner: React.FC = () => {
                                   <GripVertical className="w-3 h-3 rotate-180" />
                                 </button>
                                 <button
-                                  onClick={() => moveFieldDown(section.id, fieldIndex)}
-                                  disabled={fieldIndex === section.fields.length - 1}
+                                  onClick={() =>
+                                    moveFieldDown(section.id, fieldIndex)
+                                  }
+                                  disabled={
+                                    fieldIndex === section.fields.length - 1
+                                  }
                                   className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
                                   title="Move field down"
                                 >
@@ -636,31 +745,39 @@ const OverviewPageDesigner: React.FC = () => {
                                 </button>
                               </div>
                               <div>
-                                <h4 className="font-medium text-gray-900">{field.customField.field_label}</h4>
+                                <h4 className="font-medium text-gray-900">
+                                  {field.customField.field_label}
+                                </h4>
                                 <div className="flex items-center space-x-2 text-xs text-gray-500">
                                   <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
                                     {field.customField.field_type}
                                   </span>
                                   {field.customField.is_required && (
-                                    <span className="bg-red-100 text-red-800 px-2 py-1 rounded">Required</span>
+                                    <span className="bg-red-100 text-red-800 px-2 py-1 rounded">
+                                      Required
+                                    </span>
                                   )}
                                 </div>
                               </div>
                             </div>
                             <button
-                              onClick={() => removeFieldFromSection(section.id, field.id)}
+                              onClick={() =>
+                                removeFieldFromSection(section.id, field.id)
+                              }
                               className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
                               title="Remove field"
                             >
                               <X className="w-4 h-4" />
                             </button>
                           </div>
-                          
+
                           {/* Field Preview */}
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                               {field.customField.field_label}
-                              {field.customField.is_required && <span className="text-red-500 ml-1">*</span>}
+                              {field.customField.is_required && (
+                                <span className="text-red-500 ml-1">*</span>
+                              )}
                             </label>
                             {renderFieldControl(field)}
                           </div>
@@ -679,21 +796,24 @@ const OverviewPageDesigner: React.FC = () => {
       {sections.length > 0 && (
         <div className="mt-8 pt-6 border-t border-gray-200">
           <div className="bg-primary-50 rounded-lg p-4 mb-4">
-            <h4 className="font-medium text-blue-900 mb-2">Save Configuration</h4>
+            <h4 className="font-medium text-blue-900 mb-2">
+              Save Configuration
+            </h4>
             <p className="text-sm text-primary-700">
-              Save this overview page design for the selected project template. 
-              This configuration will be used when creating projects with this template.
+              Save this overview page design for the selected project template.
+              This configuration will be used when creating projects with this
+              template.
             </p>
           </div>
           <div className="flex justify-end space-x-4">
-            <button 
+            <button
               onClick={resetConfiguration}
               disabled={saving}
               className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
             >
               Reset
             </button>
-            <button 
+            <button
               onClick={saveConfiguration}
               disabled={saving || !selectedTemplate}
               className="flex items-center space-x-2 px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
