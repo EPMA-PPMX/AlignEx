@@ -22,10 +22,11 @@ export interface DashboardWidget {
   size: 'small' | 'medium' | 'large';
   settings: Record<string, any>;
 }
-
+debugger;
 export const DEMO_USER_EMAILID = localStorage.getItem('email')?.toLocaleLowerCase() || '';
 export const DEMO_USER_ID = '0';
 export const DEMO_TENANT_NAME = localStorage.getItem('domain')?.replace('inc.com', '') || '';
+
 
 const DEFAULT_WIDGETS: Omit<DashboardWidget, 'id' | 'user_id'>[] = [
   { widget_type: 'team_capacity', is_enabled: true, position_order: 1, size: 'medium', settings: {} },
