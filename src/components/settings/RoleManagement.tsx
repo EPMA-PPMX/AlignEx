@@ -1,7 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, CreditCard as Edit2, Trash2, Save, X, Users } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
-import { useNotification } from '../../lib/useNotification';
+import React, { useState, useEffect } from "react";
+import {
+  Plus,
+  CreditCard as Edit2,
+  Trash2,
+  Save,
+  X,
+  Users,
+} from "lucide-react";
+import { supabase } from "../../lib/supabase";
+import { useNotification } from "../../lib/useNotification";
 
 interface Role {
   id: string;
@@ -30,23 +37,29 @@ interface RoleSkillRequirement {
   skill: Skill;
 }
 
-const PROFICIENCY_LEVELS = ['None', 'Basic', 'Intermediate', 'Expert'];
+const PROFICIENCY_LEVELS = ["None", "Basic", "Intermediate", "Expert"];
 
 export default function RoleManagement() {
   const { showConfirm, showNotification } = useNotification();
   const [roles, setRoles] = useState<Role[]>([]);
   const [categories, setCategories] = useState<SkillCategory[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
-  const [requirements, setRequirements] = useState<Record<string, RoleSkillRequirement[]>>({});
+  const [requirements, setRequirements] = useState<
+    Record<string, RoleSkillRequirement[]>
+  >({});
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [managingSkillsFor, setManagingSkillsFor] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [selectedSkills, setSelectedSkills] = useState<Record<string, string>>({});
+  const [managingSkillsFor, setManagingSkillsFor] = useState<string | null>(
+    null,
+  );
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [selectedSkills, setSelectedSkills] = useState<Record<string, string>>(
+    {},
+  );
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
+    name: "",
+    description: "",
   });
 
   useEffect(() => {
@@ -58,14 +71,17 @@ export default function RoleManagement() {
       setLoading(true);
       await Promise.all([fetchRoles(), fetchCategories(), fetchSkills()]);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error("Error fetching data:", error);
     } finally {
       setLoading(false);
     }
   };
 
   const fetchRoles = async () => {
-    const { data, error } = await supabase.from('roles').select('*').order('name');
+    const { data, error } = await supabase
+      .from("roles")
+      .select("id, name, description, created_at, updated_at")
+      .order("name");
 
     if (error) throw error;
     setRoles(data || []);
@@ -77,9 +93,9 @@ export default function RoleManagement() {
 
   const fetchCategories = async () => {
     const { data, error } = await supabase
-      .from('skill_categories')
-      .select('id, name')
-      .order('name');
+      .from("skill_categories")
+      .select("id, name")
+      .order("name");
 
     if (error) throw error;
     setCategories(data || []);
@@ -89,35 +105,61 @@ export default function RoleManagement() {
   };
 
   const fetchSkills = async () => {
-    const { data, error } = await supabase.from('skills').select('*').order('name');
+    const { data, error } = await supabase
+      .from("skills")
+      .select(
+        "id, name, category_id, description, created_at, updated_at, is_core, is_certifiable, is_in_demand",
+      )
+      .order("name");
 
     if (error) throw error;
     setSkills(data || []);
   };
 
   const fetchRoleRequirements = async (roleId: string) => {
-    const { data, error } = await supabase
-      .from('role_skill_requirements')
-      .select(
-        `
-        *,
-        skill:skills(id, category_id, name)
-      `
-      )
-      .eq('role_id', roleId);
+    try {
+      const [requirementsResult, skillsResult] = await Promise.all([
+        supabase
+          .from("role_skill_requirements")
+          .select("id, role_id, skill_id, required_level, created_at")
+          .eq("role_id", roleId),
 
-    if (error) throw error;
-    setRequirements((prev) => ({ ...prev, [roleId]: data || [] }));
+        supabase.from("skills").select("id, category_id, name"),
+      ]);
+
+      if (requirementsResult.error) throw requirementsResult.error;
+      if (skillsResult.error) throw skillsResult.error;
+
+      const skillMap = new Map(
+        (skillsResult.data || []).map((skill: { id: any }) => [
+          skill.id,
+          skill,
+        ]),
+      );
+
+      const requirementsWithSkills = (requirementsResult.data || []).map(
+        (req: { skill_id: unknown }) => ({
+          ...req,
+          skill: skillMap.get(req.skill_id) || null,
+        }),
+      );
+
+      setRequirements((prev) => ({
+        ...prev,
+        [roleId]: requirementsWithSkills,
+      }));
+    } catch (error) {
+      console.error("Error fetching role requirements:", error);
+    }
   };
-
   const handleAdd = async () => {
     if (!formData.name.trim()) {
-      showNotification('Role name is required', 'error');
+      showNotification("Role name is required", "error");
       return;
     }
 
     try {
-      const { error } = await supabase.from('roles').insert([
+      const { error } = await supabase.from("roles").insert([
         {
           name: formData.name,
           description: formData.description,
@@ -126,13 +168,13 @@ export default function RoleManagement() {
 
       if (error) throw error;
 
-      setFormData({ name: '', description: '' });
+      setFormData({ name: "", description: "" });
       setShowAddForm(false);
       fetchRoles();
-      showNotification('Role added successfully', 'success');
+      showNotification("Role added successfully", "success");
     } catch (error) {
-      console.error('Error adding role:', error);
-      showNotification('Failed to add role', 'error');
+      console.error("Error adding role:", error);
+      showNotification("Failed to add role", "error");
     }
   };
 
@@ -142,47 +184,50 @@ export default function RoleManagement() {
       if (!role) return;
 
       const { error } = await supabase
-        .from('roles')
+        .from("roles")
         .update({
           name: role.name,
           description: role.description,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', id);
+        .eq("id", id);
 
       if (error) throw error;
 
       setEditingId(null);
       fetchRoles();
-      showNotification('Role updated successfully', 'success');
+      showNotification("Role updated successfully", "success");
     } catch (error) {
-      console.error('Error updating role:', error);
-      showNotification('Failed to update role', 'error');
+      console.error("Error updating role:", error);
+      showNotification("Failed to update role", "error");
     }
   };
 
   const handleDelete = async (id: string) => {
     const confirmed = await showConfirm({
-      title: 'Delete Role',
-      message: 'Are you sure you want to delete this role? All skill requirements for this role will also be deleted.',
-      confirmText: 'Delete'
+      title: "Delete Role",
+      message:
+        "Are you sure you want to delete this role? All skill requirements for this role will also be deleted.",
+      confirmText: "Delete",
     });
     if (!confirmed) return;
 
     try {
-      const { error } = await supabase.from('roles').delete().eq('id', id);
+      const { error } = await supabase.from("roles").delete().eq("id", id);
 
       if (error) throw error;
       fetchRoles();
-      showNotification('Role deleted successfully', 'success');
+      showNotification("Role deleted successfully", "success");
     } catch (error) {
-      console.error('Error deleting role:', error);
-      showNotification('Failed to delete role', 'error');
+      console.error("Error deleting role:", error);
+      showNotification("Failed to delete role", "error");
     }
   };
 
   const handleRoleChange = (id: string, field: string, value: string) => {
-    setRoles((prev) => prev.map((role) => (role.id === id ? { ...role, [field]: value } : role)));
+    setRoles((prev) =>
+      prev.map((role) => (role.id === id ? { ...role, [field]: value } : role)),
+    );
   };
 
   const handleManageSkills = (roleId: string) => {
@@ -200,32 +245,32 @@ export default function RoleManagement() {
 
     try {
       const { error: deleteError } = await supabase
-        .from('role_skill_requirements')
+        .from("role_skill_requirements")
         .delete()
-        .eq('role_id', managingSkillsFor);
+        .eq("role_id", managingSkillsFor);
 
       if (deleteError) {
-        console.error('Delete error:', deleteError);
+        console.error("Delete error:", deleteError);
         throw deleteError;
       }
 
       const requirementsToInsert = Object.entries(selectedSkills)
-        .filter(([_, level]) => level !== 'None')
+        .filter(([_, level]) => level !== "None")
         .map(([skillId, level]) => ({
           role_id: managingSkillsFor,
           skill_id: skillId,
           required_level: level,
         }));
 
-      console.log('Requirements to insert:', requirementsToInsert);
+      console.log("Requirements to insert:", requirementsToInsert);
 
       if (requirementsToInsert.length > 0) {
         const { error: insertError } = await supabase
-          .from('role_skill_requirements')
+          .from("role_skill_requirements")
           .insert(requirementsToInsert);
 
         if (insertError) {
-          console.error('Insert error:', insertError);
+          console.error("Insert error:", insertError);
           throw insertError;
         }
       }
@@ -233,10 +278,13 @@ export default function RoleManagement() {
       await fetchRoleRequirements(managingSkillsFor);
       setManagingSkillsFor(null);
       setSelectedSkills({});
-      showNotification('Skill requirements saved successfully', 'success');
+      showNotification("Skill requirements saved successfully", "success");
     } catch (error: any) {
-      console.error('Error saving skill requirements:', error);
-      showNotification(`Failed to save skill requirements: ${error.message || 'Unknown error'}`, 'error');
+      console.error("Error saving skill requirements:", error);
+      showNotification(
+        `Failed to save skill requirements: ${error.message || "Unknown error"}`,
+        "error",
+      );
     }
   };
 
@@ -245,7 +293,9 @@ export default function RoleManagement() {
     : skills;
 
   if (loading) {
-    return <div className="text-center py-8 text-slate-600">Loading roles...</div>;
+    return (
+      <div className="text-center py-8 text-slate-600">Loading roles...</div>
+    );
   }
 
   if (managingSkillsFor) {
@@ -255,7 +305,9 @@ export default function RoleManagement() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-slate-900">Manage Skills for {role?.name}</h2>
+            <h2 className="text-xl font-semibold text-slate-900">
+              Manage Skills for {role?.name}
+            </h2>
             <p className="text-sm text-slate-600 mt-1">
               Select the minimum proficiency level required for each skill
             </p>
@@ -282,7 +334,9 @@ export default function RoleManagement() {
         </div>
 
         <div>
-          <label className="text-sm font-medium text-slate-700 mr-2">Filter by Category:</label>
+          <label className="text-sm font-medium text-slate-700 mr-2">
+            Filter by Category:
+          </label>
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
@@ -301,8 +355,12 @@ export default function RoleManagement() {
           <table className="w-full">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Skill</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Category</th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">
+                  Skill
+                </th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">
+                  Category
+                </th>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">
                   Required Level
                 </th>
@@ -310,20 +368,32 @@ export default function RoleManagement() {
             </thead>
             <tbody>
               {filteredSkills.map((skill) => {
-                const category = categories.find((c) => c.id === skill.category_id);
+                const category = categories.find(
+                  (c) => c.id === skill.category_id,
+                );
                 return (
-                  <tr key={skill.id} className="border-b border-slate-100 hover:bg-slate-50">
+                  <tr
+                    key={skill.id}
+                    className="border-b border-slate-100 hover:bg-slate-50"
+                  >
                     <td className="py-3 px-4">
-                      <span className="font-medium text-slate-900">{skill.name}</span>
+                      <span className="font-medium text-slate-900">
+                        {skill.name}
+                      </span>
                     </td>
                     <td className="py-3 px-4">
-                      <span className="text-slate-600">{category?.name || '-'}</span>
+                      <span className="text-slate-600">
+                        {category?.name || "-"}
+                      </span>
                     </td>
                     <td className="py-3 px-4">
                       <select
-                        value={selectedSkills[skill.id] || 'None'}
+                        value={selectedSkills[skill.id] || "None"}
                         onChange={(e) =>
-                          setSelectedSkills((prev) => ({ ...prev, [skill.id]: e.target.value }))
+                          setSelectedSkills((prev) => ({
+                            ...prev,
+                            [skill.id]: e.target.value,
+                          }))
                         }
                         className="px-3 py-1 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                       >
@@ -348,7 +418,9 @@ export default function RoleManagement() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">Role Management</h2>
+          <h2 className="text-xl font-semibold text-slate-900">
+            Role Management
+          </h2>
           <p className="text-sm text-slate-600 mt-1">
             Define roles and their required skill levels
           </p>
@@ -373,17 +445,23 @@ export default function RoleManagement() {
               <input
                 type="text"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="e.g., Project Manager"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Description
+              </label>
               <input
                 type="text"
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Brief description"
               />
@@ -400,7 +478,7 @@ export default function RoleManagement() {
             <button
               onClick={() => {
                 setShowAddForm(false);
-                setFormData({ name: '', description: '' });
+                setFormData({ name: "", description: "" });
               }}
               className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
             >
@@ -413,12 +491,17 @@ export default function RoleManagement() {
 
       {roles.length === 0 ? (
         <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
-          <p className="text-slate-600">No roles yet. Click "Add Role" to create one.</p>
+          <p className="text-slate-600">
+            No roles yet. Click "Add Role" to create one.
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
           {roles.map((role) => (
-            <div key={role.id} className="bg-white border border-slate-200 rounded-lg p-4">
+            <div
+              key={role.id}
+              className="bg-white border border-slate-200 rounded-lg p-4"
+            >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
                   {editingId === role.id ? (
@@ -426,22 +509,34 @@ export default function RoleManagement() {
                       <input
                         type="text"
                         value={role.name}
-                        onChange={(e) => handleRoleChange(role.id, 'name', e.target.value)}
+                        onChange={(e) =>
+                          handleRoleChange(role.id, "name", e.target.value)
+                        }
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                       />
                       <input
                         type="text"
                         value={role.description}
-                        onChange={(e) => handleRoleChange(role.id, 'description', e.target.value)}
+                        onChange={(e) =>
+                          handleRoleChange(
+                            role.id,
+                            "description",
+                            e.target.value,
+                          )
+                        }
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                         placeholder="Description"
                       />
                     </div>
                   ) : (
                     <>
-                      <h3 className="text-lg font-semibold text-slate-900">{role.name}</h3>
+                      <h3 className="text-lg font-semibold text-slate-900">
+                        {role.name}
+                      </h3>
                       {role.description && (
-                        <p className="text-sm text-slate-600 mt-1">{role.description}</p>
+                        <p className="text-sm text-slate-600 mt-1">
+                          {role.description}
+                        </p>
                       )}
                     </>
                   )}
@@ -498,7 +593,9 @@ export default function RoleManagement() {
 
               {requirements[role.id] && requirements[role.id].length > 0 && (
                 <div className="mt-3 pt-3 border-t border-slate-200">
-                  <h4 className="text-sm font-medium text-slate-700 mb-2">Required Skills:</h4>
+                  <h4 className="text-sm font-medium text-slate-700 mb-2">
+                    Required Skills:
+                  </h4>
                   <div className="flex flex-wrap gap-2">
                     {requirements[role.id].map((req) => (
                       <span
