@@ -1,11 +1,17 @@
 import { Configuration, LogLevel } from "@azure/msal-browser";
 
 // Azure AD Application (client) ID
-const clientId = "bca71dfb-37c6-4752-bcb4-fa44821631d4";
+////const clientId = "bca71dfb-37c6-4752-bcb4-fa44821631d4";
 // Azure AD Tenant ID
-const tenantId = "4358c64c-489c-44fa-bc81-8830190face2";
+//const tenantId = "4358c64c-489c-44fa-bc81-8830190face2";
+
+// Azure AD Application (client) ID
+const clientId = "0c1adffc-a101-4f13-8416-d36b1d206b98";
+// Azure AD Tenant ID
+const tenantId = "4b0d9aaa-5aaf-49f7-a8e6-3902a1da7b47";
+
 // Redirect URI after login
-const redirectUri = "https://polite-cliff-0036a9e10.7.azurestaticapps.net";
+const redirectUri = "http://localhost:5173";
 
 /**
  * Configuration object to be passed to Msal on creation.
