@@ -11,7 +11,7 @@ const clientId = "0c1adffc-a101-4f13-8416-d36b1d206b98";
 const tenantId = "4b0d9aaa-5aaf-49f7-a8e6-3902a1da7b47";
 
 // Redirect URI after login
-const redirectUri = "http://localhost:5173";
+const redirectUri = "https://polite-cliff-0036a9e10.7.azurestaticapps.net";
 
 /**
  * Configuration object to be passed to Msal on creation.
