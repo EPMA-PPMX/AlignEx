@@ -22,11 +22,10 @@ export interface DashboardWidget {
   size: 'small' | 'medium' | 'large';
   settings: Record<string, any>;
 }
-debugger;
-export const DEMO_USER_EMAILID = localStorage.getItem('email')?.toLocaleLowerCase() || '';
-export const DEMO_USER_ID = '0';
-export const DEMO_TENANT_NAME = localStorage.getItem('domain')?.replace('inc.com', '') || '';
 
+export var DEMO_USER_EMAILID = localStorage.getItem('email')?.toLocaleLowerCase() || '';
+export var DEMO_USER_ID = '0';
+export var DEMO_TENANT_NAME = localStorage.getItem('domain')?.replace('inc.com', '') || '';
 
 const DEFAULT_WIDGETS: Omit<DashboardWidget, 'id' | 'user_id'>[] = [
   { widget_type: 'team_capacity', is_enabled: true, position_order: 1, size: 'medium', settings: {} },
@@ -44,6 +43,10 @@ const DEFAULT_WIDGETS: Omit<DashboardWidget, 'id' | 'user_id'>[] = [
 ];
 
 export function useCurrentUser() {
+  DEMO_USER_EMAILID = localStorage.getItem('email')?.toLocaleLowerCase() || ''
+  DEMO_USER_ID = localStorage.getItem('user_id') || '0'
+  DEMO_TENANT_NAME = localStorage.getItem('domain')?.replace('inc.com', '') || ''
+
   const [user, setUser] = useState<User | null>(null);
   const [widgets, setWidgets] = useState<DashboardWidget[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,6 +73,8 @@ export function useCurrentUser() {
       setLoading(true);
       setError(null);
       setUnauthorized(false);
+
+      console.log('Fetching current user for email:', DEMO_USER_EMAILID);
 
       const { data: licenseData, error: licenseError } = await supabase
         .from('user_licenses')
