@@ -20,7 +20,7 @@ const redirectUri = "http://localhost:5173";
 export const msalConfig: Configuration = {
     auth: {
         clientId: clientId,
-        authority: `https://login.microsoftonline.com/${tenantId}`,
+        authority: `https://login.microsoftonline.com/organizations`,
         redirectUri: redirectUri,
         postLogoutRedirectUri: redirectUri,
     },
