@@ -1,8 +1,25 @@
-import React, { useState, useMemo } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FolderKanban, Settings, Target, TrendingUp, FileText, Award, Users, CheckSquare, Clock, ChevronLeft, ChevronRight, BarChart3, Lock, ClipboardCheck, Calendar } from 'lucide-react';
-import { usePermissions } from '../lib/usePermissions';
-import { ModuleKey } from '../lib/permissionService';
+import React, { useState, useMemo } from "react";
+import { Link, useLocation } from "react-router-dom";
+import {
+  LayoutDashboard,
+  FolderKanban,
+  Settings,
+  Target,
+  TrendingUp,
+  FileText,
+  Award,
+  Users,
+  CheckSquare,
+  Clock,
+  ChevronLeft,
+  ChevronRight,
+  BarChart3,
+  Lock,
+  ClipboardCheck,
+  Calendar,
+} from "lucide-react";
+import { usePermissions } from "../lib/usePermissions";
+import { ModuleKey } from "../lib/permissionService";
 
 interface NavItem {
   name: string;
@@ -19,55 +36,55 @@ const Sidebar: React.FC = () => {
 
   const allNavItems: NavItem[] = [
     {
-      name: 'My Hub',
-      path: '/',
+      name: "My Hub",
+      path: "/home",
       icon: LayoutDashboard,
     },
     {
-      name: 'Project Request',
-      path: '/initiation',
+      name: "Project Request",
+      path: "/initiation",
       icon: FileText,
     },
     {
-      name: 'Project Center',
-      path: '/projects',
+      name: "Project Center",
+      path: "/projects",
       icon: FolderKanban,
     },
     {
-      name: 'Strategic Priorities',
-      path: '/priorities',
+      name: "Strategic Priorities",
+      path: "/priorities",
       icon: TrendingUp,
       requiresManagePermission: true,
     },
     {
-      name: 'Resources',
-      path: '/resources',
+      name: "Resources",
+      path: "/resources",
       icon: Users,
     },
     {
-      name: 'My Skills',
-      path: '/skills',
+      name: "My Skills",
+      path: "/skills",
       icon: Award,
-      requiredModule: 'skills',
+      requiredModule: "skills",
     },
     {
-      name: 'Timesheet',
-      path: '/timesheet',
+      name: "Timesheet",
+      path: "/timesheet",
       icon: Clock,
     },
     {
-      name: 'Timesheet Approvals',
-      path: '/timesheet-approval',
+      name: "Timesheet Approvals",
+      path: "/timesheet-approval",
       icon: ClipboardCheck,
     },
     {
-      name: 'Status Report',
-      path: '/status-report',
+      name: "Status Report",
+      path: "/status-report",
       icon: BarChart3,
     },
     {
-      name: 'Settings',
-      path: '/settings',
+      name: "Settings",
+      path: "/settings",
       icon: Settings,
       requiresManagePermission: true,
     },
@@ -78,7 +95,10 @@ const Sidebar: React.FC = () => {
 
     return allNavItems.filter((item) => {
       // Check if module is required and available
-      if (item.requiredModule && !availableModules.includes(item.requiredModule)) {
+      if (
+        item.requiredModule &&
+        !availableModules.includes(item.requiredModule)
+      ) {
         return false;
       }
 
@@ -92,12 +112,14 @@ const Sidebar: React.FC = () => {
   }, [availableModules, can.manage, loading]);
 
   return (
-    <div className={`${isCollapsed ? 'w-20' : 'w-64'} bg-gradient-dark shadow-lg border-r border-primary-700/30 transition-all duration-300 flex flex-col`}>
+    <div
+      className={`${isCollapsed ? "w-20" : "w-64"} bg-gradient-dark shadow-lg border-r border-primary-700/30 transition-all duration-300 flex flex-col`}
+    >
       <div className="flex items-center justify-center py-8 px-4 border-b border-primary-700/30 relative">
         <img
           src={isCollapsed ? "/PPMX.gif" : "/PPMX.gif"}
           alt="AlignEx"
-          className={`${isCollapsed ? 'h-16 w-16' : 'w-full h-auto'} transition-all duration-300`}
+          className={`${isCollapsed ? "h-16 w-16" : "w-full h-auto"} transition-all duration-300`}
         />
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
@@ -121,15 +143,19 @@ const Sidebar: React.FC = () => {
               <li key={item.name}>
                 <Link
                   to={item.path}
-                  className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3'} px-4 py-3 rounded-lg transition-all duration-200 ${
+                  className={`flex items-center ${isCollapsed ? "justify-center" : "space-x-3"} px-4 py-3 rounded-lg transition-all duration-200 ${
                     isActive
-                      ? 'bg-gradient-primary text-white shadow-lg'
-                      : 'text-purple-200 hover:bg-primary-800/50 hover:text-white'
+                      ? "bg-gradient-primary text-white shadow-lg"
+                      : "text-purple-200 hover:bg-primary-800/50 hover:text-white"
                   }`}
                   title={isCollapsed ? item.name : undefined}
                 >
-                  <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-purple-300'} ${isCollapsed ? '' : 'flex-shrink-0'}`} />
-                  {!isCollapsed && <span className="font-medium">{item.name}</span>}
+                  <Icon
+                    className={`w-5 h-5 ${isActive ? "text-white" : "text-purple-300"} ${isCollapsed ? "" : "flex-shrink-0"}`}
+                  />
+                  {!isCollapsed && (
+                    <span className="font-medium">{item.name}</span>
+                  )}
                 </Link>
               </li>
             );
