@@ -3,7 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const multer = require('multer');
 const { Pool } = require('pg');
-require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
@@ -102,9 +102,15 @@ if (dbProvider === 'local') {
     poolConfig = {};
   }
 }
-
 const pool = new Pool(poolConfig);
-
+pool.connect()
+  .then(client => {
+    console.log("✅ Connected to Azure PostgreSQL successfully");
+    client.release();
+  })
+  .catch(err => {
+    console.error("❌ Azure DB connection failed:", err.message);
+  });
 // ---------------------------------------------------------------------------
 // SQL translation helpers (Step 3)
 // ---------------------------------------------------------------------------
@@ -245,9 +251,17 @@ function buildSQL(descriptor) {
 
       // Rebuild properly with correct param indexing
       const params2 = [];
+      const jsonColumns = ['sections'];
       const rowClauses = rows.map(row => {
         const holders = keys.map(k => {
-          params2.push(row[k]);
+          let value = row[k];
+
+          if (jsonColumns.includes(k)) {
+            value = JSON.stringify(value);
+          }
+
+          params2.push(value);
+
           return `$${params2.length}`;
         });
         return `(${holders.join(', ')})`;
@@ -300,8 +314,17 @@ function buildSQL(descriptor) {
       if (!data || Object.keys(data).length === 0) throw new Error('No data provided for update');
       const keys = Object.keys(data);
       const params2 = [];
+      const jsonColumns = ['sections'];
+
       const setClauses = keys.map(k => {
-        params2.push(data[k]);
+        let value = data[k];
+
+        if (jsonColumns.includes(k)) {
+          value = JSON.stringify(value);
+        }
+
+        params2.push(value);
+
         return `${sanitizeIdentifier(k)} = $${params2.length}`;
       });
 
