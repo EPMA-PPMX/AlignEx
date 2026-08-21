@@ -1,8 +1,26 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
-import { useNotification } from '../lib/useNotification';
-import { DEMO_USER_EMAILID } from '../lib/useCurrentUser';
-import { Plus, Trash2, ChevronLeft, ChevronRight, CheckCircle, Send, RotateCcw, ChevronDown, ChevronUp, FileText, X, MoreVertical } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from "react";
+import { supabase } from "../lib/supabase";
+import { useNotification } from "../lib/useNotification";
+import {
+  DEMO_USER_ID,
+  DEMO_USER_EMAILID,
+  DEMO_TENANT_NAME,
+  useCurrentUser,
+} from "../lib/useCurrentUser";
+import {
+  Plus,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  CheckCircle,
+  Send,
+  RotateCcw,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  X,
+  MoreVertical,
+} from "lucide-react";
 
 interface TimesheetEntry {
   id: string;
@@ -36,9 +54,16 @@ interface NonProjectCategory {
 interface TimesheetRow {
   id: string;
   name: string;
-  type: 'project' | 'initiation' | 'category';
+  type: "project" | "initiation" | "category";
   typeId: string;
-  entries: { [date: string]: { id: string; billable: number; nonBillable: number; notes: string } };
+  entries: {
+    [date: string]: {
+      id: string;
+      billable: number;
+      nonBillable: number;
+      notes: string;
+    };
+  };
   persistentItemId?: string;
   isCompleted?: boolean;
 }
@@ -62,8 +87,13 @@ interface TimesheetSubmission {
 const Timesheet: React.FC = () => {
   const { showNotification, showConfirm } = useNotification();
   const [rows, setRows] = useState<TimesheetRow[]>([]);
+  const [editingValues, setEditingValues] = useState<Record<string, string>>(
+    {},
+  );
   const [projects, setProjects] = useState<Project[]>([]);
-  const [initiationRequests, setInitiationRequests] = useState<InitiationRequest[]>([]);
+  const [initiationRequests, setInitiationRequests] = useState<
+    InitiationRequest[]
+  >([]);
   const [categories, setCategories] = useState<NonProjectCategory[]>([]);
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
     const today = new Date();
@@ -73,11 +103,12 @@ const Timesheet: React.FC = () => {
   });
   const [showAddModal, setShowAddModal] = useState(false);
   const [newRowForm, setNewRowForm] = useState({
-    type: 'project' as 'project' | 'initiation' | 'category',
-    selectedId: ''
+    type: "project" as "project" | "initiation" | "category",
+    selectedId: "",
   });
   const [addModalError, setAddModalError] = useState<string | null>(null);
-  const [weekSubmission, setWeekSubmission] = useState<TimesheetSubmission | null>(null);
+  const [weekSubmission, setWeekSubmission] =
+    useState<TimesheetSubmission | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -92,7 +123,7 @@ const Timesheet: React.FC = () => {
     row: null,
     date: null,
     isBillable: false,
-    notes: ''
+    notes: "",
   });
 
   const fetchData = useCallback(async () => {
@@ -101,36 +132,40 @@ const Timesheet: React.FC = () => {
 
     const USER_EMAIL = DEMO_USER_EMAILID;
 
-    const [entriesRes, projectsRes, requestsRes, categoriesRes, persistentItemsRes, submissionRes] = await Promise.all([
+    const [
+      entriesRes,
+      projectsRes,
+      requestsRes,
+      categoriesRes,
+      persistentItemsRes,
+      submissionRes,
+    ] = await Promise.all([
       supabase
-        .from('timesheet_entries')
-        .select('*')
-        .gte('entry_date', currentWeekStart.toISOString().split('T')[0])
-        .lte('entry_date', weekEnd.toISOString().split('T')[0]),
+        .from("timesheet_entries")
+        .select("*")
+        .gte("entry_date", currentWeekStart.toISOString().split("T")[0])
+        .lte("entry_date", weekEnd.toISOString().split("T")[0]),
+      supabase.from("projects").select("id, name, state").order("name"),
       supabase
-        .from('projects')
-        .select('id, name, state')
-        .order('name'),
+        .from("project_initiation_requests")
+        .select("id, project_name, status")
+        .order("project_name"),
       supabase
-        .from('project_initiation_requests')
-        .select('id, project_name, status')
-        .order('project_name'),
+        .from("non_project_work_categories")
+        .select("*")
+        .eq("is_active", true)
+        .order("name"),
       supabase
-        .from('non_project_work_categories')
-        .select('*')
-        .eq('is_active', true)
-        .order('name'),
+        .from("user_timesheet_items")
+        .select("*")
+        .eq("user_email", USER_EMAIL)
+        .eq("is_completed", false),
       supabase
-        .from('user_timesheet_items')
-        .select('*')
-        .eq('user_email', USER_EMAIL)
-        .eq('is_completed', false),
-      supabase
-        .from('timesheet_submissions')
-        .select('*')
-        .eq('user_email', USER_EMAIL)
-        .eq('week_start_date', currentWeekStart.toISOString().split('T')[0])
-        .maybeSingle()
+        .from("timesheet_submissions")
+        .select("*")
+        .eq("user_email", USER_EMAIL)
+        .eq("week_start_date", currentWeekStart.toISOString().split("T")[0])
+        .maybeSingle(),
     ]);
 
     const entries = entriesRes.data || [];
@@ -149,28 +184,34 @@ const Timesheet: React.FC = () => {
 
     // First, add all persistent items as rows
     persistentItems.forEach((item: any) => {
-      let rowKey = '';
-      let rowName = '';
-      let rowType: 'project' | 'initiation' | 'category' = 'project';
-      let typeId = '';
+      let rowKey = "";
+      let rowName = "";
+      let rowType: "project" | "initiation" | "category" = "project";
+      let typeId = "";
 
       if (item.project_id) {
         rowKey = `project-${item.project_id}`;
-        const project = projectsData.find((p: Project) => p.id === item.project_id);
-        rowName = project?.name || 'Unknown Project';
-        rowType = 'project';
+        const project = projectsData.find(
+          (p: Project) => p.id === item.project_id,
+        );
+        rowName = project?.name || "Unknown Project";
+        rowType = "project";
         typeId = item.project_id;
       } else if (item.initiation_request_id) {
         rowKey = `initiation-${item.initiation_request_id}`;
-        const request = requestsData.find((r: InitiationRequest) => r.id === item.initiation_request_id);
-        rowName = request?.project_name || 'Unknown Request';
-        rowType = 'initiation';
+        const request = requestsData.find(
+          (r: InitiationRequest) => r.id === item.initiation_request_id,
+        );
+        rowName = request?.project_name || "Unknown Request";
+        rowType = "initiation";
         typeId = item.initiation_request_id;
       } else if (item.non_project_category_id) {
         rowKey = `category-${item.non_project_category_id}`;
-        const category = categoriesData.find((c: NonProjectCategory) => c.id === item.non_project_category_id);
-        rowName = category?.name || 'Unknown Category';
-        rowType = 'category';
+        const category = categoriesData.find(
+          (c: NonProjectCategory) => c.id === item.non_project_category_id,
+        );
+        rowName = category?.name || "Unknown Category";
+        rowType = "category";
         typeId = item.non_project_category_id;
       }
 
@@ -182,35 +223,41 @@ const Timesheet: React.FC = () => {
           typeId: typeId,
           entries: {},
           persistentItemId: item.id,
-          isCompleted: false
+          isCompleted: false,
         });
       }
     });
 
     // Then, populate entries for the week
     entries.forEach((entry: TimesheetEntry) => {
-      let rowKey = '';
-      let rowName = '';
-      let rowType: 'project' | 'initiation' | 'category' = 'project';
-      let typeId = '';
+      let rowKey = "";
+      let rowName = "";
+      let rowType: "project" | "initiation" | "category" = "project";
+      let typeId = "";
 
       if (entry.project_id) {
         rowKey = `project-${entry.project_id}`;
-        const project = projectsData.find((p: Project) => p.id === entry.project_id);
-        rowName = project?.name || 'Unknown Project';
-        rowType = 'project';
+        const project = projectsData.find(
+          (p: Project) => p.id === entry.project_id,
+        );
+        rowName = project?.name || "Unknown Project";
+        rowType = "project";
         typeId = entry.project_id;
       } else if (entry.initiation_request_id) {
         rowKey = `initiation-${entry.initiation_request_id}`;
-        const request = requestsData.find((r: InitiationRequest) => r.id === entry.initiation_request_id);
-        rowName = request?.project_name || 'Unknown Request';
-        rowType = 'initiation';
+        const request = requestsData.find(
+          (r: InitiationRequest) => r.id === entry.initiation_request_id,
+        );
+        rowName = request?.project_name || "Unknown Request";
+        rowType = "initiation";
         typeId = entry.initiation_request_id;
       } else if (entry.non_project_category_id) {
         rowKey = `category-${entry.non_project_category_id}`;
-        const category = categoriesData.find((c: NonProjectCategory) => c.id === entry.non_project_category_id);
-        rowName = category?.name || 'Unknown Category';
-        rowType = 'category';
+        const category = categoriesData.find(
+          (c: NonProjectCategory) => c.id === entry.non_project_category_id,
+        );
+        rowName = category?.name || "Unknown Category";
+        rowType = "category";
         typeId = entry.non_project_category_id;
       }
 
@@ -220,15 +267,20 @@ const Timesheet: React.FC = () => {
           name: rowName,
           type: rowType,
           typeId: typeId,
-          entries: {}
+          entries: {},
         });
       }
 
       const row = rowsMap.get(rowKey)!;
-      const dateKey = entry.entry_date;
+      const dateKey = formatDateKey(new Date(entry.entry_date));
 
       if (!row.entries[dateKey]) {
-        row.entries[dateKey] = { id: entry.id, billable: 0, nonBillable: 0, notes: entry.notes || '' };
+        row.entries[dateKey] = {
+          id: entry.id,
+          billable: 0,
+          nonBillable: 0,
+          notes: entry.notes || "",
+        };
       }
 
       if (entry.is_billable) {
@@ -262,20 +314,24 @@ const Timesheet: React.FC = () => {
 
   const navigateWeek = (direction: number) => {
     const newDate = new Date(currentWeekStart);
-    newDate.setDate(newDate.getDate() + (direction * 7));
+    newDate.setDate(newDate.getDate() + direction * 7);
     setCurrentWeekStart(newDate);
   };
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
   const formatDateKey = (date: Date) => {
-    return date.toISOString().split('T')[0];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
   };
 
   const toggleRowExpansion = (rowId: string) => {
-    setExpandedRows(prev => {
+    setExpandedRows((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(rowId)) {
         newSet.delete(rowId);
@@ -290,23 +346,31 @@ const Timesheet: React.FC = () => {
     setAddModalError(null);
 
     if (!newRowForm.selectedId) {
-      setAddModalError('Please select an item');
+      setAddModalError("Please select an item");
       return;
     }
 
     const USER_EMAIL = DEMO_USER_EMAILID;
 
     let exists = false;
-    if (newRowForm.type === 'project') {
-      exists = rows.some(r => r.type === 'project' && r.typeId === newRowForm.selectedId);
-    } else if (newRowForm.type === 'initiation') {
-      exists = rows.some(r => r.type === 'initiation' && r.typeId === newRowForm.selectedId);
-    } else if (newRowForm.type === 'category') {
-      exists = rows.some(r => r.type === 'category' && r.typeId === newRowForm.selectedId);
+    if (newRowForm.type === "project") {
+      exists = rows.some(
+        (r) => r.type === "project" && r.typeId === newRowForm.selectedId,
+      );
+    } else if (newRowForm.type === "initiation") {
+      exists = rows.some(
+        (r) => r.type === "initiation" && r.typeId === newRowForm.selectedId,
+      );
+    } else if (newRowForm.type === "category") {
+      exists = rows.some(
+        (r) => r.type === "category" && r.typeId === newRowForm.selectedId,
+      );
     }
 
     if (exists) {
-      setAddModalError('This item is already in your timesheet. Please select a different item.');
+      setAddModalError(
+        "This item is already in your timesheet. Please select a different item.",
+      );
       return;
     }
 
@@ -318,69 +382,69 @@ const Timesheet: React.FC = () => {
         is_completed: false,
         project_id: null,
         initiation_request_id: null,
-        non_project_category_id: null
+        non_project_category_id: null,
       };
 
-      if (newRowForm.type === 'project') {
+      if (newRowForm.type === "project") {
         itemData.project_id = newRowForm.selectedId;
-      } else if (newRowForm.type === 'initiation') {
+      } else if (newRowForm.type === "initiation") {
         itemData.initiation_request_id = newRowForm.selectedId;
       } else {
         itemData.non_project_category_id = newRowForm.selectedId;
       }
 
       const { error } = await supabase
-        .from('user_timesheet_items')
+        .from("user_timesheet_items")
         .insert([itemData]);
 
       if (error) {
-        console.error('Error adding timesheet item:', error);
-        showNotification('Error adding item to timesheet', 'error');
+        console.error("Error adding timesheet item:", error);
+        showNotification("Error adding item to timesheet", "error");
         return;
       }
 
       // Reload data to show the new item
       await fetchData();
       setShowAddModal(false);
-      setNewRowForm({ type: 'project', selectedId: '' });
+      setNewRowForm({ type: "project", selectedId: "" });
       setAddModalError(null);
     } catch (error: any) {
-      console.error('Error:', error);
+      console.error("Error:", error);
       setAddModalError(`Error: ${error.message}`);
     }
   };
 
   const handleMarkAsCompleted = async (row: TimesheetRow) => {
     if (!row.persistentItemId) {
-      showNotification('This item cannot be marked as completed', 'info');
+      showNotification("This item cannot be marked as completed", "info");
       return;
     }
 
     const confirmed = await showConfirm({
-      message: `Mark "${row.name}" as completed? It will be removed from your timesheet.`
+      message: `Mark "${row.name}" as completed? It will be removed from your timesheet.`,
     });
     if (!confirmed) return;
 
     try {
       const { error } = await supabase
-        .from('user_timesheet_items')
+        .from("user_timesheet_items")
         .update({
           is_completed: true,
-          completed_date: new Date().toISOString().split('T')[0]
+          completed_date: new Date().toISOString().split("T")[0],
         })
-        .eq('id', row.persistentItemId);
+        .eq("id", row.persistentItemId);
 
       if (error) {
-        console.error('Error marking item as completed:', error);
-        showNotification('Error marking item as completed', 'error');
+        console.error("Error marking item as completed:", error);
+        showNotification("Error marking item as completed", "error");
         return;
       }
 
       // Reload data to remove the completed item
       await fetchData();
     } catch (error: any) {
-      console.error('Error:', error);
-      showNotification(`Error: ${error.message}`, 'error');
+      console.error("Error:", error);
+      showNotification(`Error: ${error.message}`, "error");
     }
   };
 
@@ -390,7 +454,7 @@ const Timesheet: React.FC = () => {
     weekEnd.setDate(weekEnd.getDate() + 6);
 
     if (rows.length === 0) {
-      showNotification('No time entries to submit', 'info');
+      showNotification("No time entries to submit", "info");
       return;
     }
 
@@ -399,27 +463,30 @@ const Timesheet: React.FC = () => {
     let billableHours = 0;
     let nonBillableHours = 0;
 
-    rows.forEach(row => {
-      weekDates.forEach(date => {
+    rows.forEach((row) => {
+      weekDates.forEach((date) => {
         const dateKey = formatDateKey(date);
         const entry = row.entries[dateKey];
         if (entry) {
-          totalHours += entry.billable + entry.nonBillable;
-          billableHours += entry.billable;
-          nonBillableHours += entry.nonBillable;
+          totalHours += Number(entry?.billable) + Number(entry?.nonBillable);
+          billableHours += Number(entry?.billable) || 0;
+          nonBillableHours += Number(entry?.nonBillable) || 0;
         }
       });
     });
 
     if (totalHours === 0) {
-      showNotification('No hours to submit. Please add some time entries first.', 'info');
+      showNotification(
+        "No hours to submit. Please add some time entries first.",
+        "info",
+      );
       return;
     }
 
     const confirmed = await showConfirm({
-      title: 'Submit Timesheet',
+      title: "Submit Timesheet",
       message: `Submit timesheet for week of ${currentWeekStart.toLocaleDateString()}?\n\nTotal Hours: ${totalHours.toFixed(2)}\nBillable: ${billableHours.toFixed(2)}\nNon-Billable: ${nonBillableHours.toFixed(2)}`,
-      confirmText: 'Submit'
+      confirmText: "Submit",
     });
     if (!confirmed) return;
 
@@ -428,34 +495,34 @@ const Timesheet: React.FC = () => {
     try {
       const submissionData = {
         user_email: USER_EMAIL,
-        week_start_date: currentWeekStart.toISOString().split('T')[0],
-        week_end_date: weekEnd.toISOString().split('T')[0],
-        status: 'submitted',
+        week_start_date: currentWeekStart.toISOString().split("T")[0],
+        week_end_date: weekEnd.toISOString().split("T")[0],
+        status: "submitted",
         total_hours: totalHours,
         billable_hours: billableHours,
         non_billable_hours: nonBillableHours,
-        submitted_at: new Date().toISOString()
+        submitted_at: new Date().toISOString(),
       };
 
       const { data: submission, error } = await supabase
-        .from('timesheet_submissions')
+        .from("timesheet_submissions")
         .upsert([submissionData], {
-          onConflict: 'user_email,week_start_date'
+          onConflict: "user_email,week_start_date",
         })
         .select()
         .single();
 
       if (error) {
-        console.error('Error submitting timesheet:', error);
-        showNotification('Error submitting timesheet', 'error');
+        console.error("Error submitting timesheet:", error);
+        showNotification("Error submitting timesheet", "error");
         return;
       }
 
-      showNotification('Timesheet submitted successfully!', 'success');
+      showNotification("Timesheet submitted successfully!", "success");
       await fetchData();
     } catch (error: any) {
-      console.error('Error:', error);
-      showNotification(`Error: ${error.message}`, 'error');
+      console.error("Error:", error);
+      showNotification(`Error: ${error.message}`, "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -465,9 +532,10 @@ const Timesheet: React.FC = () => {
     if (!weekSubmission) return;
 
     const confirmed = await showConfirm({
-      title: 'Recall Timesheet',
-      message: 'Recall this timesheet? You will be able to edit and resubmit it.',
-      confirmText: 'Recall'
+      title: "Recall Timesheet",
+      message:
+        "Recall this timesheet? You will be able to edit and resubmit it.",
+      confirmText: "Recall",
     });
     if (!confirmed) return;
 
@@ -475,40 +543,47 @@ const Timesheet: React.FC = () => {
 
     try {
       const { error } = await supabase
-        .from('timesheet_submissions')
+        .from("timesheet_submissions")
         .update({
-          status: 'recalled',
-          recalled_at: new Date().toISOString()
+          status: "recalled",
+          recalled_at: new Date().toISOString(),
         })
-        .eq('id', weekSubmission.id);
+        .eq("id", weekSubmission.id);
 
       if (error) {
-        console.error('Error recalling timesheet:', error);
-        showNotification('Error recalling timesheet', 'error');
+        console.error("Error recalling timesheet:", error);
+        showNotification("Error recalling timesheet", "error");
         return;
       }
 
-      showNotification('Timesheet recalled successfully. You can now edit and resubmit.', 'success');
+      showNotification(
+        "Timesheet recalled successfully. You can now edit and resubmit.",
+        "success",
+      );
       await fetchData();
     } catch (error: any) {
-      console.error('Error:', error);
-      showNotification(`Error: ${error.message}`, 'error');
+      console.error("Error:", error);
+      showNotification(`Error: ${error.message}`, "error");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleOpenNotesModal = (row: TimesheetRow, date: Date, isBillable: boolean) => {
+  const handleOpenNotesModal = (
+    row: TimesheetRow,
+    date: Date,
+    isBillable: boolean,
+  ) => {
     const dateKey = formatDateKey(date);
     const existingEntry = row.entries[dateKey];
-    const notes = existingEntry?.notes || '';
+    const notes = existingEntry?.notes || "";
 
     setNotesModal({
       show: true,
       row,
       date,
       isBillable,
-      notes
+      notes,
     });
   };
 
@@ -518,20 +593,25 @@ const Timesheet: React.FC = () => {
     const dateKey = formatDateKey(notesModal.date);
     const existingEntry = notesModal.row.entries[dateKey];
 
-    if (!existingEntry || (existingEntry.billable === 0 && existingEntry.nonBillable === 0)) {
-      showNotification('Please enter hours before adding notes.', 'info');
+    if (
+      !existingEntry ||
+      (existingEntry.billable === 0 && existingEntry.nonBillable === 0)
+    ) {
+      showNotification("Please enter hours before adding notes.", "info");
       return;
     }
 
     await supabase
-      .from('timesheet_entries')
+      .from("timesheet_entries")
       .update({ notes: notesModal.notes })
-      .eq('entry_date', dateKey)
+      .eq("entry_date", dateKey)
       .eq(
-        notesModal.row.type === 'project' ? 'project_id' :
-        notesModal.row.type === 'initiation' ? 'initiation_request_id' :
-        'non_project_category_id',
-        notesModal.row.typeId
+        notesModal.row.type === "project"
+          ? "project_id"
+          : notesModal.row.type === "initiation"
+            ? "initiation_request_id"
+            : "non_project_category_id",
+        notesModal.row.typeId,
       );
 
     await fetchData();
@@ -540,140 +620,191 @@ const Timesheet: React.FC = () => {
       row: null,
       date: null,
       isBillable: false,
-      notes: ''
+      notes: "",
     });
   };
 
-  const handleCellUpdate = async (row: TimesheetRow, date: Date, isBillable: boolean, hours: number) => {
-    if (weekSubmission && weekSubmission.status === 'submitted') {
+  const handleCellUpdate = async (
+    row: TimesheetRow,
+    date: Date,
+    isBillable: boolean,
+    hours: number,
+  ) => {
+    if (weekSubmission && weekSubmission.status === "submitted") {
       return;
     }
 
     const dateKey = formatDateKey(date);
     const existingEntry = row.entries[dateKey];
 
-    const billable = isBillable ? hours : (existingEntry?.billable || 0);
-    const nonBillable = !isBillable ? hours : (existingEntry?.nonBillable || 0);
-    const notes = existingEntry?.notes || '';
+    const billable = isBillable ? hours : Number(existingEntry?.billable) || 0;
+    const nonBillable = !isBillable
+      ? hours
+      : Number(existingEntry?.nonBillable) || 0;
+    const notes = existingEntry?.notes || "";
 
     const totalHours = billable + nonBillable;
 
     if (totalHours === 0 && existingEntry) {
       const { error } = await supabase
-        .from('timesheet_entries')
+        .from("timesheet_entries")
         .delete()
-        .eq('entry_date', dateKey)
-        .eq(row.type === 'project' ? 'project_id' : row.type === 'initiation' ? 'initiation_request_id' : 'non_project_category_id', row.typeId);
+        .eq("entry_date", dateKey)
+        .eq(
+          row.type === "project"
+            ? "project_id"
+            : row.type === "initiation"
+              ? "initiation_request_id"
+              : "non_project_category_id",
+          row.typeId,
+        );
 
       if (error) {
-        console.error('Error deleting entry:', error);
+        console.error("Error deleting entry:", error);
       } else {
-        await fetchData();
+        ////await fetchData();
       }
       return;
     }
 
     if (totalHours > 0) {
       await supabase
-        .from('timesheet_entries')
+        .from("timesheet_entries")
         .delete()
-        .eq('entry_date', dateKey)
-        .eq(row.type === 'project' ? 'project_id' : row.type === 'initiation' ? 'initiation_request_id' : 'non_project_category_id', row.typeId);
+        .eq("entry_date", dateKey)
+        .eq(
+          row.type === "project"
+            ? "project_id"
+            : row.type === "initiation"
+              ? "initiation_request_id"
+              : "non_project_category_id",
+          row.typeId,
+        );
 
       const entriesToInsert = [];
 
       if (billable > 0) {
         entriesToInsert.push({
-          user_id: 'anonymous',
+          user_email: DEMO_USER_EMAILID,
           entry_date: dateKey,
           hours: billable,
           is_billable: true,
           notes: notes,
-          project_id: row.type === 'project' ? row.typeId : null,
-          initiation_request_id: row.type === 'initiation' ? row.typeId : null,
-          non_project_category_id: row.type === 'category' ? row.typeId : null
+          project_id: row.type === "project" ? row.typeId : null,
+          initiation_request_id: row.type === "initiation" ? row.typeId : null,
+          non_project_category_id: row.type === "category" ? row.typeId : null,
         });
       }
 
       if (nonBillable > 0) {
         entriesToInsert.push({
-          user_id: 'anonymous',
+          user_email: DEMO_USER_EMAILID,
           entry_date: dateKey,
           hours: nonBillable,
           is_billable: false,
           notes: notes,
-          project_id: row.type === 'project' ? row.typeId : null,
-          initiation_request_id: row.type === 'initiation' ? row.typeId : null,
-          non_project_category_id: row.type === 'category' ? row.typeId : null
+          project_id: row.type === "project" ? row.typeId : null,
+          initiation_request_id: row.type === "initiation" ? row.typeId : null,
+          non_project_category_id: row.type === "category" ? row.typeId : null,
         });
       }
 
       const { error } = await supabase
-        .from('timesheet_entries')
+        .from("timesheet_entries")
         .insert(entriesToInsert);
 
       if (error) {
-        console.error('Error saving entry:', error);
+        console.error("Error saving entry:", error);
       } else {
-        await fetchData();
+        setRows((prevRows) =>
+          prevRows.map((r) => {
+            if (r.id !== row.id) return r;
+
+            return {
+              ...r,
+              entries: {
+                ...r.entries,
+                [dateKey]: {
+                  ...(r.entries[dateKey] ?? {
+                    id: "",
+                    billable: 0,
+                    nonBillable: 0,
+                    notes: "",
+                  }),
+                  billable: isBillable
+                    ? hours
+                    : (r.entries[dateKey]?.billable ?? 0),
+                  nonBillable: !isBillable
+                    ? hours
+                    : (r.entries[dateKey]?.nonBillable ?? 0),
+                  notes,
+                },
+              },
+            };
+          }),
+        );
       }
     }
   };
 
   const handleDeleteRow = async (row: TimesheetRow) => {
     const confirmed = await showConfirm({
-      title: 'Delete Item',
+      title: "Delete Item",
       message: `Delete "${row.name}" from your timesheet? This will permanently remove this item and all associated time entries.`,
-      confirmText: 'Delete'
+      confirmText: "Delete",
     });
     if (!confirmed) return;
 
     try {
       // Delete all time entries for this item
       const { error: entriesError } = await supabase
-        .from('timesheet_entries')
+        .from("timesheet_entries")
         .delete()
         .eq(
-          row.type === 'project' ? 'project_id' : row.type === 'initiation' ? 'initiation_request_id' : 'non_project_category_id',
-          row.typeId
+          row.type === "project"
+            ? "project_id"
+            : row.type === "initiation"
+              ? "initiation_request_id"
+              : "non_project_category_id",
+          row.typeId,
         );
 
       if (entriesError) {
-        console.error('Error deleting entries:', entriesError);
-        showNotification('Error deleting entries', 'error');
+        console.error("Error deleting entries:", entriesError);
+        showNotification("Error deleting entries", "error");
         return;
       }
 
       // If this is a persistent item, also delete from user_timesheet_items
       if (row.persistentItemId) {
         const { error: itemError } = await supabase
-          .from('user_timesheet_items')
+          .from("user_timesheet_items")
           .delete()
-          .eq('id', row.persistentItemId);
+          .eq("id", row.persistentItemId);
 
         if (itemError) {
-          console.error('Error deleting persistent item:', itemError);
-          showNotification('Error deleting item', 'error');
+          console.error("Error deleting persistent item:", itemError);
+          showNotification("Error deleting item", "error");
           return;
         }
       }
 
       await fetchData();
     } catch (error: any) {
-      console.error('Error:', error);
-      showNotification(`Error: ${error.message}`, 'error');
+      console.error("Error:", error);
+      showNotification(`Error: ${error.message}`, "error");
     }
   };
 
   const weekDates = getWeekDates();
-  const totalsByDay = weekDates.map(date => {
+  const totalsByDay = weekDates.map((date) => {
     const dateKey = formatDateKey(date);
     let billable = 0;
     let nonBillable = 0;
-    rows.forEach(row => {
+    rows.forEach((row) => {
       if (row.entries[dateKey]) {
-        billable += row.entries[dateKey].billable;
-        nonBillable += row.entries[dateKey].nonBillable;
+        billable += Number(row.entries[dateKey].billable);
+        nonBillable += Number(row.entries[dateKey].nonBillable);
       }
     });
     return { billable, nonBillable, total: billable + nonBillable };
@@ -681,14 +812,19 @@ const Timesheet: React.FC = () => {
 
   const grandTotal = totalsByDay.reduce((sum, day) => sum + day.total, 0);
   const totalBillable = totalsByDay.reduce((sum, day) => sum + day.billable, 0);
-  const totalNonBillable = totalsByDay.reduce((sum, day) => sum + day.nonBillable, 0);
+  const totalNonBillable = totalsByDay.reduce(
+    (sum, day) => sum + day.nonBillable,
+    0,
+  );
 
   const nonProjectHours = rows.reduce((sum, row) => {
-    if (row.type === 'category') {
-      weekDates.forEach(date => {
+    if (row.type === "category") {
+      weekDates.forEach((date) => {
         const dateKey = formatDateKey(date);
         if (row.entries[dateKey]) {
-          sum += row.entries[dateKey].billable + row.entries[dateKey].nonBillable;
+          sum +=
+            Number(row.entries[dateKey].billable) +
+            Number(row.entries[dateKey].nonBillable);
         }
       });
     }
@@ -700,7 +836,9 @@ const Timesheet: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Timesheet</h1>
-          <p className="text-gray-600 mt-1">Track time for projects and activities</p>
+          <p className="text-gray-600 mt-1">
+            Track time for projects and activities
+          </p>
         </div>
       </div>
 
@@ -713,7 +851,10 @@ const Timesheet: React.FC = () => {
             <ChevronLeft className="w-5 h-5" />
           </button>
           <div className="text-lg font-semibold">
-            Week of {formatDate(currentWeekStart)} - {formatDate(new Date(currentWeekStart.getTime() + 6 * 24 * 60 * 60 * 1000))}
+            Week of {formatDate(currentWeekStart)} -{" "}
+            {formatDate(
+              new Date(currentWeekStart.getTime() + 6 * 24 * 60 * 60 * 1000),
+            )}
           </div>
           <button
             onClick={() => navigateWeek(1)}
@@ -724,36 +865,66 @@ const Timesheet: React.FC = () => {
         </div>
 
         <div className="mb-4 grid grid-cols-2 md:grid-cols-5 gap-4">
-          <div className="p-4 rounded-lg" style={{ backgroundColor: '#7e22ce' }}>
+          <div
+            className="p-4 rounded-lg"
+            style={{ backgroundColor: "#7e22ce" }}
+          >
             <div className="text-sm text-white">Total Hours</div>
-            <div className="text-2xl font-bold text-white">{grandTotal.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-white">
+              {grandTotal.toFixed(2)}
+            </div>
           </div>
-          <div className="p-4 rounded-lg" style={{ backgroundColor: '#7e22ce' }}>
+          <div
+            className="p-4 rounded-lg"
+            style={{ backgroundColor: "#7e22ce" }}
+          >
             <div className="text-sm text-white">Billable</div>
-            <div className="text-2xl font-bold text-[#5DB6B8]">{totalBillable.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-[#5DB6B8]">
+              {totalBillable.toFixed(2)}
+            </div>
           </div>
-          <div className="p-4 rounded-lg" style={{ backgroundColor: '#7e22ce' }}>
+          <div
+            className="p-4 rounded-lg"
+            style={{ backgroundColor: "#7e22ce" }}
+          >
             <div className="text-sm text-white">Non-Billable</div>
-            <div className="text-2xl font-bold text-[#F89D43]">{totalNonBillable.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-[#F89D43]">
+              {totalNonBillable.toFixed(2)}
+            </div>
           </div>
-          <div className="p-4 rounded-lg" style={{ backgroundColor: '#7e22ce' }}>
+          <div
+            className="p-4 rounded-lg"
+            style={{ backgroundColor: "#7e22ce" }}
+          >
             <div className="text-sm text-white">Non-Project</div>
-            <div className="text-2xl font-bold text-[#9CA3AF]">{nonProjectHours.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-[#9CA3AF]">
+              {nonProjectHours.toFixed(2)}
+            </div>
           </div>
           {weekSubmission && (
-            <div className="p-4 rounded-lg" style={{ backgroundColor: '#7e22ce' }}>
+            <div
+              className="p-4 rounded-lg"
+              style={{ backgroundColor: "#7e22ce" }}
+            >
               <div className="text-sm text-white">Status</div>
-              <div className={`text-2xl font-bold ${
-                weekSubmission.status === 'submitted' ? 'text-[#5DB6B8]' :
-                weekSubmission.status === 'approved' ? 'text-[#5DB6B8]' :
-                weekSubmission.status === 'rejected' ? 'text-[#FD5D5D]' :
-                'text-white'
-              }`}>
-                {weekSubmission.status.charAt(0).toUpperCase() + weekSubmission.status.slice(1)}
+              <div
+                className={`text-2xl font-bold ${
+                  weekSubmission.status === "submitted"
+                    ? "text-[#5DB6B8]"
+                    : weekSubmission.status === "approved"
+                      ? "text-[#5DB6B8]"
+                      : weekSubmission.status === "rejected"
+                        ? "text-[#FD5D5D]"
+                        : "text-white"
+                }`}
+              >
+                {weekSubmission.status.charAt(0).toUpperCase() +
+                  weekSubmission.status.slice(1)}
               </div>
               {weekSubmission.submitted_at && (
                 <div className="text-xs text-white/80 mt-1">
-                  Submitted: {new Date(weekSubmission.submitted_at).toLocaleDateString()}
+                  Submitted:{" "}
+                  {new Date(weekSubmission.submitted_at).toLocaleDateString()}
                 </div>
               )}
             </div>
@@ -763,13 +934,13 @@ const Timesheet: React.FC = () => {
         <div className="mb-4 flex justify-end gap-3">
           <button
             onClick={() => setShowAddModal(true)}
-            disabled={weekSubmission && weekSubmission.status === 'submitted'}
+            disabled={weekSubmission?.status === "submitted"}
             className="bg-gradient-primary text-white px-4 py-2 rounded-lg hover:opacity-90 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="w-5 h-5" />
             Add Time Entry
           </button>
-          {weekSubmission && weekSubmission.status === 'submitted' ? (
+          {weekSubmission && weekSubmission.status === "submitted" ? (
             <button
               onClick={handleRecallTimesheet}
               disabled={isSubmitting}
@@ -794,19 +965,34 @@ const Timesheet: React.FC = () => {
           <table className="min-w-full border-collapse">
             <thead className="bg-gradient-dark">
               <tr className="border-b-2 border-gray-300">
-                <th className="text-left py-3 px-4 font-semibold text-white w-56">Project/Activity</th>
-                <th className="text-left py-3 px-2 font-semibold text-white w-24">Type</th>
+                <th className="text-left py-3 px-4 font-semibold text-white w-56">
+                  Project/Activity
+                </th>
+                <th className="text-left py-3 px-2 font-semibold text-white w-24">
+                  Type
+                </th>
                 {weekDates.map((date, idx) => (
-                  <th key={idx} className="text-center py-3 px-2 font-semibold text-white min-w-[80px]">
-                    <div>{date.toLocaleDateString('en-US', { weekday: 'short' })}</div>
-                    <div className="text-sm font-normal text-gray-200">{formatDate(date)}</div>
+                  <th
+                    key={idx}
+                    className="text-center py-3 px-2 font-semibold text-white min-w-[80px]"
+                  >
+                    <div>
+                      {date.toLocaleDateString("en-US", { weekday: "short" })}
+                    </div>
+                    <div className="text-sm font-normal text-gray-200">
+                      {formatDate(date)}
+                    </div>
                   </th>
                 ))}
-                <th className="text-center py-3 px-4 font-semibold text-white w-20">Total</th>
-                <th className="text-center py-3 px-4 font-semibold text-white w-20">Actions</th>
+                <th className="text-center py-3 px-4 font-semibold text-white w-20">
+                  Total
+                </th>
+                <th className="text-center py-3 px-4 font-semibold text-white w-20">
+                  Actions
+                </th>
               </tr>
             </thead>
-            <tbody style={{ backgroundColor: '#F9F7FC' }}>
+            <tbody style={{ backgroundColor: "#F9F7FC" }}>
               {rows.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="text-center py-8 text-gray-500">
@@ -819,41 +1005,64 @@ const Timesheet: React.FC = () => {
                     const billableTotal = weekDates.reduce((sum, date) => {
                       const dateKey = formatDateKey(date);
                       const entry = row.entries[dateKey];
-                      return sum + (entry?.billable || 0);
+                      return sum + (Number(entry?.billable) || 0);
                     }, 0);
 
                     const nonBillableTotal = weekDates.reduce((sum, date) => {
                       const dateKey = formatDateKey(date);
                       const entry = row.entries[dateKey];
-                      return sum + (entry?.nonBillable || 0);
+                      return sum + (Number(entry?.nonBillable) || 0);
                     }, 0);
 
                     const rowTotal = billableTotal + nonBillableTotal;
+
                     const isExpanded = expandedRows.has(row.id);
 
                     return (
                       <React.Fragment key={row.id}>
-                        <tr className={`border-b ${isExpanded ? 'border-gray-200' : 'border-gray-300'}`}>
-                          <td className="py-2 px-4" rowSpan={isExpanded ? 2 : 1}>
+                        <tr
+                          className={`border-b ${isExpanded ? "border-gray-200" : "border-gray-300"}`}
+                        >
+                          <td
+                            className="py-2 px-4"
+                            rowSpan={isExpanded ? 2 : 1}
+                          >
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => toggleRowExpansion(row.id)}
                                 className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded p-1"
-                                title={isExpanded ? "Hide Non-Billable" : "Show Non-Billable"}
+                                title={
+                                  isExpanded
+                                    ? "Hide Non-Billable"
+                                    : "Show Non-Billable"
+                                }
                               >
-                                {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                {isExpanded ? (
+                                  <ChevronUp className="w-4 h-4" />
+                                ) : (
+                                  <ChevronDown className="w-4 h-4" />
+                                )}
                               </button>
                               <span className="font-medium">{row.name}</span>
                             </div>
                           </td>
                           <td className="py-2 px-2">
-                            <span className="text-sm font-medium text-green-700">Billable</span>
+                            <span className="text-sm font-medium text-green-700">
+                              Billable
+                            </span>
                           </td>
                           {weekDates.map((date, idx) => {
                             const dateKey = formatDateKey(date);
                             const entry = row.entries[dateKey];
-                            const value = entry?.billable || 0;
-                            const isLocked = weekSubmission && weekSubmission.status === 'submitted';
+                            ////const value = entry?.billable || 0;
+                            const inputKey = `${row.id}-${dateKey}-billable`;
+
+                            const value =
+                              editingValues[inputKey] ??
+                              entry?.billable?.toString() ??
+                              "";
+                            const isLocked =
+                              weekSubmission?.status === "submitted";
 
                             return (
                               <td key={idx} className="py-2 px-2">
@@ -862,31 +1071,67 @@ const Timesheet: React.FC = () => {
                                     type="number"
                                     step="0.25"
                                     min="0"
-                                    value={value || ''}
+                                    value={value}
                                     disabled={isLocked}
-                                    onChange={(e) => {
-                                      const newValue = parseFloat(e.target.value) || 0;
-                                      handleCellUpdate(row, date, true, newValue);
+                                    onChange={(e) =>
+                                      setEditingValues((prev) => ({
+                                        ...prev,
+                                        [inputKey]: e.target.value,
+                                      }))
+                                    }
+                                    onBlur={async (e) => {
+                                      await handleCellUpdate(
+                                        row,
+                                        date,
+                                        true,
+                                        parseFloat(e.target.value) || 0,
+                                      );
+
+                                      setEditingValues((prev) => {
+                                        const copy = { ...prev };
+                                        delete copy[inputKey];
+                                        return copy;
+                                      });
                                     }}
                                     onKeyDown={(e) => {
-                                      if (e.key === 'Tab') {
+                                      if (e.key === "Tab") {
                                         // Tab key navigation handled by browser
-                                      } else if (e.key === 'ArrowDown') {
+                                      } else if (e.key === "ArrowDown") {
                                         e.preventDefault();
                                         if (isExpanded) {
-                                          const nextInput = e.currentTarget.parentElement?.parentElement?.parentElement?.nextElementSibling?.children[idx + 1]?.querySelector('input') as HTMLInputElement;
+                                          const nextInput =
+                                            e.currentTarget.parentElement?.parentElement?.parentElement?.nextElementSibling?.children[
+                                              idx + 1
+                                            ]?.querySelector(
+                                              "input",
+                                            ) as HTMLInputElement;
                                           nextInput?.focus();
                                         } else {
-                                          const nextInput = e.currentTarget.parentElement?.parentElement?.parentElement?.nextElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
+                                          const nextInput =
+                                            e.currentTarget.parentElement?.parentElement?.parentElement?.nextElementSibling?.children[
+                                              idx + 2
+                                            ]?.querySelector(
+                                              "input",
+                                            ) as HTMLInputElement;
                                           nextInput?.focus();
                                         }
-                                      } else if (e.key === 'ArrowUp') {
+                                      } else if (e.key === "ArrowUp") {
                                         e.preventDefault();
                                         if (isExpanded) {
-                                          const prevRow = e.currentTarget.parentElement?.parentElement?.parentElement?.previousElementSibling?.previousElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
+                                          const prevRow =
+                                            e.currentTarget.parentElement?.parentElement?.parentElement?.previousElementSibling?.previousElementSibling?.children[
+                                              idx + 2
+                                            ]?.querySelector(
+                                              "input",
+                                            ) as HTMLInputElement;
                                           prevRow?.focus();
                                         } else {
-                                          const prevRow = e.currentTarget.parentElement?.parentElement?.parentElement?.previousElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
+                                          const prevRow =
+                                            e.currentTarget.parentElement?.parentElement?.parentElement?.previousElementSibling?.children[
+                                              idx + 2
+                                            ]?.querySelector(
+                                              "input",
+                                            ) as HTMLInputElement;
                                           prevRow?.focus();
                                         }
                                       }
@@ -895,12 +1140,18 @@ const Timesheet: React.FC = () => {
                                     placeholder="0"
                                   />
                                   <button
-                                    onClick={() => handleOpenNotesModal(row, date, true)}
+                                    onClick={() =>
+                                      handleOpenNotesModal(row, date, true)
+                                    }
                                     disabled={isLocked}
                                     className={`flex-shrink-0 p-1 rounded transition-colors ${
-                                      entry?.notes ? 'text-blue-600 hover:bg-blue-50' : 'text-gray-400 hover:bg-gray-100'
+                                      entry?.notes
+                                        ? "text-blue-600 hover:bg-blue-50"
+                                        : "text-gray-400 hover:bg-gray-100"
                                     } disabled:opacity-50 disabled:cursor-not-allowed`}
-                                    title={entry?.notes ? 'Edit notes' : 'Add notes'}
+                                    title={
+                                      entry?.notes ? "Edit notes" : "Add notes"
+                                    }
                                   >
                                     <FileText className="w-4 h-4" />
                                   </button>
@@ -908,14 +1159,24 @@ const Timesheet: React.FC = () => {
                               </td>
                             );
                           })}
-                          <td className="py-2 px-4 text-center text-sm font-semibold" rowSpan={isExpanded ? 2 : 1}>{rowTotal.toFixed(2)}</td>
-                          <td className="py-2 px-4 text-center" rowSpan={isExpanded ? 2 : 1}>
+                          <td
+                            className="py-2 px-4 text-center text-sm font-semibold"
+                            rowSpan={isExpanded ? 2 : 1}
+                          >
+                            {rowTotal.toFixed(2)}
+                          </td>
+                          <td
+                            className="py-2 px-4 text-center"
+                            rowSpan={isExpanded ? 2 : 1}
+                          >
                             <div className="flex items-center justify-center gap-2">
                               {row.persistentItemId ? (
                                 <>
                                   <button
                                     onClick={() => handleMarkAsCompleted(row)}
-                                    disabled={weekSubmission && weekSubmission.status === 'submitted'}
+                                    disabled={
+                                      weekSubmission?.status === "submitted"
+                                    }
                                     className="text-green-600 hover:text-green-800 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-green-600"
                                     title="Mark as Completed"
                                   >
@@ -923,8 +1184,16 @@ const Timesheet: React.FC = () => {
                                   </button>
                                   <div className="relative">
                                     <button
-                                      onClick={() => setOpenDropdown(openDropdown === row.id ? null : row.id)}
-                                      disabled={weekSubmission && weekSubmission.status === 'submitted'}
+                                      onClick={() =>
+                                        setOpenDropdown(
+                                          openDropdown === row.id
+                                            ? null
+                                            : row.id,
+                                        )
+                                      }
+                                      disabled={
+                                        weekSubmission?.status === "submitted"
+                                      }
                                       className="text-gray-600 hover:text-gray-800 p-1 hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                                       title="More actions"
                                     >
@@ -945,7 +1214,9 @@ const Timesheet: React.FC = () => {
                                             className="w-full flex items-center gap-2 px-4 py-2 text-left text-red-600 hover:bg-red-50"
                                           >
                                             <Trash2 className="w-4 h-4" />
-                                            <span className="text-sm">Delete</span>
+                                            <span className="text-sm">
+                                              Delete
+                                            </span>
                                           </button>
                                         </div>
                                       </>
@@ -955,7 +1226,9 @@ const Timesheet: React.FC = () => {
                               ) : (
                                 <button
                                   onClick={() => handleDeleteRow(row)}
-                                  disabled={weekSubmission && weekSubmission.status === 'submitted'}
+                                  disabled={
+                                    weekSubmission?.status === "submitted"
+                                  }
                                   className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-red-600"
                                   title="Remove from this week"
                                 >
@@ -968,13 +1241,21 @@ const Timesheet: React.FC = () => {
                         {isExpanded && (
                           <tr className="border-b border-gray-300">
                             <td className="py-2 px-2">
-                              <span className="text-sm font-medium text-gray-600 italic">Non-Billable</span>
+                              <span className="text-sm font-medium text-gray-600 italic">
+                                Non-Billable
+                              </span>
                             </td>
                             {weekDates.map((date, idx) => {
                               const dateKey = formatDateKey(date);
                               const entry = row.entries[dateKey];
-                              const value = entry?.nonBillable || 0;
-                              const isLocked = weekSubmission && weekSubmission.status === 'submitted';
+                              const inputKey = `${row.id}-${dateKey}-nonbillable`;
+
+                              const value =
+                                editingValues[inputKey] ??
+                                entry?.nonBillable?.toString() ??
+                                "";
+                              const isLocked =
+                                weekSubmission?.status === "submitted";
 
                               return (
                                 <td key={idx} className="py-2 px-2">
@@ -983,22 +1264,48 @@ const Timesheet: React.FC = () => {
                                       type="number"
                                       step="0.25"
                                       min="0"
-                                      value={value || ''}
+                                      value={value || ""}
                                       disabled={isLocked}
                                       onChange={(e) => {
-                                        const newValue = parseFloat(e.target.value) || 0;
-                                        handleCellUpdate(row, date, false, newValue);
+                                        setEditingValues((prev) => ({
+                                          ...prev,
+                                          [inputKey]: e.target.value,
+                                        }));
+                                      }}
+                                      onBlur={async (e) => {
+                                        await handleCellUpdate(
+                                          row,
+                                          date,
+                                          false,
+                                          parseFloat(e.target.value) || 0,
+                                        );
+
+                                        setEditingValues((prev) => {
+                                          const copy = { ...prev };
+                                          delete copy[inputKey];
+                                          return copy;
+                                        });
                                       }}
                                       onKeyDown={(e) => {
-                                        if (e.key === 'Tab') {
+                                        if (e.key === "Tab") {
                                           // Tab key navigation handled by browser
-                                        } else if (e.key === 'ArrowDown') {
+                                        } else if (e.key === "ArrowDown") {
                                           e.preventDefault();
-                                          const nextInput = e.currentTarget.parentElement?.parentElement?.parentElement?.nextElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
+                                          const nextInput =
+                                            e.currentTarget.parentElement?.parentElement?.parentElement?.nextElementSibling?.children[
+                                              idx + 2
+                                            ]?.querySelector(
+                                              "input",
+                                            ) as HTMLInputElement;
                                           nextInput?.focus();
-                                        } else if (e.key === 'ArrowUp') {
+                                        } else if (e.key === "ArrowUp") {
                                           e.preventDefault();
-                                          const prevInput = e.currentTarget.parentElement?.parentElement?.parentElement?.previousElementSibling?.children[idx + 2]?.querySelector('input') as HTMLInputElement;
+                                          const prevInput =
+                                            e.currentTarget.parentElement?.parentElement?.parentElement?.previousElementSibling?.children[
+                                              idx + 2
+                                            ]?.querySelector(
+                                              "input",
+                                            ) as HTMLInputElement;
                                           prevInput?.focus();
                                         }
                                       }}
@@ -1006,12 +1313,20 @@ const Timesheet: React.FC = () => {
                                       placeholder="0"
                                     />
                                     <button
-                                      onClick={() => handleOpenNotesModal(row, date, false)}
+                                      onClick={() =>
+                                        handleOpenNotesModal(row, date, false)
+                                      }
                                       disabled={isLocked}
                                       className={`flex-shrink-0 p-1 rounded transition-colors ${
-                                        entry?.notes ? 'text-blue-600 hover:bg-blue-50' : 'text-gray-400 hover:bg-gray-100'
+                                        entry?.notes
+                                          ? "text-blue-600 hover:bg-blue-50"
+                                          : "text-gray-400 hover:bg-gray-100"
                                       } disabled:opacity-50 disabled:cursor-not-allowed`}
-                                      title={entry?.notes ? 'Edit notes' : 'Add notes'}
+                                      title={
+                                        entry?.notes
+                                          ? "Edit notes"
+                                          : "Add notes"
+                                      }
                                     >
                                       <FileText className="w-4 h-4" />
                                     </button>
@@ -1025,15 +1340,19 @@ const Timesheet: React.FC = () => {
                     );
                   })}
                   <tr className="border-t-2 border-gray-300">
-                    <td className="py-3 px-4 font-semibold" colSpan={2}>Daily Totals</td>
+                    <td className="py-3 px-4 font-semibold" colSpan={2}>
+                      Daily Totals
+                    </td>
                     {totalsByDay.map((day, idx) => (
                       <td key={idx} className="py-3 px-2 text-center">
                         <div className="text-sm font-semibold text-blue-600">
-                          {day.total > 0 ? day.total.toFixed(2) : '-'}
+                          {day.total > 0 ? day.total.toFixed(2) : "-"}
                         </div>
                       </td>
                     ))}
-                    <td className="py-3 px-4 text-center text-lg font-bold text-blue-600">{grandTotal.toFixed(2)}</td>
+                    <td className="py-3 px-4 text-center text-lg font-bold text-blue-600">
+                      {grandTotal.toFixed(2)}
+                    </td>
                     <td></td>
                   </tr>
                 </>
@@ -1062,7 +1381,10 @@ const Timesheet: React.FC = () => {
                 <select
                   value={newRowForm.type}
                   onChange={(e) => {
-                    setNewRowForm({ type: e.target.value as any, selectedId: '' });
+                    setNewRowForm({
+                      type: e.target.value as any,
+                      selectedId: "",
+                    });
                     setAddModalError(null);
                   }}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
@@ -1073,7 +1395,7 @@ const Timesheet: React.FC = () => {
                 </select>
               </div>
 
-              {newRowForm.type === 'project' && (
+              {newRowForm.type === "project" && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Project
@@ -1081,7 +1403,10 @@ const Timesheet: React.FC = () => {
                   <select
                     value={newRowForm.selectedId}
                     onChange={(e) => {
-                      setNewRowForm({ ...newRowForm, selectedId: e.target.value });
+                      setNewRowForm({
+                        ...newRowForm,
+                        selectedId: e.target.value,
+                      });
                       setAddModalError(null);
                     }}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
@@ -1096,7 +1421,7 @@ const Timesheet: React.FC = () => {
                 </div>
               )}
 
-              {newRowForm.type === 'initiation' && (
+              {newRowForm.type === "initiation" && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Initiation Request
@@ -1104,7 +1429,10 @@ const Timesheet: React.FC = () => {
                   <select
                     value={newRowForm.selectedId}
                     onChange={(e) => {
-                      setNewRowForm({ ...newRowForm, selectedId: e.target.value });
+                      setNewRowForm({
+                        ...newRowForm,
+                        selectedId: e.target.value,
+                      });
                       setAddModalError(null);
                     }}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
@@ -1119,7 +1447,7 @@ const Timesheet: React.FC = () => {
                 </div>
               )}
 
-              {newRowForm.type === 'category' && (
+              {newRowForm.type === "category" && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Category
@@ -1127,7 +1455,10 @@ const Timesheet: React.FC = () => {
                   <select
                     value={newRowForm.selectedId}
                     onChange={(e) => {
-                      setNewRowForm({ ...newRowForm, selectedId: e.target.value });
+                      setNewRowForm({
+                        ...newRowForm,
+                        selectedId: e.target.value,
+                      });
                       setAddModalError(null);
                     }}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
@@ -1151,7 +1482,7 @@ const Timesheet: React.FC = () => {
               <button
                 onClick={() => {
                   setShowAddModal(false);
-                  setNewRowForm({ type: 'project', selectedId: '' });
+                  setNewRowForm({ type: "project", selectedId: "" });
                   setAddModalError(null);
                 }}
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
@@ -1176,14 +1507,25 @@ const Timesheet: React.FC = () => {
               <div className="flex items-center gap-3">
                 <FileText className="w-6 h-6 text-blue-600" />
                 <div>
-                  <h2 className="text-xl font-semibold text-gray-900">Time Entry Notes</h2>
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    Time Entry Notes
+                  </h2>
                   <p className="text-sm text-gray-600 mt-1">
-                    {notesModal.row?.name} - {notesModal.date ? formatDate(notesModal.date) : ''}
+                    {notesModal.row?.name} -{" "}
+                    {notesModal.date ? formatDate(notesModal.date) : ""}
                   </p>
                 </div>
               </div>
               <button
-                onClick={() => setNotesModal({ show: false, row: null, date: null, isBillable: false, notes: '' })}
+                onClick={() =>
+                  setNotesModal({
+                    show: false,
+                    row: null,
+                    date: null,
+                    isBillable: false,
+                    notes: "",
+                  })
+                }
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -1197,20 +1539,31 @@ const Timesheet: React.FC = () => {
                 </label>
                 <textarea
                   value={notesModal.notes}
-                  onChange={(e) => setNotesModal({ ...notesModal, notes: e.target.value })}
+                  onChange={(e) =>
+                    setNotesModal({ ...notesModal, notes: e.target.value })
+                  }
                   rows={6}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   placeholder="Enter notes for this time entry..."
                 />
                 <p className="text-xs text-gray-500 mt-2">
-                  Add any relevant details about the work performed during this time period.
+                  Add any relevant details about the work performed during this
+                  time period.
                 </p>
               </div>
             </div>
 
             <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
               <button
-                onClick={() => setNotesModal({ show: false, row: null, date: null, isBillable: false, notes: '' })}
+                onClick={() =>
+                  setNotesModal({
+                    show: false,
+                    row: null,
+                    date: null,
+                    isBillable: false,
+                    notes: "",
+                  })
+                }
                 className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 Cancel

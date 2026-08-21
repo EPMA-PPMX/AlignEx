@@ -1,23 +1,64 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CreditCard as Edit2, Trash2, Plus, Save, X, Calendar, User, AlertTriangle, FileText, Target, Activity, Users, Clock, Upload, Download, File, Eye, DollarSign, TrendingUp, Search, Group, Flag, ZoomIn, ZoomOut, Maximize2, Minimize2, History, ChevronRight, ChevronLeft, Undo, Redo, Link2, Unlink } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { useNotification } from '../lib/useNotification';
-import { trackFieldHistory, shouldTrackFieldHistory } from '../lib/fieldHistoryTracker';
-import { MonthlyBudgetGrid } from '../components/MonthlyBudgetGrid';
-import { BudgetSummaryTiles } from '../components/BudgetSummaryTiles';
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import {
+  ArrowLeft,
+  CreditCard as Edit2,
+  Trash2,
+  Plus,
+  Save,
+  X,
+  Calendar,
+  User,
+  AlertTriangle,
+  FileText,
+  Target,
+  Activity,
+  Users,
+  Clock,
+  Upload,
+  Download,
+  File,
+  Eye,
+  DollarSign,
+  TrendingUp,
+  Search,
+  Group,
+  Flag,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  Minimize2,
+  History,
+  ChevronRight,
+  ChevronLeft,
+  Undo,
+  Redo,
+  Link2,
+  Unlink,
+} from "lucide-react";
+import { supabase } from "../lib/supabase";
+import { useNotification } from "../lib/useNotification";
+import {
+  trackFieldHistory,
+  shouldTrackFieldHistory,
+} from "../lib/fieldHistoryTracker";
+import { MonthlyBudgetGrid } from "../components/MonthlyBudgetGrid";
+import { BudgetSummaryTiles } from "../components/BudgetSummaryTiles";
 import Gantt from "../components/Gantt/Gantt";
 import Scheduler from "../components/Scheduler/Scheduler";
-import ProjectStatusDropdown from '../components/ProjectStatusDropdown';
-import ProjectHealthStatus from '../components/ProjectHealthStatus';
-import BenefitTracking from '../components/BenefitTracking';
-import ProjectTeams from '../components/ProjectTeams';
-import PeoplePicker from '../components/PeoplePicker';
-import CustomFieldsRenderer from '../components/CustomFieldsRenderer';
-import SearchableMultiSelect from '../components/SearchableMultiSelect';
-import DocumentUpload from '../components/DocumentUpload';
-import { loadCustomFieldValues, saveCustomFieldValues } from '../lib/customFieldHelpers';
-import { DEMO_USER_ID } from '../lib/useCurrentUser';
+import ProjectStatusDropdown from "../components/ProjectStatusDropdown";
+import ProjectHealthStatus from "../components/ProjectHealthStatus";
+import BenefitTracking from "../components/BenefitTracking";
+import ProjectTeams from "../components/ProjectTeams";
+import PeoplePicker from "../components/PeoplePicker";
+import CustomFieldsRenderer from "../components/CustomFieldsRenderer";
+import SearchableMultiSelect from "../components/SearchableMultiSelect";
+import DocumentUpload from "../components/DocumentUpload";
+import {
+  loadCustomFieldValues,
+  saveCustomFieldValues,
+} from "../lib/customFieldHelpers";
+import { DEMO_USER_ID } from "../lib/useCurrentUser";
 
 interface Project {
   id: string;
@@ -168,41 +209,41 @@ interface MonthlyBudgetForecast {
 // Helper function to format currency
 const formatCurrency = (value: string): string => {
   // Remove all non-numeric characters except decimal
-  const numericValue = value.replace(/[^\d.]/g, '');
-  if (!numericValue) return '';
+  const numericValue = value.replace(/[^\d.]/g, "");
+  if (!numericValue) return "";
 
   // Split into integer and decimal parts
-  const parts = numericValue.split('.');
+  const parts = numericValue.split(".");
   // Format integer part with commas
-  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
-  return parts.join('.');
+  return parts.join(".");
 };
 
 // Helper function to parse currency to numeric value
 const parseCurrency = (value: string): string => {
-  return value.replace(/[^\d.]/g, '');
+  return value.replace(/[^\d.]/g, "");
 };
 
 // Helper function to format date to YYYY-MM-DD
 const formatDateToYYYYMMDD = (dateValue: any): string => {
-  if (!dateValue) return '';
+  if (!dateValue) return "";
 
   // If it's already a string in the right format, return it
-  if (typeof dateValue === 'string') {
+  if (typeof dateValue === "string") {
     // Extract just the YYYY-MM-DD part if it has time
-    const datePart = dateValue.split(' ')[0];
+    const datePart = dateValue.split(" ")[0];
     // Validate it's in YYYY-MM-DD format
     if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
       return datePart;
     }
     // Try to parse ISO string
-    if (dateValue.includes('T')) {
+    if (dateValue.includes("T")) {
       const parsed = new Date(dateValue);
       if (!isNaN(parsed.getTime())) {
         const year = parsed.getFullYear();
-        const month = String(parsed.getMonth() + 1).padStart(2, '0');
-        const day = String(parsed.getDate()).padStart(2, '0');
+        const month = String(parsed.getMonth() + 1).padStart(2, "0");
+        const day = String(parsed.getDate()).padStart(2, "0");
         return `${year}-${month}-${day}`;
       }
     }
@@ -212,29 +253,34 @@ const formatDateToYYYYMMDD = (dateValue: any): string => {
   // If it's a Date object
   if (dateValue instanceof Date && !isNaN(dateValue.getTime())) {
     const year = dateValue.getFullYear();
-    const month = String(dateValue.getMonth() + 1).padStart(2, '0');
-    const day = String(dateValue.getDate()).padStart(2, '0');
+    const month = String(dateValue.getMonth() + 1).padStart(2, "0");
+    const day = String(dateValue.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   }
 
-  return '';
+  return "";
 };
 
 const ProjectDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { showConfirm, showNotification } = useNotification();
-  const [activeTab, setActiveTab] = useState('overview');
-  const [timelineView, setTimelineView] = useState<'gantt' | 'scheduler'>('gantt');
-  const [ganttView, setGanttView] = useState<'summary' | 'baseline'>('summary');
+  const [activeTab, setActiveTab] = useState("overview");
+  const [timelineView, setTimelineView] = useState<"gantt" | "scheduler">(
+    "gantt",
+  );
+  const [ganttView, setGanttView] = useState<"summary" | "baseline">("summary");
 
   // Utility function to adjust date to skip weekends
   const adjustToWorkday = (dateString: string): string => {
     // Parse date components to avoid timezone issues
     // Input format is YYYY-MM-DD from date input
-    const parts = dateString.split('-');
+    const parts = dateString.split("-");
     if (parts.length !== 3) {
-      console.error('Invalid date format provided to adjustToWorkday:', dateString);
+      console.error(
+        "Invalid date format provided to adjustToWorkday:",
+        dateString,
+      );
       return dateString;
     }
 
@@ -247,7 +293,10 @@ const ProjectDetail: React.FC = () => {
 
     // Check if date is valid
     if (isNaN(date.getTime())) {
-      console.error('Invalid date string provided to adjustToWorkday:', dateString);
+      console.error(
+        "Invalid date string provided to adjustToWorkday:",
+        dateString,
+      );
       return dateString; // Return original string if invalid
     }
 
@@ -264,22 +313,27 @@ const ProjectDetail: React.FC = () => {
 
     // Format back to YYYY-MM-DD
     const adjustedYear = date.getFullYear();
-    const adjustedMonth = String(date.getMonth() + 1).padStart(2, '0');
-    const adjustedDay = String(date.getDate()).padStart(2, '0');
+    const adjustedMonth = String(date.getMonth() + 1).padStart(2, "0");
+    const adjustedDay = String(date.getDate()).padStart(2, "0");
     return `${adjustedYear}-${adjustedMonth}-${adjustedDay}`;
   };
   const [project, setProject] = useState<Project | null>(null);
-  const [overviewConfig, setOverviewConfig] = useState<OverviewConfiguration | null>(null);
+  const [overviewConfig, setOverviewConfig] =
+    useState<OverviewConfiguration | null>(null);
   const [fieldValues, setFieldValues] = useState<{ [key: string]: any }>({});
   const [risks, setRisks] = useState<Risk[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
   const [documents, setDocuments] = useState<ProjectDocument[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [monthlyForecasts, setMonthlyForecasts] = useState<MonthlyBudgetForecast[]>([]);
+  const [monthlyForecasts, setMonthlyForecasts] = useState<
+    MonthlyBudgetForecast[]
+  >([]);
   const [costCategoryOptions, setCostCategoryOptions] = useState<string[]>([]);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [budgetViewFilter, setBudgetViewFilter] = useState<'monthly' | 'yearly'>('yearly');
+  const [budgetViewFilter, setBudgetViewFilter] = useState<
+    "monthly" | "yearly"
+  >("yearly");
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [isGroupedByOwner, setIsGroupedByOwner] = useState(false);
   const [isGanttFullscreen, setIsGanttFullscreen] = useState(false);
@@ -292,10 +346,10 @@ const ProjectDetail: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
-  const [templateName, setTemplateName] = useState('');
-  const [templateDescription, setTemplateDescription] = useState('');
+  const [templateName, setTemplateName] = useState("");
+  const [templateDescription, setTemplateDescription] = useState("");
   const [historyFieldId, setHistoryFieldId] = useState<string | null>(null);
-  const [historyFieldName, setHistoryFieldName] = useState<string>('');
+  const [historyFieldName, setHistoryFieldName] = useState<string>("");
   const [fieldHistory, setFieldHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
@@ -303,105 +357,119 @@ const ProjectDetail: React.FC = () => {
   const [showRiskModal, setShowRiskModal] = useState(false);
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [showChangeRequestModal, setShowChangeRequestModal] = useState(false);
-  const [showChangeRequestPreview, setShowChangeRequestPreview] = useState(false);
+  const [showChangeRequestPreview, setShowChangeRequestPreview] =
+    useState(false);
   const [showBudgetModal, setShowBudgetModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingRisk, setEditingRisk] = useState<Risk | null>(null);
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
-  const [editingChangeRequest, setEditingChangeRequest] = useState<ChangeRequest | null>(null);
-  const [viewingChangeRequest, setViewingChangeRequest] = useState<ChangeRequest | null>(null);
+  const [editingChangeRequest, setEditingChangeRequest] =
+    useState<ChangeRequest | null>(null);
+  const [viewingChangeRequest, setViewingChangeRequest] =
+    useState<ChangeRequest | null>(null);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   const [editingProject, setEditingProject] = useState(false);
   const [projectForm, setProjectForm] = useState({
-    name: '',
-    description: '',
-    start_date: ''
+    name: "",
+    description: "",
+    start_date: "",
   });
 
   const [riskForm, setRiskForm] = useState({
-    title: '',
-    owner: '',
-    assigned_to: '',
-    status: 'Active',
-    category: 'Resource',
+    title: "",
+    owner: "",
+    assigned_to: "",
+    status: "Active",
+    category: "Resource",
     probability: 50,
-    impact: 'Medium',
+    impact: "Medium",
     cost: 0,
-    description: '',
-    notes: ''
+    description: "",
+    notes: "",
   });
 
-  const [riskCustomFieldValues, setRiskCustomFieldValues] = useState<Record<string, string>>({});
+  const [riskCustomFieldValues, setRiskCustomFieldValues] = useState<
+    Record<string, string>
+  >({});
 
   const [issueForm, setIssueForm] = useState({
-    title: '',
-    owner: '',
-    assigned_to: '',
-    status: 'Active',
-    category: 'Resource',
-    priority: 'Medium',
-    impact: 'Medium',
-    description: '',
-    resolution: ''
+    title: "",
+    owner: "",
+    assigned_to: "",
+    status: "Active",
+    category: "Resource",
+    priority: "Medium",
+    impact: "Medium",
+    description: "",
+    resolution: "",
   });
 
-  const [issueCustomFieldValues, setIssueCustomFieldValues] = useState<Record<string, string>>({});
+  const [issueCustomFieldValues, setIssueCustomFieldValues] = useState<
+    Record<string, string>
+  >({});
 
   const [changeRequestForm, setChangeRequestForm] = useState({
-    title: '',
-    type: 'Scope Change',
-    description: '',
-    justification: '',
-    scope_impact: 'Low',
-    cost_impact: '',
-    risk_impact: 'Low',
-    resource_impact: 'Low',
-    status: 'Pending',
-    attachments: ''
+    title: "",
+    type: "Scope Change",
+    description: "",
+    justification: "",
+    scope_impact: "Low",
+    cost_impact: "",
+    risk_impact: "Low",
+    resource_impact: "Low",
+    status: "Pending",
+    attachments: "",
   });
 
-  const [changeRequestCustomFieldValues, setChangeRequestCustomFieldValues] = useState<Record<string, string>>({});
+  const [changeRequestCustomFieldValues, setChangeRequestCustomFieldValues] =
+    useState<Record<string, string>>({});
 
   const [budgetForm, setBudgetForm] = useState({
-    categories: [] as string[]
+    categories: [] as string[],
   });
 
   const [taskForm, setTaskForm] = useState({
-    description: '',
-    start_date: '',
+    description: "",
+    start_date: "",
     duration: 1,
-    owner_id: '',
+    owner_id: "",
     resource_ids: [] as string[],
     parent_id: undefined as number | undefined,
-    parent_wbs: '' as string,
+    parent_wbs: "" as string,
     predecessor_ids: [] as number[],
-    type: 'task' as string,
-    progress: 0
+    type: "task" as string,
+    progress: 0,
   });
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
-  const [resourceAllocations, setResourceAllocations] = useState<Record<string, number>>({});
+  const [resourceAllocations, setResourceAllocations] = useState<
+    Record<string, number>
+  >({});
 
-  const [projectTeamMembers, setProjectTeamMembers] = useState<ProjectTeamMember[]>([]);
+  const [projectTeamMembers, setProjectTeamMembers] = useState<
+    ProjectTeamMember[]
+  >([]);
 
-  const [uploadedFiles, setUploadedFiles] = useState<Array<{
-    fileName: string;
-    path: string;
-    fileSize: number;
-    mimeType: string;
-  }>>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<
+    Array<{
+      fileName: string;
+      path: string;
+      fileSize: number;
+      mimeType: string;
+    }>
+  >([]);
 
   const [projectTasks, setProjectTasks] = useState<any>({
     data: [],
     links: [],
     resources: [],
-    resourceAssignments: []
+    resourceAssignments: [],
   });
 
   // Use a ref to always have access to the latest projectTasks value
   const projectTasksRef = useRef(projectTasks);
   const [showResourcePanel, setShowResourcePanel] = useState(false);
 
-  const [taskSearchQuery, setTaskSearchQuery] = useState('');
+  const [taskSearchQuery, setTaskSearchQuery] = useState("");
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState<number[]>([]);
   const ganttRef = useRef<any>(null);
@@ -409,14 +477,14 @@ const ProjectDetail: React.FC = () => {
   const [importingMSProject, setImportingMSProject] = useState(false);
 
   const tabs = [
-    { id: 'overview', name: 'Overview', icon: Target },
-    { id: 'timeline', name: 'Timeline', icon: Calendar },
-    { id: 'team', name: 'Team', icon: Users },
-    { id: 'risks-issues', name: 'Risks & Issues', icon: AlertTriangle },
-    { id: 'change-management', name: 'Change Management', icon: FileText },
-    { id: 'budget', name: 'Budget', icon: DollarSign },
-    { id: 'benefit-tracking', name: 'Benefit Tracking', icon: TrendingUp },
-    { id: 'settings', name: 'Documents', icon: FileText },
+    { id: "overview", name: "Overview", icon: Target },
+    { id: "timeline", name: "Timeline", icon: Calendar },
+    { id: "team", name: "Team", icon: Users },
+    { id: "risks-issues", name: "Risks & Issues", icon: AlertTriangle },
+    { id: "change-management", name: "Change Management", icon: FileText },
+    { id: "budget", name: "Budget", icon: DollarSign },
+    { id: "benefit-tracking", name: "Benefit Tracking", icon: TrendingUp },
+    { id: "settings", name: "Documents", icon: FileText },
   ];
 
   // Update ref whenever projectTasks changes
@@ -461,15 +529,15 @@ const ProjectDetail: React.FC = () => {
 
       try {
         const { error } = await supabase
-          .from('projects')
+          .from("projects")
           .update({ selected_task_fields: selectedTaskFields })
-          .eq('id', id);
+          .eq("id", id);
 
         if (error) {
-          console.error('Error saving selected task fields:', error);
+          console.error("Error saving selected task fields:", error);
         }
       } catch (error) {
-        console.error('Error saving selected task fields:', error);
+        console.error("Error saving selected task fields:", error);
       }
     };
 
@@ -490,66 +558,75 @@ const ProjectDetail: React.FC = () => {
   }, [selectedTaskFields, id, project]);
 
   const initializeNewFieldsInTasks = async () => {
-    if (!id || !project || projectTasks.data.length === 0 || taskCustomFields.length === 0) return;
+    if (
+      !id ||
+      !project ||
+      projectTasks.data.length === 0 ||
+      taskCustomFields.length === 0
+    )
+      return;
 
     // Find newly added fields
     const previousFields = prevSelectedTaskFieldsRef.current;
-    const newFieldIds = selectedTaskFields.filter(fieldId => !previousFields.includes(fieldId));
+    const newFieldIds = selectedTaskFields.filter(
+      (fieldId) => !previousFields.includes(fieldId),
+    );
 
     if (newFieldIds.length === 0) {
       prevSelectedTaskFieldsRef.current = selectedTaskFields;
       return;
     }
 
-    console.log('Initializing new fields in tasks:', newFieldIds);
+    console.log("Initializing new fields in tasks:", newFieldIds);
 
-      // Create a copy of tasks and add new fields with null values
-      const updatedTasks = projectTasks.data.map((task: any) => {
-        // Exclude end_date to ensure Gantt recalculates it from duration
-        const { end_date, ...taskWithoutEndDate } = task;
-        const updatedTask = { ...taskWithoutEndDate };
+    // Create a copy of tasks and add new fields with null values
+    const updatedTasks = projectTasks.data.map((task: any) => {
+      // Exclude end_date to ensure Gantt recalculates it from duration
+      const { end_date, ...taskWithoutEndDate } = task;
+      const updatedTask = { ...taskWithoutEndDate };
 
-        newFieldIds.forEach(fieldId => {
-          const field = taskCustomFields.find(f => f.id === fieldId);
-          if (field) {
-            const fieldKey = `custom_${field.field_name}`;
-            // Initialize with null if not already set
-            if (updatedTask[fieldKey] === undefined) {
-              updatedTask[fieldKey] = null;
-            }
+      newFieldIds.forEach((fieldId) => {
+        const field = taskCustomFields.find((f) => f.id === fieldId);
+        if (field) {
+          const fieldKey = `custom_${field.field_name}`;
+          // Initialize with null if not already set
+          if (updatedTask[fieldKey] === undefined) {
+            updatedTask[fieldKey] = null;
           }
-        });
-
-        return updatedTask;
+        }
       });
 
-      // Save to database
-      try {
-        const taskData = {
-          data: updatedTasks,
-          links: projectTasks.links || [],
-          baseline: projectTasks.baseline || []
-        };
+      return updatedTask;
+    });
 
-        const { error } = await supabase
-          .from('project_tasks')
-          .upsert({
-            project_id: id,
-            task_data: taskData
-          }, {
-            onConflict: 'project_id'
-          });
+    // Save to database
+    try {
+      const taskData = {
+        data: updatedTasks,
+        links: projectTasks.links || [],
+        baseline: projectTasks.baseline || [],
+      };
 
-        if (error) {
-          console.error('Error saving initialized fields:', error);
-        } else {
-          console.log('Successfully initialized new fields in database');
-          // Refetch tasks to get the updated data
-          await fetchProjectTasks();
-        }
-      } catch (error) {
-        console.error('Error saving initialized fields:', error);
+      const { error } = await supabase.from("project_tasks").upsert(
+        {
+          project_id: id,
+          task_data: taskData,
+        },
+        {
+          onConflict: "project_id",
+        },
+      );
+
+      if (error) {
+        console.error("Error saving initialized fields:", error);
+      } else {
+        console.log("Successfully initialized new fields in database");
+        // Refetch tasks to get the updated data
+        await fetchProjectTasks();
       }
+    } catch (error) {
+      console.error("Error saving initialized fields:", error);
+    }
 
     // Update the ref for next comparison
     prevSelectedTaskFieldsRef.current = selectedTaskFields;
@@ -558,29 +635,32 @@ const ProjectDetail: React.FC = () => {
   const fetchProject = async () => {
     try {
       const { data, error } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('id', id)
+        .from("projects")
+        .select("*")
+        .eq("id", id)
         .maybeSingle();
 
       if (error) {
-        console.error('Error fetching project:', error);
+        console.error("Error fetching project:", error);
       } else {
         setProject(data);
         if (data) {
           setProjectForm({
-            name: data.name || '',
-            description: data.description || '',
-            start_date: data.start_date || ''
+            name: data.name || "",
+            description: data.description || "",
+            start_date: data.start_date || "",
           });
           // Load selected task fields if they exist
-          if (data.selected_task_fields && Array.isArray(data.selected_task_fields)) {
+          if (
+            data.selected_task_fields &&
+            Array.isArray(data.selected_task_fields)
+          ) {
             setSelectedTaskFields(data.selected_task_fields);
           }
         }
       }
     } catch (error) {
-      console.error('Error fetching project:', error);
+      console.error("Error fetching project:", error);
     } finally {
       setLoading(false);
     }
@@ -591,22 +671,25 @@ const ProjectDetail: React.FC = () => {
 
     try {
       const { data, error } = await supabase
-        .from('project_tasks')
-        .select('*')
-        .eq('project_id', id)
+        .from("project_tasks")
+        .select("*")
+        .eq("project_id", id)
         .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching tasks:', error);
+      if (error && error.code !== "PGRST116") {
+        console.error("Error fetching tasks:", error);
       } else if (data?.task_data) {
-        console.log('=== Raw task data from database ===');
-        console.log('First 3 tasks:', data.task_data.data?.slice(0, 3).map((t: any) => ({
-          id: t.id,
-          text: t.text,
-          actual_start: t.actual_start,
-          actual_finish: t.actual_finish,
-          progress: t.progress
-        })));
+        console.log("=== Raw task data from database ===");
+        console.log(
+          "First 3 tasks:",
+          data.task_data.data?.slice(0, 3).map((t: any) => ({
+            id: t.id,
+            text: t.text,
+            actual_start: t.actual_start,
+            actual_finish: t.actual_finish,
+            progress: t.progress,
+          })),
+        );
 
         // Sort tasks by sortorder before setting state
         const sortedTaskData = {
@@ -615,14 +698,14 @@ const ProjectDetail: React.FC = () => {
             const orderA = a.sortorder !== undefined ? a.sortorder : 999999;
             const orderB = b.sortorder !== undefined ? b.sortorder : 999999;
             return orderA - orderB;
-          })
+          }),
         };
         setProjectTasks(sortedTaskData);
       } else {
         setProjectTasks({ data: [], links: [] });
       }
     } catch (error) {
-      console.error('Error fetching tasks:', error);
+      console.error("Error fetching tasks:", error);
     }
   };
 
@@ -630,20 +713,21 @@ const ProjectDetail: React.FC = () => {
     if (!id) return;
 
     try {
-      const { error } = await supabase
-        .from('project_tasks')
-        .upsert({
+      const { error } = await supabase.from("project_tasks").upsert(
+        {
           project_id: id,
-          task_data: taskData
-        }, { onConflict: 'project_id' });
+          task_data: taskData,
+        },
+        { onConflict: "project_id" },
+      );
 
       if (error) {
-        console.error('Error saving tasks:', error);
+        console.error("Error saving tasks:", error);
       } else {
         setProjectTasks(taskData);
       }
     } catch (error) {
-      console.error('Error saving tasks:', error);
+      console.error("Error saving tasks:", error);
     }
   };
 
@@ -652,29 +736,29 @@ const ProjectDetail: React.FC = () => {
 
     try {
       const { data, error } = await supabase
-        .from('overview_configurations')
-        .select('*')
-        .eq('template_id', project.template_id)
+        .from("overview_configurations")
+        .select("*")
+        .eq("template_id", project.template_id)
         .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching overview configuration:', error);
+      if (error && error.code !== "PGRST116") {
+        console.error("Error fetching overview configuration:", error);
       } else if (data) {
         // Fetch current custom field data to get track_history flag
         const fieldIds = data.sections.flatMap((section: any) =>
-          section.fields.map((f: any) => f.customField.id)
+          section.fields.map((f: any) => f.customField.id),
         );
 
         if (fieldIds.length > 0) {
           const { data: customFieldsData, error: fieldsError } = await supabase
-            .from('custom_fields')
-            .select('id, track_history')
-            .in('id', fieldIds);
+            .from("custom_fields")
+            .select("id, track_history")
+            .in("id", fieldIds);
 
           if (!fieldsError && customFieldsData) {
             // Update the sections with current track_history values
             const fieldTrackingMap = new Map(
-              customFieldsData.map(cf => [cf.id, cf.track_history])
+              customFieldsData.map((cf) => [cf.id, cf.track_history]),
             );
 
             const updatedSections = data.sections.map((section: any) => ({
@@ -683,9 +767,10 @@ const ProjectDetail: React.FC = () => {
                 ...field,
                 customField: {
                   ...field.customField,
-                  track_history: fieldTrackingMap.get(field.customField.id) || false
-                }
-              }))
+                  track_history:
+                    fieldTrackingMap.get(field.customField.id) || false,
+                },
+              })),
             }));
 
             setOverviewConfig({ ...data, sections: updatedSections });
@@ -697,7 +782,7 @@ const ProjectDetail: React.FC = () => {
         }
       }
     } catch (error) {
-      console.error('Error fetching overview configuration:', error);
+      console.error("Error fetching overview configuration:", error);
     }
   };
 
@@ -706,12 +791,12 @@ const ProjectDetail: React.FC = () => {
 
     try {
       const { data, error } = await supabase
-        .from('project_field_values')
-        .select('*')
-        .eq('project_id', id);
+        .from("project_field_values")
+        .select("*")
+        .eq("project_id", id);
 
       if (error) {
-        console.error('Error fetching field values:', error);
+        console.error("Error fetching field values:", error);
       } else if (data) {
         const values: { [key: string]: any } = {};
         data.forEach((item: ProjectFieldValue) => {
@@ -720,7 +805,7 @@ const ProjectDetail: React.FC = () => {
         setFieldValues(values);
       }
     } catch (error) {
-      console.error('Error fetching field values:', error);
+      console.error("Error fetching field values:", error);
     }
   };
 
@@ -728,18 +813,18 @@ const ProjectDetail: React.FC = () => {
     if (!id) return;
     try {
       const { data, error } = await supabase
-        .from('project_documents')
-        .select('*')
-        .eq('project_id', id)
-        .order('created_at', { ascending: false });
+        .from("project_documents")
+        .select("*")
+        .eq("project_id", id)
+        .order("created_at", { ascending: false });
 
       if (error) {
-        console.error('Error fetching documents:', error);
+        console.error("Error fetching documents:", error);
       } else {
         setDocuments(data || []);
       }
     } catch (error) {
-      console.error('Error fetching documents:', error);
+      console.error("Error fetching documents:", error);
     }
   };
 
@@ -747,18 +832,18 @@ const ProjectDetail: React.FC = () => {
     if (!id) return;
     try {
       const { data, error } = await supabase
-        .from('project_budgets')
-        .select('*')
-        .eq('project_id', id)
-        .order('created_at', { ascending: false });
+        .from("project_budgets")
+        .select("*")
+        .eq("project_id", id)
+        .order("created_at", { ascending: false });
 
       if (error) {
-        console.error('Error fetching budgets:', error);
+        console.error("Error fetching budgets:", error);
       } else {
         setBudgets(data || []);
       }
     } catch (error) {
-      console.error('Error fetching budgets:', error);
+      console.error("Error fetching budgets:", error);
     }
   };
 
@@ -769,21 +854,21 @@ const ProjectDetail: React.FC = () => {
       const endDate = `${selectedYear}-12-31`;
 
       const { data, error } = await supabase
-        .from('budget_forecast_monthly')
-        .select('*')
-        .eq('project_id', id)
-        .gte('month_year', startDate)
-        .lte('month_year', endDate)
-        .order('category', { ascending: true })
-        .order('month_year', { ascending: true });
+        .from("budget_forecast_monthly")
+        .select("*")
+        .eq("project_id", id)
+        .gte("month_year", startDate)
+        .lte("month_year", endDate)
+        .order("category", { ascending: true })
+        .order("month_year", { ascending: true });
 
       if (error) {
-        console.error('Error fetching monthly forecasts:', error);
+        console.error("Error fetching monthly forecasts:", error);
       } else {
         setMonthlyForecasts(data || []);
       }
     } catch (error) {
-      console.error('Error fetching monthly forecasts:', error);
+      console.error("Error fetching monthly forecasts:", error);
     }
   };
 
@@ -791,18 +876,18 @@ const ProjectDetail: React.FC = () => {
     if (!id) return;
     try {
       const { data, error } = await supabase
-        .from('project_risks')
-        .select('*')
-        .eq('project_id', id)
-        .order('created_at', { ascending: false });
+        .from("project_risks")
+        .select("*")
+        .eq("project_id", id)
+        .order("created_at", { ascending: false });
 
       if (error) {
-        console.error('Error fetching risks:', error);
+        console.error("Error fetching risks:", error);
       } else {
         setRisks(data || []);
       }
     } catch (error) {
-      console.error('Error fetching risks:', error);
+      console.error("Error fetching risks:", error);
     }
   };
 
@@ -810,18 +895,18 @@ const ProjectDetail: React.FC = () => {
     if (!id) return;
     try {
       const { data, error } = await supabase
-        .from('project_issues')
-        .select('*')
-        .eq('project_id', id)
-        .order('created_at', { ascending: false });
+        .from("project_issues")
+        .select("*")
+        .eq("project_id", id)
+        .order("created_at", { ascending: false });
 
       if (error) {
-        console.error('Error fetching issues:', error);
+        console.error("Error fetching issues:", error);
       } else {
         setIssues(data || []);
       }
     } catch (error) {
-      console.error('Error fetching issues:', error);
+      console.error("Error fetching issues:", error);
     }
   };
 
@@ -829,88 +914,103 @@ const ProjectDetail: React.FC = () => {
     if (!id) return;
     try {
       const { data, error } = await supabase
-        .from('change_requests')
-        .select('*')
-        .eq('project_id', id)
-        .order('created_at', { ascending: false });
+        .from("change_requests")
+        .select("*")
+        .eq("project_id", id)
+        .order("created_at", { ascending: false });
 
       if (error) {
-        console.error('Error fetching change requests:', error);
+        console.error("Error fetching change requests:", error);
       } else {
         setChangeRequests(data || []);
       }
     } catch (error) {
-      console.error('Error fetching change requests:', error);
+      console.error("Error fetching change requests:", error);
     }
   };
 
   const fetchCostCategoryOptions = async () => {
     try {
-      console.log('Fetching budget categories...');
+      console.log("Fetching budget categories...");
       const { data, error } = await supabase
-        .from('budget_categories')
-        .select('name')
-        .eq('is_active', true)
-        .order('name');
+        .from("budget_categories")
+        .select("name")
+        .eq("is_active", true)
+        .order("name");
 
       if (error) {
-        console.error('Error fetching budget categories:', error);
+        console.error("Error fetching budget categories:", error);
         setCostCategoryOptions([]);
         return;
       }
 
-      console.log('Budget categories fetched:', data);
+      console.log("Budget categories fetched:", data);
 
       if (data && data.length > 0) {
-        const categoryNames = data.map(cat => cat.name);
-        console.log('Setting category options:', categoryNames);
+        const categoryNames = data.map((cat) => cat.name);
+        console.log("Setting category options:", categoryNames);
         setCostCategoryOptions(categoryNames);
       } else {
-        console.log('No budget categories found');
+        console.log("No budget categories found");
         setCostCategoryOptions([]);
       }
     } catch (error) {
-      console.error('Error fetching budget categories:', error);
+      console.error("Error fetching budget categories:", error);
       setCostCategoryOptions([]);
     }
   };
 
   const fetchProjectTasks = async () => {
     try {
-      console.log('fetchProjectTasks called for project:', id);
+      console.log("fetchProjectTasks called for project:", id);
 
       // Get the most recent record for this project
       const { data: records, error } = await supabase
-        .from('project_tasks')
-        .select('*')
-        .eq('project_id', id)
-        .order('created_at', { ascending: false })
+        .from("project_tasks")
+        .select("*")
+        .eq("project_id", id)
+        .order("created_at", { ascending: false })
         .limit(1);
 
       const data = records && records.length > 0 ? records[0] : null;
 
-      console.log('Fetched project_tasks records:', records);
-      console.log('Selected record:', data);
+      console.log("Fetched project_tasks records:", records);
+      console.log("Selected record:", data);
 
       if (error) {
-        console.error('Error fetching project tasks:', error);
+        console.error("Error fetching project tasks:", error);
       } else if (data && data.task_data) {
         // Normalize date formats for dhtmlx-gantt and clean data
         const taskData = data.task_data;
         if (taskData.data && Array.isArray(taskData.data)) {
           // Sort tasks by sortorder to preserve visual order
           const sortedTasks = [...taskData.data].sort((a: any, b: any) => {
-            const orderA = a.sortorder !== undefined ? a.sortorder : Number.MAX_SAFE_INTEGER;
-            const orderB = b.sortorder !== undefined ? b.sortorder : Number.MAX_SAFE_INTEGER;
+            const orderA =
+              a.sortorder !== undefined ? a.sortorder : Number.MAX_SAFE_INTEGER;
+            const orderB =
+              b.sortorder !== undefined ? b.sortorder : Number.MAX_SAFE_INTEGER;
             return orderA - orderB;
           });
 
-          console.log('Loading tasks with sortorder:', sortedTasks.map((t: any) => ({ id: t.id, text: t.text, sortorder: t.sortorder })));
+          console.log(
+            "Loading tasks with sortorder:",
+            sortedTasks.map((t: any) => ({
+              id: t.id,
+              text: t.text,
+              sortorder: t.sortorder,
+            })),
+          );
 
           // Count tasks with actual dates
-          const tasksWithActualStart = sortedTasks.filter((t: any) => t.actual_start).length;
-          const tasksWithActualFinish = sortedTasks.filter((t: any) => t.actual_finish).length;
-          console.log(`Tasks from DB with actual_start: ${tasksWithActualStart}, with actual_finish: ${tasksWithActualFinish}`);
+          const tasksWithActualStart = sortedTasks.filter(
+            (t: any) => t.actual_start,
+          ).length;
+          const tasksWithActualFinish = sortedTasks.filter(
+            (t: any) => t.actual_finish,
+          ).length;
+          console.log(
+            `Tasks from DB with actual_start: ${tasksWithActualStart}, with actual_finish: ${tasksWithActualFinish}`,
+          );
 
           taskData.data = sortedTasks.map((task: any) => {
             // Only keep essential fields and ensure proper date format
@@ -922,40 +1022,50 @@ const ProjectDetail: React.FC = () => {
               startDate = String(startDate);
 
               // If date contains 'T' or 'Z', extract just the date part
-              if (startDate.includes('T') || startDate.includes('Z')) {
-                startDate = startDate.split('T')[0];
+              if (startDate.includes("T") || startDate.includes("Z")) {
+                startDate = startDate.split("T")[0];
               }
               // Extract just date part if there's a time component
-              if (startDate.includes(' ')) {
-                startDate = startDate.split(' ')[0];
+              if (startDate.includes(" ")) {
+                startDate = startDate.split(" ")[0];
               }
             } else {
               // If no start date, use today (date only, no time)
               const today = new Date();
-              startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+              startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
               console.warn(`Task ${task.id} missing start_date, using today`);
             }
 
             // Preserve all custom fields and baseline fields
             const customFields: any = {};
-            Object.keys(task).forEach(key => {
-              if (key.startsWith('custom_') || key.startsWith('baseline')) {
+            Object.keys(task).forEach((key) => {
+              if (key.startsWith("custom_") || key.startsWith("baseline")) {
                 customFields[key] = task[key];
               }
             });
 
             // Convert baseline string dates to Date objects for rendering
             // Check for baseline0_StartDate and convert to planned_start/planned_end
-            if (customFields.baseline0_StartDate && customFields.baseline0_EndDate) {
+            if (
+              customFields.baseline0_StartDate &&
+              customFields.baseline0_EndDate
+            ) {
               try {
-                const startParts = customFields.baseline0_StartDate.split(' ');
-                const endParts = customFields.baseline0_EndDate.split(' ');
+                const startParts = customFields.baseline0_StartDate.split(" ");
+                const endParts = customFields.baseline0_EndDate.split(" ");
                 if (startParts.length >= 2 && endParts.length >= 2) {
-                  customFields.planned_start = new Date(customFields.baseline0_StartDate);
-                  customFields.planned_end = new Date(customFields.baseline0_EndDate);
+                  customFields.planned_start = new Date(
+                    customFields.baseline0_StartDate,
+                  );
+                  customFields.planned_end = new Date(
+                    customFields.baseline0_EndDate,
+                  );
                 }
               } catch (e) {
-                console.warn(`Failed to parse baseline dates for task ${task.id}:`, e);
+                console.warn(
+                  `Failed to parse baseline dates for task ${task.id}:`,
+                  e,
+                );
               }
             }
 
@@ -963,27 +1073,38 @@ const ProjectDetail: React.FC = () => {
             // This ensures working days logic is applied correctly
             // Ensure duration is a valid number (convert string to number if needed)
             let duration = task.duration;
-            console.log(`Task ${task.id} from DB: duration=${task.duration} (type: ${typeof task.duration})`);
-            if (typeof duration === 'string') {
+            console.log(
+              `Task ${task.id} from DB: duration=${task.duration} (type: ${typeof task.duration})`,
+            );
+            if (typeof duration === "string") {
               duration = parseFloat(duration);
               console.log(`  Converted string to number: ${duration}`);
             }
-            if (typeof duration !== 'number' || isNaN(duration) || duration < 1) {
+            if (
+              typeof duration !== "number" ||
+              isNaN(duration) ||
+              duration < 1
+            ) {
               console.log(`  Invalid duration, setting to 1`);
               duration = 1;
             }
-            console.log(`  Final duration: ${duration} (type: ${typeof duration})`);
+            console.log(
+              `  Final duration: ${duration} (type: ${typeof duration})`,
+            );
 
             const taskObject = {
               id: task.id,
-              text: task.text || 'Untitled Task',
+              text: task.text || "Untitled Task",
               start_date: startDate,
               // Do NOT provide end_date - let Gantt calculate it from start_date + duration
               // This ensures our custom calculateEndDate function is used with working days logic
               duration: duration,
               progress: task.progress || 0,
-              type: task.type || 'task',
-              parent: task.parent !== undefined && task.parent !== null ? task.parent : 0,
+              type: task.type || "task",
+              parent:
+                task.parent !== undefined && task.parent !== null
+                  ? task.parent
+                  : 0,
               owner_id: task.owner_id,
               owner_name: task.owner_name,
               resource_ids: task.resource_ids || [],
@@ -994,13 +1115,17 @@ const ProjectDetail: React.FC = () => {
               sortorder: task.sortorder, // Preserve sortorder
               actual_start: task.actual_start || null, // Preserve actual start date from JSON
               actual_finish: task.actual_finish || null, // Preserve actual finish date from JSON
-              ...customFields  // Spread all custom fields
+              ...customFields, // Spread all custom fields
             };
 
             return taskObject;
           });
         }
-        console.log('Setting project tasks with data:', taskData.data?.length, 'tasks');
+        console.log(
+          "Setting project tasks with data:",
+          taskData.data?.length,
+          "tasks",
+        );
 
         // Fetch resources and resource assignments
         const resourcesData = await fetchResourcesForGantt();
@@ -1013,19 +1138,29 @@ const ProjectDetail: React.FC = () => {
             links: taskData.links || [],
             baseline: taskData.baseline || [],
             resources: resourcesData,
-            resourceAssignments: assignmentsData
+            resourceAssignments: assignmentsData,
           });
           // Reset grouping state when new data is loaded
           setIsGroupedByOwner(false);
         }, 0);
       } else {
-        console.log('No task data found for project, setting empty array');
-        setProjectTasks({ data: [], links: [], resources: [], resourceAssignments: [] });
+        console.log("No task data found for project, setting empty array");
+        setProjectTasks({
+          data: [],
+          links: [],
+          resources: [],
+          resourceAssignments: [],
+        });
         setIsGroupedByOwner(false);
       }
     } catch (error) {
-      console.error('Error fetching project tasks:', error);
-      setProjectTasks({ data: [], links: [], resources: [], resourceAssignments: [] });
+      console.error("Error fetching project tasks:", error);
+      setProjectTasks({
+        data: [],
+        links: [],
+        resources: [],
+        resourceAssignments: [],
+      });
       setIsGroupedByOwner(false);
     }
   };
@@ -1036,47 +1171,53 @@ const ProjectDetail: React.FC = () => {
     try {
       // Fetch only resources that are members of this project
       const { data: memberData, error } = await supabase
-        .from('project_team_members')
-        .select('resource_id')
-        .eq('project_id', id);
+        .from("project_team_members")
+        .select("resource_id")
+        .eq("project_id", id);
 
       if (error) {
-        console.error('Error fetching project team resources:', error);
+        console.error("Error fetching project team resources:", error);
         return [];
       }
 
-      const resourceIds = (memberData || []).map((m: any) => m.resource_id).filter(Boolean);
+      const resourceIds = (memberData || [])
+        .map((m: any) => m.resource_id)
+        .filter(Boolean);
       let resourceRows: any[] = [];
       if (resourceIds.length > 0) {
         const { data: resData } = await supabase
-          .from('resources')
-          .select('id, display_name, cost_rate, rate_type, status')
-          .in('id', resourceIds);
+          .from("resources")
+          .select("id, display_name, cost_rate, rate_type, status")
+          .in("id", resourceIds);
         resourceRows = resData || [];
       }
 
       const resourceMap = new Map(resourceRows.map((r: any) => [r.id, r]));
       const data = (memberData || []).map((m: any) => ({
         resource_id: m.resource_id,
-        resources: resourceMap.get(m.resource_id) || null
+        resources: resourceMap.get(m.resource_id) || null,
       }));
 
       // Filter out null resources and transform to Gantt resource format
       const resources = (data || [])
-        .filter(item => item.resources)
-        .map(item => {
+        .filter((item) => item.resources)
+        .map((item) => {
           const resource = item.resources as any;
           return {
             id: resource.id,
             text: resource.display_name,
-            unit: resource.rate_type === 'hourly' ? 'hours/day' :
-                  resource.rate_type === 'daily' ? 'days' : 'months'
+            unit:
+              resource.rate_type === "hourly"
+                ? "hours/day"
+                : resource.rate_type === "daily"
+                  ? "days"
+                  : "months",
           };
         });
 
       // Remove duplicates (in case a resource is added to team multiple times)
       const uniqueResources = resources.reduce((acc: any[], current) => {
-        const exists = acc.find(r => r.id === current.id);
+        const exists = acc.find((r) => r.id === current.id);
         if (!exists) {
           acc.push(current);
         }
@@ -1085,10 +1226,10 @@ const ProjectDetail: React.FC = () => {
 
       // Fetch tasks to calculate allocated hours per resource
       const { data: taskData, error: taskError } = await supabase
-        .from('project_tasks')
-        .select('task_data')
-        .eq('project_id', id)
-        .order('created_at', { ascending: false })
+        .from("project_tasks")
+        .select("task_data")
+        .eq("project_id", id)
+        .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
@@ -1099,11 +1240,16 @@ const ProjectDetail: React.FC = () => {
         const resourceHours: { [key: string]: number } = {};
 
         tasks.forEach((task: any) => {
-          if (task.resource_ids && Array.isArray(task.resource_ids) && task.duration) {
+          if (
+            task.resource_ids &&
+            Array.isArray(task.resource_ids) &&
+            task.duration
+          ) {
             // Convert days to hours (assuming 8 hours per day)
             const hours = task.duration * 8;
             task.resource_ids.forEach((resourceId: string) => {
-              resourceHours[resourceId] = (resourceHours[resourceId] || 0) + hours;
+              resourceHours[resourceId] =
+                (resourceHours[resourceId] || 0) + hours;
             });
           }
         });
@@ -1116,7 +1262,7 @@ const ProjectDetail: React.FC = () => {
 
       return uniqueResources;
     } catch (error) {
-      console.error('Error fetching resources for Gantt:', error);
+      console.error("Error fetching resources for Gantt:", error);
       return [];
     }
   };
@@ -1126,10 +1272,10 @@ const ProjectDetail: React.FC = () => {
 
     try {
       const { data: tasks, error: tasksError } = await supabase
-        .from('project_tasks')
-        .select('task_data')
-        .eq('project_id', id)
-        .order('created_at', { ascending: false })
+        .from("project_tasks")
+        .select("task_data")
+        .eq("project_id", id)
+        .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
@@ -1148,7 +1294,7 @@ const ProjectDetail: React.FC = () => {
               id: assignmentId++,
               task_id: task.id,
               resource_id: resourceId,
-              value: 1
+              value: 1,
             });
           });
         }
@@ -1156,7 +1302,7 @@ const ProjectDetail: React.FC = () => {
 
       return assignments;
     } catch (error) {
-      console.error('Error fetching resource assignments:', error);
+      console.error("Error fetching resource assignments:", error);
       return [];
     }
   };
@@ -1166,59 +1312,61 @@ const ProjectDetail: React.FC = () => {
 
     try {
       const { data: memberData, error } = await supabase
-        .from('project_team_members')
-        .select('id, resource_id, allocation_percentage')
-        .eq('project_id', id);
+        .from("project_team_members")
+        .select("id, resource_id, allocation_percentage")
+        .eq("project_id", id);
 
       if (error) {
-        console.error('Error fetching project team members:', error);
+        console.error("Error fetching project team members:", error);
       } else {
-        const resourceIds = (memberData || []).map((m: any) => m.resource_id).filter(Boolean);
+        const resourceIds = (memberData || [])
+          .map((m: any) => m.resource_id)
+          .filter(Boolean);
         let resourceMap = new Map();
         if (resourceIds.length > 0) {
           const { data: resData } = await supabase
-            .from('resources')
-            .select('id, display_name')
-            .in('id', resourceIds);
+            .from("resources")
+            .select("id, display_name")
+            .in("id", resourceIds);
           (resData || []).forEach((r: any) => resourceMap.set(r.id, r));
         }
         const data = (memberData || []).map((m: any) => ({
           ...m,
-          resources: resourceMap.get(m.resource_id) || null
+          resources: resourceMap.get(m.resource_id) || null,
         }));
-        console.log('Fetched project team members with allocations:', data);
+        console.log("Fetched project team members with allocations:", data);
         setProjectTeamMembers(data);
 
         // Refresh Gantt resources when team members change
         const resourcesData = await fetchResourcesForGantt();
         const assignmentsData = await fetchResourceAssignments();
 
-        setProjectTasks(prev => ({
+        setProjectTasks((prev) => ({
           ...prev,
           resources: resourcesData,
-          resourceAssignments: assignmentsData
+          resourceAssignments: assignmentsData,
         }));
       }
     } catch (error) {
-      console.error('Error fetching team members:', error);
+      console.error("Error fetching team members:", error);
     }
   };
 
   const fetchTaskCustomFields = async () => {
     try {
       const { data, error } = await supabase
-        .from('custom_fields')
-        .select('*')
-        .eq('entity_type', 'task')
-        .order('field_label');
+        .from("custom_fields")
+        .select("*")
+        .eq("entity_type", "task")
+        .order("field_label");
 
       if (error) {
-        console.error('Error fetching task custom fields:', error);
+        console.error("Error fetching task custom fields:", error);
       } else {
         setTaskCustomFields(data || []);
       }
     } catch (error) {
-      console.error('Error fetching task custom fields:', error);
+      console.error("Error fetching task custom fields:", error);
     }
   };
 
@@ -1245,18 +1393,21 @@ const ProjectDetail: React.FC = () => {
     try {
       // Query task_data from the database
       const { data: projectTasksData, error: tasksError } = await supabase
-        .from('project_tasks')
-        .select('task_data')
-        .eq('project_id', id)
+        .from("project_tasks")
+        .select("task_data")
+        .eq("project_id", id)
         .maybeSingle();
 
       if (tasksError) {
-        console.error('Error fetching tasks:', tasksError);
+        console.error("Error fetching tasks:", tasksError);
         return;
       }
 
-      if (!projectTasksData?.task_data?.data || projectTasksData.task_data.data.length === 0) {
-        console.log('No tasks found for project');
+      if (
+        !projectTasksData?.task_data?.data ||
+        projectTasksData.task_data.data.length === 0
+      ) {
+        console.log("No tasks found for project");
         return;
       }
 
@@ -1268,7 +1419,7 @@ const ProjectDetail: React.FC = () => {
 
       tasks.forEach((task: any) => {
         // Skip group headers or summary tasks
-        if (task.type === 'project' || task.$group_header) return;
+        if (task.type === "project" || task.$group_header) return;
 
         // Check start_date
         if (task.start_date) {
@@ -1312,25 +1463,25 @@ const ProjectDetail: React.FC = () => {
       // Update project with calculated dates
       if (earliestStart || latestFinish) {
         const { error } = await supabase
-          .from('projects')
+          .from("projects")
           .update({
             schedule_start_date: earliestStart?.toISOString() || null,
             schedule_finish_date: latestFinish?.toISOString() || null,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
           })
-          .eq('id', id);
+          .eq("id", id);
 
         if (error) {
-          console.error('Error updating project schedule dates:', error);
+          console.error("Error updating project schedule dates:", error);
         } else {
-          console.log('Project schedule dates updated:', {
+          console.log("Project schedule dates updated:", {
             start: earliestStart?.toISOString(),
-            finish: latestFinish?.toISOString()
+            finish: latestFinish?.toISOString(),
           });
         }
       }
     } catch (error) {
-      console.error('Error updating project schedule dates:', error);
+      console.error("Error updating project schedule dates:", error);
     }
   };
 
@@ -1369,124 +1520,148 @@ const ProjectDetail: React.FC = () => {
       // Start collecting from root level (parent = 0)
       collectTasksInOrder(0);
 
-      console.log("Current tasks from Gantt (in visual order):", tasksInOrder.length, "tasks");
+      console.log(
+        "Current tasks from Gantt (in visual order):",
+        tasksInOrder.length,
+        "tasks",
+      );
 
       // Clean the data before saving - filter out group headers and deduplicate
       const taskMap = new Map();
 
       tasksInOrder.forEach((task: any, index: number) => {
-          const taskId = task.$original_id || task.id;
-          // Only add if not already in map (handles duplicates from grouping)
-          if (!taskMap.has(taskId)) {
-            // Collect custom fields, baseline fields, and resource fields (string format only, not Date objects)
-            const extraFields: any = {};
-            Object.keys(task).forEach(key => {
-              if (key.startsWith('custom_') || key.startsWith('baseline') ||
-                  key === 'work_hours' || key === 'resource_work_hours' || key === 'resource_allocations') {
-                extraFields[key] = task[key];
-              }
-            });
-
-            // Ensure duration is a valid number
-            let duration = task.duration;
-            if (typeof duration !== 'number' || isNaN(duration)) {
-              duration = parseFloat(duration) || 1;
+        const taskId = task.$original_id || task.id;
+        // Only add if not already in map (handles duplicates from grouping)
+        if (!taskMap.has(taskId)) {
+          // Collect custom fields, baseline fields, and resource fields (string format only, not Date objects)
+          const extraFields: any = {};
+          Object.keys(task).forEach((key) => {
+            if (
+              key.startsWith("custom_") ||
+              key.startsWith("baseline") ||
+              key === "work_hours" ||
+              key === "resource_work_hours" ||
+              key === "resource_allocations"
+            ) {
+              extraFields[key] = task[key];
             }
-            // Ensure it's a positive number (preserve exact value, no rounding)
-            duration = Math.max(1, duration);
+          });
 
-            console.log(`Task ${taskId}: duration=${task.duration} (type: ${typeof task.duration}), cleaned duration=${duration}`);
+          // Ensure duration is a valid number
+          let duration = task.duration;
+          if (typeof duration !== "number" || isNaN(duration)) {
+            duration = parseFloat(duration) || 1;
+          }
+          // Ensure it's a positive number (preserve exact value, no rounding)
+          duration = Math.max(1, duration);
 
-            // Format start_date and end_date to YYYY-MM-DD (date only, no time)
-            let formattedStartDate = task.start_date;
-            let calculatedEndDate = task.end_date;
+          console.log(
+            `Task ${taskId}: duration=${task.duration} (type: ${typeof task.duration}), cleaned duration=${duration}`,
+          );
 
-            if (task.start_date && ganttInstance) {
-              const startDate = typeof task.start_date === 'string'
+          // Format start_date and end_date to YYYY-MM-DD (date only, no time)
+          let formattedStartDate = task.start_date;
+          let calculatedEndDate = task.end_date;
+
+          if (task.start_date && ganttInstance) {
+            const startDate =
+              typeof task.start_date === "string"
                 ? ganttInstance.date.parseDate(task.start_date, "xml_date")
                 : task.start_date;
 
-              // Format start_date to YYYY-MM-DD
-              formattedStartDate = ganttInstance.date.date_to_str("%Y-%m-%d")(startDate);
+            // Format start_date to YYYY-MM-DD
+            formattedStartDate =
+              ganttInstance.date.date_to_str("%Y-%m-%d")(startDate);
 
-              // Calculate exclusive end_date as expected by DHTMLX Gantt
-              if (duration > 0) {
-                // DHTMLX uses exclusive end dates (end_date = start of day after task completes)
-                // Store this exclusive end_date so Gantt can correctly calculate duration when parsing
-                const exclusiveEndDate = ganttInstance.calculateEndDate(startDate, duration);
-                calculatedEndDate = ganttInstance.date.date_to_str("%Y-%m-%d")(exclusiveEndDate);
-              }
+            // Calculate exclusive end_date as expected by DHTMLX Gantt
+            if (duration > 0) {
+              // DHTMLX uses exclusive end dates (end_date = start of day after task completes)
+              // Store this exclusive end_date so Gantt can correctly calculate duration when parsing
+              const exclusiveEndDate = ganttInstance.calculateEndDate(
+                startDate,
+                duration,
+              );
+              calculatedEndDate =
+                ganttInstance.date.date_to_str("%Y-%m-%d")(exclusiveEndDate);
             }
-
-            // Handle actual_start and actual_finish based on progress
-            const currentProgress = task.progress || 0;
-            let actualStart = task.actual_start;
-            let actualFinish = task.actual_finish;
-
-            // Convert actual_start to string format if it's a Date object
-            if (actualStart && ganttInstance) {
-              if (actualStart instanceof Date) {
-                actualStart = ganttInstance.date.date_to_str("%Y-%m-%d")(actualStart);
-              }
-            }
-
-            // Convert actual_finish to string format if it's a Date object
-            if (actualFinish && ganttInstance) {
-              if (actualFinish instanceof Date) {
-                actualFinish = ganttInstance.date.date_to_str("%Y-%m-%d")(actualFinish);
-              }
-            }
-
-            // Set actual_start to task's start_date when task begins (progress > 0) if not already set
-            if (currentProgress > 0 && !actualStart) {
-              actualStart = formattedStartDate; // Use the task's planned start_date
-            }
-
-            // Set actual_finish to end_date when task completes (progress = 100%)
-            if (currentProgress >= 1) {
-              // Subtract one day from end_date to get the correct actual finish date
-              const endDate = new Date(calculatedEndDate);
-              endDate.setDate(endDate.getDate() - 1);
-              const year = endDate.getFullYear();
-              const month = String(endDate.getMonth() + 1).padStart(2, '0');
-              const day = String(endDate.getDate()).padStart(2, '0');
-              actualFinish = `${year}-${month}-${day}`;
-            } else if (currentProgress < 1) {
-              // Clear actual_finish if progress drops below 100%
-              actualFinish = null;
-            }
-
-            // Build the task object for storage
-            // Save end_date along with start_date and duration for consistency
-            const taskToSave: any = {
-              id: taskId,
-              text: task.text,
-              start_date: formattedStartDate,
-              end_date: calculatedEndDate, // Save the exclusive end_date as expected by Gantt
-              duration: duration,
-              progress: currentProgress,
-              type: task.type || 'task',
-              parent: task.$original_parent !== undefined ? task.$original_parent : (task.parent || 0),
-              owner_id: task.owner_id,
-              owner_name: task.owner_name,
-              resource_ids: task.resource_ids || [],
-              resource_names: task.resource_names || [],
-              sortorder: index, // Add explicit sort order
-              ...extraFields // Include custom fields and baseline fields
-            };
-
-            // Add actual dates if they exist (already in string format)
-            if (actualStart) {
-              taskToSave.actual_start = actualStart;
-            }
-            if (actualFinish) {
-              taskToSave.actual_finish = actualFinish;
-            }
-
-            console.log(`Saving task ${taskId} to DB: duration=${taskToSave.duration}, sortorder=${taskToSave.sortorder}, start_date=${taskToSave.start_date}`);
-            taskMap.set(taskId, taskToSave);
           }
-        });
+
+          // Handle actual_start and actual_finish based on progress
+          const currentProgress = task.progress || 0;
+          let actualStart = task.actual_start;
+          let actualFinish = task.actual_finish;
+
+          // Convert actual_start to string format if it's a Date object
+          if (actualStart && ganttInstance) {
+            if (actualStart instanceof Date) {
+              actualStart =
+                ganttInstance.date.date_to_str("%Y-%m-%d")(actualStart);
+            }
+          }
+
+          // Convert actual_finish to string format if it's a Date object
+          if (actualFinish && ganttInstance) {
+            if (actualFinish instanceof Date) {
+              actualFinish =
+                ganttInstance.date.date_to_str("%Y-%m-%d")(actualFinish);
+            }
+          }
+
+          // Set actual_start to task's start_date when task begins (progress > 0) if not already set
+          if (currentProgress > 0 && !actualStart) {
+            actualStart = formattedStartDate; // Use the task's planned start_date
+          }
+
+          // Set actual_finish to end_date when task completes (progress = 100%)
+          if (currentProgress >= 1) {
+            // Subtract one day from end_date to get the correct actual finish date
+            const endDate = new Date(calculatedEndDate);
+            endDate.setDate(endDate.getDate() - 1);
+            const year = endDate.getFullYear();
+            const month = String(endDate.getMonth() + 1).padStart(2, "0");
+            const day = String(endDate.getDate()).padStart(2, "0");
+            actualFinish = `${year}-${month}-${day}`;
+          } else if (currentProgress < 1) {
+            // Clear actual_finish if progress drops below 100%
+            actualFinish = null;
+          }
+
+          // Build the task object for storage
+          // Save end_date along with start_date and duration for consistency
+          const taskToSave: any = {
+            id: taskId,
+            text: task.text,
+            start_date: formattedStartDate,
+            end_date: calculatedEndDate, // Save the exclusive end_date as expected by Gantt
+            duration: duration,
+            progress: currentProgress,
+            type: task.type || "task",
+            parent:
+              task.$original_parent !== undefined
+                ? task.$original_parent
+                : task.parent || 0,
+            owner_id: task.owner_id,
+            owner_name: task.owner_name,
+            resource_ids: task.resource_ids || [],
+            resource_names: task.resource_names || [],
+            sortorder: index, // Add explicit sort order
+            ...extraFields, // Include custom fields and baseline fields
+          };
+
+          // Add actual dates if they exist (already in string format)
+          if (actualStart) {
+            taskToSave.actual_start = actualStart;
+          }
+          if (actualFinish) {
+            taskToSave.actual_finish = actualFinish;
+          }
+
+          console.log(
+            `Saving task ${taskId} to DB: duration=${taskToSave.duration}, sortorder=${taskToSave.sortorder}, start_date=${taskToSave.start_date}`,
+          );
+          taskMap.set(taskId, taskToSave);
+        }
+      });
 
       // Get links separately
       const allLinks = ganttInstance.getLinks();
@@ -1497,28 +1672,29 @@ const ProjectDetail: React.FC = () => {
           id: link.id,
           source: link.source,
           target: link.target,
-          type: link.type
-        }))
+          type: link.type,
+        })),
       };
 
       console.log("Cleaned data:", cleanedData);
 
-      const { error } = await supabase
-        .from('project_tasks')
-        .upsert({
+      const { error } = await supabase.from("project_tasks").upsert(
+        {
           project_id: id,
-          task_data: cleanedData
-        }, { onConflict: 'project_id' });
+          task_data: cleanedData,
+        },
+        { onConflict: "project_id" },
+      );
 
       if (error) {
-        console.error('Error saving tasks:', error);
+        console.error("Error saving tasks:", error);
       } else {
         console.log("Tasks saved successfully");
         await updateProjectScheduleDates();
         await fetchProjectTasks();
       }
     } catch (error) {
-      console.error('Error saving project tasks:', error);
+      console.error("Error saving project tasks:", error);
     }
   };
 
@@ -1537,11 +1713,14 @@ const ProjectDetail: React.FC = () => {
 
         // Save to database
         await saveProjectTasks();
-        showNotification(`Task progress updated to ${progressValue}%`, 'success');
+        showNotification(
+          `Task progress updated to ${progressValue}%`,
+          "success",
+        );
       }
     } catch (error) {
-      console.error('Error updating task progress:', error);
-      showNotification('Failed to update task progress', 'error');
+      console.error("Error updating task progress:", error);
+      showNotification("Failed to update task progress", "error");
     }
   };
 
@@ -1553,29 +1732,29 @@ const ProjectDetail: React.FC = () => {
       if (!ganttInstance) return;
 
       // Trigger DHTMLX Gantt's built-in indent command (Shift+Right Arrow)
-      const event = new KeyboardEvent('keydown', {
-        key: 'ArrowRight',
-        code: 'ArrowRight',
+      const event = new KeyboardEvent("keydown", {
+        key: "ArrowRight",
+        code: "ArrowRight",
         keyCode: 39,
         shiftKey: true,
         bubbles: true,
-        cancelable: true
+        cancelable: true,
       });
 
       // Dispatch the event to the gantt container
-      const ganttContainer = document.querySelector('.gantt_container');
+      const ganttContainer = document.querySelector(".gantt_container");
       if (ganttContainer) {
         ganttContainer.dispatchEvent(event);
 
         // Wait a bit for the indent to process, then save
         setTimeout(async () => {
           await saveProjectTasks();
-          showNotification('Task indented successfully', 'success');
+          showNotification("Task indented successfully", "success");
         }, 100);
       }
     } catch (error) {
-      console.error('Error indenting task:', error);
-      showNotification('Failed to indent task', 'error');
+      console.error("Error indenting task:", error);
+      showNotification("Failed to indent task", "error");
     }
   };
 
@@ -1587,29 +1766,29 @@ const ProjectDetail: React.FC = () => {
       if (!ganttInstance) return;
 
       // Trigger DHTMLX Gantt's built-in outdent command (Shift+Left Arrow)
-      const event = new KeyboardEvent('keydown', {
-        key: 'ArrowLeft',
-        code: 'ArrowLeft',
+      const event = new KeyboardEvent("keydown", {
+        key: "ArrowLeft",
+        code: "ArrowLeft",
         keyCode: 37,
         shiftKey: true,
         bubbles: true,
-        cancelable: true
+        cancelable: true,
       });
 
       // Dispatch the event to the gantt container
-      const ganttContainer = document.querySelector('.gantt_container');
+      const ganttContainer = document.querySelector(".gantt_container");
       if (ganttContainer) {
         ganttContainer.dispatchEvent(event);
 
         // Wait a bit for the outdent to process, then save
         setTimeout(async () => {
           await saveProjectTasks();
-          showNotification('Task outdented successfully', 'success');
+          showNotification("Task outdented successfully", "success");
         }, 100);
       }
     } catch (error) {
-      console.error('Error outdenting task:', error);
-      showNotification('Failed to outdent task', 'error');
+      console.error("Error outdenting task:", error);
+      showNotification("Failed to outdent task", "error");
     }
   };
 
@@ -1619,32 +1798,39 @@ const ProjectDetail: React.FC = () => {
     try {
       const ganttInstance = ganttRef.current.getGanttInstance();
       if (!ganttInstance) {
-        console.error('Gantt instance not found');
+        console.error("Gantt instance not found");
         return;
       }
 
-      console.log('Attempting undo...');
-      console.log('Gantt instance:', ganttInstance);
-      console.log('Gantt.ext:', ganttInstance.ext);
-      console.log('Gantt.ext.undo:', ganttInstance.ext ? ganttInstance.ext.undo : 'ext not available');
+      console.log("Attempting undo...");
+      console.log("Gantt instance:", ganttInstance);
+      console.log("Gantt.ext:", ganttInstance.ext);
+      console.log(
+        "Gantt.ext.undo:",
+        ganttInstance.ext ? ganttInstance.ext.undo : "ext not available",
+      );
 
       // Try to access undo through the ext namespace (DHTMLX Gantt extension pattern)
-      if (ganttInstance.ext && ganttInstance.ext.undo && typeof ganttInstance.ext.undo.undo === 'function') {
-        console.log('Using gantt.ext.undo.undo()');
+      if (
+        ganttInstance.ext &&
+        ganttInstance.ext.undo &&
+        typeof ganttInstance.ext.undo.undo === "function"
+      ) {
+        console.log("Using gantt.ext.undo.undo()");
         ganttInstance.ext.undo.undo();
-        console.log('Undo executed');
-      } else if (typeof ganttInstance.undo === 'function') {
-        console.log('Using gantt.undo()');
+        console.log("Undo executed");
+      } else if (typeof ganttInstance.undo === "function") {
+        console.log("Using gantt.undo()");
         ganttInstance.undo();
-        console.log('Undo executed');
+        console.log("Undo executed");
       } else {
-        console.error('Undo function not available');
-        console.error('Available methods:', Object.keys(ganttInstance));
-        showNotification('Undo not available', 'error');
+        console.error("Undo function not available");
+        console.error("Available methods:", Object.keys(ganttInstance));
+        showNotification("Undo not available", "error");
       }
     } catch (error) {
-      console.error('Error undoing action:', error);
-      showNotification('Error undoing action', 'error');
+      console.error("Error undoing action:", error);
+      showNotification("Error undoing action", "error");
     }
   };
 
@@ -1654,34 +1840,41 @@ const ProjectDetail: React.FC = () => {
     try {
       const ganttInstance = ganttRef.current.getGanttInstance();
       if (!ganttInstance) {
-        console.error('Gantt instance not found');
+        console.error("Gantt instance not found");
         return;
       }
 
-      console.log('Attempting redo...');
-      console.log('Gantt.ext.undo:', ganttInstance.ext ? ganttInstance.ext.undo : 'ext not available');
+      console.log("Attempting redo...");
+      console.log(
+        "Gantt.ext.undo:",
+        ganttInstance.ext ? ganttInstance.ext.undo : "ext not available",
+      );
 
       // Try to access redo through the ext namespace (DHTMLX Gantt extension pattern)
-      if (ganttInstance.ext && ganttInstance.ext.undo && typeof ganttInstance.ext.undo.redo === 'function') {
-        console.log('Using gantt.ext.undo.redo()');
+      if (
+        ganttInstance.ext &&
+        ganttInstance.ext.undo &&
+        typeof ganttInstance.ext.undo.redo === "function"
+      ) {
+        console.log("Using gantt.ext.undo.redo()");
         ganttInstance.ext.undo.redo();
-        console.log('Redo executed');
-      } else if (typeof ganttInstance.redo === 'function') {
-        console.log('Using gantt.redo()');
+        console.log("Redo executed");
+      } else if (typeof ganttInstance.redo === "function") {
+        console.log("Using gantt.redo()");
         ganttInstance.redo();
-        console.log('Redo executed');
+        console.log("Redo executed");
       } else {
-        console.error('Redo function not available');
-        showNotification('Redo not available', 'error');
+        console.error("Redo function not available");
+        showNotification("Redo not available", "error");
       }
     } catch (error) {
-      console.error('Error redoing action:', error);
-      showNotification('Error redoing action', 'error');
+      console.error("Error redoing action:", error);
+      showNotification("Error redoing action", "error");
     }
   };
 
   const handleTaskMultiSelect = (taskIds: number[]) => {
-    console.log('Multi-select updated:', taskIds);
+    console.log("Multi-select updated:", taskIds);
     setSelectedTaskIds(taskIds);
     // Also update single selection state with the last selected task
     if (taskIds.length === 1) {
@@ -1693,37 +1886,38 @@ const ProjectDetail: React.FC = () => {
 
   const linkSelectedTasks = async () => {
     if (!ganttRef.current || selectedTaskIds.length < 2) {
-      showNotification('Please select at least 2 tasks to link', 'error');
+      showNotification("Please select at least 2 tasks to link", "error");
       return;
     }
 
     try {
       const ganttInstance = ganttRef.current.getGanttInstance();
       if (!ganttInstance) {
-        showNotification('Gantt instance not found', 'error');
+        showNotification("Gantt instance not found", "error");
         return;
       }
 
       const sortedTaskIds = [...selectedTaskIds].sort((a, b) => {
         const taskA = ganttInstance.getTask(a);
         const taskB = ganttInstance.getTask(b);
-        const wbsA = ganttInstance.getWBSCode?.(taskA) || '';
-        const wbsB = ganttInstance.getWBSCode?.(taskB) || '';
+        const wbsA = ganttInstance.getWBSCode?.(taskA) || "";
+        const wbsB = ganttInstance.getWBSCode?.(taskB) || "";
         return wbsA.localeCompare(wbsB, undefined, { numeric: true });
       });
 
       let linksCreated = 0;
       const existingLinks = ganttInstance.getLinks();
-      const maxLinkId = existingLinks.length > 0
-        ? Math.max(...existingLinks.map((l: any) => l.id))
-        : 0;
+      const maxLinkId =
+        existingLinks.length > 0
+          ? Math.max(...existingLinks.map((l: any) => l.id))
+          : 0;
 
       for (let i = 0; i < sortedTaskIds.length - 1; i++) {
         const sourceId = sortedTaskIds[i];
         const targetId = sortedTaskIds[i + 1];
 
-        const linkExists = existingLinks.some((link: any) =>
-          link.source === sourceId && link.target === targetId
+        const linkExists = existingLinks.some(
+          (link: any) => link.source === sourceId && link.target === targetId,
         );
 
         if (!linkExists) {
@@ -1732,7 +1926,7 @@ const ProjectDetail: React.FC = () => {
             id: linkId,
             source: sourceId,
             target: targetId,
-            type: '0'
+            type: "0",
           });
           linksCreated++;
         }
@@ -1740,26 +1934,29 @@ const ProjectDetail: React.FC = () => {
 
       if (linksCreated > 0) {
         await saveProjectTasks();
-        showNotification(`Successfully linked ${selectedTaskIds.length} tasks with ${linksCreated} new links`, 'success');
+        showNotification(
+          `Successfully linked ${selectedTaskIds.length} tasks with ${linksCreated} new links`,
+          "success",
+        );
       } else {
-        showNotification('All selected tasks are already linked', 'info');
+        showNotification("All selected tasks are already linked", "info");
       }
     } catch (error) {
-      console.error('Error linking tasks:', error);
-      showNotification('Failed to link tasks', 'error');
+      console.error("Error linking tasks:", error);
+      showNotification("Failed to link tasks", "error");
     }
   };
 
   const unlinkSelectedTasks = async () => {
     if (!ganttRef.current || selectedTaskIds.length < 1) {
-      showNotification('Please select at least 1 task to unlink', 'error');
+      showNotification("Please select at least 1 task to unlink", "error");
       return;
     }
 
     try {
       const ganttInstance = ganttRef.current.getGanttInstance();
       if (!ganttInstance) {
-        showNotification('Gantt instance not found', 'error');
+        showNotification("Gantt instance not found", "error");
         return;
       }
 
@@ -1776,22 +1973,25 @@ const ProjectDetail: React.FC = () => {
       });
 
       if (linksToRemove.length > 0) {
-        linksToRemove.forEach(linkId => {
+        linksToRemove.forEach((linkId) => {
           ganttInstance.deleteLink(linkId);
         });
 
         await saveProjectTasks();
-        showNotification(`Removed ${linksToRemove.length} link${linksToRemove.length > 1 ? 's' : ''} between selected tasks`, 'success');
+        showNotification(
+          `Removed ${linksToRemove.length} link${linksToRemove.length > 1 ? "s" : ""} between selected tasks`,
+          "success",
+        );
       } else {
-        showNotification('No links found between selected tasks', 'info');
+        showNotification("No links found between selected tasks", "info");
       }
     } catch (error) {
-      console.error('Error unlinking tasks:', error);
-      showNotification('Failed to unlink tasks', 'error');
+      console.error("Error unlinking tasks:", error);
+      showNotification("Failed to unlink tasks", "error");
     }
   };
 
-  const insertTask = async (taskType: 'task' | 'milestone' = 'task') => {
+  const insertTask = async (taskType: "task" | "milestone" = "task") => {
     if (!ganttRef.current) return;
 
     try {
@@ -1804,28 +2004,33 @@ const ProjectDetail: React.FC = () => {
       let parentId = 0;
       let insertAfterTaskId = null;
 
-      console.log('insertTask called with selectedTaskId:', selectedTaskId);
+      console.log("insertTask called with selectedTaskId:", selectedTaskId);
 
       // Check both React state and Gantt's internal selection
       const ganttSelectedId = ganttInstance.getSelectedId();
-      console.log('Gantt internal selected task:', ganttSelectedId);
+      console.log("Gantt internal selected task:", ganttSelectedId);
 
       // Use Gantt's internal selection as fallback if React state is not set
       const taskIdToUse = selectedTaskId || ganttSelectedId;
-      console.log('Task ID to use for insertion:', taskIdToUse);
-      console.log('All tasks IDs:', allTasks.map((t: any) => ({ id: t.id, type: typeof t.id })));
+      console.log("Task ID to use for insertion:", taskIdToUse);
+      console.log(
+        "All tasks IDs:",
+        allTasks.map((t: any) => ({ id: t.id, type: typeof t.id })),
+      );
 
       // If a task is selected, insert after it at the same level
       if (taskIdToUse) {
         // Convert both IDs to same type for comparison (use String to be safe)
-        const selectedTask = allTasks.find((t: any) => String(t.id) === String(taskIdToUse));
-        console.log('Found selected task:', selectedTask);
+        const selectedTask = allTasks.find(
+          (t: any) => String(t.id) === String(taskIdToUse),
+        );
+        console.log("Found selected task:", selectedTask);
         if (selectedTask) {
           parentId = selectedTask.parent || 0;
           insertAfterTaskId = selectedTask.id; // Use the task's actual ID
         }
       } else {
-        console.log('No task selected - will insert at bottom');
+        console.log("No task selected - will insert at bottom");
       }
 
       //working
@@ -1834,19 +2039,24 @@ const ProjectDetail: React.FC = () => {
       ///if (project?.created_at) { 12 Jan
       ///startDate = new Date(project.created_at);  12 Jan
       if (project.start_date) {
-         startDate = new Date(project.start_date);
+        startDate = new Date(project.start_date);
       }
 
       // Adjust to workday if needed
-      const adjustedStartDate = adjustToWorkday(startDate.toISOString().split('T')[0]);
+      const adjustedStartDate = adjustToWorkday(
+        startDate.toISOString().split("T")[0],
+      );
       const startDateStr = adjustedStartDate;
 
       // Calculate end_date from start_date + duration
-      const duration = taskType === 'milestone' ? 0 : 1;
-      const startDateObj = ganttInstance.date.parseDate(startDateStr, 'xml_date');
+      const duration = taskType === "milestone" ? 0 : 1;
+      const startDateObj = ganttInstance.date.parseDate(
+        startDateStr,
+        "xml_date",
+      );
       const endDate = ganttInstance.calculateEndDate({
         start_date: startDateObj,
-        duration: duration
+        duration: duration,
       });
       const dateFormatter = ganttInstance.date.date_to_str("%Y-%m-%d");
       const endDateStr = dateFormatter(endDate);
@@ -1855,13 +2065,13 @@ const ProjectDetail: React.FC = () => {
       const newTaskId = Date.now();
       const newTaskData: any = {
         id: newTaskId,
-        text: taskType === 'milestone' ? 'New Milestone' : 'New Task',
+        text: taskType === "milestone" ? "New Milestone" : "New Task",
         start_date: startDateStr,
         end_date: endDateStr,
         duration: duration,
         progress: 0,
         type: taskType,
-        parent: parentId
+        parent: parentId,
       };
 
       // Find where to insert the new task
@@ -1869,7 +2079,9 @@ const ProjectDetail: React.FC = () => {
 
       if (insertAfterTaskId) {
         // Find the selected task
-        const selectedTask = allTasks.find((t: any) => t.id === insertAfterTaskId);
+        const selectedTask = allTasks.find(
+          (t: any) => t.id === insertAfterTaskId,
+        );
 
         if (selectedTask) {
           // Function to get all descendants of a task
@@ -1887,12 +2099,16 @@ const ProjectDetail: React.FC = () => {
           const descendants = getAllDescendants(insertAfterTaskId);
 
           // Find the global index of the selected task
-          const globalIndex = allTasks.findIndex((t: any) => t.id === insertAfterTaskId);
+          const globalIndex = allTasks.findIndex(
+            (t: any) => t.id === insertAfterTaskId,
+          );
 
           // If the task has descendants, find the last descendant
           if (descendants.length > 0) {
             const lastDescendantId = descendants[descendants.length - 1];
-            const lastDescendantIndex = allTasks.findIndex((t: any) => t.id === lastDescendantId);
+            const lastDescendantIndex = allTasks.findIndex(
+              (t: any) => t.id === lastDescendantId,
+            );
             insertIndex = lastDescendantIndex + 1;
           } else {
             // No descendants, insert right after the selected task
@@ -1905,14 +2121,26 @@ const ProjectDetail: React.FC = () => {
       const updatedTasks = [
         ...allTasks.slice(0, insertIndex),
         newTaskData,
-        ...allTasks.slice(insertIndex)
+        ...allTasks.slice(insertIndex),
       ].map((task, index) => ({
         ...task,
-        sortorder: index
+        sortorder: index,
       }));
 
-      console.log('Inserting task at index:', insertIndex, 'Total tasks:', updatedTasks.length);
-      console.log('Tasks with sortorder:', updatedTasks.map((t: any) => ({ id: t.id, text: t.text, sortorder: t.sortorder })));
+      console.log(
+        "Inserting task at index:",
+        insertIndex,
+        "Total tasks:",
+        updatedTasks.length,
+      );
+      console.log(
+        "Tasks with sortorder:",
+        updatedTasks.map((t: any) => ({
+          id: t.id,
+          text: t.text,
+          sortorder: t.sortorder,
+        })),
+      );
 
       // Capture scroll position before any operations
       const scrollStateBefore = ganttInstance.getScrollState();
@@ -1922,7 +2150,10 @@ const ProjectDetail: React.FC = () => {
 
       // Clear and reload all tasks
       ganttInstance.clearAll();
-      ganttInstance.parse({ data: updatedTasks, links: ganttInstance.serialize().links });
+      ganttInstance.parse({
+        data: updatedTasks,
+        links: ganttInstance.serialize().links,
+      });
 
       // Clear state selection to prevent it from being restored during reload
       setSelectedTaskId(null);
@@ -1946,25 +2177,25 @@ const ProjectDetail: React.FC = () => {
             setSelectedTaskIds([newTaskId]);
           }
         } catch (e) {
-          console.warn('Could not restore scroll position after insert:', e);
+          console.warn("Could not restore scroll position after insert:", e);
         }
       }, 300);
 
-      const taskTypeLabel = taskType === 'milestone' ? 'Milestone' : 'Task';
-      showNotification(`${taskTypeLabel} inserted successfully`, 'success');
+      const taskTypeLabel = taskType === "milestone" ? "Milestone" : "Task";
+      showNotification(`${taskTypeLabel} inserted successfully`, "success");
     } catch (error) {
-      console.error('Error inserting task:', error);
-      showNotification('Failed to insert task', 'error');
+      console.error("Error inserting task:", error);
+      showNotification("Failed to insert task", "error");
     }
   };
 
   const insertMilestone = async () => {
-    await insertTask('milestone');
+    await insertTask("milestone");
   };
 
   const saveScheduleAsTemplate = async () => {
     if (!templateName.trim()) {
-      showNotification('Please enter a template name', 'error');
+      showNotification("Please enter a template name", "error");
       return;
     }
 
@@ -1974,7 +2205,7 @@ const ProjectDetail: React.FC = () => {
       // Get current data from Gantt chart
       const ganttInstance = (window as any).gantt;
       if (!ganttInstance) {
-        showNotification('Gantt chart not initialized', 'error');
+        showNotification("Gantt chart not initialized", "error");
         setSaving(false);
         return;
       }
@@ -1990,14 +2221,14 @@ const ProjectDetail: React.FC = () => {
           if (!taskMap.has(taskId)) {
             // Collect custom fields (but not baseline fields)
             const extraFields: any = {};
-            Object.keys(task).forEach(key => {
-              if (key.startsWith('custom_') && !key.startsWith('baseline')) {
+            Object.keys(task).forEach((key) => {
+              if (key.startsWith("custom_") && !key.startsWith("baseline")) {
                 extraFields[key] = task[key];
               }
             });
 
             let duration = task.duration;
-            if (typeof duration !== 'number' || isNaN(duration)) {
+            if (typeof duration !== "number" || isNaN(duration)) {
               duration = parseFloat(duration) || 1;
             }
             duration = Math.max(1, duration);
@@ -2005,10 +2236,12 @@ const ProjectDetail: React.FC = () => {
             // Format start_date to YYYY-MM-DD (date only, no time)
             let formattedStartDate = task.start_date;
             if (task.start_date && ganttInstance) {
-              const startDate = typeof task.start_date === 'string'
-                ? ganttInstance.date.parseDate(task.start_date, "xml_date")
-                : task.start_date;
-              formattedStartDate = ganttInstance.date.date_to_str("%Y-%m-%d")(startDate);
+              const startDate =
+                typeof task.start_date === "string"
+                  ? ganttInstance.date.parseDate(task.start_date, "xml_date")
+                  : task.start_date;
+              formattedStartDate =
+                ganttInstance.date.date_to_str("%Y-%m-%d")(startDate);
             }
 
             taskMap.set(taskId, {
@@ -2017,13 +2250,16 @@ const ProjectDetail: React.FC = () => {
               start_date: formattedStartDate,
               duration: duration,
               progress: 0, // Reset progress to 0%
-              type: task.type || 'task',
-              parent: task.$original_parent !== undefined ? task.$original_parent : (task.parent || 0),
+              type: task.type || "task",
+              parent:
+                task.$original_parent !== undefined
+                  ? task.$original_parent
+                  : task.parent || 0,
               owner_id: task.owner_id,
               owner_name: task.owner_name,
               resource_ids: task.resource_ids || [],
               resource_names: task.resource_names || [],
-              ...extraFields
+              ...extraFields,
             });
           }
         });
@@ -2033,7 +2269,7 @@ const ProjectDetail: React.FC = () => {
         id: link.id,
         source: link.source,
         target: link.target,
-        type: link.type
+        type: link.type,
       }));
 
       // Prepare resources and resource assignments
@@ -2042,31 +2278,31 @@ const ProjectDetail: React.FC = () => {
 
       // Save to database
       const { data, error } = await supabase
-        .from('schedule_templates')
+        .from("schedule_templates")
         .insert({
           template_name: templateName.trim(),
           template_description: templateDescription.trim() || null,
           tasks_data: tasksData,
           links_data: linksData,
           resources_data: resourcesData,
-          resource_assignments_data: resourceAssignmentsData
+          resource_assignments_data: resourceAssignmentsData,
         })
         .select()
         .single();
 
       if (error) {
-        console.error('Error saving schedule template:', error);
-        showNotification('Failed to save schedule template', 'error');
+        console.error("Error saving schedule template:", error);
+        showNotification("Failed to save schedule template", "error");
       } else {
-        console.log('Schedule template saved:', data);
-        showNotification('Schedule template saved successfully', 'success');
+        console.log("Schedule template saved:", data);
+        showNotification("Schedule template saved successfully", "success");
         setShowSaveTemplateModal(false);
-        setTemplateName('');
-        setTemplateDescription('');
+        setTemplateName("");
+        setTemplateDescription("");
       }
     } catch (error) {
-      console.error('Error saving schedule template:', error);
-      showNotification('Failed to save schedule template', 'error');
+      console.error("Error saving schedule template:", error);
+      showNotification("Failed to save schedule template", "error");
     } finally {
       setSaving(false);
     }
@@ -2082,27 +2318,30 @@ const ProjectDetail: React.FC = () => {
       const records = Object.entries(fieldValues).map(([fieldId, value]) => ({
         project_id: id,
         field_id: fieldId,
-        value: value
+        value: value,
       }));
 
       if (records.length === 0) {
-        showNotification('No field values to save', 'info');
+        showNotification("No field values to save", "info");
         return;
       }
 
       // Use upsert to handle both insert and update
       const { data, error } = await supabase
-        .from('project_field_values')
+        .from("project_field_values")
         .upsert(records, {
-          onConflict: 'project_id, field_id'
+          onConflict: "project_id, field_id",
         })
         .select();
 
       if (error) {
-        console.error('Error saving field values:', error);
-        showNotification(`Error saving field values: ${error.message}`, 'error');
+        console.error("Error saving field values:", error);
+        showNotification(
+          `Error saving field values: ${error.message}`,
+          "error",
+        );
       } else {
-        showNotification('Field values saved successfully!', 'success');
+        showNotification("Field values saved successfully!", "success");
 
         // Track history for fields that have history tracking enabled
         if (overviewConfig && project) {
@@ -2112,7 +2351,9 @@ const ProjectDetail: React.FC = () => {
               // Find the field in the overview config sections
               let field = null;
               for (const section of overviewConfig.sections) {
-                const foundField = section.fields.find(f => f.customField.id === fieldId);
+                const foundField = section.fields.find(
+                  (f) => f.customField.id === fieldId,
+                );
                 if (foundField) {
                   field = foundField.customField;
                   break;
@@ -2125,7 +2366,7 @@ const ProjectDetail: React.FC = () => {
                   fieldId: fieldId,
                   fieldValue: String(value),
                   projectName: project.name,
-                  fieldName: field.field_label
+                  fieldName: field.field_label,
                 });
               }
             }
@@ -2133,8 +2374,11 @@ const ProjectDetail: React.FC = () => {
         }
       }
     } catch (error) {
-      console.error('Error saving field values:', error);
-      showNotification(`Unexpected error saving field values: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+      console.error("Error saving field values:", error);
+      showNotification(
+        `Unexpected error saving field values: ${error instanceof Error ? error.message : "Unknown error"}`,
+        "error",
+      );
     } finally {
       setSaving(false);
     }
@@ -2150,30 +2394,34 @@ const ProjectDetail: React.FC = () => {
       setShowHistoryModal(true);
 
       const { data, error } = await supabase
-        .from('project_field_value_history')
-        .select('*')
-        .eq('project_id', id)
-        .eq('field_id', fieldId)
-        .order('changed_at', { ascending: false });
+        .from("project_field_value_history")
+        .select("*")
+        .eq("project_id", id)
+        .eq("field_id", fieldId)
+        .order("changed_at", { ascending: false });
 
       if (error) throw error;
       setFieldHistory(data || []);
     } catch (error) {
-      console.error('Error loading field history:', error);
-      showNotification('Failed to load field history', 'error');
+      console.error("Error loading field history:", error);
+      showNotification("Failed to load field history", "error");
     } finally {
       setLoadingHistory(false);
     }
   };
 
-  const handleFieldValueChange = (fieldId: string, value: any, fieldType?: string) => {
+  const handleFieldValueChange = (
+    fieldId: string,
+    value: any,
+    fieldType?: string,
+  ) => {
     // Validate cost field type - only allow decimal numbers
-    if (fieldType === 'cost') {
+    if (fieldType === "cost") {
       // Allow empty string for clearing the field
-      if (value === '') {
-        setFieldValues(prev => ({
+      if (value === "") {
+        setFieldValues((prev) => ({
           ...prev,
-          [fieldId]: value
+          [fieldId]: value,
         }));
         return;
       }
@@ -2186,47 +2434,69 @@ const ProjectDetail: React.FC = () => {
       }
     }
 
-    setFieldValues(prev => ({
+    setFieldValues((prev) => ({
       ...prev,
-      [fieldId]: value
+      [fieldId]: value,
     }));
   };
 
   const renderFieldControl = (field: SectionField) => {
     const { customField } = field;
-    const value = fieldValues[customField.id] || customField.default_value || '';
-    const baseClasses = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent";
+    const value =
+      fieldValues[customField.id] || customField.default_value || "";
+    const baseClasses =
+      "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent";
 
     switch (customField.field_type) {
-      case 'text':
-      case 'email':
+      case "text":
+      case "email":
         return (
           <input
             type={customField.field_type}
             value={value}
-            onChange={(e) => handleFieldValueChange(customField.id, e.target.value, customField.field_type)}
-            placeholder={customField.default_value || `Enter ${customField.field_label.toLowerCase()}`}
+            onChange={(e) =>
+              handleFieldValueChange(
+                customField.id,
+                e.target.value,
+                customField.field_type,
+              )
+            }
+            placeholder={
+              customField.default_value ||
+              `Enter ${customField.field_label.toLowerCase()}`
+            }
             className={baseClasses}
             required={customField.is_required}
           />
         );
-      case 'number':
+      case "number":
         return (
           <input
             type="number"
             value={value}
-            onChange={(e) => handleFieldValueChange(customField.id, e.target.value, customField.field_type)}
-            placeholder={customField.default_value || `Enter ${customField.field_label.toLowerCase()}`}
+            onChange={(e) =>
+              handleFieldValueChange(
+                customField.id,
+                e.target.value,
+                customField.field_type,
+              )
+            }
+            placeholder={
+              customField.default_value ||
+              `Enter ${customField.field_label.toLowerCase()}`
+            }
             className={baseClasses}
             required={customField.is_required}
           />
         );
-      case 'cost':
+      case "cost":
         return (
           <input
             type="text"
             value={value}
-            onChange={(e) => handleFieldValueChange(customField.id, e.target.value, 'cost')}
+            onChange={(e) =>
+              handleFieldValueChange(customField.id, e.target.value, "cost")
+            }
             placeholder={customField.default_value || "0.00"}
             className={baseClasses}
             required={customField.is_required}
@@ -2234,42 +2504,55 @@ const ProjectDetail: React.FC = () => {
             title="Please enter a valid decimal number (e.g., 1000.50)"
           />
         );
-      case 'date':
+      case "date":
         return (
           <input
             type="date"
             value={value}
-            onChange={(e) => handleFieldValueChange(customField.id, e.target.value)}
+            onChange={(e) =>
+              handleFieldValueChange(customField.id, e.target.value)
+            }
             className={baseClasses}
             required={customField.is_required}
           />
         );
-      case 'textarea':
+      case "textarea":
         return (
           <textarea
             rows={3}
             value={value}
-            onChange={(e) => handleFieldValueChange(customField.id, e.target.value)}
-            placeholder={customField.default_value || `Enter ${customField.field_label.toLowerCase()}`}
+            onChange={(e) =>
+              handleFieldValueChange(customField.id, e.target.value)
+            }
+            placeholder={
+              customField.default_value ||
+              `Enter ${customField.field_label.toLowerCase()}`
+            }
             className={`${baseClasses} resize-vertical`}
             required={customField.is_required}
           />
         );
-      case 'dropdown':
+      case "dropdown":
         return (
           <select
             value={value}
-            onChange={(e) => handleFieldValueChange(customField.id, e.target.value)}
+            onChange={(e) =>
+              handleFieldValueChange(customField.id, e.target.value)
+            }
             className={baseClasses}
             required={customField.is_required}
           >
-            <option value="">Select {customField.field_label.toLowerCase()}</option>
+            <option value="">
+              Select {customField.field_label.toLowerCase()}
+            </option>
             {customField.options?.map((option, index) => (
-              <option key={index} value={option}>{option}</option>
+              <option key={index} value={option}>
+                {option}
+              </option>
             ))}
           </select>
         );
-      case 'radio':
+      case "radio":
         return (
           <div className="space-y-2">
             {customField.options?.map((option, index) => (
@@ -2279,7 +2562,9 @@ const ProjectDetail: React.FC = () => {
                   name={`radio-${field.id}`}
                   value={option}
                   checked={value === option}
-                  onChange={(e) => handleFieldValueChange(customField.id, e.target.value)}
+                  onChange={(e) =>
+                    handleFieldValueChange(customField.id, e.target.value)
+                  }
                   className="text-primary-600 focus:ring-primary-500"
                   required={customField.is_required}
                 />
@@ -2288,25 +2573,33 @@ const ProjectDetail: React.FC = () => {
             ))}
           </div>
         );
-      case 'checkbox':
+      case "checkbox":
         return (
           <label className="flex items-center space-x-2">
             <input
               type="checkbox"
-              checked={value === true || value === 'true'}
-              onChange={(e) => handleFieldValueChange(customField.id, e.target.checked)}
+              checked={value === true || value === "true"}
+              onChange={(e) =>
+                handleFieldValueChange(customField.id, e.target.checked)
+              }
               className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
               required={customField.is_required}
             />
-            <span className="text-sm text-gray-700">{customField.field_label}</span>
+            <span className="text-sm text-gray-700">
+              {customField.field_label}
+            </span>
           </label>
         );
-      case 'people_picker':
+      case "people_picker":
         return (
           <PeoplePicker
             value={value}
             onChange={(resourceId, displayName) => {
-              handleFieldValueChange(customField.id, resourceId, 'people_picker');
+              handleFieldValueChange(
+                customField.id,
+                resourceId,
+                "people_picker",
+              );
             }}
             placeholder={`Select ${customField.field_label.toLowerCase()}`}
             disabled={false}
@@ -2317,8 +2610,13 @@ const ProjectDetail: React.FC = () => {
           <input
             type="text"
             value={value}
-            onChange={(e) => handleFieldValueChange(customField.id, e.target.value)}
-            placeholder={customField.default_value || `Enter ${customField.field_label.toLowerCase()}`}
+            onChange={(e) =>
+              handleFieldValueChange(customField.id, e.target.value)
+            }
+            placeholder={
+              customField.default_value ||
+              `Enter ${customField.field_label.toLowerCase()}`
+            }
             className={baseClasses}
             required={customField.is_required}
           />
@@ -2330,53 +2628,57 @@ const ProjectDetail: React.FC = () => {
   const startEditingProject = () => {
     setEditingProject(true);
     setProjectForm({
-      name: project?.name || '',
-      description: project?.description || '',
-      start_date: project?.start_date || ''
+      name: project?.name || "",
+      description: project?.description || "",
+      start_date: project?.start_date || "",
     });
   };
 
   const cancelEditingProject = () => {
     setEditingProject(false);
     setProjectForm({
-      name: project?.name || '',
-      description: project?.description || '',
-      start_date: project?.start_date || ''
+      name: project?.name || "",
+      description: project?.description || "",
+      start_date: project?.start_date || "",
     });
   };
 
   const handleProjectUpdate = async () => {
     if (!id || !projectForm.name.trim()) {
-      showNotification('Project name is required', 'error');
+      showNotification("Project name is required", "error");
       return;
     }
 
     try {
       setSaving(true);
       const { error } = await supabase
-        .from('projects')
+        .from("projects")
         .update({
           name: projectForm.name.trim(),
           description: projectForm.description.trim(),
-          start_date: projectForm.start_date || null
+          start_date: projectForm.start_date || null,
         })
-        .eq('id', id);
+        .eq("id", id);
 
       if (error) {
-        showNotification(`Error: ${error.message}`, 'error');
+        showNotification(`Error: ${error.message}`, "error");
       } else {
-        setProject(prev => prev ? {
-          ...prev,
-          name: projectForm.name.trim(),
-          description: projectForm.description.trim(),
-          start_date: projectForm.start_date || null
-        } : null);
+        setProject((prev) =>
+          prev
+            ? {
+                ...prev,
+                name: projectForm.name.trim(),
+                description: projectForm.description.trim(),
+                start_date: projectForm.start_date || null,
+              }
+            : null,
+        );
         setEditingProject(false);
-        showNotification('Project updated successfully!', 'success');
+        showNotification("Project updated successfully!", "success");
       }
     } catch (error) {
-      console.error('Error updating project:', error);
-      showNotification('Error updating project. Please try again.', 'error');
+      console.error("Error updating project:", error);
+      showNotification("Error updating project. Please try again.", "error");
     } finally {
       setSaving(false);
     }
@@ -2390,44 +2692,48 @@ const ProjectDetail: React.FC = () => {
     try {
       const payload = {
         ...riskForm,
-        project_id: id
+        project_id: id,
       };
 
       if (editingRisk) {
         const { error } = await supabase
-          .from('project_risks')
+          .from("project_risks")
           .update(riskForm)
-          .eq('id', editingRisk.id);
+          .eq("id", editingRisk.id);
 
         if (error) {
-          showNotification(`Error: ${error.message}`, 'error');
+          showNotification(`Error: ${error.message}`, "error");
         } else {
-          await saveCustomFieldValues('risk', editingRisk.id, riskCustomFieldValues);
+          await saveCustomFieldValues(
+            "risk",
+            editingRisk.id,
+            riskCustomFieldValues,
+          );
           await fetchRisks();
           setShowRiskModal(false);
           resetRiskForm();
-          showNotification('Risk updated successfully!', 'success');
+          showNotification("Risk updated successfully!", "success");
         }
       } else {
         const { data, error } = await supabase
-          .from('project_risks')
+          .from("project_risks")
           .insert([payload])
           .select()
           .single();
 
         if (error) {
-          showNotification(`Error: ${error.message}`, 'error');
+          showNotification(`Error: ${error.message}`, "error");
         } else if (data) {
-          await saveCustomFieldValues('risk', data.id, riskCustomFieldValues);
+          await saveCustomFieldValues("risk", data.id, riskCustomFieldValues);
           await fetchRisks();
           setShowRiskModal(false);
           resetRiskForm();
-          showNotification('Risk created successfully!', 'success');
+          showNotification("Risk created successfully!", "success");
         }
       }
     } catch (error) {
-      console.error('Error saving risk:', error);
-      showNotification('Error saving risk', 'error');
+      console.error("Error saving risk:", error);
+      showNotification("Error saving risk", "error");
     }
   };
 
@@ -2435,59 +2741,59 @@ const ProjectDetail: React.FC = () => {
     setEditingRisk(risk);
     setRiskForm({
       title: risk.title,
-      owner: risk.owner || '',
-      assigned_to: risk.assigned_to || '',
+      owner: risk.owner || "",
+      assigned_to: risk.assigned_to || "",
       status: risk.status,
-      category: risk.category || 'Resource',
+      category: risk.category || "Resource",
       probability: risk.probability || 50,
-      impact: risk.impact || 'Medium',
+      impact: risk.impact || "Medium",
       cost: risk.cost || 0,
       description: risk.description,
-      notes: risk.notes || ''
+      notes: risk.notes || "",
     });
-    const customValues = await loadCustomFieldValues('risk', risk.id);
+    const customValues = await loadCustomFieldValues("risk", risk.id);
     setRiskCustomFieldValues(customValues);
     setShowRiskModal(true);
   };
 
   const handleDeleteRisk = async (riskId: string) => {
     const confirmed = await showConfirm({
-      title: 'Delete Risk',
-      message: 'Are you sure you want to delete this risk?',
-      confirmText: 'Delete'
+      title: "Delete Risk",
+      message: "Are you sure you want to delete this risk?",
+      confirmText: "Delete",
     });
     if (!confirmed) return;
 
     try {
       const { error } = await supabase
-        .from('project_risks')
+        .from("project_risks")
         .delete()
-        .eq('id', riskId);
+        .eq("id", riskId);
 
       if (error) {
-        showNotification(`Error: ${error.message}`, 'error');
+        showNotification(`Error: ${error.message}`, "error");
       } else {
         await fetchRisks();
-        showNotification('Risk deleted successfully!', 'success');
+        showNotification("Risk deleted successfully!", "success");
       }
     } catch (error) {
-      console.error('Error deleting risk:', error);
-      showNotification('Error deleting risk', 'error');
+      console.error("Error deleting risk:", error);
+      showNotification("Error deleting risk", "error");
     }
   };
 
   const resetRiskForm = () => {
     setRiskForm({
-      title: '',
-      owner: '',
-      assigned_to: '',
-      status: 'Active',
-      category: 'Resource',
+      title: "",
+      owner: "",
+      assigned_to: "",
+      status: "Active",
+      category: "Resource",
       probability: 50,
-      impact: 'Medium',
+      impact: "Medium",
       cost: 0,
-      description: '',
-      notes: ''
+      description: "",
+      notes: "",
     });
     setRiskCustomFieldValues({});
     setEditingRisk(null);
@@ -2501,44 +2807,48 @@ const ProjectDetail: React.FC = () => {
     try {
       const payload = {
         ...issueForm,
-        project_id: id
+        project_id: id,
       };
 
       if (editingIssue) {
         const { error } = await supabase
-          .from('project_issues')
+          .from("project_issues")
           .update(issueForm)
-          .eq('id', editingIssue.id);
+          .eq("id", editingIssue.id);
 
         if (error) {
-          showNotification(`Error: ${error.message}`, 'error');
+          showNotification(`Error: ${error.message}`, "error");
         } else {
-          await saveCustomFieldValues('issue', editingIssue.id, issueCustomFieldValues);
+          await saveCustomFieldValues(
+            "issue",
+            editingIssue.id,
+            issueCustomFieldValues,
+          );
           await fetchIssues();
           setShowIssueModal(false);
           resetIssueForm();
-          showNotification('Issue updated successfully!', 'success');
+          showNotification("Issue updated successfully!", "success");
         }
       } else {
         const { data, error } = await supabase
-          .from('project_issues')
+          .from("project_issues")
           .insert([payload])
           .select()
           .single();
 
         if (error) {
-          showNotification(`Error: ${error.message}`, 'error');
+          showNotification(`Error: ${error.message}`, "error");
         } else if (data) {
-          await saveCustomFieldValues('issue', data.id, issueCustomFieldValues);
+          await saveCustomFieldValues("issue", data.id, issueCustomFieldValues);
           await fetchIssues();
           setShowIssueModal(false);
           resetIssueForm();
-          showNotification('Issue created successfully!', 'success');
+          showNotification("Issue created successfully!", "success");
         }
       }
     } catch (error) {
-      console.error('Error saving issue:', error);
-      showNotification('Error saving issue', 'error');
+      console.error("Error saving issue:", error);
+      showNotification("Error saving issue", "error");
     }
   };
 
@@ -2546,57 +2856,57 @@ const ProjectDetail: React.FC = () => {
     setEditingIssue(issue);
     setIssueForm({
       title: issue.title,
-      owner: issue.owner || '',
-      assigned_to: issue.assigned_to || '',
+      owner: issue.owner || "",
+      assigned_to: issue.assigned_to || "",
       status: issue.status,
-      category: issue.category || 'Resource',
-      priority: issue.priority || 'Medium',
-      impact: issue.impact || issue.priority || 'Medium',
+      category: issue.category || "Resource",
+      priority: issue.priority || "Medium",
+      impact: issue.impact || issue.priority || "Medium",
       description: issue.description,
-      resolution: issue.resolution || ''
+      resolution: issue.resolution || "",
     });
-    const customValues = await loadCustomFieldValues('issue', issue.id);
+    const customValues = await loadCustomFieldValues("issue", issue.id);
     setIssueCustomFieldValues(customValues);
     setShowIssueModal(true);
   };
 
   const handleDeleteIssue = async (issueId: string) => {
     const confirmed = await showConfirm({
-      title: 'Delete Issue',
-      message: 'Are you sure you want to delete this issue?',
-      confirmText: 'Delete'
+      title: "Delete Issue",
+      message: "Are you sure you want to delete this issue?",
+      confirmText: "Delete",
     });
     if (!confirmed) return;
 
     try {
       const { error } = await supabase
-        .from('project_issues')
+        .from("project_issues")
         .delete()
-        .eq('id', issueId);
+        .eq("id", issueId);
 
       if (error) {
-        showNotification(`Error: ${error.message}`, 'error');
+        showNotification(`Error: ${error.message}`, "error");
       } else {
         await fetchIssues();
-        showNotification('Issue deleted successfully!', 'success');
+        showNotification("Issue deleted successfully!", "success");
       }
     } catch (error) {
-      console.error('Error deleting issue:', error);
-      showNotification('Error deleting issue', 'error');
+      console.error("Error deleting issue:", error);
+      showNotification("Error deleting issue", "error");
     }
   };
 
   const resetIssueForm = () => {
     setIssueForm({
-      title: '',
-      owner: '',
-      assigned_to: '',
-      status: 'Active',
-      category: 'Resource',
-      priority: 'Medium',
-      impact: 'Medium',
-      description: '',
-      resolution: ''
+      title: "",
+      owner: "",
+      assigned_to: "",
+      status: "Active",
+      category: "Resource",
+      priority: "Medium",
+      impact: "Medium",
+      description: "",
+      resolution: "",
     });
     setIssueCustomFieldValues({});
     setEditingIssue(null);
@@ -2615,49 +2925,57 @@ const ProjectDetail: React.FC = () => {
         request_title: title,
         attachments: attachmentsData,
         project_id: id,
-        requested_by: DEMO_USER_ID
+        requested_by: DEMO_USER_ID,
       };
 
       if (editingChangeRequest) {
         const { title, ...restForm } = changeRequestForm;
         const { error } = await supabase
-          .from('change_requests')
+          .from("change_requests")
           .update({
             ...restForm,
             request_title: title,
-            attachments: attachmentsData
+            attachments: attachmentsData,
           })
-          .eq('id', editingChangeRequest.id);
+          .eq("id", editingChangeRequest.id);
 
         if (error) {
-          showNotification(`Error: ${error.message}`, 'error');
+          showNotification(`Error: ${error.message}`, "error");
         } else {
-          await saveCustomFieldValues('change_request', editingChangeRequest.id, changeRequestCustomFieldValues);
+          await saveCustomFieldValues(
+            "change_request",
+            editingChangeRequest.id,
+            changeRequestCustomFieldValues,
+          );
           await fetchChangeRequests();
           setShowChangeRequestModal(false);
           resetChangeRequestForm();
-          showNotification('Change request updated successfully!', 'success');
+          showNotification("Change request updated successfully!", "success");
         }
       } else {
         const { data, error } = await supabase
-          .from('change_requests')
+          .from("change_requests")
           .insert([payload])
           .select()
           .single();
 
         if (error) {
-          showNotification(`Error: ${error.message}`, 'error');
+          showNotification(`Error: ${error.message}`, "error");
         } else if (data) {
-          await saveCustomFieldValues('change_request', data.id, changeRequestCustomFieldValues);
+          await saveCustomFieldValues(
+            "change_request",
+            data.id,
+            changeRequestCustomFieldValues,
+          );
           await fetchChangeRequests();
           setShowChangeRequestModal(false);
           resetChangeRequestForm();
-          showNotification('Change request created successfully!', 'success');
+          showNotification("Change request created successfully!", "success");
         }
       }
     } catch (error) {
-      console.error('Error saving change request:', error);
-      showNotification('Error saving change request', 'error');
+      console.error("Error saving change request:", error);
+      showNotification("Error saving change request", "error");
     }
   };
 
@@ -2669,7 +2987,7 @@ const ProjectDetail: React.FC = () => {
   const handleDownloadFile = async (filePath: string, fileName: string) => {
     try {
       const { data, error } = await supabase.storage
-        .from('change-request-attachments')
+        .from("change-request-attachments")
         .download(filePath);
 
       if (error) {
@@ -2677,7 +2995,7 @@ const ProjectDetail: React.FC = () => {
       }
 
       const url = window.URL.createObjectURL(data);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
       a.download = fileName;
       document.body.appendChild(a);
@@ -2685,8 +3003,8 @@ const ProjectDetail: React.FC = () => {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (error) {
-      console.error('Error downloading file:', error);
-      showNotification('Failed to download file. Please try again.', 'error');
+      console.error("Error downloading file:", error);
+      showNotification("Failed to download file. Please try again.", "error");
     }
   };
 
@@ -2698,15 +3016,18 @@ const ProjectDetail: React.FC = () => {
       description: changeRequest.description,
       justification: changeRequest.justification,
       scope_impact: changeRequest.scope_impact,
-      cost_impact: changeRequest.cost_impact || '',
+      cost_impact: changeRequest.cost_impact || "",
       risk_impact: changeRequest.risk_impact,
       resource_impact: changeRequest.resource_impact,
-      status: changeRequest.status || 'Pending',
-      attachments: changeRequest.attachments || ''
+      status: changeRequest.status || "Pending",
+      attachments: changeRequest.attachments || "",
     });
 
     try {
-      if (changeRequest.attachments && changeRequest.attachments.trim() !== '') {
+      if (
+        changeRequest.attachments &&
+        changeRequest.attachments.trim() !== ""
+      ) {
         const parsedAttachments = JSON.parse(changeRequest.attachments);
         if (Array.isArray(parsedAttachments)) {
           setUploadedFiles(parsedAttachments);
@@ -2718,49 +3039,52 @@ const ProjectDetail: React.FC = () => {
       setUploadedFiles([]);
     }
 
-    const customValues = await loadCustomFieldValues('change_request', changeRequest.id);
+    const customValues = await loadCustomFieldValues(
+      "change_request",
+      changeRequest.id,
+    );
     setChangeRequestCustomFieldValues(customValues);
     setShowChangeRequestModal(true);
   };
 
   const handleDeleteChangeRequest = async (changeRequestId: string) => {
     const confirmed = await showConfirm({
-      title: 'Delete Change Request',
-      message: 'Are you sure you want to delete this change request?',
-      confirmText: 'Delete'
+      title: "Delete Change Request",
+      message: "Are you sure you want to delete this change request?",
+      confirmText: "Delete",
     });
     if (!confirmed) return;
 
     try {
       const { error } = await supabase
-        .from('change_requests')
+        .from("change_requests")
         .delete()
-        .eq('id', changeRequestId);
+        .eq("id", changeRequestId);
 
       if (error) {
-        showNotification(`Error: ${error.message}`, 'error');
+        showNotification(`Error: ${error.message}`, "error");
       } else {
         await fetchChangeRequests();
-        showNotification('Change request deleted successfully!', 'success');
+        showNotification("Change request deleted successfully!", "success");
       }
     } catch (error) {
-      console.error('Error deleting change request:', error);
-      showNotification('Error deleting change request', 'error');
+      console.error("Error deleting change request:", error);
+      showNotification("Error deleting change request", "error");
     }
   };
 
   const resetChangeRequestForm = () => {
     setChangeRequestForm({
-      title: '',
-      type: 'Scope Change',
-      description: '',
-      justification: '',
-      scope_impact: 'Low',
-      cost_impact: '',
-      risk_impact: 'Low',
-      resource_impact: 'Low',
-      status: 'Pending',
-      attachments: ''
+      title: "",
+      type: "Scope Change",
+      description: "",
+      justification: "",
+      scope_impact: "Low",
+      cost_impact: "",
+      risk_impact: "Low",
+      resource_impact: "Low",
+      status: "Pending",
+      attachments: "",
     });
     setChangeRequestCustomFieldValues({});
     setUploadedFiles([]);
@@ -2779,37 +3103,43 @@ const ProjectDetail: React.FC = () => {
         const filePath = fileName;
 
         const { error: uploadError } = await supabase.storage
-          .from('change-request-attachments')
+          .from("change-request-attachments")
           .upload(filePath, file);
 
         if (uploadError) {
-          throw new Error(uploadError.message || 'Upload failed');
+          throw new Error(uploadError.message || "Upload failed");
         }
 
         return {
           fileName: file.name,
           path: filePath,
           fileSize: file.size,
-          mimeType: file.type
+          mimeType: file.type,
         };
       });
 
       const results = await Promise.all(uploadPromises);
-      setUploadedFiles(prev => [...prev, ...results]);
-      showNotification(`${files.length} file(s) uploaded successfully!`, 'success');
-      e.target.value = '';
+      setUploadedFiles((prev) => [...prev, ...results]);
+      showNotification(
+        `${files.length} file(s) uploaded successfully!`,
+        "success",
+      );
+      e.target.value = "";
     } catch (error: any) {
-      console.error('Error uploading files:', error);
-      showNotification(error.message || 'Error uploading files', 'error');
+      console.error("Error uploading files:", error);
+      showNotification(error.message || "Error uploading files", "error");
     } finally {
       setUploading(false);
     }
   };
 
-  const handleDownloadAttachment = async (filePath: string, fileName: string) => {
+  const handleDownloadAttachment = async (
+    filePath: string,
+    fileName: string,
+  ) => {
     try {
       const { data, error } = await supabase.storage
-        .from('change-request-attachments')
+        .from("change-request-attachments")
         .download(filePath);
 
       if (error) {
@@ -2817,7 +3147,7 @@ const ProjectDetail: React.FC = () => {
       }
 
       const url = window.URL.createObjectURL(data);
-      const a = window.document.createElement('a');
+      const a = window.document.createElement("a");
       a.href = url;
       a.download = fileName;
       window.document.body.appendChild(a);
@@ -2825,40 +3155,40 @@ const ProjectDetail: React.FC = () => {
       window.URL.revokeObjectURL(url);
       window.document.body.removeChild(a);
     } catch (error) {
-      console.error('Error downloading file:', error);
-      showNotification('Error downloading file', 'error');
+      console.error("Error downloading file:", error);
+      showNotification("Error downloading file", "error");
     }
   };
 
   const handleRemoveFile = async (filePath: string) => {
     const confirmed = await showConfirm({
-      title: 'Delete File',
-      message: 'Are you sure you want to delete this file?',
-      confirmText: 'Delete'
+      title: "Delete File",
+      message: "Are you sure you want to delete this file?",
+      confirmText: "Delete",
     });
     if (!confirmed) return;
 
     try {
       const { error } = await supabase.storage
-        .from('change-request-attachments')
+        .from("change-request-attachments")
         .remove([filePath]);
 
       if (error) {
         throw error;
       }
 
-      setUploadedFiles(prev => prev.filter(f => f.path !== filePath));
-      showNotification('File deleted successfully', 'success');
+      setUploadedFiles((prev) => prev.filter((f) => f.path !== filePath));
+      showNotification("File deleted successfully", "success");
     } catch (error: any) {
-      console.error('Error deleting file:', error);
-      showNotification(`Error deleting file: ${error.message}`, 'error');
+      console.error("Error deleting file:", error);
+      showNotification(`Error deleting file: ${error.message}`, "error");
     }
   };
 
   const handleDownloadDocument = async (doc: ProjectDocument) => {
     try {
       const { data, error } = await supabase.storage
-        .from('project-documents')
+        .from("project-documents")
         .download(doc.file_path);
 
       if (error) {
@@ -2866,7 +3196,7 @@ const ProjectDetail: React.FC = () => {
       }
 
       const url = window.URL.createObjectURL(data);
-      const a = window.document.createElement('a');
+      const a = window.document.createElement("a");
       a.href = url;
       a.download = doc.file_name;
       window.document.body.appendChild(a);
@@ -2874,55 +3204,57 @@ const ProjectDetail: React.FC = () => {
       window.URL.revokeObjectURL(url);
       window.document.body.removeChild(a);
     } catch (error: any) {
-      console.error('Error downloading document:', error);
-      showNotification(`Error downloading document: ${error.message}`, 'error');
+      console.error("Error downloading document:", error);
+      showNotification(`Error downloading document: ${error.message}`, "error");
     }
   };
 
   const handleDeleteDocument = async (documentId: string) => {
     const confirmed = await showConfirm({
-      title: 'Delete Document',
-      message: 'Are you sure you want to delete this document?',
-      confirmText: 'Delete'
+      title: "Delete Document",
+      message: "Are you sure you want to delete this document?",
+      confirmText: "Delete",
     });
     if (!confirmed) return;
 
     try {
-      const doc = documents.find(d => d.id === documentId);
+      const doc = documents.find((d) => d.id === documentId);
       if (!doc) {
-        showNotification('Document not found', 'error');
+        showNotification("Document not found", "error");
         return;
       }
 
       const { error: storageError } = await supabase.storage
-        .from('project-documents')
+        .from("project-documents")
         .remove([doc.file_path]);
 
       if (storageError) {
-        console.error('Storage error:', storageError);
+        console.error("Storage error:", storageError);
       }
 
       const { error: dbError } = await supabase
-        .from('project_documents')
+        .from("project_documents")
         .delete()
-        .eq('id', documentId);
+        .eq("id", documentId);
 
       if (dbError) {
         throw dbError;
       }
 
-      setDocuments(prevDocs => prevDocs.filter(d => d.id !== documentId));
-      showNotification('Document deleted successfully!', 'success');
+      setDocuments((prevDocs) => prevDocs.filter((d) => d.id !== documentId));
+      showNotification("Document deleted successfully!", "success");
     } catch (error: any) {
-      console.error('Error deleting document:', error);
-      showNotification(`Error deleting document: ${error.message}`, 'error');
+      console.error("Error deleting document:", error);
+      showNotification(`Error deleting document: ${error.message}`, "error");
     }
   };
 
-  const handleMSProjectImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMSProjectImport = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0];
     if (!file || !id || !ganttRef.current) {
-      event.target.value = '';
+      event.target.value = "";
       return;
     }
 
@@ -2930,338 +3262,447 @@ const ProjectDetail: React.FC = () => {
       setImportingMSProject(true);
 
       if (projectTeamMembers.length === 0) {
-        console.error('⚠️  No team members found. Resources will not be assigned.');
+        console.error(
+          "⚠️  No team members found. Resources will not be assigned.",
+        );
       }
 
-      showNotification('Importing MS Project file...', 'info');
+      showNotification("Importing MS Project file...", "info");
 
       // Pre-build resource lookup maps for O(1) lookups instead of O(n) searches
       const resourceNameToId = new Map<string, string>();
       const resourceNameToIdLower = new Map<string, string>();
-      projectTeamMembers.forEach(member => {
+      projectTeamMembers.forEach((member) => {
         if (member.resources?.display_name && member.resource_id) {
           const name = member.resources.display_name;
           resourceNameToId.set(name, member.resource_id);
-          resourceNameToIdLower.set(name.toLowerCase().trim(), member.resource_id);
+          resourceNameToIdLower.set(
+            name.toLowerCase().trim(),
+            member.resource_id,
+          );
         }
       });
 
-      ganttRef.current.importFromMSProject(file, async (success: boolean, data?: any, error?: string) => {
-        if (!success || !data) {
-          setImportingMSProject(false);
-          showNotification(`Failed to import MS Project file: ${error || 'Unknown error'}`, 'error');
-          event.target.value = '';
-          return;
-        }
-
-        try {
-          const importedTasks = data.data || [];
-          const importedLinks = data.links || [];
-          const importedResources = data.resources || [];
-          const importedResourceAssignments = data.resourceAssignments || [];
-
-          console.log(`\n📥 IMPORTING: ${importedTasks.length} tasks, ${importedResources.length} resources, ${importedResourceAssignments.length} assignments`);
-
-          // Get existing tasks
-          const existingTasks = projectTasks.data || [];
-          const existingLinks = projectTasks.links || [];
-
-          // Find the next available task ID
-          let nextTaskId = Math.max(0, ...existingTasks.map((t: any) => t.id || 0)) + 1;
-          let nextLinkId = Math.max(0, ...existingLinks.map((l: any) => l.id || 0)) + 1;
-
-          // Create a map to convert imported task IDs to new IDs
-          const taskIdMap = new Map<string | number, number>();
-
-          // Create a resource map from imported resources
-          const resourceMap = new Map<string | number, string>();
-          if (importedResources && Array.isArray(importedResources)) {
-            importedResources.forEach((resource: any) => {
-              if (resource.id && resource.name && typeof resource.name === 'string') {
-                resourceMap.set(resource.id, String(resource.name).trim());
-              }
-            });
+      ganttRef.current.importFromMSProject(
+        file,
+        async (success: boolean, data?: any, error?: string) => {
+          if (!success || !data) {
+            setImportingMSProject(false);
+            showNotification(
+              `Failed to import MS Project file: ${error || "Unknown error"}`,
+              "error",
+            );
+            event.target.value = "";
+            return;
           }
 
-          // Create a task-to-resources map from resource assignments
-          const taskResourcesMap = new Map<string | number, string[]>();
-          if (importedResourceAssignments && Array.isArray(importedResourceAssignments)) {
-            importedResourceAssignments.forEach((assignment: any) => {
-              const taskId = assignment.task_id;
-              const resourceId = assignment.resource_id;
-              const resourceName = resourceMap.get(resourceId);
+          try {
+            const importedTasks = data.data || [];
+            const importedLinks = data.links || [];
+            const importedResources = data.resources || [];
+            const importedResourceAssignments = data.resourceAssignments || [];
 
-              if (taskId && resourceName && typeof resourceName === 'string') {
-                if (!taskResourcesMap.has(taskId)) {
-                  taskResourcesMap.set(taskId, []);
+            console.log(
+              `\n📥 IMPORTING: ${importedTasks.length} tasks, ${importedResources.length} resources, ${importedResourceAssignments.length} assignments`,
+            );
+
+            // Get existing tasks
+            const existingTasks = projectTasks.data || [];
+            const existingLinks = projectTasks.links || [];
+
+            // Find the next available task ID
+            let nextTaskId =
+              Math.max(0, ...existingTasks.map((t: any) => t.id || 0)) + 1;
+            let nextLinkId =
+              Math.max(0, ...existingLinks.map((l: any) => l.id || 0)) + 1;
+
+            // Create a map to convert imported task IDs to new IDs
+            const taskIdMap = new Map<string | number, number>();
+
+            // Create a resource map from imported resources
+            const resourceMap = new Map<string | number, string>();
+            if (importedResources && Array.isArray(importedResources)) {
+              importedResources.forEach((resource: any) => {
+                if (
+                  resource.id &&
+                  resource.name &&
+                  typeof resource.name === "string"
+                ) {
+                  resourceMap.set(resource.id, String(resource.name).trim());
                 }
-                taskResourcesMap.get(taskId)!.push(resourceName);
-              }
-            });
-          }
-
-          // Process imported tasks and assign new IDs
-          const newTasks = importedTasks.map((importedTask: any) => {
-            const originalId = importedTask.id;
-            const newTaskId = nextTaskId++;
-            taskIdMap.set(originalId, newTaskId);
-
-            // Format start_date to YYYY-MM-DD format
-            let formattedStartDate = '';
-            if (importedTask.start_date) {
-              formattedStartDate = formatDateToYYYYMMDD(importedTask.start_date);
+              });
             }
 
-            // Map parent ID to new ID
-            const parentId = importedTask.parent && importedTask.parent !== 0
-              ? (taskIdMap.get(importedTask.parent) || 0)
-              : 0;
+            // Create a task-to-resources map from resource assignments
+            const taskResourcesMap = new Map<string | number, string[]>();
+            if (
+              importedResourceAssignments &&
+              Array.isArray(importedResourceAssignments)
+            ) {
+              importedResourceAssignments.forEach((assignment: any) => {
+                const taskId = assignment.task_id;
+                const resourceId = assignment.resource_id;
+                const resourceName = resourceMap.get(resourceId);
 
-            // Extract resource/owner information
-            let ownerName: string | string[] | null = null;
-            let resourceIds: string[] = [];
-            let resourceNames: string[] = [];
-
-            // First, check resource assignments map (most reliable)
-            const assignedResources = taskResourcesMap.get(originalId);
-
-            if (projectTeamMembers.length === 0) {
-              console.error('❌ NO TEAM MEMBERS! Add resources to Project Team tab first.');
-            }
-
-            if (assignedResources && assignedResources.length > 0) {
-              const validResources = assignedResources.filter(r => r && typeof r === 'string');
-              if (validResources.length > 0) {
-                ownerName = validResources.length === 1 ? validResources[0] : validResources;
-                resourceNames = validResources;
-                const unmatched: string[] = [];
-
-                resourceIds = validResources
-                  .map(resName => {
-                    const id = resourceNameToId.get(resName) || resourceNameToIdLower.get(resName.toLowerCase().trim());
-                    if (!id) unmatched.push(resName);
-                    return id;
-                  })
-                  .filter((id): id is string => id !== undefined);
-
-                if (unmatched.length > 0) {
-                  console.error(`❌ "${importedTask.text}": Unmatched resources [${unmatched.join(', ')}]`);
-                } else if (resourceIds.length > 0) {
-                  console.log(`✅ "${importedTask.text}": Matched ${resourceIds.length} resource(s)`);
+                if (
+                  taskId &&
+                  resourceName &&
+                  typeof resourceName === "string"
+                ) {
+                  if (!taskResourcesMap.has(taskId)) {
+                    taskResourcesMap.set(taskId, []);
+                  }
+                  taskResourcesMap.get(taskId)!.push(resourceName);
                 }
-              }
+              });
             }
-            // Check for comma-separated resource names in text fields
-            else {
-              const resourceTextField =
-                importedTask.resource_names ||
-                importedTask.resource_name ||
-                importedTask.resources ||
-                importedTask.owner_name ||
-                importedTask.$raw?.resources ||
-                importedTask.$raw?.resource ||
-                importedTask.$custom_data?.resources;
 
-              if (resourceTextField && typeof resourceTextField === 'string') {
-                const namesFromText = resourceTextField
-                  .split(',')
-                  .map(name => name.trim())
-                  .filter(name => name.length > 0);
+            // Process imported tasks and assign new IDs
+            const newTasks = importedTasks.map((importedTask: any) => {
+              const originalId = importedTask.id;
+              const newTaskId = nextTaskId++;
+              taskIdMap.set(originalId, newTaskId);
 
-                if (namesFromText.length > 0) {
-                  console.log(`📝 "${importedTask.text}": Found text resources "${resourceTextField}"`);
-                  ownerName = namesFromText.length === 1 ? namesFromText[0] : namesFromText;
-                  resourceNames = namesFromText;
+              // Format start_date to YYYY-MM-DD format
+              let formattedStartDate = "";
+              if (importedTask.start_date) {
+                formattedStartDate = formatDateToYYYYMMDD(
+                  importedTask.start_date,
+                );
+              }
+
+              // Map parent ID to new ID
+              const parentId =
+                importedTask.parent && importedTask.parent !== 0
+                  ? taskIdMap.get(importedTask.parent) || 0
+                  : 0;
+
+              // Extract resource/owner information
+              let ownerName: string | string[] | null = null;
+              let resourceIds: string[] = [];
+              let resourceNames: string[] = [];
+
+              // First, check resource assignments map (most reliable)
+              const assignedResources = taskResourcesMap.get(originalId);
+
+              if (projectTeamMembers.length === 0) {
+                console.error(
+                  "❌ NO TEAM MEMBERS! Add resources to Project Team tab first.",
+                );
+              }
+
+              if (assignedResources && assignedResources.length > 0) {
+                const validResources = assignedResources.filter(
+                  (r) => r && typeof r === "string",
+                );
+                if (validResources.length > 0) {
+                  ownerName =
+                    validResources.length === 1
+                      ? validResources[0]
+                      : validResources;
+                  resourceNames = validResources;
                   const unmatched: string[] = [];
 
-                  resourceIds = namesFromText
-                    .map(resName => {
-                      const id = resourceNameToId.get(resName) || resourceNameToIdLower.get(resName.toLowerCase().trim());
+                  resourceIds = validResources
+                    .map((resName) => {
+                      const id =
+                        resourceNameToId.get(resName) ||
+                        resourceNameToIdLower.get(resName.toLowerCase().trim());
                       if (!id) unmatched.push(resName);
                       return id;
                     })
                     .filter((id): id is string => id !== undefined);
 
                   if (unmatched.length > 0) {
-                    console.error(`❌ "${importedTask.text}": Unmatched resources [${unmatched.join(', ')}]`);
+                    console.error(
+                      `❌ "${importedTask.text}": Unmatched resources [${unmatched.join(", ")}]`,
+                    );
                   } else if (resourceIds.length > 0) {
-                    console.log(`✅ "${importedTask.text}": Matched ${resourceIds.length} resource(s)`);
+                    console.log(
+                      `✅ "${importedTask.text}": Matched ${resourceIds.length} resource(s)`,
+                    );
                   }
                 }
               }
-            }
+              // Check for comma-separated resource names in text fields
+              else {
+                const resourceTextField =
+                  importedTask.resource_names ||
+                  importedTask.resource_name ||
+                  importedTask.resources ||
+                  importedTask.owner_name ||
+                  importedTask.$raw?.resources ||
+                  importedTask.$raw?.resource ||
+                  importedTask.$custom_data?.resources;
 
-            // Fallback: check for resource assignments in different possible formats
-            if (resourceIds.length === 0 && importedTask.owner_id) {
-              // Single resource assignment
-              const resourceName = resourceMap.get(importedTask.owner_id);
-              if (resourceName && typeof resourceName === 'string') {
-                ownerName = resourceName;
-                resourceNames = [resourceName];
-                const id = resourceNameToId.get(resourceName) || resourceNameToIdLower.get(resourceName.toLowerCase().trim());
-                if (id) {
-                  resourceIds = [id];
+                if (
+                  resourceTextField &&
+                  typeof resourceTextField === "string"
+                ) {
+                  const namesFromText = resourceTextField
+                    .split(",")
+                    .map((name) => name.trim())
+                    .filter((name) => name.length > 0);
+
+                  if (namesFromText.length > 0) {
+                    console.log(
+                      `📝 "${importedTask.text}": Found text resources "${resourceTextField}"`,
+                    );
+                    ownerName =
+                      namesFromText.length === 1
+                        ? namesFromText[0]
+                        : namesFromText;
+                    resourceNames = namesFromText;
+                    const unmatched: string[] = [];
+
+                    resourceIds = namesFromText
+                      .map((resName) => {
+                        const id =
+                          resourceNameToId.get(resName) ||
+                          resourceNameToIdLower.get(
+                            resName.toLowerCase().trim(),
+                          );
+                        if (!id) unmatched.push(resName);
+                        return id;
+                      })
+                      .filter((id): id is string => id !== undefined);
+
+                    if (unmatched.length > 0) {
+                      console.error(
+                        `❌ "${importedTask.text}": Unmatched resources [${unmatched.join(", ")}]`,
+                      );
+                    } else if (resourceIds.length > 0) {
+                      console.log(
+                        `✅ "${importedTask.text}": Matched ${resourceIds.length} resource(s)`,
+                      );
+                    }
+                  }
                 }
               }
-            }
 
-            if (resourceIds.length === 0 && importedTask.resource_id) {
-              // Alternative single resource field
-              const resourceName = resourceMap.get(importedTask.resource_id);
-              if (resourceName && typeof resourceName === 'string') {
-                ownerName = resourceName;
-                resourceNames = [resourceName];
-                const id = resourceNameToId.get(resourceName) || resourceNameToIdLower.get(resourceName.toLowerCase().trim());
-                if (id) {
-                  resourceIds = [id];
+              // Fallback: check for resource assignments in different possible formats
+              if (resourceIds.length === 0 && importedTask.owner_id) {
+                // Single resource assignment
+                const resourceName = resourceMap.get(importedTask.owner_id);
+                if (resourceName && typeof resourceName === "string") {
+                  ownerName = resourceName;
+                  resourceNames = [resourceName];
+                  const id =
+                    resourceNameToId.get(resourceName) ||
+                    resourceNameToIdLower.get(
+                      resourceName.toLowerCase().trim(),
+                    );
+                  if (id) {
+                    resourceIds = [id];
+                  }
                 }
               }
-            }
 
-            if (resourceIds.length === 0 && importedTask.resources) {
-              // Multiple resources
-              if (Array.isArray(importedTask.resources)) {
-                const tempResourceIds = importedTask.resources.map((r: any) => r.resource_id || r.id || r);
-                const tempResourceNames = tempResourceIds
-                  .map((rid: any) => resourceMap.get(rid))
-                  .filter((n: any) => n && typeof n === 'string' && n !== 'Unknown');
-                if (tempResourceNames.length > 0) {
-                  ownerName = tempResourceNames.length === 1 ? tempResourceNames[0] : tempResourceNames;
-                  resourceNames = tempResourceNames;
-                  resourceIds = tempResourceNames
-                    .map((resName: string) => resourceNameToId.get(resName) || resourceNameToIdLower.get(resName.toLowerCase().trim()))
-                    .filter((id): id is string => id !== undefined);
+              if (resourceIds.length === 0 && importedTask.resource_id) {
+                // Alternative single resource field
+                const resourceName = resourceMap.get(importedTask.resource_id);
+                if (resourceName && typeof resourceName === "string") {
+                  ownerName = resourceName;
+                  resourceNames = [resourceName];
+                  const id =
+                    resourceNameToId.get(resourceName) ||
+                    resourceNameToIdLower.get(
+                      resourceName.toLowerCase().trim(),
+                    );
+                  if (id) {
+                    resourceIds = [id];
+                  }
                 }
               }
-            } else if (importedTask.owner || importedTask.resource) {
-              // Direct resource name
-              const directName = importedTask.owner || importedTask.resource;
-              if (directName && typeof directName === 'string') {
-                ownerName = directName;
-                resourceNames = [directName];
-                const id = resourceNameToId.get(directName) || resourceNameToIdLower.get(directName.toLowerCase().trim());
-                if (id) {
-                  resourceIds = [id];
+
+              if (resourceIds.length === 0 && importedTask.resources) {
+                // Multiple resources
+                if (Array.isArray(importedTask.resources)) {
+                  const tempResourceIds = importedTask.resources.map(
+                    (r: any) => r.resource_id || r.id || r,
+                  );
+                  const tempResourceNames = tempResourceIds
+                    .map((rid: any) => resourceMap.get(rid))
+                    .filter(
+                      (n: any) => n && typeof n === "string" && n !== "Unknown",
+                    );
+                  if (tempResourceNames.length > 0) {
+                    ownerName =
+                      tempResourceNames.length === 1
+                        ? tempResourceNames[0]
+                        : tempResourceNames;
+                    resourceNames = tempResourceNames;
+                    resourceIds = tempResourceNames
+                      .map(
+                        (resName: string) =>
+                          resourceNameToId.get(resName) ||
+                          resourceNameToIdLower.get(
+                            resName.toLowerCase().trim(),
+                          ),
+                      )
+                      .filter((id): id is string => id !== undefined);
+                  }
+                }
+              } else if (importedTask.owner || importedTask.resource) {
+                // Direct resource name
+                const directName = importedTask.owner || importedTask.resource;
+                if (directName && typeof directName === "string") {
+                  ownerName = directName;
+                  resourceNames = [directName];
+                  const id =
+                    resourceNameToId.get(directName) ||
+                    resourceNameToIdLower.get(directName.toLowerCase().trim());
+                  if (id) {
+                    resourceIds = [id];
+                  }
                 }
               }
-            }
 
-            // Calculate work hours based on duration and assigned resources
-            const taskDuration = importedTask.duration || 1;
-            let workHours = 0;
-            let resourceWorkHours = {};
+              // Calculate work hours based on duration and assigned resources
+              const taskDuration = importedTask.duration || 1;
+              let workHours = 0;
+              let resourceWorkHours = {};
 
-            if (resourceIds && resourceIds.length > 0) {
-              // For MS Project import, default to 100% allocation for each resource
-              const workHoursData = calculateWorkHours(taskDuration, resourceIds, {});
-              workHours = workHoursData.total;
-              resourceWorkHours = workHoursData.byResource;
-            }
+              if (resourceIds && resourceIds.length > 0) {
+                // For MS Project import, default to 100% allocation for each resource
+                const workHoursData = calculateWorkHours(
+                  taskDuration,
+                  resourceIds,
+                  {},
+                );
+                workHours = workHoursData.total;
+                resourceWorkHours = workHoursData.byResource;
+              }
 
-            return {
-              id: newTaskId,
-              text: importedTask.text || 'Untitled Task',
-              start_date: formattedStartDate || null,
-              duration: taskDuration,
-              progress: importedTask.progress || 0,
-              parent: parentId,
-              type: importedTask.type || 'task',
-              owner_id: resourceIds.length > 0 ? resourceIds[0] : null,
-              owner_name: ownerName,
-              resource_ids: resourceIds,
-              resource_names: resourceNames,
-              work_hours: workHours,
-              resource_work_hours: resourceWorkHours,
+              return {
+                id: newTaskId,
+                text: importedTask.text || "Untitled Task",
+                start_date: formattedStartDate || null,
+                duration: taskDuration,
+                progress: importedTask.progress || 0,
+                parent: parentId,
+                type: importedTask.type || "task",
+                owner_id: resourceIds.length > 0 ? resourceIds[0] : null,
+                owner_name: ownerName,
+                resource_ids: resourceIds,
+                resource_names: resourceNames,
+                work_hours: workHours,
+                resource_work_hours: resourceWorkHours,
+              };
+            });
+
+            // Process imported links with new task IDs
+            const newLinks = importedLinks
+              .map((link: any) => ({
+                id: nextLinkId++,
+                source: taskIdMap.get(link.source),
+                target: taskIdMap.get(link.target),
+                type: link.type || "0",
+              }))
+              .filter((link: any) => link.source && link.target);
+
+            // Combine existing and new tasks/links
+            const mergedTasks = [...existingTasks, ...newTasks];
+            const mergedLinks = [...existingLinks, ...newLinks];
+
+            // Update the project_tasks record with merged data
+            const updatedTaskData = {
+              data: mergedTasks,
+              links: mergedLinks,
             };
-          });
 
-          // Process imported links with new task IDs
-          const newLinks = importedLinks
-            .map((link: any) => ({
-              id: nextLinkId++,
-              source: taskIdMap.get(link.source),
-              target: taskIdMap.get(link.target),
-              type: link.type || '0'
-            }))
-            .filter((link: any) => link.source && link.target);
+            // Show progress notification
+            showNotification(`Processing ${newTasks.length} tasks...`, "info");
 
-          // Combine existing and new tasks/links
-          const mergedTasks = [...existingTasks, ...newTasks];
-          const mergedLinks = [...existingLinks, ...newLinks];
+            const { error: updateError } = await supabase
+              .from("project_tasks")
+              .upsert(
+                {
+                  project_id: id,
+                  task_data: updatedTaskData,
+                },
+                { onConflict: "project_id" },
+              );
 
-          // Update the project_tasks record with merged data
-          const updatedTaskData = {
-            data: mergedTasks,
-            links: mergedLinks
-          };
-
-
-          // Show progress notification
-          showNotification(`Processing ${newTasks.length} tasks...`, 'info');
-
-          const { error: updateError } = await supabase
-            .from('project_tasks')
-            .upsert({
-              project_id: id,
-              task_data: updatedTaskData
-            }, { onConflict: 'project_id' });
-
-          if (updateError) {
-            throw updateError;
-          }
-
-          // Resource matching summary
-          const tasksWithResources = newTasks.filter(t => t.resource_ids && t.resource_ids.length > 0).length;
-          const tasksWithoutResources = newTasks.length - tasksWithResources;
-
-          console.log(`\n✅ IMPORT COMPLETE: ${newTasks.length} tasks`);
-          console.log(`   Resources matched: ${tasksWithResources}/${newTasks.length}`);
-          if (tasksWithoutResources > 0 && projectTeamMembers.length === 0) {
-            console.error('   ⚠️  Add team members in Team tab to assign resources!');
-          }
-
-          // Use setTimeout to allow UI to update before heavy re-render
-          setTimeout(async () => {
-            try {
-              showNotification('Loading tasks...', 'info');
-              await fetchProjectTasks();
-
-              let message = `Successfully imported ${newTasks.length} tasks from MS Project!`;
-              if (tasksWithoutResources > 0 && projectTeamMembers.length === 0) {
-                message += ' Note: No resources assigned - add team members in the Team tab first.';
-              } else if (tasksWithoutResources > 0) {
-                message += ` Warning: ${tasksWithoutResources} tasks have unassigned resources. Check console for details.`;
-              }
-              showNotification(message, tasksWithoutResources > 0 ? 'warning' : 'success');
-            } catch (fetchError: any) {
-              console.error('Error refreshing tasks:', fetchError);
-              showNotification('Tasks imported but failed to refresh view. Please reload the page.', 'warning');
-            } finally {
-              setImportingMSProject(false);
-              event.target.value = '';
+            if (updateError) {
+              throw updateError;
             }
-          }, 100);
-        } catch (error: any) {
-          console.error('Error saving imported tasks:', error);
-          setImportingMSProject(false);
-          showNotification(`Error saving imported tasks: ${error.message}`, 'error');
-          event.target.value = '';
-        }
-      });
+
+            // Resource matching summary
+            const tasksWithResources = newTasks.filter(
+              (t) => t.resource_ids && t.resource_ids.length > 0,
+            ).length;
+            const tasksWithoutResources = newTasks.length - tasksWithResources;
+
+            console.log(`\n✅ IMPORT COMPLETE: ${newTasks.length} tasks`);
+            console.log(
+              `   Resources matched: ${tasksWithResources}/${newTasks.length}`,
+            );
+            if (tasksWithoutResources > 0 && projectTeamMembers.length === 0) {
+              console.error(
+                "   ⚠️  Add team members in Team tab to assign resources!",
+              );
+            }
+
+            // Use setTimeout to allow UI to update before heavy re-render
+            setTimeout(async () => {
+              try {
+                showNotification("Loading tasks...", "info");
+                await fetchProjectTasks();
+
+                let message = `Successfully imported ${newTasks.length} tasks from MS Project!`;
+                if (
+                  tasksWithoutResources > 0 &&
+                  projectTeamMembers.length === 0
+                ) {
+                  message +=
+                    " Note: No resources assigned - add team members in the Team tab first.";
+                } else if (tasksWithoutResources > 0) {
+                  message += ` Warning: ${tasksWithoutResources} tasks have unassigned resources. Check console for details.`;
+                }
+                showNotification(
+                  message,
+                  tasksWithoutResources > 0 ? "warning" : "success",
+                );
+              } catch (fetchError: any) {
+                console.error("Error refreshing tasks:", fetchError);
+                showNotification(
+                  "Tasks imported but failed to refresh view. Please reload the page.",
+                  "warning",
+                );
+              } finally {
+                setImportingMSProject(false);
+                event.target.value = "";
+              }
+            }, 100);
+          } catch (error: any) {
+            console.error("Error saving imported tasks:", error);
+            setImportingMSProject(false);
+            showNotification(
+              `Error saving imported tasks: ${error.message}`,
+              "error",
+            );
+            event.target.value = "";
+          }
+        },
+      );
     } catch (error: any) {
-      console.error('Error importing MS Project file:', error);
+      console.error("Error importing MS Project file:", error);
       setImportingMSProject(false);
-      showNotification(`Error importing MS Project file: ${error.message}`, 'error');
-      event.target.value = '';
+      showNotification(
+        `Error importing MS Project file: ${error.message}`,
+        "error",
+      );
+      event.target.value = "";
     }
   };
 
   const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   };
 
   // Helper function to get all tasks with their WBS codes
@@ -3272,11 +3713,11 @@ const ProjectDetail: React.FC = () => {
       projectTasks.data.forEach((task: any) => {
         // Skip group headers
         if (!task.$group_header) {
-          const wbs = (window as any).gantt?.getWBSCode?.(task) || '';
+          const wbs = (window as any).gantt?.getWBSCode?.(task) || "";
           tasksWithWBS.push({
             id: task.id,
-            text: task.text || 'Untitled Task',
-            wbs: wbs
+            text: task.text || "Untitled Task",
+            wbs: wbs,
           });
         }
       });
@@ -3288,7 +3729,7 @@ const ProjectDetail: React.FC = () => {
   const calculateWorkHours = (
     duration: number,
     resourceIds: string[],
-    taskAllocations: Record<string, number> = {}
+    taskAllocations: Record<string, number> = {},
   ): { total: number; byResource: { [key: string]: number } } => {
     if (!resourceIds || resourceIds.length === 0) {
       return { total: 0, byResource: {} };
@@ -3298,7 +3739,7 @@ const ProjectDetail: React.FC = () => {
     const resourceWorkHours: { [key: string]: number } = {};
 
     // Calculate work for each resource based on their task-specific allocation percentage
-    resourceIds.forEach(resourceId => {
+    resourceIds.forEach((resourceId) => {
       // Use task-specific allocation percentage, default to 100% if not specified
       const allocationPercentage = taskAllocations[resourceId] || 100;
 
@@ -3310,7 +3751,7 @@ const ProjectDetail: React.FC = () => {
 
     return {
       total: Math.round(totalWorkHours * 100) / 100,
-      byResource: resourceWorkHours
+      byResource: resourceWorkHours,
     };
   };
 
@@ -3319,34 +3760,47 @@ const ProjectDetail: React.FC = () => {
   const calculateEndDate = (startDate: string, duration: number): string => {
     const ganttInstance = (window as any).gantt;
     if (!ganttInstance || !startDate || duration === undefined) {
-      return '';
+      return "";
     }
 
     try {
       // Parse the start date
-      const parsedStartDate = ganttInstance.date.parseDate(startDate, "xml_date");
+      const parsedStartDate = ganttInstance.date.parseDate(
+        startDate,
+        "xml_date",
+      );
       // Calculate end date using Gantt's method - same as in Gantt.tsx
       // This returns the exclusive end date (day after last working day)
-      const calculatedEndDate = ganttInstance.calculateEndDate(parsedStartDate, duration);
+      const calculatedEndDate = ganttInstance.calculateEndDate(
+        parsedStartDate,
+        duration,
+      );
       // Subtract 1 day from end date to show the actual last working day (same as Task Pane display)
-      const adjustedEndDate = ganttInstance.date.add(calculatedEndDate, -1, "day");
+      const adjustedEndDate = ganttInstance.date.add(
+        calculatedEndDate,
+        -1,
+        "day",
+      );
       // Format to YYYY-MM-DD (date only, no time)
       const dateFormat = ganttInstance.date.date_to_str("%Y-%m-%d");
       return dateFormat(adjustedEndDate);
     } catch (error) {
-      console.error('Error calculating end date:', error);
-      return '';
+      console.error("Error calculating end date:", error);
+      return "";
     }
   };
 
   const handleTaskSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    console.log('🎯 SUBMIT - Form submitted with resourceAllocations:', resourceAllocations);
-    console.log('🎯 SUBMIT - taskForm.resource_ids:', taskForm.resource_ids);
+    console.log(
+      "🎯 SUBMIT - Form submitted with resourceAllocations:",
+      resourceAllocations,
+    );
+    console.log("🎯 SUBMIT - taskForm.resource_ids:", taskForm.resource_ids);
 
     if (!taskForm.description || !taskForm.start_date || !taskForm.duration) {
-      showNotification('Please fill in all required fields', 'error');
+      showNotification("Please fill in all required fields", "error");
       return;
     }
 
@@ -3354,37 +3808,50 @@ const ProjectDetail: React.FC = () => {
       let updatedTaskData;
       let currentTaskId = editingTaskId;
       let adjustedStartDate = null;
-      if (taskForm.start_date && taskForm.start_date.trim() !== '') {
-        console.log('📅 DATE DEBUG - Form input date:', taskForm.start_date);
+      if (taskForm.start_date && taskForm.start_date.trim() !== "") {
+        console.log("📅 DATE DEBUG - Form input date:", taskForm.start_date);
         adjustedStartDate = adjustToWorkday(taskForm.start_date);
-        console.log('📅 DATE DEBUG - Adjusted date:', adjustedStartDate);
+        console.log("📅 DATE DEBUG - Adjusted date:", adjustedStartDate);
       }
 
       if (editingTaskId) {
         // Get the original task to compare
-        const originalTask = projectTasks.data.find((t: any) => t.id === editingTaskId);
-        console.log('🔍 UPDATE TASK - Original resources:', originalTask?.resource_ids);
-        console.log('🔍 UPDATE TASK - Form resources:', taskForm.resource_ids);
-        console.log('🔍 UPDATE TASK - Original work hours:', originalTask?.resource_work_hours);
+        const originalTask = projectTasks.data.find(
+          (t: any) => t.id === editingTaskId,
+        );
+        console.log(
+          "🔍 UPDATE TASK - Original resources:",
+          originalTask?.resource_ids,
+        );
+        console.log("🔍 UPDATE TASK - Form resources:", taskForm.resource_ids);
+        console.log(
+          "🔍 UPDATE TASK - Original work hours:",
+          originalTask?.resource_work_hours,
+        );
 
         // Update existing task
         const existingLinks = projectTasks.links || [];
 
         // Remove old links where this task is the target (incoming links from predecessors)
-        const filteredLinks = existingLinks.filter((link: any) => link.target !== editingTaskId);
+        const filteredLinks = existingLinks.filter(
+          (link: any) => link.target !== editingTaskId,
+        );
 
         // Create new links for predecessor tasks (predecessors point to this task)
-        const newLinks = taskForm.predecessor_ids.map((predecessorId, index) => ({
-          id: Date.now() + index,
-          source: predecessorId,
-          target: editingTaskId,
-          type: "0" // Finish-to-Start dependency
-        }));
+        const newLinks = taskForm.predecessor_ids.map(
+          (predecessorId, index) => ({
+            id: Date.now() + index,
+            source: predecessorId,
+            target: editingTaskId,
+            type: "0", // Finish-to-Start dependency
+          }),
+        );
 
         updatedTaskData = {
           data: projectTasks.data.map((task: any) => {
             if (task.id === editingTaskId) {
-              const duration = taskForm.type === 'milestone' ? 0 : taskForm.duration;
+              const duration =
+                taskForm.type === "milestone" ? 0 : taskForm.duration;
 
               // Exclude end_date from the spread to ensure Gantt recalculates it from duration
               const { end_date, ...taskWithoutEndDate } = task;
@@ -3393,47 +3860,68 @@ const ProjectDetail: React.FC = () => {
                 text: taskForm.description,
                 duration: duration,
                 type: taskForm.type,
-                progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
+                progress:
+                  taskForm.type === "milestone" ? 0 : taskForm.progress / 100,
               };
 
               // Set start_date: use provided date or default to project creation date or keep existing
               if (adjustedStartDate) {
                 updatedTask.start_date = adjustedStartDate;
-                console.log('📅 DATE DEBUG - Setting task start_date:', adjustedStartDate);
+                console.log(
+                  "📅 DATE DEBUG - Setting task start_date:",
+                  adjustedStartDate,
+                );
               } else if (!task.start_date && project?.created_at) {
                 // If task has no start date and no new date provided, default to project creation date
-                const projectDate = formatDateToYYYYMMDD(new Date(project.created_at));
+                const projectDate = formatDateToYYYYMMDD(
+                  new Date(project.created_at),
+                );
                 updatedTask.start_date = projectDate;
-                console.log('No start date provided, using project creation date:', projectDate);
+                console.log(
+                  "No start date provided, using project creation date:",
+                  projectDate,
+                );
               }
 
               // Calculate exclusive end_date as expected by DHTMLX Gantt
               // The "End time" column template handles displaying the inclusive date for users
               if (updatedTask.start_date && duration > 0 && ganttRef.current) {
                 const ganttInstance = ganttRef.current.getGanttInstance();
-                const startDate = typeof updatedTask.start_date === 'string'
-                  ? ganttInstance.date.parseDate(updatedTask.start_date, "xml_date")
-                  : updatedTask.start_date;
+                const startDate =
+                  typeof updatedTask.start_date === "string"
+                    ? ganttInstance.date.parseDate(
+                        updatedTask.start_date,
+                        "xml_date",
+                      )
+                    : updatedTask.start_date;
                 // DHTMLX uses exclusive end dates (end_date = start of day after task completes)
                 // Store this exclusive end_date so Gantt can correctly calculate duration when parsing
-                const exclusiveEndDate = ganttInstance.calculateEndDate(startDate, duration);
+                const exclusiveEndDate = ganttInstance.calculateEndDate(
+                  startDate,
+                  duration,
+                );
                 updatedTask.end_date = formatDateToYYYYMMDD(exclusiveEndDate);
-                console.log('📅 DATE DEBUG - Calculated end_date:', updatedTask.end_date);
+                console.log(
+                  "📅 DATE DEBUG - Calculated end_date:",
+                  updatedTask.end_date,
+                );
               }
 
-              console.log('Updated task values:', {
+              console.log("Updated task values:", {
                 id: editingTaskId,
                 start_date: updatedTask.start_date,
                 end_date: updatedTask.end_date,
-                duration: duration
+                duration: duration,
               });
 
               // Update resources if selected
               if (taskForm.resource_ids.length > 0) {
                 updatedTask.resource_ids = taskForm.resource_ids;
-                const resourceNames = taskForm.resource_ids.map(resId => {
-                  const member = projectTeamMembers.find(m => m.resource_id === resId);
-                  return member?.resources?.display_name || 'Unknown';
+                const resourceNames = taskForm.resource_ids.map((resId) => {
+                  const member = projectTeamMembers.find(
+                    (m) => m.resource_id === resId,
+                  );
+                  return member?.resources?.display_name || "Unknown";
                 });
                 updatedTask.resource_names = resourceNames;
                 // Backward compatibility: set first resource as owner
@@ -3444,14 +3932,24 @@ const ProjectDetail: React.FC = () => {
                 updatedTask.resource_allocations = resourceAllocations;
 
                 // Calculate and store work hours (both total and per-resource)
-                const workHoursData = calculateWorkHours(duration, taskForm.resource_ids, resourceAllocations);
+                const workHoursData = calculateWorkHours(
+                  duration,
+                  taskForm.resource_ids,
+                  resourceAllocations,
+                );
                 updatedTask.work_hours = workHoursData.total;
                 updatedTask.resource_work_hours = workHoursData.byResource;
 
-                console.log('🔍 CALCULATED - New work hours:', workHoursData);
-                console.log('🔍 CALCULATED - Resources being saved:', taskForm.resource_ids);
-                console.log('🔍 CALCULATED - Resource names:', resourceNames);
-                console.log('🔍 CALCULATED - Resource allocations:', resourceAllocations);
+                console.log("🔍 CALCULATED - New work hours:", workHoursData);
+                console.log(
+                  "🔍 CALCULATED - Resources being saved:",
+                  taskForm.resource_ids,
+                );
+                console.log("🔍 CALCULATED - Resource names:", resourceNames);
+                console.log(
+                  "🔍 CALCULATED - Resource allocations:",
+                  resourceAllocations,
+                );
               } else {
                 updatedTask.resource_ids = [];
                 updatedTask.resource_names = [];
@@ -3466,67 +3964,82 @@ const ProjectDetail: React.FC = () => {
             }
             return task;
           }),
-          links: [...filteredLinks, ...newLinks]
+          links: [...filteredLinks, ...newLinks],
         };
       } else {
         // Create new task
-        const newTaskId = projectTasks.data.length > 0
-          ? Math.max(...projectTasks.data.map((t: any) => t.id)) + 1
-          : 1;
+        const newTaskId =
+          projectTasks.data.length > 0
+            ? Math.max(...projectTasks.data.map((t: any) => t.id)) + 1
+            : 1;
 
-        const duration = taskForm.type === 'milestone' ? 0 : taskForm.duration;
+        const duration = taskForm.type === "milestone" ? 0 : taskForm.duration;
 
         const newTask: any = {
           id: newTaskId,
           text: taskForm.description,
           duration: duration,
           type: taskForm.type,
-          progress: taskForm.type === 'milestone' ? 0 : (taskForm.progress / 100)
+          progress: taskForm.type === "milestone" ? 0 : taskForm.progress / 100,
         };
 
         // Set start_date: use provided date or default to project creation date
         if (adjustedStartDate) {
           newTask.start_date = adjustedStartDate;
-          console.log('📅 DATE DEBUG - New task start_date:', adjustedStartDate);
+          console.log(
+            "📅 DATE DEBUG - New task start_date:",
+            adjustedStartDate,
+          );
         } else if (project?.created_at) {
           // Default to project creation date if no start date provided
-          const projectDate = formatDateToYYYYMMDD(new Date(project.created_at));
+          const projectDate = formatDateToYYYYMMDD(
+            new Date(project.created_at),
+          );
           newTask.start_date = projectDate;
-          console.log('No start date provided, using project start date:', projectDate);
+          console.log(
+            "No start date provided, using project start date:",
+            projectDate,
+          );
         }
 
         // Calculate exclusive end_date as expected by DHTMLX Gantt
         // The "End time" column template handles displaying the inclusive date for users
         if (newTask.start_date && duration > 0 && ganttRef.current) {
           const ganttInstance = ganttRef.current.getGanttInstance();
-          const startDate = typeof newTask.start_date === 'string'
-            ? ganttInstance.date.parseDate(newTask.start_date, "xml_date")
-            : newTask.start_date;
+          const startDate =
+            typeof newTask.start_date === "string"
+              ? ganttInstance.date.parseDate(newTask.start_date, "xml_date")
+              : newTask.start_date;
           // DHTMLX uses exclusive end dates (end_date = start of day after task completes)
           // Store this exclusive end_date so Gantt can correctly calculate duration when parsing
-          const exclusiveEndDate = ganttInstance.calculateEndDate(startDate, duration);
+          const exclusiveEndDate = ganttInstance.calculateEndDate(
+            startDate,
+            duration,
+          );
           newTask.end_date = formatDateToYYYYMMDD(exclusiveEndDate);
-          console.log('📅 DATE DEBUG - New task end_date:', newTask.end_date);
+          console.log("📅 DATE DEBUG - New task end_date:", newTask.end_date);
         }
 
         // Set parent - MUST be 0 for root tasks, not undefined
-        console.log('Checking parent_id:', taskForm.parent_id);
-        console.log('parent_id type:', typeof taskForm.parent_id);
+        console.log("Checking parent_id:", taskForm.parent_id);
+        console.log("parent_id type:", typeof taskForm.parent_id);
         if (taskForm.parent_id !== undefined && taskForm.parent_id !== null) {
           newTask.parent = taskForm.parent_id;
-          console.log('Setting parent to:', taskForm.parent_id);
+          console.log("Setting parent to:", taskForm.parent_id);
         } else {
           newTask.parent = 0; // Explicitly set to 0 for root tasks
-          console.log('No parent_id - creating as root task with parent = 0');
+          console.log("No parent_id - creating as root task with parent = 0");
         }
-        console.log('New task object:', newTask);
+        console.log("New task object:", newTask);
 
         // Add resources if selected
         if (taskForm.resource_ids.length > 0) {
           newTask.resource_ids = taskForm.resource_ids;
-          const resourceNames = taskForm.resource_ids.map(resId => {
-            const member = projectTeamMembers.find(m => m.resource_id === resId);
-            return member?.resources?.display_name || 'Unknown';
+          const resourceNames = taskForm.resource_ids.map((resId) => {
+            const member = projectTeamMembers.find(
+              (m) => m.resource_id === resId,
+            );
+            return member?.resources?.display_name || "Unknown";
           });
           newTask.resource_names = resourceNames;
           // Backward compatibility: set first resource as owner
@@ -3537,12 +4050,19 @@ const ProjectDetail: React.FC = () => {
           newTask.resource_allocations = resourceAllocations;
 
           // Calculate and store work hours (both total and per-resource)
-          const workHoursData = calculateWorkHours(duration, taskForm.resource_ids, resourceAllocations);
+          const workHoursData = calculateWorkHours(
+            duration,
+            taskForm.resource_ids,
+            resourceAllocations,
+          );
           newTask.work_hours = workHoursData.total;
           newTask.resource_work_hours = workHoursData.byResource;
           console.log(`New task work hours: ${newTask.work_hours}`);
-          console.log(`Resource work hours breakdown:`, newTask.resource_work_hours);
-          console.log('Resource allocations:', resourceAllocations);
+          console.log(
+            `Resource work hours breakdown:`,
+            newTask.resource_work_hours,
+          );
+          console.log("Resource allocations:", resourceAllocations);
         } else {
           newTask.work_hours = 0;
           newTask.resource_work_hours = {};
@@ -3553,23 +4073,27 @@ const ProjectDetail: React.FC = () => {
         const existingLinks = projectTasks.links || [];
 
         // Create links for predecessor tasks (predecessors point to this task)
-        const newLinks = taskForm.predecessor_ids.map((predecessorId, index) => ({
-          id: Date.now() + index,
-          source: predecessorId,
-          target: newTask.id,
-          type: "0" // Finish-to-Start dependency
-        }));
+        const newLinks = taskForm.predecessor_ids.map(
+          (predecessorId, index) => ({
+            id: Date.now() + index,
+            source: predecessorId,
+            target: newTask.id,
+            type: "0", // Finish-to-Start dependency
+          }),
+        );
 
         // Insert new task after the selected task (if any)
         let newTasksData;
         if (selectedTaskId) {
-          const selectedIndex = projectTasks.data.findIndex((t: any) => t.id === selectedTaskId);
+          const selectedIndex = projectTasks.data.findIndex(
+            (t: any) => t.id === selectedTaskId,
+          );
           if (selectedIndex !== -1) {
             // Insert right after the selected task
             newTasksData = [
               ...projectTasks.data.slice(0, selectedIndex + 1),
               newTask,
-              ...projectTasks.data.slice(selectedIndex + 1)
+              ...projectTasks.data.slice(selectedIndex + 1),
             ];
           } else {
             // Fallback: append to end if selected task not found
@@ -3582,7 +4106,7 @@ const ProjectDetail: React.FC = () => {
 
         updatedTaskData = {
           data: newTasksData,
-          links: [...existingLinks, ...newLinks]
+          links: [...existingLinks, ...newLinks],
         };
 
         // Store the new task ID for later use
@@ -3590,12 +4114,20 @@ const ProjectDetail: React.FC = () => {
       }
 
       // Log the task data before saving to verify allocations are included
-      console.log('💾 SAVING TASK DATA - Full updatedTaskData:', JSON.stringify(updatedTaskData, null, 2));
-      const taskBeingSaved = updatedTaskData.data.find((t: any) => t.id === currentTaskId);
-      console.log('💾 SAVING TASK DATA - Current task resource_allocations:', taskBeingSaved?.resource_allocations);
-      console.log('📅 DATE DEBUG - Task being saved to DB:', {
+      console.log(
+        "💾 SAVING TASK DATA - Full updatedTaskData:",
+        JSON.stringify(updatedTaskData, null, 2),
+      );
+      const taskBeingSaved = updatedTaskData.data.find(
+        (t: any) => t.id === currentTaskId,
+      );
+      console.log(
+        "💾 SAVING TASK DATA - Current task resource_allocations:",
+        taskBeingSaved?.resource_allocations,
+      );
+      console.log("📅 DATE DEBUG - Task being saved to DB:", {
         start_date: taskBeingSaved?.start_date,
-        end_date: taskBeingSaved?.end_date
+        end_date: taskBeingSaved?.end_date,
       });
 
       // Update local state first
@@ -3607,13 +4139,16 @@ const ProjectDetail: React.FC = () => {
       if (ganttRef.current) {
         const ganttInstance = ganttRef.current.getGanttInstance();
         if (ganttInstance) {
-          console.log('Refreshing Gantt with data:', updatedTaskData.data.map((t: any) => ({
-            id: t.id,
-            text: t.text,
-            start_date: t.start_date,
-            end_date: t.end_date,
-            duration: t.duration
-          })));
+          console.log(
+            "Refreshing Gantt with data:",
+            updatedTaskData.data.map((t: any) => ({
+              id: t.id,
+              text: t.text,
+              start_date: t.start_date,
+              end_date: t.end_date,
+              duration: t.duration,
+            })),
+          );
 
           // Always clear and re-parse to ensure data consistency
           ganttInstance.clearAll();
@@ -3652,35 +4187,43 @@ const ProjectDetail: React.FC = () => {
       // Save to database with proper sortorder assignment
       await saveProjectTasks();
 
-      showNotification(editingTaskId ? 'Task updated successfully!' : 'Task created successfully!', 'success');
+      showNotification(
+        editingTaskId
+          ? "Task updated successfully!"
+          : "Task created successfully!",
+        "success",
+      );
       setShowTaskModal(false);
       setEditingTaskId(null);
       setTaskForm({
-        description: '',
-        start_date: '',
+        description: "",
+        start_date: "",
         duration: 1,
-        owner_id: '',
+        owner_id: "",
         resource_ids: [],
         parent_id: undefined,
         predecessor_ids: [],
-        type: 'task',
-        progress: 0
+        type: "task",
+        progress: 0,
       });
       setResourceAllocations({});
     } catch (error: any) {
-      console.error('Error creating task:', error);
-      showNotification(`Error creating task: ${error.message}`, 'error');
+      console.error("Error creating task:", error);
+      showNotification(`Error creating task: ${error.message}`, "error");
     }
   };
 
   const getCostCategoryOptions = (): string[] => {
-    console.log('getCostCategoryOptions called, current options:', costCategoryOptions);
+    console.log(
+      "getCostCategoryOptions called, current options:",
+      costCategoryOptions,
+    );
     return costCategoryOptions;
   };
 
   const handleAddBudget = () => {
     setBudgetForm({
-      categories: []
+      categories: [],
     });
     setEditingBudget(null);
     setShowBudgetModal(true);
@@ -3688,16 +4231,16 @@ const ProjectDetail: React.FC = () => {
 
   const handleEditBudget = (budget: Budget) => {
     setBudgetForm({
-      categories: budget.categories || []
+      categories: budget.categories || [],
     });
     setEditingBudget(budget);
     setShowBudgetModal(true);
   };
 
   const handleCategoryToggle = (category: string) => {
-    setBudgetForm(prev => {
+    setBudgetForm((prev) => {
       const categories = prev.categories.includes(category)
-        ? prev.categories.filter(c => c !== category)
+        ? prev.categories.filter((c) => c !== category)
         : [...prev.categories, category];
       return { ...prev, categories };
     });
@@ -3709,12 +4252,12 @@ const ProjectDetail: React.FC = () => {
     try {
       if (editingBudget) {
         const { error } = await supabase
-          .from('project_budgets')
+          .from("project_budgets")
           .update({
             categories: budgetForm.categories,
-            budget_amount: 0
+            budget_amount: 0,
           })
-          .eq('id', editingBudget.id);
+          .eq("id", editingBudget.id);
 
         if (error) {
           throw error;
@@ -3722,15 +4265,19 @@ const ProjectDetail: React.FC = () => {
 
         const oldCategories = editingBudget.categories || [];
         const newCategories = budgetForm.categories;
-        const removedCategories = oldCategories.filter(c => !newCategories.includes(c));
-        const addedCategories = newCategories.filter(c => !oldCategories.includes(c));
+        const removedCategories = oldCategories.filter(
+          (c) => !newCategories.includes(c),
+        );
+        const addedCategories = newCategories.filter(
+          (c) => !oldCategories.includes(c),
+        );
 
         if (removedCategories.length > 0) {
           await supabase
-            .from('budget_forecast_monthly')
+            .from("budget_forecast_monthly")
             .delete()
-            .eq('project_id', id)
-            .in('category', removedCategories);
+            .eq("project_id", id)
+            .in("category", removedCategories);
         }
 
         for (const category of addedCategories) {
@@ -3739,28 +4286,28 @@ const ProjectDetail: React.FC = () => {
             months.push({
               project_id: id,
               category: category,
-              month_year: `${selectedYear}-${String(month + 1).padStart(2, '0')}-01`,
+              month_year: `${selectedYear}-${String(month + 1).padStart(2, "0")}-01`,
               forecasted_amount: 0,
-              actual_amount: null
+              actual_amount: null,
             });
           }
 
           const { error: insertError } = await supabase
-            .from('budget_forecast_monthly')
+            .from("budget_forecast_monthly")
             .insert(months);
 
-          if (insertError && insertError.code !== '23505') {
-            console.error('Error creating forecast:', insertError);
+          if (insertError && insertError.code !== "23505") {
+            console.error("Error creating forecast:", insertError);
           }
         }
       } else {
-        const { error } = await supabase
-          .from('project_budgets')
-          .insert([{
+        const { error } = await supabase.from("project_budgets").insert([
+          {
             project_id: id,
             categories: budgetForm.categories,
-            budget_amount: 0
-          }]);
+            budget_amount: 0,
+          },
+        ]);
 
         if (error) {
           throw error;
@@ -3772,18 +4319,18 @@ const ProjectDetail: React.FC = () => {
             months.push({
               project_id: id,
               category: category,
-              month_year: `${selectedYear}-${String(month + 1).padStart(2, '0')}-01`,
+              month_year: `${selectedYear}-${String(month + 1).padStart(2, "0")}-01`,
               forecasted_amount: 0,
-              actual_amount: null
+              actual_amount: null,
             });
           }
 
           const { error: insertError } = await supabase
-            .from('budget_forecast_monthly')
+            .from("budget_forecast_monthly")
             .insert(months);
 
-          if (insertError && insertError.code !== '23505') {
-            console.error('Error creating forecast:', insertError);
+          if (insertError && insertError.code !== "23505") {
+            console.error("Error creating forecast:", insertError);
           }
         }
       }
@@ -3793,28 +4340,34 @@ const ProjectDetail: React.FC = () => {
       setShowBudgetModal(false);
       setEditingBudget(null);
       setBudgetForm({
-        categories: []
+        categories: [],
       });
-      showNotification(editingBudget ? 'Budget updated successfully!' : 'Budget added successfully!', 'success');
+      showNotification(
+        editingBudget
+          ? "Budget updated successfully!"
+          : "Budget added successfully!",
+        "success",
+      );
     } catch (error: any) {
-      console.error('Error saving budget:', error);
-      showNotification(`Error saving budget: ${error.message}`, 'error');
+      console.error("Error saving budget:", error);
+      showNotification(`Error saving budget: ${error.message}`, "error");
     }
   };
 
   const handleDeleteBudget = async (budgetId: string) => {
     const confirmed = await showConfirm({
-      title: 'Delete Budget Item',
-      message: 'Are you sure you want to delete this budget item? This will also delete all associated monthly forecasts.',
-      confirmText: 'Delete'
+      title: "Delete Budget Item",
+      message:
+        "Are you sure you want to delete this budget item? This will also delete all associated monthly forecasts.",
+      confirmText: "Delete",
     });
     if (!confirmed) return;
 
     try {
       const { error } = await supabase
-        .from('project_budgets')
+        .from("project_budgets")
         .delete()
-        .eq('id', budgetId);
+        .eq("id", budgetId);
 
       if (error) {
         throw error;
@@ -3822,44 +4375,40 @@ const ProjectDetail: React.FC = () => {
 
       await fetchBudgets();
       await fetchMonthlyForecasts();
-      showNotification('Budget item deleted successfully!', 'success');
+      showNotification("Budget item deleted successfully!", "success");
     } catch (error: any) {
-      console.error('Error deleting budget:', error);
-      showNotification(`Error deleting budget item: ${error.message}`, 'error');
+      console.error("Error deleting budget:", error);
+      showNotification(`Error deleting budget item: ${error.message}`, "error");
     }
   };
 
   const handleUpdateMonthlyValue = async (
     forecastId: string,
-    field: 'forecasted_amount' | 'actual_amount',
-    value: number
+    field: "forecasted_amount" | "actual_amount",
+    value: number,
   ) => {
     try {
       const { error } = await supabase
-        .from('budget_forecast_monthly')
+        .from("budget_forecast_monthly")
         .update({ [field]: value })
-        .eq('id', forecastId);
+        .eq("id", forecastId);
 
       if (error) {
         throw error;
       }
 
-      setMonthlyForecasts(prev =>
-        prev.map(f =>
-          f.id === forecastId
-            ? { ...f, [field]: value }
-            : f
-        )
+      setMonthlyForecasts((prev) =>
+        prev.map((f) => (f.id === forecastId ? { ...f, [field]: value } : f)),
       );
     } catch (error: any) {
-      console.error('Error updating monthly value:', error);
-      showNotification(`Error updating value: ${error.message}`, 'error');
+      console.error("Error updating monthly value:", error);
+      showNotification(`Error updating value: ${error.message}`, "error");
     }
   };
 
   const calculateBudgetMetrics = () => {
-    if (budgetViewFilter === 'monthly') {
-      const targetMonth = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-01`;
+    if (budgetViewFilter === "monthly") {
+      const targetMonth = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-01`;
       let totalBudget = 0;
       let totalSpent = 0;
 
@@ -3892,31 +4441,31 @@ const ProjectDetail: React.FC = () => {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   const getImpactColor = (impact: string) => {
     switch (impact.toLowerCase()) {
-      case 'high':
-      case 'critical':
-        return 'bg-red-500';
-      case 'medium':
-        return 'bg-yellow-500';
-      case 'low':
-        return 'bg-green-500';
+      case "high":
+      case "critical":
+        return "bg-red-500";
+      case "medium":
+        return "bg-yellow-500";
+      case "low":
+        return "bg-green-500";
       default:
-        return 'bg-gray-500';
+        return "bg-gray-500";
     }
   };
 
   const getAttachmentCount = (attachments?: string) => {
-    if (!attachments || attachments.trim() === '') return 0;
+    if (!attachments || attachments.length === 0) return 0;
     try {
       const parsed = JSON.parse(attachments);
       return Array.isArray(parsed) ? parsed.length : 0;
@@ -3938,9 +4487,11 @@ const ProjectDetail: React.FC = () => {
     return (
       <div className="p-8">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Project Not Found</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            Project Not Found
+          </h1>
           <button
-            onClick={() => navigate('/projects')}
+            onClick={() => navigate("/projects")}
             className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
           >
             Back to Projects
@@ -3958,9 +4509,12 @@ const ProjectDetail: React.FC = () => {
           <div className="bg-white rounded-lg p-8 shadow-2xl max-w-md">
             <div className="flex flex-col items-center space-y-4">
               <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600"></div>
-              <h3 className="text-xl font-semibold text-gray-900">Importing MS Project File</h3>
+              <h3 className="text-xl font-semibold text-gray-900">
+                Importing MS Project File
+              </h3>
               <p className="text-gray-600 text-center">
-                Please wait while we process your tasks. This may take a moment...
+                Please wait while we process your tasks. This may take a
+                moment...
               </p>
             </div>
           </div>
@@ -3970,7 +4524,7 @@ const ProjectDetail: React.FC = () => {
       {/* Header */}
       <div className="mb-8">
         <button
-          onClick={() => navigate('/projects')}
+          onClick={() => navigate("/projects")}
           className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -3981,31 +4535,49 @@ const ProjectDetail: React.FC = () => {
             {editingProject ? (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Project Name</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Project Name
+                  </label>
                   <input
                     type="text"
                     value={projectForm.name}
-                    onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })}
+                    onChange={(e) =>
+                      setProjectForm({ ...projectForm, name: e.target.value })
+                    }
                     className="w-full max-w-2xl px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="Enter project name"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Project Description</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Project Description
+                  </label>
                   <textarea
                     value={projectForm.description}
-                    onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
+                    onChange={(e) =>
+                      setProjectForm({
+                        ...projectForm,
+                        description: e.target.value,
+                      })
+                    }
                     rows={3}
                     className="w-full max-w-2xl px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-vertical"
                     placeholder="Enter project description"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Project Start Date</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Project Start Date
+                  </label>
                   <input
                     type="date"
                     value={projectForm.start_date}
-                    onChange={(e) => setProjectForm({ ...projectForm, start_date: e.target.value })}
+                    onChange={(e) =>
+                      setProjectForm({
+                        ...projectForm,
+                        start_date: e.target.value,
+                      })
+                    }
                     className="w-full max-w-2xl px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -4016,7 +4588,7 @@ const ProjectDetail: React.FC = () => {
                     className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50"
                   >
                     <Save className="w-4 h-4" />
-                    <span>{saving ? 'Saving...' : 'Save'}</span>
+                    <span>{saving ? "Saving..." : "Save"}</span>
                   </button>
                   <button
                     onClick={cancelEditingProject}
@@ -4030,7 +4602,9 @@ const ProjectDetail: React.FC = () => {
             ) : (
               <div>
                 <div className="flex items-center space-x-3">
-                  <h1 className="text-3xl font-bold text-gray-900">{project.name}</h1>
+                  <h1 className="text-3xl font-bold text-gray-900">
+                    {project.name}
+                  </h1>
                   <button
                     onClick={startEditingProject}
                     className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
@@ -4044,44 +4618,61 @@ const ProjectDetail: React.FC = () => {
                 )}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                   <div>
-                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Start Date</span>
+                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                      Start Date
+                    </span>
                     <p className="text-sm text-gray-900 mt-1">
                       {project.start_date
-                        ? new Date(project.start_date).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric'
-                          })
-                        : 'Not set'}
+                        ? new Date(project.start_date).toLocaleDateString(
+                            "en-US",
+                            {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            },
+                          )
+                        : "Not set"}
                     </p>
                   </div>
                   <div>
-                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">State</span>
+                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                      State
+                    </span>
                     <div className="mt-1">
                       <ProjectStatusDropdown
                         currentState={project.state}
                         projectId={project.id}
                         onStateUpdate={(newState) => {
-                          setProject(prev => prev ? { ...prev, state: newState } : null);
+                          setProject((prev) =>
+                            prev ? { ...prev, state: newState } : null,
+                          );
                         }}
                       />
                     </div>
                   </div>
                   <div>
-                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Status</span>
+                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                      Status
+                    </span>
                     <div className="mt-1">
                       <ProjectHealthStatus
                         currentStatus={project.health_status}
                         projectId={project.id}
                         onStatusUpdate={(newStatus) => {
-                          setProject(prev => prev ? { ...prev, health_status: newStatus } : null);
+                          setProject((prev) =>
+                            prev ? { ...prev, health_status: newStatus } : null,
+                          );
                         }}
                       />
                     </div>
                   </div>
                   <div>
-                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Created</span>
-                    <p className="text-sm text-gray-900 mt-1">{formatDate(project.created_at)}</p>
+                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                      Created
+                    </span>
+                    <p className="text-sm text-gray-900 mt-1">
+                      {formatDate(project.created_at)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -4101,8 +4692,8 @@ const ProjectDetail: React.FC = () => {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === tab.id
-                    ? 'border-primary-500 text-primary-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? "border-primary-500 text-primary-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               >
                 <Icon className="w-5 h-5" />
@@ -4115,26 +4706,44 @@ const ProjectDetail: React.FC = () => {
 
       {/* Tab Content */}
       <div className="space-y-6 overflow-visible">
-        {activeTab === 'overview' && (
+        {activeTab === "overview" && (
           <div className="overflow-visible">
             {overviewConfig && overviewConfig.sections.length > 0 ? (
               <div className="space-y-8 overflow-visible">
                 {overviewConfig.sections.map((section) => (
-                  <div key={section.id} className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6 overflow-visible">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-6">{section.name}</h3>
+                  <div
+                    key={section.id}
+                    className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6 overflow-visible"
+                  >
+                    <h3 className="text-lg font-semibold text-gray-900 mb-6">
+                      {section.name}
+                    </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 overflow-visible">
                       {section.fields.map((field) => (
                         <div key={field.id} className="overflow-visible">
                           <div className="flex items-center justify-between mb-1">
                             <label className="block text-sm font-medium text-gray-700">
-                              {field.customField.field_name.split('_').map(word =>
-                                word.charAt(0).toUpperCase() + word.slice(1)
-                              ).join(' ')}
-                              {field.customField.is_required && <span className="text-red-500 ml-1">*</span>}
+                              {field.customField.field_name
+                                .split("_")
+                                .map(
+                                  (word) =>
+                                    word.charAt(0).toUpperCase() +
+                                    word.slice(1),
+                                )
+                                .join(" ")}
+                              {field.customField.is_required && (
+                                <span className="text-red-500 ml-1">*</span>
+                              )}
                             </label>
                             {field.customField.track_history && (
                               <button
-                                onClick={() => loadFieldHistory(field.customField.id, field.customField.field_label || field.customField.field_name)}
+                                onClick={() =>
+                                  loadFieldHistory(
+                                    field.customField.id,
+                                    field.customField.field_label ||
+                                      field.customField.field_name,
+                                  )
+                                }
                                 className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded"
                                 title="View history"
                               >
@@ -4143,9 +4752,11 @@ const ProjectDetail: React.FC = () => {
                               </button>
                             )}
                           </div>
-                          {(field.customField.field_label || field.customField.field_description) && (
+                          {(field.customField.field_label ||
+                            field.customField.field_description) && (
                             <p className="text-xs text-gray-500 mb-2">
-                              {field.customField.field_label || field.customField.field_description}
+                              {field.customField.field_label ||
+                                field.customField.field_description}
                             </p>
                           )}
                           {renderFieldControl(field)}
@@ -4177,12 +4788,15 @@ const ProjectDetail: React.FC = () => {
             ) : (
               <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-8 text-center">
                 <Target className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Overview Configuration</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  No Overview Configuration
+                </h3>
                 <p className="text-gray-600 mb-4">
-                  This project template doesn't have an overview page configuration yet.
+                  This project template doesn't have an overview page
+                  configuration yet.
                 </p>
                 <button
-                  onClick={() => navigate('/settings')}
+                  onClick={() => navigate("/settings")}
                   className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                 >
                   Configure Overview Page
@@ -4192,28 +4806,36 @@ const ProjectDetail: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'timeline' && (
-          <div className={isGanttFullscreen ? "fixed inset-0 z-50 bg-white p-6" : "bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6"}>
+        {activeTab === "timeline" && (
+          <div
+            className={
+              isGanttFullscreen
+                ? "fixed inset-0 z-50 bg-white p-6"
+                : "bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6"
+            }
+          >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-4">
-                <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Project Timeline
+                </h3>
                 <div className="flex items-center bg-gray-100 rounded-lg p-1">
                   <button
-                    onClick={() => setTimelineView('gantt')}
+                    onClick={() => setTimelineView("gantt")}
                     className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                      timelineView === 'gantt'
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
+                      timelineView === "gantt"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
                     }`}
                   >
                     Gantt View
                   </button>
                   <button
-                    onClick={() => setTimelineView('scheduler')}
+                    onClick={() => setTimelineView("scheduler")}
                     className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                      timelineView === 'scheduler'
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
+                      timelineView === "scheduler"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
                     }`}
                   >
                     Calendar View
@@ -4221,7 +4843,7 @@ const ProjectDetail: React.FC = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {timelineView === 'gantt' && (
+                {timelineView === "gantt" && (
                   <>
                     <button
                       onClick={() => {
@@ -4248,9 +4870,15 @@ const ProjectDetail: React.FC = () => {
                     <button
                       onClick={() => setIsGanttFullscreen(!isGanttFullscreen)}
                       className="inline-flex items-center justify-center w-9 h-9 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                      title={isGanttFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+                      title={
+                        isGanttFullscreen ? "Exit Fullscreen" : "Fullscreen"
+                      }
                     >
-                      {isGanttFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                      {isGanttFullscreen ? (
+                        <Minimize2 className="w-4 h-4" />
+                      ) : (
+                        <Maximize2 className="w-4 h-4" />
+                      )}
                     </button>
                   </>
                 )}
@@ -4258,7 +4886,7 @@ const ProjectDetail: React.FC = () => {
             </div>
 
             {/* Microsoft-style Ribbon */}
-            {timelineView === 'gantt' && (
+            {timelineView === "gantt" && (
               <div className="mb-4 bg-gradient-to-b from-gray-50 to-white border border-gray-200 rounded-lg shadow-sm">
                 <div className="px-4 py-3">
                   <div className="flex items-start gap-1">
@@ -4272,22 +4900,32 @@ const ProjectDetail: React.FC = () => {
                           }
                         }}
                         className="flex flex-col items-center justify-center px-3 py-2 hover:bg-blue-50 rounded-md transition-colors group min-w-[70px]"
-                        title={isGroupedByOwner ? 'Show All Tasks' : 'Group by Owner'}
+                        title={
+                          isGroupedByOwner ? "Show All Tasks" : "Group by Owner"
+                        }
                       >
                         <Group className="w-6 h-6 text-blue-600 mb-1" />
                         <span className="text-xs text-gray-700 text-center leading-tight">
-                          {isGroupedByOwner ? 'Show All' : 'Group by'}<br />Owner
+                          {isGroupedByOwner ? "Show All" : "Group by"}
+                          <br />
+                          Owner
                         </span>
                       </button>
 
                       <button
                         onClick={() => setShowResourcePanel(!showResourcePanel)}
                         className="flex flex-col items-center justify-center px-3 py-2 hover:bg-blue-50 rounded-md transition-colors group min-w-[70px]"
-                        title={showResourcePanel ? 'Hide Resources' : 'Show Resources'}
+                        title={
+                          showResourcePanel
+                            ? "Hide Resources"
+                            : "Show Resources"
+                        }
                       >
                         <Users className="w-6 h-6 text-blue-600 mb-1" />
                         <span className="text-xs text-gray-700 text-center leading-tight">
-                          {showResourcePanel ? 'Hide' : 'Show'}<br />Resources
+                          {showResourcePanel ? "Hide" : "Show"}
+                          <br />
+                          Resources
                         </span>
                       </button>
                     </div>
@@ -4309,7 +4947,15 @@ const ProjectDetail: React.FC = () => {
                       >
                         <Upload className="w-6 h-6 text-orange-600 mb-1" />
                         <span className="text-xs text-gray-700 text-center leading-tight">
-                          {importingMSProject ? 'Importing...' : <>Upload<br />MS Project</>}
+                          {importingMSProject ? (
+                            "Importing..."
+                          ) : (
+                            <>
+                              Upload
+                              <br />
+                              MS Project
+                            </>
+                          )}
                         </span>
                       </button>
 
@@ -4320,7 +4966,9 @@ const ProjectDetail: React.FC = () => {
                       >
                         <Save className="w-6 h-6 text-amber-600 mb-1" />
                         <span className="text-xs text-gray-700 text-center leading-tight">
-                          Save as<br />Template
+                          Save as
+                          <br />
+                          Template
                         </span>
                       </button>
                     </div>
@@ -4329,7 +4977,9 @@ const ProjectDetail: React.FC = () => {
                     <div className="flex items-center gap-1 px-4 border-r border-gray-300">
                       <div className="relative">
                         <button
-                          onClick={() => setShowTaskFieldsDropdown(!showTaskFieldsDropdown)}
+                          onClick={() =>
+                            setShowTaskFieldsDropdown(!showTaskFieldsDropdown)
+                          }
                           className="flex flex-col items-center justify-center px-3 py-2 hover:bg-emerald-50 rounded-md transition-colors group min-w-[70px]"
                           title="Add custom fields to tasks"
                         >
@@ -4342,21 +4992,31 @@ const ProjectDetail: React.FC = () => {
                             )}
                           </div>
                           <span className="text-xs text-gray-700 text-center leading-tight">
-                            Add Task<br />Fields
+                            Add Task
+                            <br />
+                            Fields
                           </span>
                         </button>
 
                         {showTaskFieldsDropdown && (
                           <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
                             <div className="p-3 border-b border-gray-200">
-                              <h4 className="font-medium text-gray-900">Select Task Fields</h4>
-                              <p className="text-xs text-gray-500 mt-1">Choose fields to display in task pane</p>
+                              <h4 className="font-medium text-gray-900">
+                                Select Task Fields
+                              </h4>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Choose fields to display in task pane
+                              </p>
                             </div>
                             <div className="max-h-80 overflow-y-auto p-2">
                               {taskCustomFields.length === 0 ? (
                                 <div className="text-center py-8 text-gray-500">
-                                  <p className="text-sm">No task fields available</p>
-                                  <p className="text-xs mt-1">Create task fields in Settings</p>
+                                  <p className="text-sm">
+                                    No task fields available
+                                  </p>
+                                  <p className="text-xs mt-1">
+                                    Create task fields in Settings
+                                  </p>
                                 </div>
                               ) : (
                                 taskCustomFields.map((field) => (
@@ -4366,22 +5026,37 @@ const ProjectDetail: React.FC = () => {
                                   >
                                     <input
                                       type="checkbox"
-                                      checked={selectedTaskFields.includes(field.id)}
+                                      checked={selectedTaskFields.includes(
+                                        field.id,
+                                      )}
                                       onChange={(e) => {
                                         if (e.target.checked) {
-                                          setSelectedTaskFields([...selectedTaskFields, field.id]);
+                                          setSelectedTaskFields([
+                                            ...selectedTaskFields,
+                                            field.id,
+                                          ]);
                                         } else {
-                                          setSelectedTaskFields(selectedTaskFields.filter(id => id !== field.id));
+                                          setSelectedTaskFields(
+                                            selectedTaskFields.filter(
+                                              (id) => id !== field.id,
+                                            ),
+                                          );
                                         }
                                       }}
                                       className="mt-1 w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
                                     />
                                     <div className="flex-1">
-                                      <div className="text-sm font-medium text-gray-900">{field.field_label}</div>
+                                      <div className="text-sm font-medium text-gray-900">
+                                        {field.field_label}
+                                      </div>
                                       {field.field_description && (
-                                        <div className="text-xs text-gray-500 mt-0.5">{field.field_description}</div>
+                                        <div className="text-xs text-gray-500 mt-0.5">
+                                          {field.field_description}
+                                        </div>
                                       )}
-                                      <div className="text-xs text-gray-400 mt-0.5">Type: {field.field_type}</div>
+                                      <div className="text-xs text-gray-400 mt-0.5">
+                                        Type: {field.field_type}
+                                      </div>
                                     </div>
                                   </label>
                                 ))
@@ -4401,120 +5076,197 @@ const ProjectDetail: React.FC = () => {
 
                       <div className="relative">
                         <button
-                          onClick={() => setShowBaselineDropdown(!showBaselineDropdown)}
+                          onClick={() =>
+                            setShowBaselineDropdown(!showBaselineDropdown)
+                          }
                           className="flex flex-col items-center justify-center px-3 py-2 hover:bg-teal-50 rounded-md transition-colors group min-w-[70px]"
                           title="Set a baseline for the project"
                         >
                           <Flag className="w-6 h-6 text-teal-600 mb-1" />
                           <span className="text-xs text-gray-700 text-center leading-tight">
-                            Set<br />Baseline
+                            Set
+                            <br />
+                            Baseline
                           </span>
                         </button>
 
                         {showBaselineDropdown && (
                           <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
                             <div className="p-3 border-b border-gray-200">
-                              <h4 className="font-medium text-gray-900">Select Baseline</h4>
-                              <p className="text-xs text-gray-500 mt-1">Choose which baseline to set</p>
+                              <h4 className="font-medium text-gray-900">
+                                Select Baseline
+                              </h4>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Choose which baseline to set
+                              </p>
                             </div>
                             <div className="max-h-80 overflow-y-auto p-2">
-                              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((baselineNum) => (
-                                <button
-                                  key={baselineNum}
-                                  onClick={async () => {
-                                    setShowBaselineDropdown(false);
-                                    if (ganttRef.current && id) {
-                                      // Set baseline on Gantt - this updates task data with baseline{N}_StartDate and baseline{N}_EndDate fields
-                                      ganttRef.current.setBaseline(baselineNum);
+                              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(
+                                (baselineNum) => (
+                                  <button
+                                    key={baselineNum}
+                                    onClick={async () => {
+                                      setShowBaselineDropdown(false);
+                                      if (ganttRef.current && id) {
+                                        // Set baseline on Gantt - this updates task data with baseline{N}_StartDate and baseline{N}_EndDate fields
+                                        ganttRef.current.setBaseline(
+                                          baselineNum,
+                                        );
 
-                                      // Save baseline fields to database
-                                      try {
-                                        const ganttInstance = ganttRef.current.getGanttInstance();
+                                        // Save baseline fields to database
+                                        try {
+                                          const ganttInstance =
+                                            ganttRef.current.getGanttInstance();
 
-                                        // Instead of using serialize which strips properties,
-                                        // manually collect all tasks with their full data including baseline fields
-                                        const updatedTasks: any[] = [];
-                                        ganttInstance.eachTask((task: any) => {
-                                          if (task.$group_header) return; // Skip group headers
+                                          // Instead of using serialize which strips properties,
+                                          // manually collect all tasks with their full data including baseline fields
+                                          const updatedTasks: any[] = [];
+                                          ganttInstance.eachTask(
+                                            (task: any) => {
+                                              if (task.$group_header) return; // Skip group headers
 
-                                          // Exclude Date objects (planned_start, planned_end) to avoid timezone issues
-                                          // Keep string-based fields including end_date and baseline fields
-                                          const taskCopy: any = {};
-                                          Object.keys(task).forEach(key => {
-                                            // Exclude Date object fields and internal DHTMLX fields
-                                            if (key.startsWith('planned_start') ||
-                                                key.startsWith('planned_end') ||
-                                                key.startsWith('$')) {
-                                              return;
-                                            }
-                                            // Format date fields to YYYY-MM-DD
-                                            if ((key === 'start_date' || key === 'end_date') && task[key]) {
-                                              taskCopy[key] = formatDateToYYYYMMDD(task[key]);
-                                            } else {
-                                              taskCopy[key] = task[key];
-                                            }
+                                              // Exclude Date objects (planned_start, planned_end) to avoid timezone issues
+                                              // Keep string-based fields including end_date and baseline fields
+                                              const taskCopy: any = {};
+                                              Object.keys(task).forEach(
+                                                (key) => {
+                                                  // Exclude Date object fields and internal DHTMLX fields
+                                                  if (
+                                                    key.startsWith(
+                                                      "planned_start",
+                                                    ) ||
+                                                    key.startsWith(
+                                                      "planned_end",
+                                                    ) ||
+                                                    key.startsWith("$")
+                                                  ) {
+                                                    return;
+                                                  }
+                                                  // Format date fields to YYYY-MM-DD
+                                                  if (
+                                                    (key === "start_date" ||
+                                                      key === "end_date") &&
+                                                    task[key]
+                                                  ) {
+                                                    taskCopy[key] =
+                                                      formatDateToYYYYMMDD(
+                                                        task[key],
+                                                      );
+                                                  } else {
+                                                    taskCopy[key] = task[key];
+                                                  }
+                                                },
+                                              );
+
+                                              updatedTasks.push(taskCopy);
+                                            },
+                                          );
+
+                                          // Get links separately
+                                          const links = ganttInstance
+                                            .getLinks()
+                                            .map((link: any) => ({ ...link }));
+
+                                          // Verify that baseline fields exist and log them
+                                          console.log(
+                                            "\n=== BASELINE SAVE VERIFICATION ===",
+                                          );
+                                          const tasksWithBaseline =
+                                            updatedTasks.filter(
+                                              (task: any) =>
+                                                task[
+                                                  `baseline${baselineNum}_startDate`
+                                                ] &&
+                                                task[
+                                                  `baseline${baselineNum}_endDate`
+                                                ],
+                                            );
+                                          console.log(
+                                            `${tasksWithBaseline.length} tasks have baseline ${baselineNum} fields set`,
+                                          );
+
+                                          // Log first 3 tasks to show what's being saved
+                                          updatedTasks
+                                            .slice(0, 3)
+                                            .forEach((task) => {
+                                              console.log(
+                                                `\nTask ${task.id} (${task.text}) - Fields being saved:`,
+                                              );
+                                              console.log(
+                                                `  start_date: ${task.start_date}`,
+                                              );
+                                              console.log(
+                                                `  end_date: ${task.end_date}`,
+                                              );
+                                              console.log(
+                                                `  duration: ${task.duration}`,
+                                              );
+                                              console.log(
+                                                `  baseline${baselineNum}_startDate: ${task[`baseline${baselineNum}_startDate`]}`,
+                                              );
+                                              console.log(
+                                                `  baseline${baselineNum}_endDate: ${task[`baseline${baselineNum}_endDate`]}`,
+                                              );
+                                              console.log(
+                                                `  baseline${baselineNum}_duration: ${task[`baseline${baselineNum}_duration`]}`,
+                                              );
+                                            });
+                                          console.log(
+                                            "=== END SAVE VERIFICATION ===\n",
+                                          );
+
+                                          // Update the database with the new task data containing baseline fields
+                                          const updatedTaskData = {
+                                            data: updatedTasks,
+                                            links: links,
+                                          };
+
+                                          console.log(
+                                            "Saving task data with baseline fields to database:",
+                                            updatedTaskData,
+                                          );
+
+                                          // Update the record
+                                          const { error: updateError } =
+                                            await supabase
+                                              .from("project_tasks")
+                                              .update({
+                                                task_data: updatedTaskData,
+                                              })
+                                              .eq("project_id", id);
+
+                                          if (updateError) throw updateError;
+
+                                          // Update local state
+                                          setProjectTasks({
+                                            ...projectTasks,
+                                            data: updatedTasks,
+                                            links: links,
                                           });
 
-                                          updatedTasks.push(taskCopy);
-                                        });
-
-                                        // Get links separately
-                                        const links = ganttInstance.getLinks().map((link: any) => ({ ...link }));
-
-                                        // Verify that baseline fields exist and log them
-                                        console.log('\n=== BASELINE SAVE VERIFICATION ===');
-                                        const tasksWithBaseline = updatedTasks.filter((task: any) =>
-                                          task[`baseline${baselineNum}_startDate`] && task[`baseline${baselineNum}_endDate`]
-                                        );
-                                        console.log(`${tasksWithBaseline.length} tasks have baseline ${baselineNum} fields set`);
-
-                                        // Log first 3 tasks to show what's being saved
-                                        updatedTasks.slice(0, 3).forEach(task => {
-                                          console.log(`\nTask ${task.id} (${task.text}) - Fields being saved:`);
-                                          console.log(`  start_date: ${task.start_date}`);
-                                          console.log(`  end_date: ${task.end_date}`);
-                                          console.log(`  duration: ${task.duration}`);
-                                          console.log(`  baseline${baselineNum}_startDate: ${task[`baseline${baselineNum}_startDate`]}`);
-                                          console.log(`  baseline${baselineNum}_endDate: ${task[`baseline${baselineNum}_endDate`]}`);
-                                          console.log(`  baseline${baselineNum}_duration: ${task[`baseline${baselineNum}_duration`]}`);
-                                        });
-                                        console.log('=== END SAVE VERIFICATION ===\n');
-
-                                        // Update the database with the new task data containing baseline fields
-                                        const updatedTaskData = {
-                                          data: updatedTasks,
-                                          links: links
-                                        };
-
-                                        console.log('Saving task data with baseline fields to database:', updatedTaskData);
-
-                                        // Update the record
-                                        const { error: updateError } = await supabase
-                                          .from('project_tasks')
-                                          .update({ task_data: updatedTaskData })
-                                          .eq('project_id', id);
-
-                                        if (updateError) throw updateError;
-
-                                        // Update local state
-                                        setProjectTasks({
-                                          ...projectTasks,
-                                          data: updatedTasks,
-                                          links: links
-                                        });
-
-                                        showNotification(`Baseline ${baselineNum} set successfully! Captured: baseline${baselineNum}_startDate, baseline${baselineNum}_endDate, baseline${baselineNum}_duration`, 'success');
-                                      } catch (error) {
-                                        console.error('Error saving baseline:', error);
-                                        showNotification('Failed to save baseline: ' + (error as Error).message, 'error');
+                                          showNotification(
+                                            `Baseline ${baselineNum} set successfully! Captured: baseline${baselineNum}_startDate, baseline${baselineNum}_endDate, baseline${baselineNum}_duration`,
+                                            "success",
+                                          );
+                                        } catch (error) {
+                                          console.error(
+                                            "Error saving baseline:",
+                                            error,
+                                          );
+                                          showNotification(
+                                            "Failed to save baseline: " +
+                                              (error as Error).message,
+                                            "error",
+                                          );
+                                        }
                                       }
-                                    }
-                                  }}
-                                  className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded text-sm text-gray-900 transition-colors"
-                                >
-                                  Baseline {baselineNum}
-                                </button>
-                              ))}
+                                    }}
+                                    className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded text-sm text-gray-900 transition-colors"
+                                  >
+                                    Baseline {baselineNum}
+                                  </button>
+                                ),
+                              )}
                             </div>
                             <div className="p-3 border-t border-gray-200 flex justify-end gap-2">
                               <button
@@ -4534,7 +5286,9 @@ const ProjectDetail: React.FC = () => {
                       <div className="flex flex-col items-center gap-2">
                         {/* Progress Row */}
                         <div className="flex flex-col items-center">
-                          <span className="text-xs text-gray-600 mb-1 font-medium">Progress</span>
+                          <span className="text-xs text-gray-600 mb-1 font-medium">
+                            Progress
+                          </span>
                           <div className="flex gap-1">
                             <button
                               onClick={() => updateTaskProgress(25)}
@@ -4573,7 +5327,9 @@ const ProjectDetail: React.FC = () => {
 
                         {/* Hierarchy & Links Row */}
                         <div className="flex flex-col items-center">
-                          <span className="text-xs text-gray-600 mb-1 font-medium">Hierarchy & Links</span>
+                          <span className="text-xs text-gray-600 mb-1 font-medium">
+                            Hierarchy & Links
+                          </span>
                           <div className="flex gap-1 items-center">
                             <button
                               onClick={outdentTask}
@@ -4598,7 +5354,11 @@ const ProjectDetail: React.FC = () => {
                               onClick={linkSelectedTasks}
                               disabled={selectedTaskIds.length < 2}
                               className="px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
-                              title={selectedTaskIds.length < 2 ? "Select at least 2 tasks to link (Ctrl+Click)" : `Link ${selectedTaskIds.length} selected tasks sequentially`}
+                              title={
+                                selectedTaskIds.length < 2
+                                  ? "Select at least 2 tasks to link (Ctrl+Click)"
+                                  : `Link ${selectedTaskIds.length} selected tasks sequentially`
+                              }
                             >
                               <Link2 className="w-3 h-3" />
                               Link
@@ -4607,14 +5367,19 @@ const ProjectDetail: React.FC = () => {
                               onClick={unlinkSelectedTasks}
                               disabled={selectedTaskIds.length < 1}
                               className="px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
-                              title={selectedTaskIds.length < 1 ? "Select at least 1 task to unlink" : `Remove links between ${selectedTaskIds.length} selected tasks`}
+                              title={
+                                selectedTaskIds.length < 1
+                                  ? "Select at least 1 task to unlink"
+                                  : `Remove links between ${selectedTaskIds.length} selected tasks`
+                              }
                             >
                               <Unlink className="w-3 h-3" />
                               Unlink
                             </button>
                             {selectedTaskIds.length > 0 && (
                               <span className="text-xs text-gray-600 ml-2 px-2 py-1 bg-blue-50 rounded">
-                                {selectedTaskIds.length} task{selectedTaskIds.length > 1 ? 's' : ''} selected
+                                {selectedTaskIds.length} task
+                                {selectedTaskIds.length > 1 ? "s" : ""} selected
                               </span>
                             )}
                           </div>
@@ -4645,13 +5410,15 @@ const ProjectDetail: React.FC = () => {
                     {/* Tasks Group */}
                     <div className="flex items-center gap-1 pl-4">
                       <button
-                        onClick={() => insertTask('task')}
+                        onClick={() => insertTask("task")}
                         className="flex flex-col items-center justify-center px-3 py-2 hover:bg-sky-50 rounded-md transition-colors group min-w-[70px]"
                         title="Insert a new task (after selected task if any, otherwise at bottom)"
                       >
                         <Plus className="w-6 h-6 text-sky-600 mb-1" />
                         <span className="text-xs text-gray-700 text-center leading-tight">
-                          Insert<br />Task
+                          Insert
+                          <br />
+                          Task
                         </span>
                       </button>
                       <button
@@ -4661,7 +5428,9 @@ const ProjectDetail: React.FC = () => {
                       >
                         <Flag className="w-6 h-6 text-amber-600 mb-1" />
                         <span className="text-xs text-gray-700 text-center leading-tight">
-                          Insert<br />Milestone
+                          Insert
+                          <br />
+                          Milestone
                         </span>
                       </button>
                     </div>
@@ -4670,7 +5439,7 @@ const ProjectDetail: React.FC = () => {
               </div>
             )}
 
-            {timelineView === 'gantt' && (
+            {timelineView === "gantt" && (
               <>
                 <div className="mb-4 flex gap-4">
                   <div className="relative flex-1">
@@ -4684,13 +5453,18 @@ const ProjectDetail: React.FC = () => {
                     />
                   </div>
                   <div className="flex items-center gap-2">
-                    <label htmlFor="gantt-view" className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                    <label
+                      htmlFor="gantt-view"
+                      className="text-sm font-medium text-gray-700 whitespace-nowrap"
+                    >
                       View:
                     </label>
                     <select
                       id="gantt-view"
                       value={ganttView}
-                      onChange={(e) => setGanttView(e.target.value as 'summary' | 'baseline')}
+                      onChange={(e) =>
+                        setGanttView(e.target.value as "summary" | "baseline")
+                      }
                       className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                     >
                       <option value="summary">Task Summary View</option>
@@ -4698,165 +5472,245 @@ const ProjectDetail: React.FC = () => {
                     </select>
                   </div>
                 </div>
-                <div style={{ width: "100%", height: isGanttFullscreen ? "calc(100vh - 150px)" : "600px", overflow: "auto" }}>
+                <div
+                  style={{
+                    width: "100%",
+                    height: isGanttFullscreen ? "calc(100vh - 150px)" : "600px",
+                    overflow: "auto",
+                  }}
+                >
                   <Gantt
-                ref={ganttRef}
-                projectId={id}
-                projecttasks={projectTasks}
-                onTaskUpdate={saveProjectTasks}
-                onTaskSelect={setSelectedTaskId}
-                onTaskMultiSelect={handleTaskMultiSelect}
-                searchQuery={taskSearchQuery}
-                selectedTaskFields={selectedTaskFields}
-                taskCustomFields={taskCustomFields}
-                showResourcePanel={showResourcePanel}
-                projectStartDate={project?.start_date || undefined}
-                viewMode={ganttView}
-                onOpenTaskModal={(parentId) => {
-                  console.log('=== onOpenTaskModal called ===');
-                  console.log('parentId received:', parentId);
-                  console.log('parentId type:', typeof parentId);
-                  console.log('All tasks:', projectTasks.data);
+                    ref={ganttRef}
+                    projectId={id}
+                    projecttasks={projectTasks}
+                    onTaskUpdate={saveProjectTasks}
+                    onTaskSelect={setSelectedTaskId}
+                    onTaskMultiSelect={handleTaskMultiSelect}
+                    searchQuery={taskSearchQuery}
+                    selectedTaskFields={selectedTaskFields}
+                    taskCustomFields={taskCustomFields}
+                    showResourcePanel={showResourcePanel}
+                    projectStartDate={project?.start_date || undefined}
+                    viewMode={ganttView}
+                    onOpenTaskModal={(parentId) => {
+                      console.log("=== onOpenTaskModal called ===");
+                      console.log("parentId received:", parentId);
+                      console.log("parentId type:", typeof parentId);
+                      console.log("All tasks:", projectTasks.data);
 
-                  // Find parent task and get its text/name
-                  let parentWbs = '';
-                  if (parentId) {
-                    const parentTask = projectTasks.data.find((t: any) => t.id === parentId);
-                    console.log('Searching for parent task with ID:', parentId);
-                    console.log('Parent task found:', parentTask);
-                    if (parentTask) {
-                      // Use task text (name) as the identifier, fallback to ID
-                      parentWbs = parentTask.text || parentTask.description || `Task ID: ${parentId}`;
-                      console.log('Parent task identifier:', parentWbs);
-                    } else {
-                      console.log('WARNING: Parent task NOT found for ID:', parentId);
-                      parentWbs = `Task ID: ${parentId}`;
-                    }
-                  }
-
-                  // Set default start date to project start date
-                  const defaultStartDate = project?.start_date
-                    ? new Date(project.start_date).toISOString().split('T')[0]
-                    : '';
-
-                  setTaskForm({
-                    description: '',
-                    start_date: defaultStartDate,
-                    duration: 1,
-                    owner_id: '',
-                    resource_ids: [],
-                    parent_id: parentId,
-                    parent_wbs: parentWbs,
-                    predecessor_ids: [],
-                    type: 'task',
-                    progress: 0
-                  });
-                  console.log('Task form after setting - parent_wbs:', parentWbs);
-                  setResourceAllocations({});
-                  setEditingTaskId(null);
-                  setShowTaskModal(true);
-                }}
-                onEditTask={(taskId) => {
-                  console.log("onEditTask callback called with taskId:", taskId);
-                  // Use ref to get the latest projectTasks value
-                  const currentTasks = projectTasksRef.current;
-                  console.log("projectTasks.data:", currentTasks.data);
-                  console.log("Number of tasks:", currentTasks.data?.length || 0);
-                  const task = currentTasks.data.find((t: any) => t.id === taskId);
-                  console.log("Found task:", task);
-                  if (task) {
-                    let startDate = task.start_date;
-
-                    // Convert Date object to string if needed
-                    if (startDate instanceof Date) {
-                      // Format date in local timezone to avoid timezone shift
-                      const year = startDate.getFullYear();
-                      const month = String(startDate.getMonth() + 1).padStart(2, '0');
-                      const day = String(startDate.getDate()).padStart(2, '0');
-                      startDate = `${year}-${month}-${day}`;
-                    } else if (typeof startDate === 'string' && startDate.includes(' ')) {
-                      startDate = startDate.split(' ')[0];
-                    }
-
-                    // Find predecessor tasks from links (tasks that point to this task)
-                    const predecessorIds = (currentTasks.links || [])
-                      .filter((link: any) => link.target === taskId)
-                      .map((link: any) => link.source);
-
-                    // Get parent WBS if task has a parent
-                    let parentWbs = '';
-                    if (task.parent && task.parent !== 0) {
-                      const parentTask = currentTasks.data.find((t: any) => t.id === task.parent);
-                      if (parentTask) {
-                        parentWbs = parentTask.wbs || parentTask.$wbs || `Task #${task.parent}`;
-                      }
-                    }
-
-                    // Determine resource_ids from task data
-                    let resourceIds = task.resource_ids || [];
-
-                    // If resource_ids is empty but owner_name exists, map owner_name to resource_ids
-                    if (resourceIds.length === 0 && task.owner_name) {
-                      const ownerNames = Array.isArray(task.owner_name) ? task.owner_name : [task.owner_name];
-                      resourceIds = ownerNames
-                        .map(name => {
-                          const member = projectTeamMembers.find(m =>
-                            m.resources?.display_name === name
+                      // Find parent task and get its text/name
+                      let parentWbs = "";
+                      if (parentId) {
+                        const parentTask = projectTasks.data.find(
+                          (t: any) => t.id === parentId,
+                        );
+                        console.log(
+                          "Searching for parent task with ID:",
+                          parentId,
+                        );
+                        console.log("Parent task found:", parentTask);
+                        if (parentTask) {
+                          // Use task text (name) as the identifier, fallback to ID
+                          parentWbs =
+                            parentTask.text ||
+                            parentTask.description ||
+                            `Task ID: ${parentId}`;
+                          console.log("Parent task identifier:", parentWbs);
+                        } else {
+                          console.log(
+                            "WARNING: Parent task NOT found for ID:",
+                            parentId,
                           );
-                          return member?.resource_id;
-                        })
-                        .filter(Boolean); // Remove undefined values
-                    }
+                          parentWbs = `Task ID: ${parentId}`;
+                        }
+                      }
 
-                    console.log("🔍 EDIT TASK - Loading task:", task.text);
-                    console.log("🔍 EDIT TASK - Task resource_ids:", task.resource_ids);
-                    console.log("🔍 EDIT TASK - Task resource_names:", task.resource_names);
-                    console.log("🔍 EDIT TASK - Task work hours:", task.resource_work_hours);
-                    console.log("🔍 EDIT TASK - Task resource_allocations (RAW):", task.resource_allocations);
-                    console.log("🔍 EDIT TASK - Type of resource_allocations:", typeof task.resource_allocations);
-                    console.log("🔍 EDIT TASK - Full task object:", JSON.stringify(task, null, 2));
-                    console.log("🔍 EDIT TASK - Setting form resource_ids:", resourceIds);
+                      // Set default start date to project start date
+                      const defaultStartDate = project?.start_date
+                        ? new Date(project.start_date)
+                            .toISOString()
+                            .split("T")[0]
+                        : "";
 
-                    // Load resource allocations
-                    const allocations: Record<string, number> = {};
-                    if (task.resource_allocations && typeof task.resource_allocations === 'object' && Object.keys(task.resource_allocations).length > 0) {
-                      console.log("🔍 EDIT TASK - Loading allocations from task.resource_allocations");
-                      Object.assign(allocations, task.resource_allocations);
-                    } else {
-                      console.log("🔍 EDIT TASK - No allocations found (or empty object), defaulting to 100%");
-                      // Default to 100% for existing resources without allocation data
-                      resourceIds.forEach(resId => {
-                        allocations[resId] = 100;
+                      setTaskForm({
+                        description: "",
+                        start_date: defaultStartDate,
+                        duration: 1,
+                        owner_id: "",
+                        resource_ids: [],
+                        parent_id: parentId,
+                        parent_wbs: parentWbs,
+                        predecessor_ids: [],
+                        type: "task",
+                        progress: 0,
                       });
-                    }
+                      console.log(
+                        "Task form after setting - parent_wbs:",
+                        parentWbs,
+                      );
+                      setResourceAllocations({});
+                      setEditingTaskId(null);
+                      setShowTaskModal(true);
+                    }}
+                    onEditTask={(taskId) => {
+                      console.log(
+                        "onEditTask callback called with taskId:",
+                        taskId,
+                      );
+                      // Use ref to get the latest projectTasks value
+                      const currentTasks = projectTasksRef.current;
+                      console.log("projectTasks.data:", currentTasks.data);
+                      console.log(
+                        "Number of tasks:",
+                        currentTasks.data?.length || 0,
+                      );
+                      const task = currentTasks.data.find(
+                        (t: any) => t.id === taskId,
+                      );
+                      console.log("Found task:", task);
+                      if (task) {
+                        let startDate = task.start_date;
 
-                    setTaskForm({
-                      description: task.text,
-                      start_date: startDate,
-                      duration: task.duration,
-                      owner_id: task.owner_id || '',
-                      resource_ids: resourceIds,
-                      parent_id: task.parent || undefined,
-                      parent_wbs: parentWbs,
-                      predecessor_ids: predecessorIds,
-                      type: task.type || 'task',
-                      progress: Math.round((task.progress || 0) * 100)
-                    });
-                    setResourceAllocations(allocations);
-                    setEditingTaskId(taskId);
-                    console.log("Opening modal with editingTaskId:", taskId);
-                    console.log("🔍 EDIT TASK - Loaded allocations:", allocations);
-                    setShowTaskModal(true);
-                  } else {
-                    console.error("Task not found for ID:", taskId);
-                  }
-                }}
-              />
+                        // Convert Date object to string if needed
+                        if (startDate instanceof Date) {
+                          // Format date in local timezone to avoid timezone shift
+                          const year = startDate.getFullYear();
+                          const month = String(
+                            startDate.getMonth() + 1,
+                          ).padStart(2, "0");
+                          const day = String(startDate.getDate()).padStart(
+                            2,
+                            "0",
+                          );
+                          startDate = `${year}-${month}-${day}`;
+                        } else if (
+                          typeof startDate === "string" &&
+                          startDate.includes(" ")
+                        ) {
+                          startDate = startDate.split(" ")[0];
+                        }
+
+                        // Find predecessor tasks from links (tasks that point to this task)
+                        const predecessorIds = (currentTasks.links || [])
+                          .filter((link: any) => link.target === taskId)
+                          .map((link: any) => link.source);
+
+                        // Get parent WBS if task has a parent
+                        let parentWbs = "";
+                        if (task.parent && task.parent !== 0) {
+                          const parentTask = currentTasks.data.find(
+                            (t: any) => t.id === task.parent,
+                          );
+                          if (parentTask) {
+                            parentWbs =
+                              parentTask.wbs ||
+                              parentTask.$wbs ||
+                              `Task #${task.parent}`;
+                          }
+                        }
+
+                        // Determine resource_ids from task data
+                        let resourceIds = task.resource_ids || [];
+
+                        // If resource_ids is empty but owner_name exists, map owner_name to resource_ids
+                        if (resourceIds.length === 0 && task.owner_name) {
+                          const ownerNames = Array.isArray(task.owner_name)
+                            ? task.owner_name
+                            : [task.owner_name];
+                          resourceIds = ownerNames
+                            .map((name) => {
+                              const member = projectTeamMembers.find(
+                                (m) => m.resources?.display_name === name,
+                              );
+                              return member?.resource_id;
+                            })
+                            .filter(Boolean); // Remove undefined values
+                        }
+
+                        console.log("🔍 EDIT TASK - Loading task:", task.text);
+                        console.log(
+                          "🔍 EDIT TASK - Task resource_ids:",
+                          task.resource_ids,
+                        );
+                        console.log(
+                          "🔍 EDIT TASK - Task resource_names:",
+                          task.resource_names,
+                        );
+                        console.log(
+                          "🔍 EDIT TASK - Task work hours:",
+                          task.resource_work_hours,
+                        );
+                        console.log(
+                          "🔍 EDIT TASK - Task resource_allocations (RAW):",
+                          task.resource_allocations,
+                        );
+                        console.log(
+                          "🔍 EDIT TASK - Type of resource_allocations:",
+                          typeof task.resource_allocations,
+                        );
+                        console.log(
+                          "🔍 EDIT TASK - Full task object:",
+                          JSON.stringify(task, null, 2),
+                        );
+                        console.log(
+                          "🔍 EDIT TASK - Setting form resource_ids:",
+                          resourceIds,
+                        );
+
+                        // Load resource allocations
+                        const allocations: Record<string, number> = {};
+                        if (
+                          task.resource_allocations &&
+                          typeof task.resource_allocations === "object" &&
+                          Object.keys(task.resource_allocations).length > 0
+                        ) {
+                          console.log(
+                            "🔍 EDIT TASK - Loading allocations from task.resource_allocations",
+                          );
+                          Object.assign(allocations, task.resource_allocations);
+                        } else {
+                          console.log(
+                            "🔍 EDIT TASK - No allocations found (or empty object), defaulting to 100%",
+                          );
+                          // Default to 100% for existing resources without allocation data
+                          resourceIds.forEach((resId) => {
+                            allocations[resId] = 100;
+                          });
+                        }
+
+                        setTaskForm({
+                          description: task.text,
+                          start_date: startDate,
+                          duration: task.duration,
+                          owner_id: task.owner_id || "",
+                          resource_ids: resourceIds,
+                          parent_id: task.parent || undefined,
+                          parent_wbs: parentWbs,
+                          predecessor_ids: predecessorIds,
+                          type: task.type || "task",
+                          progress: Math.round((task.progress || 0) * 100),
+                        });
+                        setResourceAllocations(allocations);
+                        setEditingTaskId(taskId);
+                        console.log(
+                          "Opening modal with editingTaskId:",
+                          taskId,
+                        );
+                        console.log(
+                          "🔍 EDIT TASK - Loaded allocations:",
+                          allocations,
+                        );
+                        setShowTaskModal(true);
+                      } else {
+                        console.error("Task not found for ID:", taskId);
+                      }
+                    }}
+                  />
                 </div>
               </>
             )}
 
-            {timelineView === 'scheduler' && id && (
+            {timelineView === "scheduler" && id && (
               <div style={{ width: "100%", height: "700px" }}>
                 <Scheduler key={`scheduler-${timelineView}`} projectId={id} />
               </div>
@@ -4864,14 +5718,14 @@ const ProjectDetail: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'team' && id && (
+        {activeTab === "team" && id && (
           <ProjectTeams
             projectId={id}
             onTeamMembersChange={fetchProjectTeamMembers}
           />
         )}
 
-        {activeTab === 'risks-issues' && (
+        {activeTab === "risks-issues" && (
           <div className="space-y-8">
             {/* Risks Section */}
             <div>
@@ -4892,8 +5746,12 @@ const ProjectDetail: React.FC = () => {
               {risks.length === 0 ? (
                 <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-8 text-center">
                   <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h4 className="text-lg font-medium text-gray-900 mb-2">No Risks</h4>
-                  <p className="text-gray-600">No risks have been identified for this project yet.</p>
+                  <h4 className="text-lg font-medium text-gray-900 mb-2">
+                    No Risks
+                  </h4>
+                  <p className="text-gray-600">
+                    No risks have been identified for this project yet.
+                  </p>
                 </div>
               ) : (
                 <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -4901,43 +5759,75 @@ const ProjectDetail: React.FC = () => {
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gradient-dark">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Title</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Type</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Description</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Impact</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Created</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                            Title
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                            Type
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                            Description
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                            Impact
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                            Created
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                            Actions
+                          </th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-200" style={{ backgroundColor: '#F9F7FC' }}>
+                      <tbody
+                        className="divide-y divide-gray-200"
+                        style={{ backgroundColor: "#F9F7FC" }}
+                      >
                         {risks.map((risk) => (
                           <tr key={risk.id} className="hover:bg-gray-100">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{risk.title}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {risk.title}
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                risk.type === 'Critical' ? 'bg-red-100 text-red-800' :
-                                risk.type === 'High' ? 'bg-orange-100 text-orange-800' :
-                                'bg-yellow-100 text-yellow-800'
-                              }`}>
+                              <span
+                                className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                  risk.type === "Critical"
+                                    ? "bg-red-100 text-red-800"
+                                    : risk.type === "High"
+                                      ? "bg-orange-100 text-orange-800"
+                                      : "bg-yellow-100 text-yellow-800"
+                                }`}
+                              >
                                 {risk.type}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                risk.status === 'Open' ? 'bg-red-100 text-red-800' :
-                                risk.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
-                                risk.status === 'Resolved' ? 'bg-green-100 text-green-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>
+                              <span
+                                className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                  risk.status === "Open"
+                                    ? "bg-red-100 text-red-800"
+                                    : risk.status === "In Progress"
+                                      ? "bg-yellow-100 text-yellow-800"
+                                      : risk.status === "Resolved"
+                                        ? "bg-green-100 text-green-800"
+                                        : "bg-gray-100 text-gray-800"
+                                }`}
+                              >
                                 {risk.status}
                               </span>
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
                               <div className="truncate">{risk.description}</div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{risk.impact || '-'}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(risk.created_at)}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {risk.impact || "-"}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {formatDate(risk.created_at)}
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               <div className="flex space-x-2">
                                 <button
@@ -4982,8 +5872,12 @@ const ProjectDetail: React.FC = () => {
               {issues.length === 0 ? (
                 <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-8 text-center">
                   <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h4 className="text-lg font-medium text-gray-900 mb-2">No Issues</h4>
-                  <p className="text-gray-600">No issues have been reported for this project yet.</p>
+                  <h4 className="text-lg font-medium text-gray-900 mb-2">
+                    No Issues
+                  </h4>
+                  <p className="text-gray-600">
+                    No issues have been reported for this project yet.
+                  </p>
                 </div>
               ) : (
                 <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -4991,43 +5885,77 @@ const ProjectDetail: React.FC = () => {
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gradient-dark">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Title</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Type</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Description</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Impact</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Created</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                            Title
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                            Type
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                            Description
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                            Impact
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                            Created
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                            Actions
+                          </th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-200" style={{ backgroundColor: '#F9F7FC' }}>
+                      <tbody
+                        className="divide-y divide-gray-200"
+                        style={{ backgroundColor: "#F9F7FC" }}
+                      >
                         {issues.map((issue) => (
                           <tr key={issue.id} className="hover:bg-gray-100">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{issue.title}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {issue.title}
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                issue.type === 'Critical' ? 'bg-red-100 text-red-800' :
-                                issue.type === 'High' ? 'bg-orange-100 text-orange-800' :
-                                'bg-yellow-100 text-yellow-800'
-                              }`}>
+                              <span
+                                className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                  issue.type === "Critical"
+                                    ? "bg-red-100 text-red-800"
+                                    : issue.type === "High"
+                                      ? "bg-orange-100 text-orange-800"
+                                      : "bg-yellow-100 text-yellow-800"
+                                }`}
+                              >
                                 {issue.type}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                issue.status === 'Open' ? 'bg-red-100 text-red-800' :
-                                issue.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
-                                issue.status === 'Resolved' ? 'bg-green-100 text-green-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>
+                              <span
+                                className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                  issue.status === "Open"
+                                    ? "bg-red-100 text-red-800"
+                                    : issue.status === "In Progress"
+                                      ? "bg-yellow-100 text-yellow-800"
+                                      : issue.status === "Resolved"
+                                        ? "bg-green-100 text-green-800"
+                                        : "bg-gray-100 text-gray-800"
+                                }`}
+                              >
                                 {issue.status}
                               </span>
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
-                              <div className="truncate">{issue.description}</div>
+                              <div className="truncate">
+                                {issue.description}
+                              </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{issue.impact || '-'}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(issue.created_at)}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {issue.impact || "-"}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {formatDate(issue.created_at)}
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               <div className="flex space-x-2">
                                 <button
@@ -5055,10 +5983,12 @@ const ProjectDetail: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'change-management' && (
+        {activeTab === "change-management" && (
           <div>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-gray-900">Change Requests</h3>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Change Requests
+              </h3>
               <button
                 onClick={() => {
                   resetChangeRequestForm();
@@ -5074,8 +6004,12 @@ const ProjectDetail: React.FC = () => {
             {changeRequests.length === 0 ? (
               <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-8 text-center">
                 <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h4 className="text-lg font-medium text-gray-900 mb-2">No Change Requests</h4>
-                <p className="text-gray-600">No change requests have been submitted for this project yet.</p>
+                <h4 className="text-lg font-medium text-gray-900 mb-2">
+                  No Change Requests
+                </h4>
+                <p className="text-gray-600">
+                  No change requests have been submitted for this project yet.
+                </p>
               </div>
             ) : (
               <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -5083,85 +6017,150 @@ const ProjectDetail: React.FC = () => {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gradient-dark">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Title</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Type</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Impact</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Description</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Attachments</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Created</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                          Title
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                          Type
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                          Impact
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                          Description
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                          Attachments
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                          Created
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200" style={{ backgroundColor: '#F9F7FC' }}>
+                    <tbody
+                      className="divide-y divide-gray-200"
+                      style={{ backgroundColor: "#F9F7FC" }}
+                    >
                       {changeRequests.map((changeRequest) => (
-                        <tr key={changeRequest.id} className="hover:bg-gray-100">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{changeRequest.request_title}</td>
+                        <tr
+                          key={changeRequest.id}
+                          className="hover:bg-gray-100"
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {changeRequest.request_title}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              changeRequest.type === 'Scope Change' ? 'bg-blue-100 text-blue-800' :
-                              changeRequest.type === 'Schedule Change' ? 'bg-purple-100 text-purple-800' :
-                              changeRequest.type === 'Budget Change' ? 'bg-green-100 text-green-800' :
-                              changeRequest.type === 'Resource Change' ? 'bg-orange-100 text-orange-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
+                            <span
+                              className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                changeRequest.type === "Scope Change"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : changeRequest.type === "Schedule Change"
+                                    ? "bg-purple-100 text-purple-800"
+                                    : changeRequest.type === "Budget Change"
+                                      ? "bg-green-100 text-green-800"
+                                      : changeRequest.type === "Resource Change"
+                                        ? "bg-orange-100 text-orange-800"
+                                        : "bg-gray-100 text-gray-800"
+                              }`}
+                            >
                               {changeRequest.type}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              changeRequest.status === 'Pending Review' ? 'bg-yellow-100 text-yellow-800' :
-                              changeRequest.status === 'Under Review' ? 'bg-blue-100 text-blue-800' :
-                              changeRequest.status === 'Approved' ? 'bg-green-100 text-green-800' :
-                              changeRequest.status === 'Rejected' ? 'bg-red-100 text-red-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
+                            <span
+                              className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                changeRequest.status === "Pending Review"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : changeRequest.status === "Under Review"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : changeRequest.status === "Approved"
+                                      ? "bg-green-100 text-green-800"
+                                      : changeRequest.status === "Rejected"
+                                        ? "bg-red-100 text-red-800"
+                                        : "bg-gray-100 text-gray-800"
+                              }`}
+                            >
                               {changeRequest.status}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center space-x-1">
                               <div className="flex items-center space-x-1">
-                                <span className="text-xs text-gray-500">S:</span>
-                                <div className={`w-2 h-2 rounded-full ${getImpactColor(changeRequest.scope_impact)}`}></div>
+                                <span className="text-xs text-gray-500">
+                                  S:
+                                </span>
+                                <div
+                                  className={`w-2 h-2 rounded-full ${getImpactColor(changeRequest.scope_impact)}`}
+                                ></div>
                               </div>
                               <div className="flex items-center space-x-1">
-                                <span className="text-xs text-gray-500">R:</span>
-                                <div className={`w-2 h-2 rounded-full ${getImpactColor(changeRequest.risk_impact)}`}></div>
+                                <span className="text-xs text-gray-500">
+                                  R:
+                                </span>
+                                <div
+                                  className={`w-2 h-2 rounded-full ${getImpactColor(changeRequest.risk_impact)}`}
+                                ></div>
                               </div>
                               <div className="flex items-center space-x-1">
-                                <span className="text-xs text-gray-500">Re:</span>
-                                <div className={`w-2 h-2 rounded-full ${getImpactColor(changeRequest.resource_impact)}`}></div>
+                                <span className="text-xs text-gray-500">
+                                  Re:
+                                </span>
+                                <div
+                                  className={`w-2 h-2 rounded-full ${getImpactColor(changeRequest.resource_impact)}`}
+                                ></div>
                               </div>
                             </div>
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
-                            <div className="truncate">{changeRequest.description}</div>
+                            <div className="truncate">
+                              {changeRequest.description}
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {getAttachmentCount(changeRequest.attachments) > 0 ? (
+                            {getAttachmentCount(changeRequest.attachments) >
+                            0 ? (
                               <div className="flex items-center space-x-2">
                                 <File className="w-4 h-4 text-primary-600" />
                                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                  {getAttachmentCount(changeRequest.attachments)} file{getAttachmentCount(changeRequest.attachments) !== 1 ? 's' : ''}
+                                  {getAttachmentCount(
+                                    changeRequest.attachments,
+                                  )}{" "}
+                                  file
+                                  {getAttachmentCount(
+                                    changeRequest.attachments,
+                                  ) !== 1
+                                    ? "s"
+                                    : ""}
                                 </span>
                               </div>
                             ) : (
                               <span className="text-gray-400">-</span>
                             )}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(changeRequest.created_at)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatDate(changeRequest.created_at)}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex items-center space-x-2">
                               <button
-                                onClick={() => handleViewChangeRequest(changeRequest)}
+                                onClick={() =>
+                                  handleViewChangeRequest(changeRequest)
+                                }
                                 className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
                                 title="View Details"
                               >
                                 <Eye className="w-4 h-4" />
                               </button>
                               <button
-                                onClick={() => handleEditChangeRequest(changeRequest)}
+                                onClick={() =>
+                                  handleEditChangeRequest(changeRequest)
+                                }
                                 className="text-primary-600 hover:text-blue-900 p-1 rounded hover:bg-primary-50"
                                 title="Edit"
                               >
@@ -5179,14 +6178,19 @@ const ProjectDetail: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'budget' && (
+        {activeTab === "budget" && (
           <div className="space-y-6">
             {budgets.length === 0 ? (
               <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="text-center py-12">
                   <DollarSign className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Budget Categories Yet</h3>
-                  <p className="text-gray-600 mb-6">Add budget categories to start tracking your annual forecast.</p>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    No Budget Categories Yet
+                  </h3>
+                  <p className="text-gray-600 mb-6">
+                    Add budget categories to start tracking your annual
+                    forecast.
+                  </p>
                   <button
                     onClick={handleAddBudget}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
@@ -5199,7 +6203,9 @@ const ProjectDetail: React.FC = () => {
             ) : (
               <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900">Annual Budget Forecast ({selectedYear})</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Annual Budget Forecast ({selectedYear})
+                  </h3>
                   <div className="flex items-center gap-4">
                     <button
                       onClick={handleAddBudget}
@@ -5213,22 +6219,41 @@ const ProjectDetail: React.FC = () => {
                       <span className="text-sm text-gray-600">View:</span>
                       <select
                         value={budgetViewFilter}
-                        onChange={(e) => setBudgetViewFilter(e.target.value as 'monthly' | 'yearly')}
+                        onChange={(e) =>
+                          setBudgetViewFilter(
+                            e.target.value as "monthly" | "yearly",
+                          )
+                        }
                         className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                       >
                         <option value="yearly">Yearly</option>
                         <option value="monthly">Monthly</option>
                       </select>
                     </label>
-                    {budgetViewFilter === 'monthly' && (
+                    {budgetViewFilter === "monthly" && (
                       <label className="flex items-center gap-2">
                         <span className="text-sm text-gray-600">Month:</span>
                         <select
                           value={selectedMonth}
-                          onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                          onChange={(e) =>
+                            setSelectedMonth(Number(e.target.value))
+                          }
                           className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                         >
-                          {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((month, index) => (
+                          {[
+                            "January",
+                            "February",
+                            "March",
+                            "April",
+                            "May",
+                            "June",
+                            "July",
+                            "August",
+                            "September",
+                            "October",
+                            "November",
+                            "December",
+                          ].map((month, index) => (
                             <option key={index} value={index}>
                               {month}
                             </option>
@@ -5240,10 +6265,15 @@ const ProjectDetail: React.FC = () => {
                       <span className="text-sm text-gray-600">Year:</span>
                       <select
                         value={selectedYear}
-                        onChange={(e) => setSelectedYear(Number(e.target.value))}
+                        onChange={(e) =>
+                          setSelectedYear(Number(e.target.value))
+                        }
                         className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                       >
-                        {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
+                        {Array.from(
+                          { length: 5 },
+                          (_, i) => new Date().getFullYear() - 2 + i,
+                        ).map((year) => (
                           <option key={year} value={year}>
                             {year}
                           </option>
@@ -5261,10 +6291,16 @@ const ProjectDetail: React.FC = () => {
 
                 <div className="mb-4 p-3 bg-primary-50 border border-blue-200 rounded-lg">
                   <p className="text-sm text-blue-800">
-                    <strong>How to use:</strong> Enter your forecasted amounts for each month, then record actual spending.
-                    The system automatically calculates variance percentages.
-                    <span className="text-green-600 font-medium"> Green</span> indicates under budget,
-                    <span className="text-red-600 font-medium"> red</span> indicates over budget.
+                    <strong>How to use:</strong> Enter your forecasted amounts
+                    for each month, then record actual spending. The system
+                    automatically calculates variance percentages.
+                    <span className="text-green-600 font-medium">
+                      {" "}
+                      Green
+                    </span>{" "}
+                    indicates under budget,
+                    <span className="text-red-600 font-medium"> red</span>{" "}
+                    indicates over budget.
                   </p>
                 </div>
                 <MonthlyBudgetGrid
@@ -5277,25 +6313,35 @@ const ProjectDetail: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'benefit-tracking' && (
+        {activeTab === "benefit-tracking" && (
           <BenefitTracking projectId={id!} />
         )}
 
-        {activeTab === 'settings' && (
+        {activeTab === "settings" && (
           <div className="space-y-6">
             <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900">Project Documents</h3>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Project Documents
+                </h3>
                 <DocumentUpload
                   projectId={id!}
                   onUploadSuccess={() => {
-                    console.log('[ProjectDetail] Upload successful, refreshing documents');
+                    console.log(
+                      "[ProjectDetail] Upload successful, refreshing documents",
+                    );
                     fetchDocuments();
-                    showNotification('Document uploaded successfully!', 'success');
+                    showNotification(
+                      "Document uploaded successfully!",
+                      "success",
+                    );
                   }}
                   onUploadError={(message) => {
-                    console.error('[ProjectDetail] Upload error:', message);
-                    showNotification(`Error uploading document: ${message}`, 'error');
+                    console.error("[ProjectDetail] Upload error:", message);
+                    showNotification(
+                      `Error uploading document: ${message}`,
+                      "error",
+                    );
                   }}
                 />
               </div>
@@ -5303,8 +6349,12 @@ const ProjectDetail: React.FC = () => {
               {documents.length === 0 ? (
                 <div className="text-center py-12">
                   <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Documents Yet</h3>
-                  <p className="text-gray-600">Upload your first document to get started.</p>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    No Documents Yet
+                  </h3>
+                  <p className="text-gray-600">
+                    Upload your first document to get started.
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -5320,7 +6370,8 @@ const ProjectDetail: React.FC = () => {
                             {doc.file_name}
                           </h4>
                           <p className="text-xs text-gray-500">
-                            {formatFileSize(doc.file_size)} • {new Date(doc.created_at).toLocaleDateString()}
+                            {formatFileSize(doc.file_size)} •{" "}
+                            {new Date(doc.created_at).toLocaleDateString()}
                           </p>
                         </div>
                       </div>
@@ -5357,9 +6408,12 @@ const ProjectDetail: React.FC = () => {
             <div className="flex items-center justify-between px-8 py-5 border-b border-gray-200">
               <div>
                 <h3 className="text-xl font-semibold text-gray-900">
-                  {editingRisk ? 'Edit Risk' : 'Add New Risk'}
+                  {editingRisk ? "Edit Risk" : "Add New Risk"}
                 </h3>
-                <p className="text-sm text-gray-500 mt-0.5">Fill in the details below to {editingRisk ? 'update the' : 'log a new'} risk</p>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Fill in the details below to{" "}
+                  {editingRisk ? "update the" : "log a new"} risk
+                </p>
               </div>
               <button
                 type="button"
@@ -5371,15 +6425,21 @@ const ProjectDetail: React.FC = () => {
             </div>
 
             {/* Scrollable body */}
-            <form onSubmit={handleRiskSubmit} className="flex flex-col flex-1 min-h-0">
+            <form
+              onSubmit={handleRiskSubmit}
+              className="flex flex-col flex-1 min-h-0"
+            >
               <div className="px-8 py-6 overflow-y-auto flex-1 space-y-6">
-
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Title <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Title <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     value={riskForm.title}
-                    onChange={(e) => setRiskForm({ ...riskForm, title: e.target.value })}
+                    onChange={(e) =>
+                      setRiskForm({ ...riskForm, title: e.target.value })
+                    }
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Brief risk title"
                     required
@@ -5388,18 +6448,26 @@ const ProjectDetail: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-5">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Owner</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Owner
+                    </label>
                     <PeoplePicker
                       value={riskForm.owner}
-                      onChange={(resourceId) => setRiskForm({ ...riskForm, owner: resourceId })}
+                      onChange={(resourceId) =>
+                        setRiskForm({ ...riskForm, owner: resourceId })
+                      }
                       placeholder="Search for owner..."
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Assigned To</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Assigned To
+                    </label>
                     <PeoplePicker
                       value={riskForm.assigned_to}
-                      onChange={(resourceId) => setRiskForm({ ...riskForm, assigned_to: resourceId })}
+                      onChange={(resourceId) =>
+                        setRiskForm({ ...riskForm, assigned_to: resourceId })
+                      }
                       placeholder="Search for assignee..."
                     />
                   </div>
@@ -5407,10 +6475,14 @@ const ProjectDetail: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-5">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Status
+                    </label>
                     <select
                       value={riskForm.status}
-                      onChange={(e) => setRiskForm({ ...riskForm, status: e.target.value })}
+                      onChange={(e) =>
+                        setRiskForm({ ...riskForm, status: e.target.value })
+                      }
                       className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="Active">Active</option>
@@ -5418,10 +6490,14 @@ const ProjectDetail: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Category
+                    </label>
                     <select
                       value={riskForm.category}
-                      onChange={(e) => setRiskForm({ ...riskForm, category: e.target.value })}
+                      onChange={(e) =>
+                        setRiskForm({ ...riskForm, category: e.target.value })
+                      }
                       className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="Resource">Resource</option>
@@ -5434,21 +6510,32 @@ const ProjectDetail: React.FC = () => {
 
                 <div className="grid grid-cols-3 gap-5">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Probability (0–100)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Probability (0–100)
+                    </label>
                     <input
                       type="number"
                       min="0"
                       max="100"
                       value={riskForm.probability}
-                      onChange={(e) => setRiskForm({ ...riskForm, probability: parseInt(e.target.value) || 0 })}
+                      onChange={(e) =>
+                        setRiskForm({
+                          ...riskForm,
+                          probability: parseInt(e.target.value) || 0,
+                        })
+                      }
                       className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Impact</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Impact
+                    </label>
                     <select
                       value={riskForm.impact}
-                      onChange={(e) => setRiskForm({ ...riskForm, impact: e.target.value })}
+                      onChange={(e) =>
+                        setRiskForm({ ...riskForm, impact: e.target.value })
+                      }
                       className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="Low">Low</option>
@@ -5458,23 +6545,34 @@ const ProjectDetail: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Cost</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Cost
+                    </label>
                     <input
                       type="number"
                       step="0.01"
                       min="0"
                       value={riskForm.cost}
-                      onChange={(e) => setRiskForm({ ...riskForm, cost: parseFloat(e.target.value) || 0 })}
+                      onChange={(e) =>
+                        setRiskForm({
+                          ...riskForm,
+                          cost: parseFloat(e.target.value) || 0,
+                        })
+                      }
                       className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description <span className="text-red-500">*</span>
+                  </label>
                   <textarea
                     value={riskForm.description}
-                    onChange={(e) => setRiskForm({ ...riskForm, description: e.target.value })}
+                    onChange={(e) =>
+                      setRiskForm({ ...riskForm, description: e.target.value })
+                    }
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                     rows={3}
                     placeholder="Describe the risk in detail..."
@@ -5483,10 +6581,14 @@ const ProjectDetail: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Notes
+                  </label>
                   <textarea
                     value={riskForm.notes}
-                    onChange={(e) => setRiskForm({ ...riskForm, notes: e.target.value })}
+                    onChange={(e) =>
+                      setRiskForm({ ...riskForm, notes: e.target.value })
+                    }
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                     rows={3}
                     placeholder="Additional notes or mitigation steps..."
@@ -5497,7 +6599,12 @@ const ProjectDetail: React.FC = () => {
                   entityType="risk"
                   entityId={editingRisk?.id}
                   values={riskCustomFieldValues}
-                  onChange={(fieldName, value) => setRiskCustomFieldValues({ ...riskCustomFieldValues, [fieldName]: value })}
+                  onChange={(fieldName, value) =>
+                    setRiskCustomFieldValues({
+                      ...riskCustomFieldValues,
+                      [fieldName]: value,
+                    })
+                  }
                 />
               </div>
 
@@ -5514,7 +6621,7 @@ const ProjectDetail: React.FC = () => {
                   type="submit"
                   className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
                 >
-                  {editingRisk ? 'Update Risk' : 'Add Risk'}
+                  {editingRisk ? "Update Risk" : "Add Risk"}
                 </button>
               </div>
             </form>
@@ -5530,9 +6637,12 @@ const ProjectDetail: React.FC = () => {
             <div className="flex items-center justify-between px-8 py-5 border-b border-gray-200">
               <div>
                 <h3 className="text-xl font-semibold text-gray-900">
-                  {editingIssue ? 'Edit Issue' : 'Add New Issue'}
+                  {editingIssue ? "Edit Issue" : "Add New Issue"}
                 </h3>
-                <p className="text-sm text-gray-500 mt-0.5">Fill in the details below to {editingIssue ? 'update the' : 'log a new'} issue</p>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Fill in the details below to{" "}
+                  {editingIssue ? "update the" : "log a new"} issue
+                </p>
               </div>
               <button
                 type="button"
@@ -5544,15 +6654,21 @@ const ProjectDetail: React.FC = () => {
             </div>
 
             {/* Scrollable body */}
-            <form onSubmit={handleIssueSubmit} className="flex flex-col flex-1 min-h-0">
+            <form
+              onSubmit={handleIssueSubmit}
+              className="flex flex-col flex-1 min-h-0"
+            >
               <div className="px-8 py-6 overflow-y-auto flex-1 space-y-6">
-
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Title <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Title <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     value={issueForm.title}
-                    onChange={(e) => setIssueForm({ ...issueForm, title: e.target.value })}
+                    onChange={(e) =>
+                      setIssueForm({ ...issueForm, title: e.target.value })
+                    }
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Brief issue title"
                     required
@@ -5561,18 +6677,26 @@ const ProjectDetail: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-5">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Owner</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Owner
+                    </label>
                     <PeoplePicker
                       value={issueForm.owner}
-                      onChange={(resourceId) => setIssueForm({ ...issueForm, owner: resourceId })}
+                      onChange={(resourceId) =>
+                        setIssueForm({ ...issueForm, owner: resourceId })
+                      }
                       placeholder="Search for owner..."
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Assigned To</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Assigned To
+                    </label>
                     <PeoplePicker
                       value={issueForm.assigned_to}
-                      onChange={(resourceId) => setIssueForm({ ...issueForm, assigned_to: resourceId })}
+                      onChange={(resourceId) =>
+                        setIssueForm({ ...issueForm, assigned_to: resourceId })
+                      }
                       placeholder="Search for assignee..."
                     />
                   </div>
@@ -5580,10 +6704,14 @@ const ProjectDetail: React.FC = () => {
 
                 <div className="grid grid-cols-3 gap-5">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Status
+                    </label>
                     <select
                       value={issueForm.status}
-                      onChange={(e) => setIssueForm({ ...issueForm, status: e.target.value })}
+                      onChange={(e) =>
+                        setIssueForm({ ...issueForm, status: e.target.value })
+                      }
                       className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="Active">Active</option>
@@ -5591,10 +6719,14 @@ const ProjectDetail: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Category
+                    </label>
                     <select
                       value={issueForm.category}
-                      onChange={(e) => setIssueForm({ ...issueForm, category: e.target.value })}
+                      onChange={(e) =>
+                        setIssueForm({ ...issueForm, category: e.target.value })
+                      }
                       className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="Resource">Resource</option>
@@ -5604,10 +6736,14 @@ const ProjectDetail: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Impact</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Impact
+                    </label>
                     <select
                       value={issueForm.impact}
-                      onChange={(e) => setIssueForm({ ...issueForm, impact: e.target.value })}
+                      onChange={(e) =>
+                        setIssueForm({ ...issueForm, impact: e.target.value })
+                      }
                       className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="Low">Low</option>
@@ -5619,10 +6755,17 @@ const ProjectDetail: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description <span className="text-red-500">*</span>
+                  </label>
                   <textarea
                     value={issueForm.description}
-                    onChange={(e) => setIssueForm({ ...issueForm, description: e.target.value })}
+                    onChange={(e) =>
+                      setIssueForm({
+                        ...issueForm,
+                        description: e.target.value,
+                      })
+                    }
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                     rows={3}
                     placeholder="Describe the issue in detail..."
@@ -5631,10 +6774,14 @@ const ProjectDetail: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Resolution</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Resolution
+                  </label>
                   <textarea
                     value={issueForm.resolution}
-                    onChange={(e) => setIssueForm({ ...issueForm, resolution: e.target.value })}
+                    onChange={(e) =>
+                      setIssueForm({ ...issueForm, resolution: e.target.value })
+                    }
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                     rows={3}
                     placeholder="Proposed or applied resolution..."
@@ -5645,7 +6792,12 @@ const ProjectDetail: React.FC = () => {
                   entityType="issue"
                   entityId={editingIssue?.id}
                   values={issueCustomFieldValues}
-                  onChange={(fieldName, value) => setIssueCustomFieldValues({ ...issueCustomFieldValues, [fieldName]: value })}
+                  onChange={(fieldName, value) =>
+                    setIssueCustomFieldValues({
+                      ...issueCustomFieldValues,
+                      [fieldName]: value,
+                    })
+                  }
                 />
               </div>
 
@@ -5662,7 +6814,7 @@ const ProjectDetail: React.FC = () => {
                   type="submit"
                   className="flex-1 px-4 py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium"
                 >
-                  {editingIssue ? 'Update Issue' : 'Add Issue'}
+                  {editingIssue ? "Update Issue" : "Add Issue"}
                 </button>
               </div>
             </form>
@@ -5675,7 +6827,9 @@ const ProjectDetail: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              {editingBudget ? 'Edit Budget Categories' : 'Add Budget Categories'}
+              {editingBudget
+                ? "Edit Budget Categories"
+                : "Add Budget Categories"}
             </h3>
             <div className="space-y-4">
               <div>
@@ -5685,8 +6839,13 @@ const ProjectDetail: React.FC = () => {
                 <div className="space-y-2 max-h-96 overflow-y-auto border border-gray-300 rounded-lg p-3">
                   {getCostCategoryOptions().length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
-                      <p className="text-sm mb-2">No budget categories available.</p>
-                      <p className="text-xs">Please add budget categories in Settings → Budget Categories first.</p>
+                      <p className="text-sm mb-2">
+                        No budget categories available.
+                      </p>
+                      <p className="text-xs">
+                        Please add budget categories in Settings → Budget
+                        Categories first.
+                      </p>
                     </div>
                   ) : (
                     getCostCategoryOptions().map((category) => (
@@ -5700,14 +6859,18 @@ const ProjectDetail: React.FC = () => {
                           onChange={() => handleCategoryToggle(category)}
                           className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                         />
-                        <span className="text-sm text-gray-900">{category}</span>
+                        <span className="text-sm text-gray-900">
+                          {category}
+                        </span>
                       </label>
                     ))
                   )}
                 </div>
                 {budgetForm.categories.length > 0 && (
                   <div className="mt-3">
-                    <p className="text-sm text-gray-600 mb-2">Selected categories:</p>
+                    <p className="text-sm text-gray-600 mb-2">
+                      Selected categories:
+                    </p>
                     <div className="flex flex-wrap gap-2">
                       {budgetForm.categories.map((cat) => (
                         <span
@@ -5741,7 +6904,7 @@ const ProjectDetail: React.FC = () => {
                   onClick={handleSaveBudget}
                   className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                 >
-                  {editingBudget ? 'Update Budget' : 'Add Budget'}
+                  {editingBudget ? "Update Budget" : "Add Budget"}
                 </button>
               </div>
             </div>
@@ -5754,24 +6917,40 @@ const ProjectDetail: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              {editingChangeRequest ? 'Edit Change Request' : 'Add New Change Request'}
+              {editingChangeRequest
+                ? "Edit Change Request"
+                : "Add New Change Request"}
             </h3>
             <form onSubmit={handleChangeRequestSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Title
+                </label>
                 <input
                   type="text"
                   value={changeRequestForm.title}
-                  onChange={(e) => setChangeRequestForm({ ...changeRequestForm, title: e.target.value })}
+                  onChange={(e) =>
+                    setChangeRequestForm({
+                      ...changeRequestForm,
+                      title: e.target.value,
+                    })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Type
+                </label>
                 <select
                   value={changeRequestForm.type}
-                  onChange={(e) => setChangeRequestForm({ ...changeRequestForm, type: e.target.value })}
+                  onChange={(e) =>
+                    setChangeRequestForm({
+                      ...changeRequestForm,
+                      type: e.target.value,
+                    })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   <option value="Scope Change">Scope Change</option>
@@ -5782,20 +6961,34 @@ const ProjectDetail: React.FC = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description
+                </label>
                 <textarea
                   value={changeRequestForm.description}
-                  onChange={(e) => setChangeRequestForm({ ...changeRequestForm, description: e.target.value })}
+                  onChange={(e) =>
+                    setChangeRequestForm({
+                      ...changeRequestForm,
+                      description: e.target.value,
+                    })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   rows={3}
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Justification</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Justification
+                </label>
                 <textarea
                   value={changeRequestForm.justification}
-                  onChange={(e) => setChangeRequestForm({ ...changeRequestForm, justification: e.target.value })}
+                  onChange={(e) =>
+                    setChangeRequestForm({
+                      ...changeRequestForm,
+                      justification: e.target.value,
+                    })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   rows={3}
                   required
@@ -5803,10 +6996,17 @@ const ProjectDetail: React.FC = () => {
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Scope Impact</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Scope Impact
+                  </label>
                   <select
                     value={changeRequestForm.scope_impact}
-                    onChange={(e) => setChangeRequestForm({ ...changeRequestForm, scope_impact: e.target.value })}
+                    onChange={(e) =>
+                      setChangeRequestForm({
+                        ...changeRequestForm,
+                        scope_impact: e.target.value,
+                      })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
                     <option value="Low">Low</option>
@@ -5815,10 +7015,17 @@ const ProjectDetail: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Risk Impact</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Risk Impact
+                  </label>
                   <select
                     value={changeRequestForm.risk_impact}
-                    onChange={(e) => setChangeRequestForm({ ...changeRequestForm, risk_impact: e.target.value })}
+                    onChange={(e) =>
+                      setChangeRequestForm({
+                        ...changeRequestForm,
+                        risk_impact: e.target.value,
+                      })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
                     <option value="Low">Low</option>
@@ -5827,10 +7034,17 @@ const ProjectDetail: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Resource Impact</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Resource Impact
+                  </label>
                   <select
                     value={changeRequestForm.resource_impact}
-                    onChange={(e) => setChangeRequestForm({ ...changeRequestForm, resource_impact: e.target.value })}
+                    onChange={(e) =>
+                      setChangeRequestForm({
+                        ...changeRequestForm,
+                        resource_impact: e.target.value,
+                      })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
                     <option value="Low">Low</option>
@@ -5840,15 +7054,22 @@ const ProjectDetail: React.FC = () => {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Cost Impact</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cost Impact
+                </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+                    $
+                  </span>
                   <input
                     type="text"
                     value={formatCurrency(changeRequestForm.cost_impact)}
                     onChange={(e) => {
                       const formatted = formatCurrency(e.target.value);
-                      setChangeRequestForm({ ...changeRequestForm, cost_impact: parseCurrency(formatted) });
+                      setChangeRequestForm({
+                        ...changeRequestForm,
+                        cost_impact: parseCurrency(formatted),
+                      });
                     }}
                     className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="0.00"
@@ -5856,10 +7077,17 @@ const ProjectDetail: React.FC = () => {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Status
+                </label>
                 <select
                   value={changeRequestForm.status}
-                  onChange={(e) => setChangeRequestForm({ ...changeRequestForm, status: e.target.value })}
+                  onChange={(e) =>
+                    setChangeRequestForm({
+                      ...changeRequestForm,
+                      status: e.target.value,
+                    })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   <option value="Pending">Pending</option>
@@ -5869,7 +7097,9 @@ const ProjectDetail: React.FC = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Attachments</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Attachments
+                </label>
 
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors">
                   <input
@@ -5886,7 +7116,9 @@ const ProjectDetail: React.FC = () => {
                   >
                     <Upload className="w-8 h-8 text-gray-400 mb-2" />
                     <span className="text-sm text-gray-600">
-                      {uploading ? 'Uploading...' : 'Click to upload or drag and drop'}
+                      {uploading
+                        ? "Uploading..."
+                        : "Click to upload or drag and drop"}
                     </span>
                     <span className="text-xs text-gray-500 mt-1">
                       PDF, DOC, XLS, PPT, Images, ZIP (Max 10MB per file)
@@ -5896,7 +7128,9 @@ const ProjectDetail: React.FC = () => {
 
                 {uploadedFiles.length > 0 && (
                   <div className="mt-4 space-y-2">
-                    <p className="text-sm font-medium text-gray-700">Uploaded Files:</p>
+                    <p className="text-sm font-medium text-gray-700">
+                      Uploaded Files:
+                    </p>
                     {uploadedFiles.map((file, index) => (
                       <div
                         key={index}
@@ -5905,7 +7139,9 @@ const ProjectDetail: React.FC = () => {
                         <div className="flex items-center space-x-3">
                           <File className="w-5 h-5 text-primary-600" />
                           <div>
-                            <p className="text-sm font-medium text-gray-900">{file.fileName}</p>
+                            <p className="text-sm font-medium text-gray-900">
+                              {file.fileName}
+                            </p>
                             <p className="text-xs text-gray-500">
                               {(file.fileSize / 1024).toFixed(2)} KB
                             </p>
@@ -5914,7 +7150,9 @@ const ProjectDetail: React.FC = () => {
                         <div className="flex items-center space-x-2">
                           <button
                             type="button"
-                            onClick={() => handleDownloadAttachment(file.path, file.fileName)}
+                            onClick={() =>
+                              handleDownloadAttachment(file.path, file.fileName)
+                            }
                             className="p-1 text-primary-600 hover:text-blue-900 hover:bg-primary-50 rounded transition-colors"
                             title="Download"
                           >
@@ -5939,7 +7177,12 @@ const ProjectDetail: React.FC = () => {
                 entityType="change_request"
                 entityId={editingChangeRequest?.id}
                 values={changeRequestCustomFieldValues}
-                onChange={(fieldName, value) => setChangeRequestCustomFieldValues({ ...changeRequestCustomFieldValues, [fieldName]: value })}
+                onChange={(fieldName, value) =>
+                  setChangeRequestCustomFieldValues({
+                    ...changeRequestCustomFieldValues,
+                    [fieldName]: value,
+                  })
+                }
               />
 
               <div className="flex space-x-4 pt-4">
@@ -5954,7 +7197,9 @@ const ProjectDetail: React.FC = () => {
                   type="submit"
                   className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                 >
-                  {editingChangeRequest ? 'Update Change Request' : 'Add Change Request'}
+                  {editingChangeRequest
+                    ? "Update Change Request"
+                    : "Add Change Request"}
                 </button>
               </div>
             </form>
@@ -5966,7 +7211,9 @@ const ProjectDetail: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-              <h3 className="text-xl font-bold text-gray-900">Change Request Details</h3>
+              <h3 className="text-xl font-bold text-gray-900">
+                Change Request Details
+              </h3>
               <button
                 onClick={() => setShowChangeRequestPreview(false)}
                 className="text-gray-400 hover:text-gray-600"
@@ -5978,118 +7225,185 @@ const ProjectDetail: React.FC = () => {
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Title</label>
-                  <p className="text-base text-gray-900 font-semibold">{viewingChangeRequest.request_title}</p>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                    Title
+                  </label>
+                  <p className="text-base text-gray-900 font-semibold">
+                    {viewingChangeRequest.request_title}
+                  </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Type</label>
-                  <p className="text-base text-gray-900">{viewingChangeRequest.type}</p>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                    Type
+                  </label>
+                  <p className="text-base text-gray-900">
+                    {viewingChangeRequest.type}
+                  </p>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Status</label>
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                  viewingChangeRequest.status === 'Approved' ? 'bg-green-100 text-green-800' :
-                  viewingChangeRequest.status === 'Rejected' ? 'bg-red-100 text-red-800' :
-                  viewingChangeRequest.status === 'Under Review' ? 'bg-yellow-100 text-yellow-800' :
-                  viewingChangeRequest.status === 'Implemented' ? 'bg-blue-100 text-blue-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
+                <label className="block text-sm font-medium text-gray-500 mb-1">
+                  Status
+                </label>
+                <span
+                  className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                    viewingChangeRequest.status === "Approved"
+                      ? "bg-green-100 text-green-800"
+                      : viewingChangeRequest.status === "Rejected"
+                        ? "bg-red-100 text-red-800"
+                        : viewingChangeRequest.status === "Under Review"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : viewingChangeRequest.status === "Implemented"
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-gray-100 text-gray-800"
+                  }`}
+                >
                   {viewingChangeRequest.status}
                 </span>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Description</label>
-                <p className="text-base text-gray-900 whitespace-pre-wrap">{viewingChangeRequest.description}</p>
+                <label className="block text-sm font-medium text-gray-500 mb-1">
+                  Description
+                </label>
+                <p className="text-base text-gray-900 whitespace-pre-wrap">
+                  {viewingChangeRequest.description}
+                </p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Justification</label>
-                <p className="text-base text-gray-900 whitespace-pre-wrap">{viewingChangeRequest.justification}</p>
+                <label className="block text-sm font-medium text-gray-500 mb-1">
+                  Justification
+                </label>
+                <p className="text-base text-gray-900 whitespace-pre-wrap">
+                  {viewingChangeRequest.justification}
+                </p>
               </div>
 
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-2">Scope Impact</label>
+                  <label className="block text-sm font-medium text-gray-500 mb-2">
+                    Scope Impact
+                  </label>
                   <div className="flex items-center space-x-2">
-                    <div className={`w-3 h-3 rounded-full ${getImpactColor(viewingChangeRequest.scope_impact)}`}></div>
-                    <span className="text-base text-gray-900">{viewingChangeRequest.scope_impact}</span>
+                    <div
+                      className={`w-3 h-3 rounded-full ${getImpactColor(viewingChangeRequest.scope_impact)}`}
+                    ></div>
+                    <span className="text-base text-gray-900">
+                      {viewingChangeRequest.scope_impact}
+                    </span>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-2">Risk Impact</label>
+                  <label className="block text-sm font-medium text-gray-500 mb-2">
+                    Risk Impact
+                  </label>
                   <div className="flex items-center space-x-2">
-                    <div className={`w-3 h-3 rounded-full ${getImpactColor(viewingChangeRequest.risk_impact)}`}></div>
-                    <span className="text-base text-gray-900">{viewingChangeRequest.risk_impact}</span>
+                    <div
+                      className={`w-3 h-3 rounded-full ${getImpactColor(viewingChangeRequest.risk_impact)}`}
+                    ></div>
+                    <span className="text-base text-gray-900">
+                      {viewingChangeRequest.risk_impact}
+                    </span>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-2">Resource Impact</label>
+                  <label className="block text-sm font-medium text-gray-500 mb-2">
+                    Resource Impact
+                  </label>
                   <div className="flex items-center space-x-2">
-                    <div className={`w-3 h-3 rounded-full ${getImpactColor(viewingChangeRequest.resource_impact)}`}></div>
-                    <span className="text-base text-gray-900">{viewingChangeRequest.resource_impact}</span>
+                    <div
+                      className={`w-3 h-3 rounded-full ${getImpactColor(viewingChangeRequest.resource_impact)}`}
+                    ></div>
+                    <span className="text-base text-gray-900">
+                      {viewingChangeRequest.resource_impact}
+                    </span>
                   </div>
                 </div>
               </div>
 
               {viewingChangeRequest.cost_impact && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Cost Impact</label>
-                  <p className="text-base text-gray-900">{viewingChangeRequest.cost_impact}</p>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                    Cost Impact
+                  </label>
+                  <p className="text-base text-gray-900">
+                    {viewingChangeRequest.cost_impact}
+                  </p>
                 </div>
               )}
 
-              {viewingChangeRequest.attachments && getAttachmentCount(viewingChangeRequest.attachments) > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-3">Attachments</label>
-                  <div className="space-y-2">
-                    {(() => {
-                      try {
-                        const files = JSON.parse(viewingChangeRequest.attachments);
-                        return files.map((file: any, index: number) => (
-                          <div
-                            key={index}
-                            className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
-                          >
-                            <div className="flex items-center space-x-3">
-                              <File className="w-5 h-5 text-primary-600" />
-                              <div>
-                                <p className="text-sm font-medium text-gray-900">{file.fileName}</p>
-                                <p className="text-xs text-gray-500">
-                                  {(file.fileSize / 1024).toFixed(2)} KB
-                                </p>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => handleDownloadFile(file.path, file.fileName)}
-                              className="flex items-center space-x-1 px-3 py-1.5 text-sm text-primary-600 hover:text-blue-900 hover:bg-primary-50 rounded transition-colors"
+              {viewingChangeRequest.attachments &&
+                getAttachmentCount(viewingChangeRequest.attachments) > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-3">
+                      Attachments
+                    </label>
+                    <div className="space-y-2">
+                      {(() => {
+                        try {
+                          const files = JSON.parse(
+                            viewingChangeRequest.attachments,
+                          );
+                          return files.map((file: any, index: number) => (
+                            <div
+                              key={index}
+                              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
                             >
-                              <Download className="w-4 h-4" />
-                              <span>Download</span>
-                            </button>
-                          </div>
-                        ));
-                      } catch (e) {
-                        return <p className="text-sm text-gray-500">No attachments available</p>;
-                      }
-                    })()}
+                              <div className="flex items-center space-x-3">
+                                <File className="w-5 h-5 text-primary-600" />
+                                <div>
+                                  <p className="text-sm font-medium text-gray-900">
+                                    {file.fileName}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {(file.fileSize / 1024).toFixed(2)} KB
+                                  </p>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() =>
+                                  handleDownloadFile(file.path, file.fileName)
+                                }
+                                className="flex items-center space-x-1 px-3 py-1.5 text-sm text-primary-600 hover:text-blue-900 hover:bg-primary-50 rounded transition-colors"
+                              >
+                                <Download className="w-4 h-4" />
+                                <span>Download</span>
+                              </button>
+                            </div>
+                          ));
+                        } catch (e) {
+                          return (
+                            <p className="text-sm text-gray-500">
+                              No attachments available
+                            </p>
+                          );
+                        }
+                      })()}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
               <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-200">
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Created</label>
-                  <p className="text-sm text-gray-900">{formatDate(viewingChangeRequest.created_at)}</p>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                    Created
+                  </label>
+                  <p className="text-sm text-gray-900">
+                    {formatDate(viewingChangeRequest.created_at)}
+                  </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Last Updated</label>
-                  <p className="text-sm text-gray-900">{formatDate(viewingChangeRequest.updated_at)}</p>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                    Last Updated
+                  </label>
+                  <p className="text-sm text-gray-900">
+                    {formatDate(viewingChangeRequest.updated_at)}
+                  </p>
                 </div>
               </div>
 
@@ -6127,14 +7441,15 @@ const ProjectDetail: React.FC = () => {
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900">
                     {editingTaskId
-                      ? 'Edit Task'
+                      ? "Edit Task"
                       : taskForm.parent_id
-                        ? 'Create Subtask'
-                        : 'Create New Task'}
+                        ? "Create Subtask"
+                        : "Create New Task"}
                   </h3>
                   {!editingTaskId && taskForm.parent_wbs && (
                     <p className="text-sm text-gray-500 mt-1">
-                      This will be created as a subtask under {taskForm.parent_wbs}
+                      This will be created as a subtask under{" "}
+                      {taskForm.parent_wbs}
                     </p>
                   )}
                 </div>
@@ -6143,16 +7458,16 @@ const ProjectDetail: React.FC = () => {
                     setShowTaskModal(false);
                     setEditingTaskId(null);
                     setTaskForm({
-                      description: '',
-                      start_date: '',
+                      description: "",
+                      start_date: "",
                       duration: 1,
-                      owner_id: '',
+                      owner_id: "",
                       resource_ids: [],
                       parent_id: undefined,
-                      parent_wbs: '',
+                      parent_wbs: "",
                       predecessor_ids: [],
-                      type: 'task',
-                      progress: 0
+                      type: "task",
+                      progress: 0,
                     });
                   }}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -6175,7 +7490,8 @@ const ProjectDetail: React.FC = () => {
                       placeholder="No parent task"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      This task will be created as a subtask under the parent task shown above
+                      This task will be created as a subtask under the parent
+                      task shown above
                     </p>
                   </div>
                 )}
@@ -6187,7 +7503,9 @@ const ProjectDetail: React.FC = () => {
                   <input
                     type="text"
                     value={taskForm.description}
-                    onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
+                    onChange={(e) =>
+                      setTaskForm({ ...taskForm, description: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Enter task name..."
                     required
@@ -6200,7 +7518,9 @@ const ProjectDetail: React.FC = () => {
                   </label>
                   <select
                     value={taskForm.type}
-                    onChange={(e) => setTaskForm({ ...taskForm, type: e.target.value })}
+                    onChange={(e) =>
+                      setTaskForm({ ...taskForm, type: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   >
@@ -6208,8 +7528,10 @@ const ProjectDetail: React.FC = () => {
                     <option value="milestone">Milestone</option>
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
-                    {taskForm.type === 'task' && 'Standard task with start date, duration, and progress tracking'}
-                    {taskForm.type === 'milestone' && 'Key event or goal marker with zero duration'}
+                    {taskForm.type === "task" &&
+                      "Standard task with start date, duration, and progress tracking"}
+                    {taskForm.type === "milestone" &&
+                      "Key event or goal marker with zero duration"}
                   </p>
                 </div>
 
@@ -6220,43 +7542,63 @@ const ProjectDetail: React.FC = () => {
                   <input
                     type="date"
                     value={taskForm.start_date}
-                    onChange={(e) => setTaskForm({ ...taskForm, start_date: e.target.value })}
+                    onChange={(e) =>
+                      setTaskForm({ ...taskForm, start_date: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Duration (Days) {taskForm.type !== 'milestone' && <span className="text-red-500">*</span>}
+                    Duration (Days){" "}
+                    {taskForm.type !== "milestone" && (
+                      <span className="text-red-500">*</span>
+                    )}
                   </label>
                   <input
                     type="number"
-                    min={taskForm.type === 'milestone' ? '0' : '1'}
-                    value={taskForm.type === 'milestone' ? 0 : taskForm.duration}
+                    min={taskForm.type === "milestone" ? "0" : "1"}
+                    value={
+                      taskForm.type === "milestone" ? 0 : taskForm.duration
+                    }
                     onChange={(e) => {
                       const value = parseInt(e.target.value);
-                      setTaskForm({ ...taskForm, duration: taskForm.type === 'milestone' ? 0 : (value || 1) });
+                      setTaskForm({
+                        ...taskForm,
+                        duration:
+                          taskForm.type === "milestone" ? 0 : value || 1,
+                      });
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
                     placeholder="Enter duration in days..."
-                    required={taskForm.type !== 'milestone'}
-                    disabled={taskForm.type === 'milestone' || taskForm.type === 'project'}
+                    required={taskForm.type !== "milestone"}
+                    disabled={
+                      taskForm.type === "milestone" ||
+                      taskForm.type === "project"
+                    }
                   />
-                  {taskForm.type === 'milestone' && (
+                  {taskForm.type === "milestone" && (
                     <p className="text-xs text-gray-500 mt-1">
                       Milestones have zero duration by default
                     </p>
                   )}
-                  {taskForm.type === 'project' && (
+                  {taskForm.type === "project" && (
                     <p className="text-xs text-gray-500 mt-1">
                       Summary task duration is calculated from subtasks
                     </p>
                   )}
-                  {taskForm.type === 'task' && taskForm.start_date && taskForm.duration > 0 && (
-                    <p className="text-xs text-blue-600 mt-1">
-                      Task will end on: {calculateEndDate(taskForm.start_date, taskForm.duration)}
-                    </p>
-                  )}
+                  {taskForm.type === "task" &&
+                    taskForm.start_date &&
+                    taskForm.duration > 0 && (
+                      <p className="text-xs text-blue-600 mt-1">
+                        Task will end on:{" "}
+                        {calculateEndDate(
+                          taskForm.start_date,
+                          taskForm.duration,
+                        )}
+                      </p>
+                    )}
                 </div>
 
                 <div>
@@ -6266,33 +7608,44 @@ const ProjectDetail: React.FC = () => {
                   <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto">
                     {projectTeamMembers.length === 0 ? (
                       <p className="text-sm text-gray-500">
-                        No team members assigned. Add team members in the Team tab first.
+                        No team members assigned. Add team members in the Team
+                        tab first.
                       </p>
                     ) : (
                       <div className="space-y-2">
-                        {projectTeamMembers.map(member => (
+                        {projectTeamMembers.map((member) => (
                           <div key={member.id} className="space-y-1">
                             <label className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                               <input
                                 type="checkbox"
-                                checked={taskForm.resource_ids.includes(member.resource_id)}
+                                checked={taskForm.resource_ids.includes(
+                                  member.resource_id,
+                                )}
                                 onChange={(e) => {
                                   const resourceId = member.resource_id;
                                   if (e.target.checked) {
                                     setTaskForm({
                                       ...taskForm,
-                                      resource_ids: [...taskForm.resource_ids, resourceId]
+                                      resource_ids: [
+                                        ...taskForm.resource_ids,
+                                        resourceId,
+                                      ],
                                     });
                                     setResourceAllocations({
                                       ...resourceAllocations,
-                                      [resourceId]: 100
+                                      [resourceId]: 100,
                                     });
                                   } else {
                                     setTaskForm({
                                       ...taskForm,
-                                      resource_ids: taskForm.resource_ids.filter(id => id !== resourceId)
+                                      resource_ids:
+                                        taskForm.resource_ids.filter(
+                                          (id) => id !== resourceId,
+                                        ),
                                     });
-                                    const newAllocations = { ...resourceAllocations };
+                                    const newAllocations = {
+                                      ...resourceAllocations,
+                                    };
                                     delete newAllocations[resourceId];
                                     setResourceAllocations(newAllocations);
                                   }
@@ -6300,23 +7653,36 @@ const ProjectDetail: React.FC = () => {
                                 className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                               />
                               <span className="text-sm text-gray-700 flex-1">
-                                {member.resources?.display_name || 'Unknown'}
+                                {member.resources?.display_name || "Unknown"}
                               </span>
                             </label>
-                            {taskForm.resource_ids.includes(member.resource_id) && (
+                            {taskForm.resource_ids.includes(
+                              member.resource_id,
+                            ) && (
                               <div className="ml-6 flex items-center gap-2">
-                                <label className="text-xs text-gray-600 w-20">Allocation:</label>
+                                <label className="text-xs text-gray-600 w-20">
+                                  Allocation:
+                                </label>
                                 <input
                                   type="number"
                                   min="0"
                                   max="100"
                                   step="1"
-                                  value={resourceAllocations[member.resource_id] || 100}
+                                  value={
+                                    resourceAllocations[member.resource_id] ||
+                                    100
+                                  }
                                   onChange={(e) => {
-                                    const value = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                                    const value = Math.min(
+                                      100,
+                                      Math.max(
+                                        0,
+                                        parseInt(e.target.value) || 0,
+                                      ),
+                                    );
                                     setResourceAllocations({
                                       ...resourceAllocations,
-                                      [member.resource_id]: value
+                                      [member.resource_id]: value,
                                     });
                                   }}
                                   className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -6347,9 +7713,14 @@ const ProjectDetail: React.FC = () => {
                       max="100"
                       step="1"
                       value={taskForm.progress}
-                      onChange={(e) => setTaskForm({ ...taskForm, progress: parseInt(e.target.value) })}
+                      onChange={(e) =>
+                        setTaskForm({
+                          ...taskForm,
+                          progress: parseInt(e.target.value),
+                        })
+                      }
                       className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                      disabled={taskForm.type === 'milestone'}
+                      disabled={taskForm.type === "milestone"}
                     />
                     <input
                       type="number"
@@ -6357,20 +7728,23 @@ const ProjectDetail: React.FC = () => {
                       max="100"
                       value={taskForm.progress}
                       onChange={(e) => {
-                        const value = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                        const value = Math.min(
+                          100,
+                          Math.max(0, parseInt(e.target.value) || 0),
+                        );
                         setTaskForm({ ...taskForm, progress: value });
                       }}
                       className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center disabled:bg-gray-100 disabled:text-gray-500"
-                      disabled={taskForm.type === 'milestone'}
+                      disabled={taskForm.type === "milestone"}
                     />
                     <span className="text-sm font-medium text-gray-700">%</span>
                   </div>
-                  {taskForm.type === 'milestone' && (
+                  {taskForm.type === "milestone" && (
                     <p className="text-xs text-gray-500 mt-1">
                       Milestones don't track progress
                     </p>
                   )}
-                  {taskForm.type === 'project' && (
+                  {taskForm.type === "project" && (
                     <p className="text-xs text-gray-500 mt-1">
                       Summary task progress is calculated from subtasks
                     </p>
@@ -6379,21 +7753,35 @@ const ProjectDetail: React.FC = () => {
 
                 <div>
                   <p className="text-xs text-gray-500 mb-2">
-                    Select tasks that must be completed before this task can start.
+                    Select tasks that must be completed before this task can
+                    start.
                   </p>
                   <SearchableMultiSelect
                     label="Predecessor Tasks"
                     placeholder="Search and select predecessor tasks..."
                     options={getAllTasksWithWBS()
-                      .filter(task => editingTaskId ? task.id !== editingTaskId : true)
+                      .filter((task) =>
+                        editingTaskId ? task.id !== editingTaskId : true,
+                      )
                       .map((task) => ({
                         value: task.id,
-                        label: task.wbs ? `${task.wbs} - ${task.text}` : task.text
+                        label: task.wbs
+                          ? `${task.wbs} - ${task.text}`
+                          : task.text,
                       }))}
                     selectedValues={taskForm.predecessor_ids}
-                    onChange={(values) => setTaskForm({ ...taskForm, predecessor_ids: values as number[] })}
+                    onChange={(values) =>
+                      setTaskForm({
+                        ...taskForm,
+                        predecessor_ids: values as number[],
+                      })
+                    }
                     emptyMessage="No tasks available. Create the task first, then edit it to add predecessors."
-                    disabled={getAllTasksWithWBS().filter(task => editingTaskId ? task.id !== editingTaskId : true).length === 0}
+                    disabled={
+                      getAllTasksWithWBS().filter((task) =>
+                        editingTaskId ? task.id !== editingTaskId : true,
+                      ).length === 0
+                    }
                   />
                 </div>
 
@@ -6403,7 +7791,7 @@ const ProjectDetail: React.FC = () => {
                     className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
                   >
                     <Save className="w-4 h-4" />
-                    <span>{editingTaskId ? 'Update Task' : 'Create Task'}</span>
+                    <span>{editingTaskId ? "Update Task" : "Create Task"}</span>
                   </button>
                   <button
                     type="button"
@@ -6425,14 +7813,18 @@ const ProjectDetail: React.FC = () => {
           <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Save Schedule as Template</h3>
-                <p className="text-sm text-gray-600 mt-1">Create a reusable schedule template</p>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Save Schedule as Template
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Create a reusable schedule template
+                </p>
               </div>
               <button
                 onClick={() => {
                   setShowSaveTemplateModal(false);
-                  setTemplateName('');
-                  setTemplateDescription('');
+                  setTemplateName("");
+                  setTemplateDescription("");
                 }}
                 className="text-gray-400 hover:text-gray-600"
               >
@@ -6467,7 +7859,8 @@ const ProjectDetail: React.FC = () => {
                 </div>
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                   <p className="text-sm text-blue-800">
-                    <strong>Note:</strong> All tasks will be saved with 0% progress and baselines will be cleared.
+                    <strong>Note:</strong> All tasks will be saved with 0%
+                    progress and baselines will be cleared.
                   </p>
                 </div>
               </div>
@@ -6476,8 +7869,8 @@ const ProjectDetail: React.FC = () => {
               <button
                 onClick={() => {
                   setShowSaveTemplateModal(false);
-                  setTemplateName('');
-                  setTemplateDescription('');
+                  setTemplateName("");
+                  setTemplateDescription("");
                 }}
                 className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
               >
@@ -6488,7 +7881,7 @@ const ProjectDetail: React.FC = () => {
                 disabled={saving || !templateName.trim()}
                 className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {saving ? 'Saving...' : 'Save Template'}
+                {saving ? "Saving..." : "Save Template"}
               </button>
             </div>
           </div>
@@ -6500,7 +7893,9 @@ const ProjectDetail: React.FC = () => {
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Field History</h3>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Field History
+                </h3>
                 <p className="text-sm text-gray-600 mt-1">{historyFieldName}</p>
               </div>
               <button
@@ -6518,22 +7913,34 @@ const ProjectDetail: React.FC = () => {
               ) : fieldHistory.length === 0 ? (
                 <div className="text-center py-8 bg-gray-50 rounded-lg">
                   <History className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                  <p className="text-gray-600">No history found for this field</p>
-                  <p className="text-sm text-gray-500 mt-2">Changes will appear here after the field value is updated</p>
+                  <p className="text-gray-600">
+                    No history found for this field
+                  </p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Changes will appear here after the field value is updated
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {fieldHistory.map((record, index) => (
-                    <div key={record.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                    <div
+                      key={record.id}
+                      className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50"
+                    >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="text-sm font-medium text-gray-900">Value:</span>
-                            <span className="text-sm text-gray-700">{record.field_value || '(empty)'}</span>
+                            <span className="text-sm font-medium text-gray-900">
+                              Value:
+                            </span>
+                            <span className="text-sm text-gray-700">
+                              {record.field_value || "(empty)"}
+                            </span>
                           </div>
                           <div className="flex flex-wrap gap-4 text-xs text-gray-500">
                             <span>
-                              <strong>Changed:</strong> {new Date(record.changed_at).toLocaleString()}
+                              <strong>Changed:</strong>{" "}
+                              {new Date(record.changed_at).toLocaleString()}
                             </span>
                             <span>
                               <strong>By:</strong> {record.changed_by}
