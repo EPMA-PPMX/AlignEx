@@ -12,3 +12,5 @@ export const supabase: any = {
   from,
   storage: _storageClient.storage,
 };
+
+// This is updated code
