@@ -9,7 +9,13 @@ const { createClient } = require('@supabase/supabase-js');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || /^http:\/\/localhost(:\d+)?$/.test(origin)) return callback(null, true);
+    callback(null, true);
+  },
+  credentials: true,
+}));
 app.use(express.json());
 
 // ---------------------------------------------------------------------------
@@ -65,26 +71,124 @@ const ALLOWED_TABLES = [
 // ---------------------------------------------------------------------------
 // PostgreSQL pool (Steps 2 & 3)
 // ---------------------------------------------------------------------------
-const dbProvider = (process.env.DB_PROVIDER || 'supabase').toLowerCase();
+const dbProvider = process.env.DB_PROVIDER || (process.env.DATABASE_URL || process.env.AZURE_DB_URL ? 'azure' : 'supabase');
+const dbProviderLowerCase = dbProvider.toLowerCase();
+
+// Supabase REST (PostgREST) helper — used when DB_PROVIDER=supabase and no
+// direct DATABASE_URL is available. Translates the query descriptor into the
+// PostgREST query string conventions.
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+const supabaseRestHeaders = {
+  apikey: SUPABASE_ANON_KEY,
+  Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+  'Content-Type': 'application/json',
+  Prefer: 'return=representation',
+};
+
+function buildPostgRestQuery(descriptor) {
+  const { table, operation, columns, filters, order, limit, data, upsertOptions } = descriptor;
+  const params = new URLSearchParams();
+
+  if (columns && columns !== '*') params.set('select', columns);
+
+  (filters || []).forEach(f => {
+    const col = f.field;
+    switch (f.operator) {
+      case 'eq': params.set(col, `eq.${f.value}`); break;
+      case 'neq': params.set(col, `neq.${f.value}`); break;
+      case 'like': params.set(col, `like.${f.value}`); break;
+      case 'ilike': params.set(col, `ilike.${f.value}`); break;
+      case 'in': params.set(col, `in.(${(f.value || []).join(',')})`); break;
+      case 'not': {
+        const inner = f.value;
+        if (inner.operator === 'in') params.set(col, `notin.(${(inner.value || []).join(',')})`);
+        else params.set(col, `not.eq.${inner.value}`);
+        break;
+      }
+      case 'gte': params.set(col, `gte.${f.value}`); break;
+      case 'lte': params.set(col, `lte.${f.value}`); break;
+      case 'gt': params.set(col, `gt.${f.value}`); break;
+      case 'lt': params.set(col, `lt.${f.value}`); break;
+      case 'is':
+        if (f.value === null) params.set(col, 'is.null');
+        else params.set(col, `is.${f.value}`);
+        break;
+      default: throw new Error(`Unsupported filter operator: ${f.operator}`);
+    }
+  });
+
+  if (order) {
+    params.set('order', `${order.column}.${order.ascending !== false ? 'asc' : 'desc'}`);
+  }
+  if (limit != null) params.set('limit', String(parseInt(limit, 10)));
+
+  return params.toString();
+}
+
+async function supabaseRestQuery(descriptor) {
+  const { table, operation, data, upsertOptions } = descriptor;
+  const qs = buildPostgRestQuery(descriptor);
+  const base = `${SUPABASE_URL}/rest/v1/${table}`;
+
+  let method = 'GET';
+  let body = undefined;
+  let url = `${base}?${qs}`;
+  const headers = { ...supabaseRestHeaders };
+
+  switch (operation) {
+    case 'select': method = 'GET'; break;
+    case 'insert':
+      method = 'POST';
+      body = JSON.stringify(data);
+      break;
+    case 'upsert':
+      method = 'POST';
+      body = JSON.stringify(data);
+      headers['Prefer'] = upsertOptions?.ignoreDuplicates
+        ? 'return=representation,resolution=ignore-duplicates'
+        : 'return=representation,resolution=merge-duplicates';
+      if (upsertOptions?.onConflict) {
+        url = `${base}?${qs}&on_conflict=${encodeURIComponent(upsertOptions.onConflict)}`;
+      }
+      break;
+    case 'update':
+      method = 'PATCH';
+      body = JSON.stringify(data);
+      break;
+    case 'delete':
+      method = 'DELETE';
+      break;
+    default: throw new Error(`Unsupported operation: ${operation}`);
+  }
+
+  const response = await fetch(url, { method, headers, body });
+  const json = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error((json && (json.message || json.error)) || `Supabase REST error ${response.status}`);
+  }
+  return Array.isArray(json) ? json : (json ? [json] : []);
+}
+
+// Decide whether to use the pg pool or the Supabase REST fallback.
+const useSupabaseRest = dbProviderLowerCase === 'supabase' &&
+  !(process.env.DATABASE_URL || process.env.SUPABASE_DB_URL);
 
 let poolConfig;
-if (dbProvider === 'local') {
+if (dbProviderLowerCase === 'local') {
   poolConfig = { connectionString: process.env.LOCAL_DB_URL };
-} else if (dbProvider === 'azure') {
+} else if (dbProviderLowerCase === 'azure') {
   poolConfig = {
     connectionString: process.env.AZURE_DB_URL,
     ssl: { rejectUnauthorized: false },
   };
 } else {
-  // Default: derive connection string from Supabase env vars
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
   const dbUrl = process.env.DATABASE_URL || process.env.SUPABASE_DB_URL || '';
   if (dbUrl) {
     poolConfig = { connectionString: dbUrl, ssl: { rejectUnauthorized: false } };
-  } else if (supabaseUrl) {
-    // Derive Supabase direct connection from project URL
-    // https://<ref>.supabase.co  →  postgresql://postgres:<pwd>@db.<ref>.supabase.co:5432/postgres
-    const ref = supabaseUrl.replace('https://', '').split('.')[0];
+  } else if (SUPABASE_URL) {
+    const ref = SUPABASE_URL.replace('https://', '').split('.')[0];
     const password = encodeURIComponent(process.env.SUPABASE_DB_PASSWORD || process.env.DB_PASSWORD || '');
     poolConfig = {
       connectionString: `postgresql://postgres:${password}@db.${ref}.supabase.co:5432/postgres`,
@@ -325,8 +429,11 @@ app.post('/api/query', async (req, res) => {
   }
 
   try {
+    if (useSupabaseRest) {
+      const rows = await supabaseRestQuery(req.body);
+      return res.json({ data: rows });
+    }
     const { sql, params } = buildSQL(req.body);
-
     const result = await pool.query(sql, params);
     return res.json({ data: result.rows });
   } catch (err) {
@@ -1016,6 +1123,45 @@ app.delete('/api/projects/:projectId/documents/:documentId', async (req, res) =>
   } catch (err) {
     console.error('Delete error:', err);
     res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Raw upload + delete by path — used by the frontend storage proxy
+app.post('/api/projects/documents/upload-raw', (req, res) => {
+  upload.single('file')(req, res, async (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') return res.status(400).json({ error: 'File size exceeds the maximum limit of 10MB' });
+      return res.status(400).json({ error: err.message });
+    } else if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    try {
+      const file = req.file;
+      const bucket = req.body.bucket || 'project-documents';
+      const filePath = req.body.path || `${Date.now()}-${file.originalname}`;
+      if (!file) return res.status(400).json({ error: 'No file uploaded' });
+      const { data, error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(filePath, file.buffer, { contentType: file.mimetype, upsert: false });
+      if (uploadError) return res.status(400).json({ error: uploadError.message });
+      const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
+      res.status(201).json({
+        data: { path: data.path, fullPath: data.fullPath, url: publicUrlData.publicUrl, fileName: file.originalname, fileSize: file.size, mimeType: file.mimetype },
+      });
+    } catch (err) {
+      console.error('Raw upload error:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+});
+
+app.delete('/api/delete/project-document/:path', async (req, res) => {
+  try {
+    const { error } = await supabase.storage.from('project-documents').remove([req.params.path]);
+    if (error) return res.status(400).json({ error: error.message });
+    res.json({ success: true, message: 'Document deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
