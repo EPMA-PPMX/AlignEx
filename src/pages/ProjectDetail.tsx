@@ -20,6 +20,7 @@ import SearchableMultiSelect from '../components/SearchableMultiSelect';
 import DocumentUpload from '../components/DocumentUpload';
 import { loadCustomFieldValues, saveCustomFieldValues } from '../lib/customFieldHelpers';
 import { DEMO_USER_ID } from '../lib/useCurrentUser';
+import { useProjectPermissions } from '../lib/useProjectPermissions';
 
 interface Project {
   id: string;
@@ -410,16 +411,18 @@ const ProjectDetail: React.FC = () => {
   const msProjectFileInputRef = useRef<HTMLInputElement>(null);
   const [importingMSProject, setImportingMSProject] = useState(false);
 
+  const { permissions: projectPerms, loading: permsLoading } = useProjectPermissions(id);
+
   const tabs = [
-    { id: 'overview', name: 'Overview', icon: Target },
-    { id: 'timeline', name: 'Timeline', icon: Calendar },
-    { id: 'team', name: 'Team', icon: Users },
-    { id: 'risks-issues', name: 'Risks & Issues', icon: AlertTriangle },
-    { id: 'change-management', name: 'Change Management', icon: FileText },
-    { id: 'budget', name: 'Budget', icon: DollarSign },
-    { id: 'benefit-tracking', name: 'Benefit Tracking', icon: TrendingUp },
-    { id: 'settings', name: 'Documents', icon: FileText },
-  ];
+    { id: 'overview', name: 'Overview', icon: Target, canView: true },
+    { id: 'timeline', name: 'Timeline', icon: Calendar, canView: projectPerms.canEditSchedule || projectPerms.canView },
+    { id: 'team', name: 'Team', icon: Users, canView: projectPerms.canView },
+    { id: 'risks-issues', name: 'Risks & Issues', icon: AlertTriangle, canView: projectPerms.canView },
+    { id: 'change-management', name: 'Change Management', icon: FileText, canView: projectPerms.canView },
+    { id: 'budget', name: 'Budget', icon: DollarSign, canView: projectPerms.canViewBudget || projectPerms.canView },
+    { id: 'benefit-tracking', name: 'Benefit Tracking', icon: TrendingUp, canView: projectPerms.canView },
+    { id: 'settings', name: 'Documents', icon: FileText, canView: projectPerms.canView },
+  ].filter(tab => tab.canView);
 
   // Update ref whenever projectTasks changes
   useEffect(() => {

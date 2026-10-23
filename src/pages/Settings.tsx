@@ -12,6 +12,7 @@ import IssuesFieldsManagement from '../components/settings/IssuesFieldsManagemen
 import ChangeRequestFieldsManagement from '../components/settings/ChangeRequestFieldsManagement';
 import ProjectManagement from '../components/settings/ProjectManagement';
 import UserManagement from '../components/settings/UserManagement';
+import ProjectSecurityManagement from '../components/settings/ProjectSecurityManagement';
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('profile');
@@ -21,6 +22,7 @@ const Settings: React.FC = () => {
     { id: 'user-management', name: 'User Management', icon: Users },
     { id: 'notifications', name: 'Notifications', icon: Bell },
     { id: 'security', name: 'Security', icon: Shield },
+    { id: 'project-security', name: 'Project Security', icon: Shield },
     { id: 'license-management', name: 'License Management', icon: Key },
     { id: 'appearance', name: 'Appearance', icon: Palette },
     { id: 'integrations', name: 'Integrations', icon: Database },
@@ -257,6 +259,10 @@ const Settings: React.FC = () => {
 
             {activeTab === 'project-management' && (
               <ProjectManagement />
+            )}
+
+            {activeTab === 'project-security' && (
+              <ProjectSecurityManagement />
             )}
 
             {(activeTab === 'integrations' || activeTab === 'general') && (

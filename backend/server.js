@@ -5,6 +5,18 @@ const multer = require('multer');
 const { Pool } = require('pg');
 require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 const { createClient } = require('@supabase/supabase-js');
+const {
+  authMiddleware,
+  buildAuthContext,
+  getVisibleProjectIds,
+  getProjectPermissions,
+  hasProjectPermission,
+  getRequiredPermission,
+  extractProjectId,
+  PROJECT_TABLES,
+  PROJECT_ID_COLUMN,
+  TENANT_TABLES,
+} = require('./authMiddleware');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -17,6 +29,26 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+
+// ---------------------------------------------------------------------------
+// Authentication middleware — applied to ALL /api routes.
+// In dev mode (AUTH_MODE=dev), uses X-Dev-User-Id header or DEV_USER_ID env var.
+// In production (AUTH_MODE=entra), validates Entra ID JWT from Authorization header.
+// Sets req.user with the authenticated user's full profile.
+// Health check endpoint is excluded from auth.
+// ---------------------------------------------------------------------------
+const authenticate = authMiddleware(pool);
+
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'OK', message: 'AlignEx API is running' });
+});
+
+// Apply auth to all other /api routes
+app.use('/api', (req, res, next) => {
+  // Skip auth for health check (already handled above)
+  if (req.path === '/api/health') return next();
+  authenticate(req, res, next);
+});
 
 // ---------------------------------------------------------------------------
 // Table whitelist (Step 4)
@@ -66,6 +98,12 @@ const ALLOWED_TABLES = [
   'custom_field_history',
   'users',
   'user_dashboard_widgets',
+  // Project security tables (Phase 1)
+  'project_roles',
+  'project_role_permissions',
+  'security_categories',
+  'security_category_projects',
+  'security_category_users',
 ];
 
 // ---------------------------------------------------------------------------
@@ -423,22 +461,179 @@ function buildSQL(descriptor) {
 app.post('/api/query', async (req, res) => {
   const { table, operation } = req.body;
 
-  // Step 4: whitelist check
+  // Whitelist check
   if (!ALLOWED_TABLES.includes(table)) {
     return res.status(403).json({ error: { message: `Table '${table}' is not allowed` } });
   }
 
+  // Build auth context from authenticated user
+  const authCtx = buildAuthContext(req.user);
+
   try {
+    // -----------------------------------------------------------------------
+    // Authorization: Project visibility filtering
+    // -----------------------------------------------------------------------
+    let descriptor = { ...req.body };
+
+    if (PROJECT_TABLES.has(table)) {
+      const visibleIds = await getVisibleProjectIds(pool, authCtx);
+      const idCol = PROJECT_ID_COLUMN[table] || 'project_id';
+
+      if (table === 'projects') {
+        // For the projects table, filter by id IN (visible) AND tenant_name
+        if (visibleIds.length === 0) {
+          // User has no visible projects — return empty for reads, deny for writes
+          if (operation === 'select') return res.json({ data: [] });
+          return res.status(403).json({ error: { message: 'No accessible projects' } });
+        }
+        descriptor.filters = [
+          ...(descriptor.filters || []),
+          { field: 'id', operator: 'in', value: visibleIds },
+        ];
+      } else {
+        // For child tables, filter by project_id IN (visible)
+        if (visibleIds.length === 0) {
+          if (operation === 'select') return res.json({ data: [] });
+          return res.status(403).json({ error: { message: 'No accessible projects' } });
+        }
+        descriptor.filters = [
+          ...(descriptor.filters || []),
+          { field: idCol, operator: 'in', value: visibleIds },
+        ];
+      }
+
+      // -----------------------------------------------------------------------
+      // Authorization: Write permission check
+      // -----------------------------------------------------------------------
+      if (operation !== 'select') {
+        const requiredPerm = getRequiredPermission(table, operation);
+        if (requiredPerm) {
+          const projectId = extractProjectId(descriptor);
+          if (projectId) {
+            // For delete operation on projects table, use project.delete permission
+            const checkPerm = (operation === 'delete' && table === 'projects') ? 'project.delete' : requiredPerm;
+            const allowed = await hasProjectPermission(pool, authCtx, projectId, checkPerm);
+            if (!allowed) {
+              return res.status(403).json({
+                error: { message: `You do not have permission to perform this action on this project` }
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Authorization: Tenant isolation for tenant-scoped tables
+    // -----------------------------------------------------------------------
+    if (TENANT_TABLES.has(table) && !PROJECT_TABLES.has(table)) {
+      descriptor.filters = [
+        ...(descriptor.filters || []),
+        { field: 'tenant_name', operator: 'eq', value: authCtx.tenantName },
+      ];
+    }
+
+    // -----------------------------------------------------------------------
+    // Authorization: Special handling for users table (only admins can modify)
+    // -----------------------------------------------------------------------
+    if (table === 'users' && operation !== 'select') {
+      if (!authCtx.isGlobalAdmin) {
+        return res.status(403).json({
+          error: { message: 'Only administrators can modify users' }
+        });
+      }
+    }
+
+    // Execute the query
     if (useSupabaseRest) {
-      const rows = await supabaseRestQuery(req.body);
+      const rows = await supabaseRestQuery(descriptor);
       return res.json({ data: rows });
     }
-    const { sql, params } = buildSQL(req.body);
+    const { sql, params } = buildSQL(descriptor);
     const result = await pool.query(sql, params);
     return res.json({ data: result.rows });
   } catch (err) {
     console.error('[/api/query] error:', err.message, '\nbody:', JSON.stringify(req.body));
     return res.status(400).json({ error: { message: err.message } });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/auth/me — returns the authenticated user's profile and permissions
+// ---------------------------------------------------------------------------
+app.get('/api/auth/me', async (req, res) => {
+  try {
+    const authCtx = buildAuthContext(req.user);
+    const visibleIds = await getVisibleProjectIds(pool, authCtx);
+
+    // Build project permissions map for all visible projects
+    const projectPermissions = {};
+    for (const pid of visibleIds) {
+      const perms = await getProjectPermissions(pool, authCtx, pid);
+      projectPermissions[pid] = Array.from(perms);
+    }
+
+    res.json({
+      data: {
+        user: {
+          id: req.user.id,
+          email: req.user.email,
+          full_name: req.user.full_name,
+          system_role: req.user.system_role,
+          resource_id: req.user.resource_id,
+          avatar_url: req.user.avatar_url,
+          tenant_name: req.user.tenant_name,
+        },
+        authContext: authCtx,
+        visibleProjectIds: visibleIds,
+        projectPermissions,
+      }
+    });
+  } catch (err) {
+    console.error('[/api/auth/me] error:', err.message);
+    res.status(500).json({ error: { message: 'Internal server error' } });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/projects/:id/permissions — returns user's permissions for a project
+// ---------------------------------------------------------------------------
+app.get('/api/projects/:id/permissions', async (req, res) => {
+  try {
+    const authCtx = buildAuthContext(req.user);
+    const projectId = req.params.id;
+
+    // Check visibility first
+    const visibleIds = await getVisibleProjectIds(pool, authCtx);
+    if (!visibleIds.includes(projectId)) {
+      return res.status(403).json({ error: { message: 'You do not have access to this project' } });
+    }
+
+    const perms = await getProjectPermissions(pool, authCtx, projectId);
+    res.json({
+      data: {
+        projectId,
+        permissions: Array.from(perms),
+        canView: perms.has('project.view'),
+        canEditDetails: perms.has('project.edit_details'),
+        canEditSchedule: perms.has('project.edit_schedule'),
+        canEditBudget: perms.has('project.edit_budget'),
+        canViewBudget: perms.has('project.view_budget'),
+        canManageTeam: perms.has('project.manage_team'),
+        canApproveChanges: perms.has('project.approve_changes'),
+        canCreateRisks: perms.has('project.create_risks'),
+        canEditRisks: perms.has('project.edit_risks'),
+        canCreateIssues: perms.has('project.create_issues'),
+        canEditIssues: perms.has('project.edit_issues'),
+        canUploadDocuments: perms.has('project.upload_documents'),
+        canDelete: perms.has('project.delete'),
+        canCreateStatusReport: perms.has('project.create_status_report'),
+        canViewStatusReports: perms.has('project.view_status_reports'),
+      }
+    });
+  } catch (err) {
+    console.error('[/api/projects/:id/permissions] error:', err.message);
+    res.status(500).json({ error: { message: 'Internal server error' } });
   }
 });
 
@@ -544,9 +739,40 @@ app.delete('/api/custom-fields/:id', async (req, res) => {
 // ---------------------------------------------------------------------------
 // Projects Routes
 // ---------------------------------------------------------------------------
+// All routes below already have auth middleware applied (app.use('/api', authenticate))
+// req.user is guaranteed to be populated.
+
+// Helper: check project access for dedicated REST endpoints
+async function checkProjectAccess(req, res, permissionKey) {
+  const authCtx = buildAuthContext(req.user);
+  const projectId = req.params.projectId || req.params.id;
+  if (!projectId) return true; // no project context to check
+
+  const visibleIds = await getVisibleProjectIds(pool, authCtx);
+  if (!visibleIds.includes(projectId)) {
+    res.status(403).json({ error: { message: 'You do not have access to this project' } });
+    return false;
+  }
+
+  if (permissionKey) {
+    const allowed = await hasProjectPermission(pool, authCtx, projectId, permissionKey);
+    if (!allowed) {
+      res.status(403).json({ error: { message: `You do not have permission: ${permissionKey}` } });
+      return false;
+    }
+  }
+  return true;
+}
+
 app.get('/api/projects', async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM projects ORDER BY created_at DESC');
+    const authCtx = buildAuthContext(req.user);
+    const visibleIds = await getVisibleProjectIds(pool, authCtx);
+    if (visibleIds.length === 0) return res.json({ data: [] });
+    const { rows } = await pool.query(
+      `SELECT * FROM projects WHERE id = ANY($1) ORDER BY created_at DESC`,
+      [visibleIds]
+    );
     res.json({ data: rows });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
@@ -555,6 +781,11 @@ app.get('/api/projects', async (req, res) => {
 
 app.get('/api/projects/:id', async (req, res) => {
   try {
+    const authCtx = buildAuthContext(req.user);
+    const visibleIds = await getVisibleProjectIds(pool, authCtx);
+    if (!visibleIds.includes(req.params.id)) {
+      return res.status(403).json({ error: 'You do not have access to this project' });
+    }
     const { rows } = await pool.query('SELECT * FROM projects WHERE id=$1', [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Project not found' });
     res.json({ data: rows[0] });
@@ -565,14 +796,27 @@ app.get('/api/projects/:id', async (req, res) => {
 
 app.post('/api/projects', async (req, res) => {
   try {
+    const authCtx = buildAuthContext(req.user);
     const { name, description, template_id } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'Project name is required' });
     const { rows } = await pool.query(
-      `INSERT INTO projects (name, description, template_id, status)
-       VALUES ($1, $2, $3, 'In-Progress') RETURNING *`,
-      [name.trim(), description ? description.trim() : null, template_id || null]
+      `INSERT INTO projects (name, description, template_id, status, owner_id, tenant_name)
+       VALUES ($1, $2, $3, 'In-Progress', $4, $5) RETURNING *`,
+      [name.trim(), description ? description.trim() : null, template_id || null, authCtx.userId, authCtx.tenantName]
     );
-    res.status(201).json({ message: 'Project created successfully', data: rows[0] });
+    const newProject = rows[0];
+
+    // Auto-add the creator as Project Manager in project_team_members
+    if (authCtx.resourceId) {
+      await pool.query(
+        `INSERT INTO project_team_members (project_id, resource_id, role, tenant_name)
+         VALUES ($1, $2, 'Project Manager', $3)
+         ON CONFLICT DO NOTHING`,
+        [newProject.id, authCtx.resourceId, authCtx.tenantName]
+      );
+    }
+
+    res.status(201).json({ message: 'Project created successfully', data: newProject });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -716,6 +960,7 @@ app.delete('/api/overview-configurations/:templateId', async (req, res) => {
 // ---------------------------------------------------------------------------
 app.get('/api/projects/:projectId/field-values', async (req, res) => {
   try {
+    if (!await checkProjectAccess(req, res, null)) return;
     const { rows } = await pool.query(
       'SELECT * FROM project_field_values WHERE project_id=$1',
       [req.params.projectId]
@@ -728,6 +973,7 @@ app.get('/api/projects/:projectId/field-values', async (req, res) => {
 
 app.post('/api/projects/:projectId/field-values', async (req, res) => {
   try {
+    if (!await checkProjectAccess(req, res, 'project.edit_details')) return;
     const { projectId } = req.params;
     const { fieldValues } = req.body;
     if (!fieldValues || typeof fieldValues !== 'object') {
@@ -760,6 +1006,7 @@ app.post('/api/projects/:projectId/field-values', async (req, res) => {
 
 app.put('/api/projects/:projectId/field-values/:fieldId', async (req, res) => {
   try {
+    if (!await checkProjectAccess(req, res, 'project.edit_details')) return;
     const { projectId, fieldId } = req.params;
     const { field_value } = req.body;
     const { rows } = await pool.query(
@@ -777,6 +1024,7 @@ app.put('/api/projects/:projectId/field-values/:fieldId', async (req, res) => {
 
 app.delete('/api/projects/:projectId/field-values/:fieldId', async (req, res) => {
   try {
+    if (!await checkProjectAccess(req, res, 'project.edit_details')) return;
     await pool.query(
       'DELETE FROM project_field_values WHERE project_id=$1 AND field_id=$2',
       [req.params.projectId, req.params.fieldId]
@@ -792,6 +1040,7 @@ app.delete('/api/projects/:projectId/field-values/:fieldId', async (req, res) =>
 // ---------------------------------------------------------------------------
 app.get('/api/projects/:projectId/risks', async (req, res) => {
   try {
+    if (!await checkProjectAccess(req, res, null)) return;
     const { rows } = await pool.query(
       'SELECT * FROM project_risks WHERE project_id=$1 ORDER BY created_at DESC',
       [req.params.projectId]
@@ -804,6 +1053,7 @@ app.get('/api/projects/:projectId/risks', async (req, res) => {
 
 app.post('/api/projects/:projectId/risks', async (req, res) => {
   try {
+    if (!await checkProjectAccess(req, res, 'project.create_risks')) return;
     const { projectId } = req.params;
     const { title, description, impact, type, status } = req.body;
     if (!title?.trim() || !description?.trim()) {
@@ -828,6 +1078,7 @@ app.post('/api/projects/:projectId/risks', async (req, res) => {
 
 app.put('/api/projects/:projectId/risks/:riskId', async (req, res) => {
   try {
+    if (!await checkProjectAccess(req, res, 'project.edit_risks')) return;
     const { projectId, riskId } = req.params;
     const { title, description, impact, type, status } = req.body;
     const { rows } = await pool.query(
@@ -844,6 +1095,7 @@ app.put('/api/projects/:projectId/risks/:riskId', async (req, res) => {
 
 app.delete('/api/projects/:projectId/risks/:riskId', async (req, res) => {
   try {
+    if (!await checkProjectAccess(req, res, 'project.edit_risks')) return;
     await pool.query(
       'DELETE FROM project_risks WHERE id=$1 AND project_id=$2',
       [req.params.riskId, req.params.projectId]
@@ -859,6 +1111,7 @@ app.delete('/api/projects/:projectId/risks/:riskId', async (req, res) => {
 // ---------------------------------------------------------------------------
 app.get('/api/projects/:projectId/issues', async (req, res) => {
   try {
+    if (!await checkProjectAccess(req, res, null)) return;
     const { rows } = await pool.query(
       'SELECT * FROM project_issues WHERE project_id=$1 ORDER BY created_at DESC',
       [req.params.projectId]
@@ -871,6 +1124,7 @@ app.get('/api/projects/:projectId/issues', async (req, res) => {
 
 app.post('/api/projects/:projectId/issues', async (req, res) => {
   try {
+    if (!await checkProjectAccess(req, res, 'project.create_issues')) return;
     const { projectId } = req.params;
     const { title, description, impact, type, status } = req.body;
     if (!title?.trim() || !description?.trim()) {
@@ -895,6 +1149,7 @@ app.post('/api/projects/:projectId/issues', async (req, res) => {
 
 app.put('/api/projects/:projectId/issues/:issueId', async (req, res) => {
   try {
+    if (!await checkProjectAccess(req, res, 'project.edit_issues')) return;
     const { projectId, issueId } = req.params;
     const { title, description, impact, type, status } = req.body;
     const { rows } = await pool.query(
@@ -911,6 +1166,7 @@ app.put('/api/projects/:projectId/issues/:issueId', async (req, res) => {
 
 app.delete('/api/projects/:projectId/issues/:issueId', async (req, res) => {
   try {
+    if (!await checkProjectAccess(req, res, 'project.edit_issues')) return;
     await pool.query(
       'DELETE FROM project_issues WHERE id=$1 AND project_id=$2',
       [req.params.issueId, req.params.projectId]
@@ -980,6 +1236,7 @@ app.delete('/api/delete/change-request-attachment/:filePath(*)', async (req, res
 // ---------------------------------------------------------------------------
 app.get('/api/projects/:projectId/change-requests', async (req, res) => {
   try {
+    if (!await checkProjectAccess(req, res, null)) return;
     const { rows } = await pool.query(
       'SELECT * FROM change_requests WHERE project_id=$1 ORDER BY created_at DESC',
       [req.params.projectId]
@@ -992,6 +1249,7 @@ app.get('/api/projects/:projectId/change-requests', async (req, res) => {
 
 app.post('/api/projects/:projectId/change-requests', async (req, res) => {
   try {
+    if (!await checkProjectAccess(req, res, null)) return;
     const { projectId } = req.params;
     const { title, type, description, justification, scope_impact, cost_impact, risk_impact, resource_impact, attachments } = req.body;
     if (!title?.trim() || !description?.trim() || !justification?.trim()) {
@@ -1017,6 +1275,7 @@ app.post('/api/projects/:projectId/change-requests', async (req, res) => {
 
 app.put('/api/projects/:projectId/change-requests/:changeRequestId', async (req, res) => {
   try {
+    if (!await checkProjectAccess(req, res, 'project.approve_changes')) return;
     const { projectId, changeRequestId } = req.params;
     const { title, type, description, justification, scope_impact, cost_impact, risk_impact, resource_impact, attachments, status } = req.body;
     const { rows } = await pool.query(
@@ -1034,6 +1293,7 @@ app.put('/api/projects/:projectId/change-requests/:changeRequestId', async (req,
 
 app.delete('/api/projects/:projectId/change-requests/:changeRequestId', async (req, res) => {
   try {
+    if (!await checkProjectAccess(req, res, 'project.approve_changes')) return;
     await pool.query(
       'DELETE FROM change_requests WHERE id=$1 AND project_id=$2',
       [req.params.changeRequestId, req.params.projectId]
@@ -1048,7 +1308,17 @@ app.delete('/api/projects/:projectId/change-requests/:changeRequestId', async (r
 // Project Documents Routes
 // ---------------------------------------------------------------------------
 app.post('/api/projects/:projectId/documents/upload', (req, res) => {
-  upload.single('file')(req, res, async (err) => {
+  // Auth check before multer processes the file
+  const authCtx = buildAuthContext(req.user);
+  getVisibleProjectIds(pool, authCtx).then(visibleIds => {
+    if (!visibleIds.includes(req.params.projectId)) {
+      return res.status(403).json({ error: { message: 'You do not have access to this project' } });
+    }
+    hasProjectPermission(pool, authCtx, req.params.projectId, 'project.upload_documents').then(allowed => {
+      if (!allowed) {
+        return res.status(403).json({ error: { message: 'You do not have permission to upload documents' } });
+      }
+      upload.single('file')(req, res, async (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') return res.status(400).json({ error: 'File size exceeds the maximum limit of 10MB' });
       return res.status(400).json({ error: err.message });
@@ -1074,11 +1344,14 @@ app.post('/api/projects/:projectId/documents/upload', (req, res) => {
       console.error('Upload error:', err);
       res.status(500).json({ error: 'Internal server error' });
     }
-  });
+  }); // end upload.single
+    }).catch(() => res.status(500).json({ error: 'Internal server error' }));
+  }).catch(() => res.status(500).json({ error: 'Internal server error' }));
 });
 
 app.get('/api/projects/:projectId/documents', async (req, res) => {
   try {
+    if (!await checkProjectAccess(req, res, null)) return;
     const { rows } = await pool.query(
       'SELECT * FROM project_documents WHERE project_id=$1 ORDER BY created_at DESC',
       [req.params.projectId]
@@ -1111,6 +1384,7 @@ app.get('/api/download/project-document/:path', async (req, res) => {
 
 app.delete('/api/projects/:projectId/documents/:documentId', async (req, res) => {
   try {
+    if (!await checkProjectAccess(req, res, 'project.upload_documents')) return;
     const { projectId, documentId } = req.params;
     const { rows } = await pool.query(
       'SELECT file_path FROM project_documents WHERE id=$1 AND project_id=$2',
@@ -1170,6 +1444,7 @@ app.delete('/api/delete/project-document/:path', async (req, res) => {
 // ---------------------------------------------------------------------------
 app.get('/api/projects/:projectId/budgets', async (req, res) => {
   try {
+    if (!await checkProjectAccess(req, res, null)) return;
     const { rows } = await pool.query(
       'SELECT * FROM project_budgets WHERE project_id=$1 ORDER BY created_at DESC',
       [req.params.projectId]
@@ -1182,6 +1457,7 @@ app.get('/api/projects/:projectId/budgets', async (req, res) => {
 
 app.post('/api/projects/:projectId/budgets', async (req, res) => {
   try {
+    if (!await checkProjectAccess(req, res, 'project.edit_budget')) return;
     const { rows } = await pool.query(
       'INSERT INTO project_budgets (project_id, categories) VALUES ($1,$2) RETURNING *',
       [req.params.projectId, req.body.categories || []]
@@ -1194,6 +1470,7 @@ app.post('/api/projects/:projectId/budgets', async (req, res) => {
 
 app.put('/api/projects/:projectId/budgets/:budgetId', async (req, res) => {
   try {
+    if (!await checkProjectAccess(req, res, 'project.edit_budget')) return;
     const { rows } = await pool.query(
       'UPDATE project_budgets SET categories=$1, updated_at=now() WHERE id=$2 RETURNING *',
       [req.body.categories || [], req.params.budgetId]
@@ -1206,6 +1483,7 @@ app.put('/api/projects/:projectId/budgets/:budgetId', async (req, res) => {
 
 app.delete('/api/projects/:projectId/budgets/:budgetId', async (req, res) => {
   try {
+    if (!await checkProjectAccess(req, res, 'project.edit_budget')) return;
     await pool.query('DELETE FROM project_budgets WHERE id=$1', [req.params.budgetId]);
     res.status(200).json({ success: true, message: 'Budget item deleted successfully' });
   } catch (err) {
@@ -1228,13 +1506,6 @@ app.get('/api/custom-fields/cost-category', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }
-});
-
-// ---------------------------------------------------------------------------
-// Health check
-// ---------------------------------------------------------------------------
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'AlignEx API is running' });
 });
 
 app.listen(PORT, () => {

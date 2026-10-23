@@ -5,10 +5,27 @@ export interface User {
   id: string;
   email: string;
   full_name: string;
-  system_role: 'Project Manager' | 'Team Member' | 'Portfolio Manager';
+  system_role: 'Project Manager' | 'Team Member' | 'Portfolio Manager' | 'Admin';
   resource_id: string | null;
   avatar_url: string | null;
   is_active: boolean;
+  tenant_name?: string | null;
+}
+
+export interface AuthContext {
+  userId: string;
+  email: string;
+  fullName: string;
+  systemRole: string;
+  resourceId: string | null;
+  tenantName: string | null;
+  isGlobalAdmin: boolean;
+  isPortfolioManager: boolean;
+  seesAllProjects: boolean;
+}
+
+export interface ProjectPermissionMap {
+  [projectId: string]: string[];
 }
 
 export interface DashboardWidget {
@@ -44,6 +61,11 @@ export function useCurrentUser() {
   const [widgets, setWidgets] = useState<DashboardWidget[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [authContext, setAuthContext] = useState<AuthContext | null>(null);
+  const [visibleProjectIds, setVisibleProjectIds] = useState<string[]>([]);
+  const [projectPermissions, setProjectPermissions] = useState<ProjectPermissionMap>({});
+
+  const API_BASE = (import.meta.env.VITE_API_URL as string) || '';
 
   useEffect(() => {
     fetchCurrentUser();
@@ -65,6 +87,27 @@ export function useCurrentUser() {
       setLoading(true);
       setError(null);
 
+      // When backend API is available, fetch auth context from /api/auth/me
+      if (API_BASE) {
+        try {
+          const authRes = await fetch(`${API_BASE}/api/auth/me`);
+          if (authRes.ok) {
+            const authJson = await authRes.json();
+            const authData = authJson.data;
+            setUser(authData.user);
+            setAuthContext(authData.authContext);
+            setVisibleProjectIds(authData.visibleProjectIds || []);
+            setProjectPermissions(authData.projectPermissions || {});
+          } else if (authRes.status === 401) {
+            // Auth failed — fall back to demo user for now
+            console.warn('[useCurrentUser] Auth failed, falling back to demo user');
+          }
+        } catch (authErr) {
+          console.warn('[useCurrentUser] Could not fetch auth context:', authErr);
+        }
+      }
+
+      // Always fetch user from database (via supabase client) — this works in both modes
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
@@ -74,7 +117,8 @@ export function useCurrentUser() {
       if (userError) throw userError;
 
       if (userData) {
-        setUser(userData);
+        // Only set user if not already set by auth context
+        if (!user) setUser(userData);
 
         const { data: widgetsData, error: widgetsError } = await supabase
           .from('user_dashboard_widgets')
@@ -166,6 +210,9 @@ export function useCurrentUser() {
     widgets,
     loading,
     error,
+    authContext,
+    visibleProjectIds,
+    projectPermissions,
     updateWidgetSettings,
     toggleWidget,
     reorderWidgets,
