@@ -237,12 +237,13 @@ const PROJECT_ID_COLUMN = {
   budget_forecast_monthly: 'project_id',
 };
 
-// Tables that have a tenant_name column for tenant isolation
+// Tables that have a tenant_name column for tenant isolation.
+// NOTE: 'projects' and 'project_team_members' are NOT here because
+// visibility is handled by PROJECT_TABLES (owner_id + team membership).
+// Tenant filtering on those tables would incorrectly hide cross-tenant projects.
 const TENANT_TABLES = new Set([
-  'projects',
   'users',
   'resources',
-  'project_team_members',
   'organization_team_members',
   'project_initiation_requests',
   'security_categories',
@@ -253,27 +254,26 @@ const TENANT_TABLES = new Set([
  *
  * Logic:
  * 1. If seesAllProjects → all projects in the tenant
- * 2. Otherwise → projects where owner_id = userId OR user is a team member
+ * 2. Otherwise → projects where owner_id = userId OR user is a team member,
+ *    regardless of project tenant_name (users can be on cross-tenant projects)
  *
  * Returns an array of UUIDs (empty array means no access to any project).
  */
 async function getVisibleProjectIds(pool, authCtx) {
   if (authCtx.seesAllProjects) {
-    const { rows } = await pool.query(
-      'SELECT id FROM projects WHERE tenant_name = $1',
-      [authCtx.tenantName]
-    );
+    // Admins and Portfolio Managers see all projects across all tenants
+    const { rows } = await pool.query('SELECT id FROM projects');
     return rows.map(r => r.id);
   }
 
   // Projects owned by the user + projects where user is a team member
+  // No tenant filter here — users may be team members on cross-tenant projects
   const { rows } = await pool.query(
     `SELECT DISTINCT p.id
      FROM projects p
      LEFT JOIN project_team_members ptm ON ptm.project_id = p.id
-     WHERE p.tenant_name = $1
-       AND (p.owner_id = $2 OR ptm.resource_id = $3)`,
-    [authCtx.tenantName, authCtx.userId, authCtx.resourceId]
+     WHERE p.owner_id = $1 OR ptm.resource_id = $2`,
+    [authCtx.userId, authCtx.resourceId]
   );
   return rows.map(r => r.id);
 }
@@ -291,16 +291,17 @@ async function getVisibleProjectIds(pool, authCtx) {
  */
 async function getProjectPermissions(pool, authCtx, projectId) {
   // Check if user is owner or global admin/PM
+  // No tenant filter — user may be a team member on a cross-tenant project
   const { rows } = await pool.query(
     `SELECT p.owner_id, ptm.role
      FROM projects p
-     LEFT JOIN project_team_members ptm ON ptm.project_id = p.id AND ptm.resource_id = $3
-     WHERE p.id = $1 AND p.tenant_name = $2`,
-    [projectId, authCtx.tenantName, authCtx.resourceId]
+     LEFT JOIN project_team_members ptm ON ptm.project_id = p.id AND ptm.resource_id = $2
+     WHERE p.id = $1`,
+    [projectId, authCtx.resourceId]
   );
 
   if (rows.length === 0) {
-    return new Set(); // project doesn't exist or wrong tenant
+    return new Set(); // project doesn't exist
   }
 
   const project = rows[0];
