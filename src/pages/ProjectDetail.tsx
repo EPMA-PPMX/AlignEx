@@ -417,12 +417,18 @@ const ProjectDetail: React.FC = () => {
     { id: 'overview', name: 'Overview', icon: Target, canView: true },
     { id: 'timeline', name: 'Timeline', icon: Calendar, canView: projectPerms.canEditSchedule || projectPerms.canView },
     { id: 'team', name: 'Team', icon: Users, canView: projectPerms.canView },
-    { id: 'risks-issues', name: 'Risks & Issues', icon: AlertTriangle, canView: projectPerms.canCreateRisks || projectPerms.canEditRisks || projectPerms.canCreateIssues || projectPerms.canEditIssues },
+    { id: 'risks-issues', name: 'Risks & Issues', icon: AlertTriangle, canView: projectPerms.canCreateRisks || projectPerms.canCreateIssues },
     { id: 'change-management', name: 'Change Management', icon: FileText, canView: projectPerms.canApproveChanges },
     { id: 'budget', name: 'Budget', icon: DollarSign, canView: projectPerms.canViewBudget || projectPerms.canEditBudget },
     { id: 'benefit-tracking', name: 'Benefit Tracking', icon: TrendingUp, canView: projectPerms.canView },
     { id: 'settings', name: 'Documents', icon: FileText, canView: projectPerms.canView },
   ].filter(tab => tab.canView);
+
+  useEffect(() => {
+    if (!permsLoading && !tabs.some(tab => tab.id === activeTab)) {
+      setActiveTab('overview');
+    }
+  }, [activeTab, permsLoading, tabs]);
 
   // Update ref whenever projectTasks changes
   useEffect(() => {
@@ -4864,16 +4870,18 @@ const ProjectDetail: React.FC = () => {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">Risks</h3>
-                <button
-                  onClick={() => {
-                    resetRiskForm();
-                    setShowRiskModal(true);
-                  }}
-                  className="flex items-center space-x-2 px-4 py-2 bg-gradient-primary text-white rounded-lg hover:opacity-90 transition-all shadow-lg"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Risk</span>
-                </button>
+                {projectPerms.canCreateRisks && (
+                  <button
+                    onClick={() => {
+                      resetRiskForm();
+                      setShowRiskModal(true);
+                    }}
+                    className="flex items-center space-x-2 px-4 py-2 bg-gradient-primary text-white rounded-lg hover:opacity-90 transition-all shadow-lg"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Risk</span>
+                  </button>
+                )}
               </div>
 
               {risks.length === 0 ? (
@@ -4927,18 +4935,22 @@ const ProjectDetail: React.FC = () => {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(risk.created_at)}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               <div className="flex space-x-2">
-                                <button
-                                  onClick={() => handleEditRisk(risk)}
-                                  className="text-primary-600 hover:text-blue-900 p-1 rounded hover:bg-primary-50"
-                                >
-                                  <Edit2 className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteRisk(risk.id)}
-                                  className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
+                                {projectPerms.canEditRisks && (
+                                  <button
+                                    onClick={() => handleEditRisk(risk)}
+                                    className="text-primary-600 hover:text-blue-900 p-1 rounded hover:bg-primary-50"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                                {projectPerms.canEditRisks && (
+                                  <button
+                                    onClick={() => handleDeleteRisk(risk.id)}
+                                    className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -4954,16 +4966,18 @@ const ProjectDetail: React.FC = () => {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">Issues</h3>
-                <button
-                  onClick={() => {
-                    resetIssueForm();
-                    setShowIssueModal(true);
-                  }}
-                  className="flex items-center space-x-2 px-4 py-2 bg-gradient-primary text-white rounded-lg hover:opacity-90 transition-all shadow-lg"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Issue</span>
-                </button>
+                {projectPerms.canCreateIssues && (
+                  <button
+                    onClick={() => {
+                      resetIssueForm();
+                      setShowIssueModal(true);
+                    }}
+                    className="flex items-center space-x-2 px-4 py-2 bg-gradient-primary text-white rounded-lg hover:opacity-90 transition-all shadow-lg"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Issue</span>
+                  </button>
+                )}
               </div>
 
               {issues.length === 0 ? (
@@ -5017,18 +5031,22 @@ const ProjectDetail: React.FC = () => {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(issue.created_at)}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               <div className="flex space-x-2">
-                                <button
-                                  onClick={() => handleEditIssue(issue)}
-                                  className="text-primary-600 hover:text-blue-900 p-1 rounded hover:bg-primary-50"
-                                >
-                                  <Edit2 className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteIssue(issue.id)}
-                                  className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
+                                {projectPerms.canEditIssues && (
+                                  <button
+                                    onClick={() => handleEditIssue(issue)}
+                                    className="text-primary-600 hover:text-blue-900 p-1 rounded hover:bg-primary-50"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                                {projectPerms.canEditIssues && (
+                                  <button
+                                    onClick={() => handleDeleteIssue(issue.id)}
+                                    className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
