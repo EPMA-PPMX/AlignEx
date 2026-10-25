@@ -120,6 +120,52 @@ export function useCurrentUser() {
         // Only set user if not already set by auth context
         if (!user) setUser(userData);
 
+        // When no backend API, compute visible projects and permissions directly from DB
+        if (!API_BASE) {
+          const isGlobalAdmin = userData.system_role === 'Admin';
+          const isPortfolioManager = userData.system_role === 'Portfolio Manager';
+          const seesAllProjects = isGlobalAdmin || isPortfolioManager;
+
+          setAuthContext({
+            userId: userData.id,
+            email: userData.email,
+            fullName: userData.full_name,
+            systemRole: userData.system_role,
+            resourceId: userData.resource_id,
+            tenantName: userData.tenant_name,
+            isGlobalAdmin,
+            isPortfolioManager,
+            seesAllProjects,
+          });
+
+          if (seesAllProjects) {
+            const { data: allProjects } = await supabase.from('projects').select('id');
+            setVisibleProjectIds((allProjects || []).map(p => p.id));
+          } else {
+            // Projects owned by the user
+            const { data: ownedProjects } = await supabase
+              .from('projects')
+              .select('id')
+              .eq('owner_id', userData.id);
+
+            // Projects where user is a team member
+            let memberProjectIds: string[] = [];
+            if (userData.resource_id) {
+              const { data: memberProjects } = await supabase
+                .from('project_team_members')
+                .select('project_id')
+                .eq('resource_id', userData.resource_id);
+              memberProjectIds = (memberProjects || []).map(m => m.project_id);
+            }
+
+            const visibleIds = Array.from(new Set([
+              ...(ownedProjects || []).map(p => p.id),
+              ...memberProjectIds,
+            ]));
+            setVisibleProjectIds(visibleIds);
+          }
+        }
+
         const { data: widgetsData, error: widgetsError } = await supabase
           .from('user_dashboard_widgets')
           .select('*')

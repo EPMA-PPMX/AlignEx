@@ -244,10 +244,43 @@ const Projects: React.FC = () => {
         console.error('Error fetching projects:', error);
         showNotification('Error fetching projects: ' + error.message, 'error');
       } else {
-        setProjects(data || []);
-        // Fetch custom field values for all projects
-        if (data && data.length > 0) {
-          fetchProjectFieldValues(data.map(p => p.id));
+        // Filter to only projects the user has access to (owner or team member)
+        const { data: userData } = await supabase
+          .from('users')
+          .select('system_role, resource_id')
+          .eq('id', DEMO_USER_ID)
+          .maybeSingle();
+
+        const isGlobalAdmin = userData?.system_role === 'Admin';
+        const isPortfolioManager = userData?.system_role === 'Portfolio Manager';
+
+        let visibleProjects = data || [];
+
+        if (!isGlobalAdmin && !isPortfolioManager) {
+          // Get project IDs where user is owner or team member
+          const { data: ownedProjects } = await supabase
+            .from('projects')
+            .select('id')
+            .eq('owner_id', DEMO_USER_ID);
+          const ownedIds = new Set((ownedProjects || []).map(p => p.id));
+
+          let memberIds: string[] = [];
+          if (userData?.resource_id) {
+            const { data: memberProjects } = await supabase
+              .from('project_team_members')
+              .select('project_id')
+              .eq('resource_id', userData.resource_id);
+            memberIds = (memberProjects || []).map(m => m.project_id);
+          }
+
+          const visibleIds = new Set([...ownedIds, ...memberIds]);
+          visibleProjects = visibleProjects.filter(p => visibleIds.has(p.id));
+        }
+
+        setProjects(visibleProjects);
+        // Fetch custom field values for all visible projects
+        if (visibleProjects.length > 0) {
+          fetchProjectFieldValues(visibleProjects.map(p => p.id));
         }
       }
     } catch (error) {
