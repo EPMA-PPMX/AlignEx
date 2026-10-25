@@ -86,8 +86,8 @@ export function useProjectPermissions(projectId: string | undefined) {
         setPermissions(json.data);
       } else {
         // Fallback for local dev without backend — query the database directly
-        // 1. Check if user is owner or admin/PM (full permissions)
-        // 2. Otherwise look up team member role and its permissions
+        // 1. Check if user is a global admin/portfolio manager
+        // 2. Otherwise look up the project team role and its permissions
         const { data: projectRow } = await supabase
           .from('projects')
           .select('owner_id')
@@ -104,7 +104,7 @@ export function useProjectPermissions(projectId: string | undefined) {
         const isGlobalAdmin = userRow?.system_role === 'Admin';
         const isPortfolioManager = userRow?.system_role === 'Portfolio Manager';
 
-        if (isOwner || isGlobalAdmin || isPortfolioManager) {
+        if (isGlobalAdmin || isPortfolioManager) {
           setPermissions({
             projectId: pid,
             permissions: ['project.view', 'project.edit_details', 'project.edit_schedule',
@@ -157,8 +157,14 @@ export function useProjectPermissions(projectId: string | undefined) {
               canCreateStatusReport: has('project.create_status_report'),
               canViewStatusReports: has('project.view_status_reports'),
             });
+          } else if (isOwner) {
+            setPermissions({
+              ...EMPTY_PERMISSIONS,
+              projectId: pid,
+              permissions: ['project.view'],
+              canView: true,
+            });
           } else {
-            // User has no role on this project
             setPermissions({ ...EMPTY_PERMISSIONS, projectId: pid });
           }
         } else {

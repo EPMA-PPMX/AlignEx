@@ -283,14 +283,14 @@ async function getVisibleProjectIds(pool, authCtx) {
  *
  * Logic:
  * 1. If seesAllProjects → all permissions (full access)
- * 2. If owner_id = userId → all permissions (owner has full access)
- * 3. If team member → look up role, then query project_role_permissions
+ * 2. If team member → look up role, then query project_role_permissions
+ * 3. Project owners without a team role receive project.view only
  * 4. Otherwise → empty set (no access)
  *
  * Returns a Set of permission_key strings.
  */
 async function getProjectPermissions(pool, authCtx, projectId) {
-  // Check if user is owner or global admin/PM
+  // Check whether the user can access this project.
   // No tenant filter — user may be a team member on a cross-tenant project
   const { rows } = await pool.query(
     `SELECT p.owner_id, ptm.role
@@ -306,15 +306,15 @@ async function getProjectPermissions(pool, authCtx, projectId) {
 
   const project = rows[0];
 
-  // Admins, Portfolio Managers, and project owners get all permissions
-  if (authCtx.seesAllProjects || project.owner_id === authCtx.userId) {
+  // Global administrators and portfolio managers retain full access.
+  if (authCtx.seesAllProjects) {
     const { rows: allPerms } = await pool.query(
       `SELECT DISTINCT permission_key FROM project_role_permissions WHERE can_execute = true`
     );
     return new Set(allPerms.map(r => r.permission_key));
   }
 
-  // Team member: look up permissions for their role
+  // Team members, including project owners, use their assigned project role.
   if (project.role) {
     const { rows: rolePerms } = await pool.query(
       `SELECT permission_key FROM project_role_permissions
@@ -322,6 +322,10 @@ async function getProjectPermissions(pool, authCtx, projectId) {
       [project.role]
     );
     return new Set(rolePerms.map(r => r.permission_key));
+  }
+
+  if (project.owner_id === authCtx.userId) {
+    return new Set(['project.view']);
   }
 
   return new Set(); // no role, no access

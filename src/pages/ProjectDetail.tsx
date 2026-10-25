@@ -414,14 +414,14 @@ const ProjectDetail: React.FC = () => {
   const { permissions: projectPerms, loading: permsLoading } = useProjectPermissions(id);
 
   const tabs = [
-    { id: 'overview', name: 'Overview', icon: Target, canView: true },
-    { id: 'timeline', name: 'Timeline', icon: Calendar, canView: projectPerms.canEditSchedule || projectPerms.canView },
-    { id: 'team', name: 'Team', icon: Users, canView: projectPerms.canView },
-    { id: 'risks-issues', name: 'Risks & Issues', icon: AlertTriangle, canView: projectPerms.canCreateRisks || projectPerms.canCreateIssues },
+    { id: 'overview', name: 'Overview', icon: Target, canView: projectPerms.canView },
+    { id: 'timeline', name: 'Timeline', icon: Calendar, canView: projectPerms.canEditSchedule },
+    { id: 'team', name: 'Team', icon: Users, canView: projectPerms.canManageTeam },
+    { id: 'risks-issues', name: 'Risks & Issues', icon: AlertTriangle, canView: projectPerms.canCreateRisks || projectPerms.canEditRisks || projectPerms.canCreateIssues || projectPerms.canEditIssues },
     { id: 'change-management', name: 'Change Management', icon: FileText, canView: projectPerms.canApproveChanges },
     { id: 'budget', name: 'Budget', icon: DollarSign, canView: projectPerms.canViewBudget || projectPerms.canEditBudget },
     { id: 'benefit-tracking', name: 'Benefit Tracking', icon: TrendingUp, canView: projectPerms.canView },
-    { id: 'settings', name: 'Documents', icon: FileText, canView: projectPerms.canView },
+    { id: 'settings', name: 'Documents', icon: FileText, canView: projectPerms.canUploadDocuments },
   ].filter(tab => tab.canView);
 
   useEffect(() => {
