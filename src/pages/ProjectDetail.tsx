@@ -417,9 +417,9 @@ const ProjectDetail: React.FC = () => {
     { id: 'overview', name: 'Overview', icon: Target, canView: true },
     { id: 'timeline', name: 'Timeline', icon: Calendar, canView: projectPerms.canEditSchedule || projectPerms.canView },
     { id: 'team', name: 'Team', icon: Users, canView: projectPerms.canView },
-    { id: 'risks-issues', name: 'Risks & Issues', icon: AlertTriangle, canView: projectPerms.canView },
-    { id: 'change-management', name: 'Change Management', icon: FileText, canView: projectPerms.canView },
-    { id: 'budget', name: 'Budget', icon: DollarSign, canView: projectPerms.canViewBudget || projectPerms.canView },
+    { id: 'risks-issues', name: 'Risks & Issues', icon: AlertTriangle, canView: projectPerms.canCreateRisks || projectPerms.canEditRisks || projectPerms.canCreateIssues || projectPerms.canEditIssues },
+    { id: 'change-management', name: 'Change Management', icon: FileText, canView: projectPerms.canApproveChanges },
+    { id: 'budget', name: 'Budget', icon: DollarSign, canView: projectPerms.canViewBudget || projectPerms.canEditBudget },
     { id: 'benefit-tracking', name: 'Benefit Tracking', icon: TrendingUp, canView: projectPerms.canView },
     { id: 'settings', name: 'Documents', icon: FileText, canView: projectPerms.canView },
   ].filter(tab => tab.canView);
