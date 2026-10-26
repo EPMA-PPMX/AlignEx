@@ -148,15 +148,24 @@ export function useProjectPermissions(projectId: string | undefined) {
 
           if (allRoles.length > 0) {
             // Fetch permissions for every role the user holds (union).
+            // Include both global mappings (tenant_name IS NULL) and this
+            // tenant's overrides; tenant-specific rows win when both exist.
             const { data: rolePerms } = await supabase
               .from('project_role_permissions')
-              .select('permission_key, can_execute')
+              .select('permission_key, can_execute, tenant_name')
               .in('role_name', allRoles)
-              .eq('can_execute', true);
+              .eq('can_execute', true)
+              .or(`tenant_name.is.null,tenant_name.eq.${userData.tenant_name ?? ''}`);
 
-            const permKeys = Array.from(
-              new Set((rolePerms || []).map(p => p.permission_key))
-            );
+            // De-duplicate by permission_key, preferring tenant-specific rows.
+            const byKey = new Map<string, { can_execute: boolean; tenant_name: string | null }>();
+            for (const p of rolePerms || []) {
+              const existing = byKey.get(p.permission_key);
+              if (!existing || (existing.tenant_name === null && p.tenant_name !== null)) {
+                byKey.set(p.permission_key, { can_execute: p.can_execute, tenant_name: p.tenant_name });
+              }
+            }
+            const permKeys = Array.from(byKey.keys());
             const has = (k: string) => permKeys.includes(k);
 
             setPermissions({

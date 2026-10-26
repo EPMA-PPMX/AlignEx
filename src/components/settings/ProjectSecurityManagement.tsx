@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Shield, Plus, Trash2, Save, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useNotification } from '../../lib/useNotification';
+import { DEMO_TENANT_NAME } from '../../lib/useCurrentUser';
 
 interface ProjectRole {
   id: string;
@@ -10,6 +11,7 @@ interface ProjectRole {
   description: string;
   sort_order: number;
   is_system_role: boolean;
+  tenant_name: string | null;
 }
 
 interface RolePermission {
@@ -17,6 +19,7 @@ interface RolePermission {
   role_name: string;
   permission_key: string;
   can_execute: boolean;
+  tenant_name: string | null;
 }
 
 const ALL_PERMISSIONS = [
@@ -57,9 +60,11 @@ const ProjectSecurityManagement: React.FC = () => {
 
   const fetchRoles = async () => {
     try {
+      // Global system roles (tenant_name IS NULL) + this org's custom roles.
       const { data, error } = await supabase
         .from('project_roles')
         .select('*')
+        .or(`tenant_name.is.null,tenant_name.eq.${DEMO_TENANT_NAME}`)
         .order('sort_order');
       if (error) throw error;
       setRoles(data || []);
@@ -76,9 +81,11 @@ const ProjectSecurityManagement: React.FC = () => {
 
   const fetchPermissions = async () => {
     try {
+      // Global mappings + this org's overrides.
       const { data, error } = await supabase
         .from('project_role_permissions')
-        .select('*');
+        .select('*')
+        .or(`tenant_name.is.null,tenant_name.eq.${DEMO_TENANT_NAME}`);
       if (error) throw error;
       setPermissions(data || []);
     } catch (err: any) {
@@ -87,24 +94,49 @@ const ProjectSecurityManagement: React.FC = () => {
   };
 
   const getPermissionState = (roleName: string, permKey: string): boolean => {
-    const perm = permissions.find(p => p.role_name === roleName && p.permission_key === permKey);
-    return perm ? perm.can_execute : false;
+    // Prefer a tenant-specific override; fall back to the global mapping.
+    const tenantPerm = permissions.find(
+      p => p.role_name === roleName && p.permission_key === permKey && p.tenant_name === DEMO_TENANT_NAME
+    );
+    if (tenantPerm) return tenantPerm.can_execute;
+    const globalPerm = permissions.find(
+      p => p.role_name === roleName && p.permission_key === permKey && p.tenant_name === null
+    );
+    return globalPerm ? globalPerm.can_execute : false;
   };
 
   const togglePermission = async (roleName: string, permKey: string, currentValue: boolean) => {
     setSaving(true);
     try {
-      const existing = permissions.find(p => p.role_name === roleName && p.permission_key === permKey);
-      if (existing) {
+      // Prefer updating a tenant-specific override; otherwise the global mapping.
+      const tenantExisting = permissions.find(
+        p => p.role_name === roleName && p.permission_key === permKey && p.tenant_name === DEMO_TENANT_NAME
+      );
+      const globalExisting = permissions.find(
+        p => p.role_name === roleName && p.permission_key === permKey && p.tenant_name === null
+      );
+      const target = tenantExisting || globalExisting;
+
+      // For system/global roles, toggling creates a tenant-scoped override so the
+      // global default is preserved for other organizations.
+      const isGlobalRole = roles.find(r => r.role_name === roleName)?.tenant_name === null;
+      const shouldCreateTenantOverride = isGlobalRole && !tenantExisting;
+
+      if (target && !shouldCreateTenantOverride) {
         const { error } = await supabase
           .from('project_role_permissions')
           .update({ can_execute: !currentValue })
-          .eq('id', existing.id);
+          .eq('id', target.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('project_role_permissions')
-          .insert({ role_name: roleName, permission_key: permKey, can_execute: true });
+          .insert({
+            role_name: roleName,
+            permission_key: permKey,
+            can_execute: true,
+            tenant_name: isGlobalRole ? DEMO_TENANT_NAME : null,
+          });
         if (error) throw error;
       }
       await fetchPermissions();
@@ -132,6 +164,7 @@ const ProjectSecurityManagement: React.FC = () => {
           description: newRoleDescription.trim() || null,
           sort_order: roles.length + 1,
           is_system_role: false,
+          tenant_name: DEMO_TENANT_NAME,
         });
       if (error) throw error;
       setShowAddRoleModal(false);
@@ -227,6 +260,11 @@ const ProjectSecurityManagement: React.FC = () => {
                   <div className="flex items-center space-x-2">
                     {role.is_system_role && (
                       <Lock className="w-3 h-3 text-gray-400" title="System role" />
+                    )}
+                    {role.tenant_name && (
+                      <span className="text-[10px] font-medium text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded" title={`Custom role for ${role.tenant_name}`}>
+                        Custom
+                      </span>
                     )}
                     {!role.is_system_role && (
                       <button
