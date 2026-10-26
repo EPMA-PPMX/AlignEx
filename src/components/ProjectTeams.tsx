@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Calendar, Users } from 'lucide-react';
+import { Plus, Search, Calendar, Users, X, ChevronDown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import ResourceAllocationHeatMap from './ResourceAllocationHeatMap';
 
@@ -21,6 +21,12 @@ interface TeamMember {
   start_date: string;
   end_date?: string;
   resource?: Resource;
+  additionalRoles?: string[];
+}
+
+interface ProjectRole {
+  role_name: string;
+  display_name: string;
 }
 
 interface ProjectTeamsProps {
@@ -30,12 +36,28 @@ interface ProjectTeamsProps {
 
 export default function ProjectTeams({ projectId, onTeamMembersChange }: ProjectTeamsProps) {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [projectRoles, setProjectRoles] = useState<ProjectRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddMember, setShowAddMember] = useState(false);
 
   useEffect(() => {
     fetchTeamMembers();
+    fetchProjectRoles();
   }, [projectId]);
+
+  const fetchProjectRoles = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('project_roles')
+        .select('role_name, display_name')
+        .order('sort_order', { ascending: true });
+
+      if (error) throw error;
+      setProjectRoles(data || []);
+    } catch (error) {
+      console.error('Error fetching project roles:', error);
+    }
+  };
 
   const fetchTeamMembers = async () => {
     try {
@@ -58,10 +80,25 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
         (resData || []).forEach((r: any) => resourceMap.set(r.id, r));
       }
 
+      const memberIds = (memberData || []).map((m: any) => m.id).filter(Boolean);
+      let rolesByMember = new Map<string, string[]>();
+      if (memberIds.length > 0) {
+        const { data: roleData } = await supabase
+          .from('project_team_member_roles')
+          .select('team_member_id, role_name')
+          .in('team_member_id', memberIds);
+        (roleData || []).forEach((r: any) => {
+          const arr = rolesByMember.get(r.team_member_id) || [];
+          if (!arr.includes(r.role_name)) arr.push(r.role_name);
+          rolesByMember.set(r.team_member_id, arr);
+        });
+      }
+
       const formattedData = (memberData || []).map((item: any) => ({
         ...item,
         resources: resourceMap.get(item.resource_id) || null,
-        resource: resourceMap.get(item.resource_id) || null
+        resource: resourceMap.get(item.resource_id) || null,
+        additionalRoles: rolesByMember.get(item.id) || [],
       }));
 
       setTeamMembers(formattedData);
@@ -69,6 +106,81 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
       console.error('Error fetching team members:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const allRolesFor = (member: TeamMember): string[] => {
+    const set = new Set<string>();
+    if (member.role) set.add(member.role);
+    (member.additionalRoles || []).forEach(r => set.add(r));
+    return Array.from(set);
+  };
+
+  const handleRemoveRole = async (member: TeamMember, roleName: string) => {
+    const primaryRoleCount = member.role === roleName ? 1 : 0;
+    const fromAdditional = (member.additionalRoles || []).includes(roleName);
+
+    try {
+      if (fromAdditional) {
+        const { error } = await supabase
+          .from('project_team_member_roles')
+          .delete()
+          .eq('team_member_id', member.id)
+          .eq('role_name', roleName);
+        if (error) throw error;
+      }
+
+      if (primaryRoleCount > 0) {
+        const remaining = allRolesFor(member).filter(r => r !== roleName);
+        const newPrimary = remaining[0] || 'Team Member';
+        const { error } = await supabase
+          .from('project_team_members')
+          .update({ role: newPrimary })
+          .eq('id', member.id);
+        if (error) throw error;
+
+        if (remaining.length > 0) {
+          for (const r of remaining) {
+            await supabase
+              .from('project_team_member_roles')
+              .upsert(
+                { team_member_id: member.id, role_name: r },
+                { onConflict: 'team_member_id,role_name' }
+              );
+          }
+        }
+      }
+
+      fetchTeamMembers();
+      onTeamMembersChange?.();
+    } catch (error) {
+      console.error('Error removing role:', error);
+      alert('Failed to remove role');
+    }
+  };
+
+  const handleAddRole = async (member: TeamMember, roleName: string) => {
+    try {
+      const { error } = await supabase
+        .from('project_team_member_roles')
+        .upsert(
+          { team_member_id: member.id, role_name: roleName },
+          { onConflict: 'team_member_id,role_name' }
+        );
+      if (error) throw error;
+
+      if (!member.role || member.role === 'Team Member') {
+        await supabase
+          .from('project_team_members')
+          .update({ role: roleName })
+          .eq('id', member.id);
+      }
+
+      fetchTeamMembers();
+      onTeamMembersChange?.();
+    } catch (error) {
+      console.error('Error adding role:', error);
+      alert('Failed to add role');
     }
   };
 
@@ -85,7 +197,7 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
       <div className="flex justify-between items-center">
         <div>
           <h3 className="text-lg font-semibold text-gray-900">Project Team</h3>
-          <p className="text-sm text-gray-500 mt-1">Manage team members assigned to this project</p>
+          <p className="text-sm text-gray-500 mt-1">Manage team members and their project roles. A member can hold more than one role; their permissions are combined.</p>
         </div>
         <button
           onClick={() => setShowAddMember(true)}
@@ -98,9 +210,84 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
 
       <ResourceAllocationHeatMap projectId={projectId} />
 
+      {teamMembers.length > 0 && (
+        <div className="bg-widget-bg rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Member</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Roles</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Allocation</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {teamMembers.map((member) => {
+                  const roles = allRolesFor(member);
+                  return (
+                    <tr key={member.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <Users className="w-4 h-4 text-gray-400" />
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {member.resource?.display_name || 'Unknown'}
+                            </div>
+                            <div className="text-xs text-gray-500">{member.resource?.email || ''}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {roles.length === 0 && (
+                            <span className="text-sm text-gray-400">No roles</span>
+                          )}
+                          {roles.map((role) => (
+                            <span
+                              key={role}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                            >
+                              {role}
+                              <button
+                                onClick={() => handleRemoveRole(member, role)}
+                                className="ml-0.5 hover:text-blue-900"
+                                title={`Remove ${role} role`}
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {member.allocation_percentage}%
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {member.start_date || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <AddRoleButton
+                          member={member}
+                          projectRoles={projectRoles}
+                          existingRoles={roles}
+                          onAddRole={(roleName) => handleAddRole(member, roleName)}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {showAddMember && (
         <AddTeamMemberModal
           projectId={projectId}
+          projectRoles={projectRoles}
           onClose={() => setShowAddMember(false)}
           onSave={() => {
             setShowAddMember(false);
@@ -109,6 +296,52 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
           }}
           existingMemberResourceIds={teamMembers.map(m => m.resource_id)}
         />
+      )}
+    </div>
+  );
+}
+
+interface AddRoleButtonProps {
+  member: TeamMember;
+  projectRoles: ProjectRole[];
+  existingRoles: string[];
+  onAddRole: (roleName: string) => void;
+}
+
+function AddRoleButton({ projectRoles, existingRoles, onAddRole }: AddRoleButtonProps) {
+  const [open, setOpen] = useState(false);
+  const available = projectRoles.filter(r => !existingRoles.includes(r.role_name));
+
+  if (available.length === 0) return null;
+
+  return (
+    <div className="relative inline-block">
+      <button
+        onClick={() => setOpen(!open)}
+        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded hover:bg-blue-100 transition-colors"
+      >
+        <Plus className="w-3 h-3" />
+        Add Role
+        <ChevronDown className="w-3 h-3" />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1">
+            {available.map((role) => (
+              <button
+                key={role.role_name}
+                onClick={() => {
+                  onAddRole(role.role_name);
+                  setOpen(false);
+                }}
+                className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                {role.display_name || role.role_name}
+              </button>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
@@ -326,20 +559,21 @@ function ResourceAllocationHeatmap({ teamMembers }: { teamMembers: TeamMember[] 
 
 interface AddTeamMemberModalProps {
   projectId: string;
+  projectRoles: ProjectRole[];
   onClose: () => void;
   onSave: () => void;
   existingMemberResourceIds: string[];
 }
 
-function AddTeamMemberModal({ projectId, onClose, onSave, existingMemberResourceIds }: AddTeamMemberModalProps) {
+function AddTeamMemberModal({ projectId, projectRoles, onClose, onSave, existingMemberResourceIds }: AddTeamMemberModalProps) {
   const [resources, setResources] = useState<Resource[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedResources, setSelectedResources] = useState<string[]>([]);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>(['Team Member']);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const defaultAllocation = 50;
   const defaultStartDate = new Date().toISOString().split('T')[0];
-  const defaultRole = 'Team Member';
 
   useEffect(() => {
     fetchResources();
@@ -380,9 +614,22 @@ function AddTeamMemberModal({ projectId, onClose, onSave, existingMemberResource
     );
   };
 
+  const handleToggleRole = (roleName: string) => {
+    setSelectedRoles((prev) =>
+      prev.includes(roleName)
+        ? prev.filter((r) => r !== roleName)
+        : [...prev, roleName]
+    );
+  };
+
   const handleSave = async () => {
     if (selectedResources.length === 0) {
       alert('Please select at least one resource');
+      return;
+    }
+
+    if (selectedRoles.length === 0) {
+      alert('Please select at least one role');
       return;
     }
 
@@ -396,17 +643,34 @@ function AddTeamMemberModal({ projectId, onClose, onSave, existingMemberResource
       const teamMemberRecords = selectedResources.map((resourceId) => ({
         project_id: projectId,
         resource_id: resourceId,
-        role: defaultRole,
+        role: selectedRoles[0],
         allocation_percentage: defaultAllocation,
         start_date: defaultStartDate,
         end_date: null
       }));
 
-      const { error } = await supabase
+      const { data: inserted, error } = await supabase
         .from('project_team_members')
-        .insert(teamMemberRecords);
+        .insert(teamMemberRecords)
+        .select('id');
 
       if (error) throw error;
+
+      if (selectedRoles.length > 1 && inserted && inserted.length > 0) {
+        const roleRecords = inserted.flatMap((member: any) =>
+          selectedRoles.map((roleName) => ({
+            team_member_id: member.id,
+            role_name: roleName,
+          }))
+        );
+        const { error: roleError } = await supabase
+          .from('project_team_member_roles')
+          .insert(roleRecords);
+        if (roleError) {
+          console.error('Error assigning additional roles:', roleError);
+        }
+      }
+
       onSave();
     } catch (error) {
       console.error('Error adding team members:', error);
@@ -421,7 +685,30 @@ function AddTeamMemberModal({ projectId, onClose, onSave, existingMemberResource
       <div className="bg-widget-bg rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-900">Add Team Members</h2>
-          <p className="text-sm text-gray-500 mt-1">Select resources to add to the project team</p>
+          <p className="text-sm text-gray-500 mt-1">Select resources and one or more roles for this project</p>
+        </div>
+
+        <div className="p-6 border-b border-gray-200">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Roles</label>
+          <div className="flex flex-wrap gap-2">
+            {projectRoles.map((role) => (
+              <button
+                key={role.role_name}
+                type="button"
+                onClick={() => handleToggleRole(role.role_name)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  selectedRoles.includes(role.role_name)
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {role.display_name || role.role_name}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            {selectedRoles.length} role{selectedRoles.length !== 1 ? 's' : ''} selected — permissions will be combined.
+          </p>
         </div>
 
         <div className="p-6 border-b border-gray-200">
@@ -499,7 +786,7 @@ function AddTeamMemberModal({ projectId, onClose, onSave, existingMemberResource
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={saving || selectedResources.length === 0}
+                disabled={saving || selectedResources.length === 0 || selectedRoles.length === 0}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Adding...' : `Add ${selectedResources.length} Member${selectedResources.length !== 1 ? 's' : ''}`}

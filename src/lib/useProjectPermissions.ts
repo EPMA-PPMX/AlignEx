@@ -119,23 +119,44 @@ export function useProjectPermissions(projectId: string | undefined) {
             canDelete: true, canCreateStatusReport: true, canViewStatusReports: true,
           });
         } else if (userRow?.resource_id) {
-          // Look up the user's role on this project
-          const { data: memberRow } = await supabase
+          // Look up ALL roles the user holds on this project.
+          // A user may have multiple roles on the same project; their
+          // effective permissions are the union of every role's permissions.
+          const { data: memberRows } = await supabase
             .from('project_team_members')
-            .select('role')
+            .select('id, role')
             .eq('project_id', pid)
-            .eq('resource_id', userRow.resource_id)
-            .maybeSingle();
+            .eq('resource_id', userRow.resource_id);
 
-          if (memberRow?.role) {
-            // Fetch permissions for this role
+          const memberIds = (memberRows || []).map((m: any) => m.id);
+          const primaryRoles = (memberRows || [])
+            .map((m: any) => m.role)
+            .filter((r: any) => r);
+
+          let additionalRoles: string[] = [];
+          if (memberIds.length > 0) {
+            const { data: roleRows } = await supabase
+              .from('project_team_member_roles')
+              .select('role_name')
+              .in('team_member_id', memberIds);
+            additionalRoles = (roleRows || [])
+              .map((r: any) => r.role_name)
+              .filter((r: any) => r);
+          }
+
+          const allRoles = Array.from(new Set([...primaryRoles, ...additionalRoles]));
+
+          if (allRoles.length > 0) {
+            // Fetch permissions for every role the user holds (union).
             const { data: rolePerms } = await supabase
               .from('project_role_permissions')
               .select('permission_key, can_execute')
-              .eq('role_name', memberRow.role)
+              .in('role_name', allRoles)
               .eq('can_execute', true);
 
-            const permKeys = (rolePerms || []).map(p => p.permission_key);
+            const permKeys = Array.from(
+              new Set((rolePerms || []).map(p => p.permission_key))
+            );
             const has = (k: string) => permKeys.includes(k);
 
             setPermissions({

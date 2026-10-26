@@ -291,12 +291,23 @@ async function getVisibleProjectIds(pool, authCtx) {
  */
 async function getProjectPermissions(pool, authCtx, projectId) {
   // Check whether the user can access this project.
-  // No tenant filter — user may be a team member on a cross-tenant project
+  // No tenant filter — user may be a team member on a cross-tenant project.
+  // A user may hold MULTIPLE roles on the same project; their effective
+  // permissions are the UNION of permissions across every role they hold
+  // (both via the legacy single `role` column and the new
+  // `project_team_member_roles` child table).
   const { rows } = await pool.query(
-    `SELECT p.owner_id, ptm.role
+    `SELECT p.owner_id,
+            ptm.role AS primary_role,
+            COALESCE(
+              json_agg(DISTINCT ptmr.role_name) FILTER (WHERE ptmr.role_name IS NOT NULL),
+              '[]'
+            ) AS additional_roles
      FROM projects p
      LEFT JOIN project_team_members ptm ON ptm.project_id = p.id AND ptm.resource_id = $2
-     WHERE p.id = $1`,
+     LEFT JOIN project_team_member_roles ptmr ON ptmr.team_member_id = ptm.id
+     WHERE p.id = $1
+     GROUP BY p.owner_id, ptm.role`,
     [projectId, authCtx.resourceId]
   );
 
@@ -314,12 +325,20 @@ async function getProjectPermissions(pool, authCtx, projectId) {
     return new Set(allPerms.map(r => r.permission_key));
   }
 
-  // Team members, including project owners, use their assigned project role.
-  if (project.role) {
+  // Collect every role the user holds on this project (legacy + multi-role).
+  const roles = new Set();
+  if (project.primary_role) roles.add(project.primary_role);
+  const additional = Array.isArray(project.additional_roles) ? project.additional_roles : [];
+  for (const r of additional) {
+    if (r) roles.add(r);
+  }
+
+  if (roles.size > 0) {
+    const roleList = Array.from(roles);
     const { rows: rolePerms } = await pool.query(
-      `SELECT permission_key FROM project_role_permissions
-       WHERE role_name = $1 AND can_execute = true`,
-      [project.role]
+      `SELECT DISTINCT permission_key FROM project_role_permissions
+       WHERE role_name = ANY($1::text[]) AND can_execute = true`,
+      [roleList]
     );
     return new Set(rolePerms.map(r => r.permission_key));
   }

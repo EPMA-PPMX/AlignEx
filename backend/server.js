@@ -104,6 +104,8 @@ const ALLOWED_TABLES = [
   'security_categories',
   'security_category_projects',
   'security_category_users',
+  // Multi-role project team assignments
+  'project_team_member_roles',
 ];
 
 // ---------------------------------------------------------------------------
