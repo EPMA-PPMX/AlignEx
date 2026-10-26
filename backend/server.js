@@ -808,11 +808,11 @@ app.post('/api/projects', async (req, res) => {
     );
     const newProject = rows[0];
 
-    // Auto-add the creator as Project Manager in project_team_members
+    // Auto-add the creator as Project Managers in project_team_members
     if (authCtx.resourceId) {
       await pool.query(
         `INSERT INTO project_team_members (project_id, resource_id, role, tenant_name)
-         VALUES ($1, $2, 'Project Manager', $3)
+         VALUES ($1, $2, 'Project Managers', $3)
          ON CONFLICT DO NOTHING`,
         [newProject.id, authCtx.resourceId, authCtx.tenantName]
       );

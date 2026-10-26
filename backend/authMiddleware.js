@@ -181,8 +181,9 @@ async function authMiddleware(pool) {
  */
 function buildAuthContext(user) {
   const systemRole = user.system_role;
-  const isGlobalAdmin = systemRole === 'Admin';
-  const isPortfolioManager = systemRole === 'Portfolio Manager';
+  const isGlobalAdmin = systemRole === 'Admin' || systemRole === 'Administrators';
+  const isPortfolioManager = systemRole === 'Portfolio Manager' || systemRole === 'Portfolio Managers';
+  const isPortfolioViewer = systemRole === 'Portfolio Viewers';
 
   return {
     userId: user.id,
@@ -193,8 +194,8 @@ function buildAuthContext(user) {
     tenantName: user.tenant_name,
     isGlobalAdmin,
     isPortfolioManager,
-    // Admins and Portfolio Managers see all tenant projects (like MS Project Server's "All Projects" category)
-    seesAllProjects: isGlobalAdmin || isPortfolioManager,
+    // Administrators, Portfolio Managers, and Portfolio Viewers see all projects
+    seesAllProjects: isGlobalAdmin || isPortfolioManager || isPortfolioViewer,
   };
 }
 

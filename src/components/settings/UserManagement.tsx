@@ -7,7 +7,7 @@ interface User {
   id: string;
   email: string;
   full_name: string;
-  system_role: 'Project Manager' | 'Team Member' | 'Portfolio Manager' | 'Admin';
+  system_role: 'Administrators' | 'Portfolio Managers' | 'Portfolio Viewers' | 'Project Managers' | 'Resource Managers' | 'Team Leads' | 'Team Members' | 'Project Manager' | 'Team Member' | 'Portfolio Manager' | 'Admin';
   avatar_url: string | null;
   is_active: boolean;
   bio: string | null;
@@ -15,12 +15,12 @@ interface User {
   created_at: string;
 }
 
-const SYSTEM_ROLES = ['Team Member', 'Project Manager', 'Portfolio Manager', 'Admin'] as const;
+const SYSTEM_ROLES = ['Team Members', 'Team Leads', 'Project Managers', 'Resource Managers', 'Portfolio Managers', 'Portfolio Viewers', 'Administrators', 'Admin'] as const;
 
 const emptyForm = {
   email: '',
   full_name: '',
-  system_role: 'Team Member' as User['system_role'],
+  system_role: 'Team Members' as User['system_role'],
   avatar_url: '',
   bio: '',
   tenant_name: '',
@@ -153,9 +153,15 @@ export default function UserManagement() {
 
   const roleColor = (role: string) => {
     switch (role) {
+      case 'Administrators':
       case 'Admin': return 'bg-red-100 text-red-800';
-      case 'Portfolio Manager': return 'bg-blue-100 text-blue-800';
+      case 'Portfolio Managers':
+      case 'Portfolio Manager':
+      case 'Portfolio Viewers': return 'bg-blue-100 text-blue-800';
+      case 'Project Managers':
       case 'Project Manager': return 'bg-emerald-100 text-emerald-800';
+      case 'Resource Managers': return 'bg-amber-100 text-amber-800';
+      case 'Team Leads': return 'bg-purple-100 text-purple-800';
       default: return 'bg-gray-100 text-gray-700';
     }
   };

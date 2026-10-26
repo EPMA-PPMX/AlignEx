@@ -132,7 +132,7 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
 
       if (primaryRoleCount > 0) {
         const remaining = allRolesFor(member).filter(r => r !== roleName);
-        const newPrimary = remaining[0] || 'Team Member';
+        const newPrimary = remaining[0] || 'Team Members';
         const { error } = await supabase
           .from('project_team_members')
           .update({ role: newPrimary })
@@ -169,7 +169,7 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
         );
       if (error) throw error;
 
-      if (!member.role || member.role === 'Team Member') {
+      if (!member.role || member.role === 'Team Member' || member.role === 'Team Members') {
         await supabase
           .from('project_team_members')
           .update({ role: roleName })
@@ -569,7 +569,7 @@ function AddTeamMemberModal({ projectId, projectRoles, onClose, onSave, existing
   const [resources, setResources] = useState<Resource[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedResources, setSelectedResources] = useState<string[]>([]);
-  const [selectedRoles, setSelectedRoles] = useState<string[]>(['Team Member']);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>(['Team Members']);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const defaultAllocation = 50;

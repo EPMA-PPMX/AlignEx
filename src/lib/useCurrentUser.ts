@@ -5,7 +5,7 @@ export interface User {
   id: string;
   email: string;
   full_name: string;
-  system_role: 'Project Manager' | 'Team Member' | 'Portfolio Manager' | 'Admin';
+  system_role: 'Administrators' | 'Portfolio Managers' | 'Portfolio Viewers' | 'Project Managers' | 'Resource Managers' | 'Team Leads' | 'Team Members' | 'Project Manager' | 'Team Member' | 'Portfolio Manager' | 'Admin';
   resource_id: string | null;
   avatar_url: string | null;
   is_active: boolean;
@@ -122,9 +122,10 @@ export function useCurrentUser() {
 
         // When no backend API, compute visible projects and permissions directly from DB
         if (!API_BASE) {
-          const isGlobalAdmin = userData.system_role === 'Admin';
-          const isPortfolioManager = userData.system_role === 'Portfolio Manager';
-          const seesAllProjects = isGlobalAdmin || isPortfolioManager;
+          const isGlobalAdmin = userData.system_role === 'Admin' || userData.system_role === 'Administrators';
+          const isPortfolioManager = userData.system_role === 'Portfolio Manager' || userData.system_role === 'Portfolio Managers';
+          const isPortfolioViewer = userData.system_role === 'Portfolio Viewers';
+          const seesAllProjects = isGlobalAdmin || isPortfolioManager || isPortfolioViewer;
 
           setAuthContext({
             userId: userData.id,
