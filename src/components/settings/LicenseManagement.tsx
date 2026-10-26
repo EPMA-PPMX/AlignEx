@@ -7,7 +7,7 @@ import { useNotification } from '../../lib/useNotification';
 interface UserLicense {
   id: string;
   user_email: string;
-  license_tier: 'read_only' | 'team_member' | 'full_license';
+  license_tier: 'Read Only' | 'Team Member' | 'Full license' | 'Super User license';
   is_active: boolean;
   assigned_date: string;
   last_access_date: string | null;
@@ -37,14 +37,14 @@ export default function LicenseManagement() {
 
   // Form state
   const [newUserEmail, setNewUserEmail] = useState('');
-  const [newUserTier, setNewUserTier] = useState<'read_only' | 'team_member' | 'full_license'>('team_member');
+  const [newUserTier, setNewUserTier] = useState<'Read Only' | 'Team Member' | 'Full license' | 'Super User license'>('Team Member');
   const [newUserNotes, setNewUserNotes] = useState('');
   const [licenseKey, setLicenseKey] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
 
   // Edit mode
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
-  const [editTier, setEditTier] = useState<'read_only' | 'team_member' | 'full_license'>('team_member');
+  const [editTier, setEditTier] = useState<'Read Only' | 'Team Member' | 'Full license' | 'Super User license'>('Team Member');
 
   useEffect(() => {
     loadData();
@@ -112,7 +112,7 @@ export default function LicenseManagement() {
       showNotification('User license added successfully', 'success');
       setShowAddUser(false);
       setNewUserEmail('');
-      setNewUserTier('team_member');
+      setNewUserTier('Team Member');
       setNewUserNotes('');
       permissionService.clearCache();
       loadData();
@@ -229,18 +229,20 @@ export default function LicenseManagement() {
 
   const getLicenseTierLabel = (tier: string) => {
     const labels: Record<string, string> = {
-      read_only: 'Read Only',
-      team_member: 'Team Member',
-      full_license: 'Full License'
+      'Read Only': 'Read Only',
+      'Team Member': 'Team Member',
+      'Full license': 'Full License',
+      'Super User license': 'Super User',
     };
     return labels[tier] || tier;
   };
 
   const getLicenseTierColor = (tier: string) => {
     const colors: Record<string, string> = {
-      read_only: 'bg-gray-100 text-gray-800',
-      team_member: 'bg-blue-100 text-blue-800',
-      full_license: 'bg-green-100 text-green-800'
+      'Read Only': 'bg-gray-100 text-gray-800',
+      'Team Member': 'bg-blue-100 text-blue-800',
+      'Full license': 'bg-green-100 text-green-800',
+      'Super User license': 'bg-purple-100 text-purple-800',
     };
     return colors[tier] || 'bg-gray-100 text-gray-800';
   };
@@ -259,9 +261,9 @@ export default function LicenseManagement() {
   };
 
   const calculateUsageStats = () => {
-    const readOnly = userLicenses.filter(l => l.license_tier === 'read_only' && l.is_active).length;
-    const teamMember = userLicenses.filter(l => l.license_tier === 'team_member' && l.is_active).length;
-    const fullLicense = userLicenses.filter(l => l.license_tier === 'full_license' && l.is_active).length;
+    const readOnly = userLicenses.filter(l => l.license_tier === 'Read Only' && l.is_active).length;
+    const teamMember = userLicenses.filter(l => l.license_tier === 'Team Member' && l.is_active).length;
+    const fullLicense = userLicenses.filter(l => l.license_tier === 'Full license' && l.is_active).length;
     const inactive = userLicenses.filter(l => !l.is_active).length;
 
     return { readOnly, teamMember, fullLicense, inactive, total: userLicenses.length };
@@ -457,9 +459,10 @@ export default function LicenseManagement() {
                         onChange={(e) => setEditTier(e.target.value as any)}
                         className="border border-gray-300 rounded px-2 py-1 text-sm"
                       >
-                        <option value="read_only">Read Only</option>
-                        <option value="team_member">Team Member</option>
-                        <option value="full_license">Full License</option>
+                        <option value="Read Only">Read Only</option>
+                        <option value="Team Member">Team Member</option>
+                        <option value="Full license">Full License</option>
+                        <option value="Super User license">Super User</option>
                       </select>
                     ) : (
                       <span className={`px-2 py-1 text-xs font-medium rounded ${getLicenseTierColor(license.license_tier)}`}>
@@ -552,14 +555,16 @@ export default function LicenseManagement() {
                   onChange={(e) => setNewUserTier(e.target.value as any)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="read_only">Read Only</option>
-                  <option value="team_member">Team Member</option>
-                  <option value="full_license">Full License</option>
+                  <option value="Read Only">Read Only</option>
+                  <option value="Team Member">Team Member</option>
+                  <option value="Full license">Full License</option>
+                  <option value="Super User license">Super User</option>
                 </select>
                 <p className="mt-1 text-xs text-gray-500">
-                  {newUserTier === 'read_only' && 'View-only access to all data'}
-                  {newUserTier === 'team_member' && 'Can enter timesheets and create requests'}
-                  {newUserTier === 'full_license' && 'Complete access including project management'}
+                  {newUserTier === 'Read Only' && 'View-only access to all data'}
+                  {newUserTier === 'Team Member' && 'Can enter timesheets and create requests'}
+                  {newUserTier === 'Full license' && 'Complete access including project management'}
+                  {newUserTier === 'Super User license' && 'Unrestricted access including admin configuration'}
                 </p>
               </div>
 
@@ -588,7 +593,7 @@ export default function LicenseManagement() {
                   onClick={() => {
                     setShowAddUser(false);
                     setNewUserEmail('');
-                    setNewUserTier('team_member');
+                    setNewUserTier('Team Member');
                     setNewUserNotes('');
                   }}
                   className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
