@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
 import { useNotification } from '../lib/useNotification';
 import ResourceImportModal from '../components/ResourceImportModal';
+import SearchableMultiSelect from '../components/SearchableMultiSelect';
 
 interface Resource {
   id: string;
@@ -390,7 +391,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
     last_name: resource?.last_name || '',
     email: resource?.email || '',
     resource_name: resource?.resource_name || '',
-    roles: resource?.roles.join(', ') || '',
+    roles: resource?.roles || [] as string[],
     cost_rate: resource?.cost_rate?.toString() || '',
     rate_type: resource?.rate_type || 'hourly',
     department: resource?.department || '',
@@ -401,13 +402,25 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [availableRoles, setAvailableRoles] = useState<{ value: string; label: string }[]>([]);
 
   useEffect(() => {
+    fetchRoles();
     fetchCustomFields();
     if (resource) {
       fetchCustomFieldValues();
     }
   }, [resource]);
+
+  const fetchRoles = async () => {
+    try {
+      const { data, error } = await supabase.from('roles').select('id, name').order('name');
+      if (error) throw error;
+      setAvailableRoles((data || []).map((r: { id: string; name: string }) => ({ value: r.name, label: r.name })));
+    } catch (error) {
+      console.error('Error fetching roles:', error);
+    }
+  };
 
   const fetchCustomFields = async () => {
     try {
@@ -452,7 +465,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
     try {
       const dataToSave: any = {
         resource_type: formData.resource_type,
-        roles: formData.roles.split(',').map(r => r.trim()).filter(Boolean),
+        roles: formData.roles,
         cost_rate: formData.cost_rate ? parseFloat(formData.cost_rate) : null,
         rate_type: formData.rate_type,
         department: formData.department || null,
@@ -710,16 +723,15 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Roles / Skills
+              Roles
             </label>
-            <input
-              type="text"
-              value={formData.roles}
-              onChange={(e) => setFormData({ ...formData, roles: e.target.value })}
-              placeholder="e.g., Project Manager, Developer (comma-separated)"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            <SearchableMultiSelect
+              options={availableRoles}
+              selectedValues={formData.roles}
+              onChange={(values) => setFormData({ ...formData, roles: values as string[] })}
+              placeholder="Select roles..."
+              emptyMessage="No roles defined. Add roles in Settings."
             />
-            <p className="text-xs text-gray-500 mt-1">Separate multiple roles with commas</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
