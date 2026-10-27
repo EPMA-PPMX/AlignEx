@@ -251,8 +251,8 @@ const Projects: React.FC = () => {
           .eq('id', DEMO_USER_ID)
           .maybeSingle();
 
-        const isGlobalAdmin = userData?.system_role === 'Admin';
-        const isPortfolioManager = userData?.system_role === 'Portfolio Manager';
+        const isGlobalAdmin = userData?.system_role === 'Admin' || userData?.system_role === 'Administrators';
+        const isPortfolioManager = userData?.system_role === 'Portfolio Manager' || userData?.system_role === 'Portfolio Managers';
 
         let visibleProjects = data || [];
 

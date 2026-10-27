@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, FileText, Clock, CheckCircle, XCircle, AlertCircle, Eye, CreditCard as Edit2, Trash2, Calendar, DollarSign, TrendingUp, BarChart3 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
+import { DEMO_USER_ID, DEMO_TENANT_NAME } from '../lib/useCurrentUser';
 import { formatCurrency, formatDate as utilFormatDate, formatCurrencyWithK } from '../lib/utils';
 import { useNotification } from '../lib/useNotification';
 import { useRequestApprovalPermission, useCreateRequestPermission } from '../lib/useRequestApprovalPermission';
@@ -168,6 +168,7 @@ export default function ProjectInitiation() {
           state: 'Active',
           health_status: 'On Track',
           tenant_name: request.tenant_name || null,
+          owner_id: DEMO_USER_ID,
         }])
         .select();
 
