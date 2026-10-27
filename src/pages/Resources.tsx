@@ -414,9 +414,15 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
 
   const fetchRoles = async () => {
     try {
-      const { data, error } = await supabase.from('roles').select('id, name').order('name');
+      const { data, error } = await supabase
+        .from('project_roles')
+        .select('id, role_name, display_name, sort_order')
+        .order('sort_order');
       if (error) throw error;
-      setAvailableRoles((data || []).map((r: { id: string; name: string }) => ({ value: r.name, label: r.name })));
+      setAvailableRoles((data || []).map((r: { id: string; role_name: string; display_name: string }) => ({
+        value: r.display_name || r.role_name,
+        label: r.display_name || r.role_name,
+      })));
     } catch (error) {
       console.error('Error fetching roles:', error);
     }
