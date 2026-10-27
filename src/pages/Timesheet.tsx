@@ -98,7 +98,7 @@ const Timesheet: React.FC = () => {
     const weekEnd = new Date(currentWeekStart);
     weekEnd.setDate(weekEnd.getDate() + 6);
 
-    const USER_EMAIL = 'demo@alignex.com';
+    const USER_EMAIL = 'rajesh.sawant@tcs.com';
 
     const [entriesRes, projectsRes, requestsRes, categoriesRes, persistentItemsRes, submissionRes] = await Promise.all([
       supabase
@@ -293,7 +293,7 @@ const Timesheet: React.FC = () => {
       return;
     }
 
-    const USER_EMAIL = 'demo@alignex.com';
+    const USER_EMAIL = 'rajesh.sawant@tcs.com';
 
     let exists = false;
     if (newRowForm.type === 'project') {
@@ -384,7 +384,7 @@ const Timesheet: React.FC = () => {
   };
 
   const handleSubmitTimesheet = async () => {
-    const USER_EMAIL = 'demo@alignex.com';
+    const USER_EMAIL = 'rajesh.sawant@tcs.com';
     const weekEnd = new Date(currentWeekStart);
     weekEnd.setDate(weekEnd.getDate() + 6);
 

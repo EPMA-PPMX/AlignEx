@@ -10,7 +10,7 @@ interface UseModuleAccessResult {
   error: string | null;
 }
 
-const DEFAULT_USER_EMAIL = 'demo@alignex.com'; // Replace with actual user email from auth
+const DEFAULT_USER_EMAIL = 'rajesh.sawant@tcs.com'; // Replace with actual user email from auth
 
 export function useModuleAccess(moduleKey: ModuleKey, userEmail?: string): UseModuleAccessResult {
   const email = userEmail || DEFAULT_USER_EMAIL;
