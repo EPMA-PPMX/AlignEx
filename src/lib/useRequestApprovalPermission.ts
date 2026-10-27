@@ -10,12 +10,13 @@ export interface RequestApprovalPermission {
 /**
  * Determines whether the current user can approve/reject project initiation requests.
  *
- * The check mirrors the project-permissions logic but is tenant-scoped rather than
- * project-scoped, because a request has not yet become a project. The user's system
- * role is matched against the project_roles table and the union of permissions across
- * all roles the user holds is checked for the `project.approve_request` key.
+ * The check is tenant-scoped rather than project-scoped, because a request has not
+ * yet become a project. The user's system role is matched against the
+ * project_role_permissions table for the `project.approve_request` key.
  *
- * Global admins and portfolio managers always have the permission.
+ * A tenant-specific override always wins over the global default. If no
+ * tenant-specific row exists, the global row is used. If neither exists,
+ * the permission is denied.
  */
 export function useRequestApprovalPermission(): RequestApprovalPermission {
   const [canApproveRequest, setCanApproveRequest] = useState(false);
@@ -31,23 +32,12 @@ export function useRequestApprovalPermission(): RequestApprovalPermission {
 
       const { data: userRow } = await supabase
         .from('users')
-        .select('system_role, resource_id, tenant_name')
+        .select('system_role, tenant_name')
         .eq('id', DEMO_USER_ID)
         .maybeSingle();
 
-      if (!userRow) {
+      if (!userRow || !userRow.system_role) {
         setCanApproveRequest(false);
-        return;
-      }
-
-      const isGlobalAdmin =
-        userRow.system_role === 'Admin' || userRow.system_role === 'Administrators';
-      const isPortfolioManager =
-        userRow.system_role === 'Portfolio Manager' ||
-        userRow.system_role === 'Portfolio Managers';
-
-      if (isGlobalAdmin || isPortfolioManager) {
-        setCanApproveRequest(true);
         return;
       }
 
@@ -56,14 +46,19 @@ export function useRequestApprovalPermission(): RequestApprovalPermission {
 
       const { data: rolePerms } = await supabase
         .from('project_role_permissions')
-        .select('permission_key, can_execute, tenant_name')
+        .select('can_execute, tenant_name')
         .eq('role_name', systemRole)
         .eq('permission_key', 'project.approve_request')
-        .eq('can_execute', true)
         .or(`tenant_name.is.null,tenant_name.eq.${tenant}`);
 
-      const hasPermission = (rolePerms || []).some((p: any) => p.can_execute === true);
-      setCanApproveRequest(hasPermission);
+      const rows = rolePerms || [];
+
+      // Prefer a tenant-specific override; fall back to the global default.
+      const tenantRow = rows.find((r: any) => r.tenant_name === tenant);
+      const globalRow = rows.find((r: any) => r.tenant_name === null);
+      const effective = tenantRow ?? globalRow;
+
+      setCanApproveRequest(effective ? effective.can_execute === true : false);
     } catch (err) {
       console.error('Error checking request approval permission:', err);
       setCanApproveRequest(false);
