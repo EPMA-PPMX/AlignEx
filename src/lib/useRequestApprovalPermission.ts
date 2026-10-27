@@ -68,3 +68,8 @@ export function useCreateRequestPermission() {
   const { allowed, loading } = useProjectRolePermission('project.create_request');
   return { canCreateRequest: allowed, loading };
 }
+
+export function useTimesheetApprovePermission() {
+  const { allowed, loading } = useProjectRolePermission('timesheet.approve');
+  return { canApproveTimesheet: allowed, loading };
+}

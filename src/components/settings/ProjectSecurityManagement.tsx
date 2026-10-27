@@ -41,6 +41,7 @@ const ALL_PERMISSIONS = [
   { key: 'project.view_status_reports', label: 'View Status Reports', description: 'Can view status reports (read-only)' },
   { key: 'project.approve_request', label: 'Approve Project Requests', description: 'Can approve or reject project initiation requests' },
   { key: 'project.create_request', label: 'Create Project Requests', description: 'Can create new project initiation requests' },
+  { key: 'timesheet.approve', label: 'Timesheet Approver', description: 'Can approve or reject timesheet submissions for the tenant' },
 ];
 
 const ProjectSecurityManagement: React.FC = () => {

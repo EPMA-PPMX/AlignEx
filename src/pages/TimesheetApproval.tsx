@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNotification } from '../lib/useNotification';
-import { CheckCircle, XCircle, Eye, ChevronDown, ChevronRight } from 'lucide-react';
+import { DEMO_USER_ID } from '../lib/useCurrentUser';
+import { CheckCircle, XCircle, Eye, ChevronDown, ChevronRight, Lock } from 'lucide-react';
+import { useTimesheetApprovePermission } from '../lib/useRequestApprovalPermission';
 
 interface TimesheetSubmission {
   id: string;
@@ -40,6 +42,8 @@ interface ProjectTimesheets {
 
 const TimesheetApproval: React.FC = () => {
   const { showConfirm, showNotification } = useNotification();
+  const { canApproveTimesheet, loading: permLoading } = useTimesheetApprovePermission();
+  const [reviewerEmail, setReviewerEmail] = useState<string>('');
   const [projectTimesheets, setProjectTimesheets] = useState<ProjectTimesheets[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
@@ -49,18 +53,22 @@ const TimesheetApproval: React.FC = () => {
   const [processingAction, setProcessingAction] = useState<string | null>(null);
 
   useEffect(() => {
+    supabase
+      .from('users')
+      .select('email')
+      .eq('id', DEMO_USER_ID)
+      .maybeSingle()
+      .then(({ data }) => { if (data?.email) setReviewerEmail(data.email); });
     fetchTimesheets();
   }, []);
 
   const fetchTimesheets = async () => {
     setLoading(true);
-    const PM_EMAIL = 'rajesh.sawant@tcs.com';
 
     try {
       const { data: projectsData, error: projectsError } = await supabase
         .from('projects')
-        .select('id, name, project_manager')
-        .eq('project_manager', PM_EMAIL);
+        .select('id, name, project_manager, tenant_name');
 
       if (projectsError) {
         console.error('Error fetching projects:', projectsError);
@@ -182,13 +190,11 @@ const TimesheetApproval: React.FC = () => {
     setProcessingAction(submissionId);
 
     try {
-      const PM_EMAIL = 'rajesh.sawant@tcs.com';
-
       const { error } = await supabase
         .from('timesheet_submissions')
         .update({
           status: 'approved',
-          reviewed_by: PM_EMAIL,
+          reviewed_by: reviewerEmail || 'approver',
           reviewed_at: new Date().toISOString(),
           reviewer_comments: reviewComment || null
         })
@@ -228,13 +234,11 @@ const TimesheetApproval: React.FC = () => {
     setProcessingAction(submissionId);
 
     try {
-      const PM_EMAIL = 'rajesh.sawant@tcs.com';
-
       const { error } = await supabase
         .from('timesheet_submissions')
         .update({
           status: 'rejected',
-          reviewed_by: PM_EMAIL,
+          reviewed_by: reviewerEmail || 'approver',
           reviewed_at: new Date().toISOString(),
           reviewer_comments: reviewComment
         })
@@ -277,10 +281,20 @@ const TimesheetApproval: React.FC = () => {
     return Array.from(grouped.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   };
 
-  if (loading) {
+  if (loading || permLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="text-gray-600">Loading timesheets...</div>
+      </div>
+    );
+  }
+
+  if (!canApproveTimesheet) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3">
+        <Lock className="w-10 h-10 text-gray-400" />
+        <p className="text-gray-600">You do not have permission to approve timesheets.</p>
+        <p className="text-sm text-gray-400">Contact your administrator to request the Timesheet Approver permission.</p>
       </div>
     );
   }
