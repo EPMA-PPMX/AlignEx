@@ -24,10 +24,25 @@ interface OrganizationModule {
   expiry_date: string | null;
 }
 
+interface Organization {
+  id: string;
+  name: string;
+  is_active: boolean;
+  total_licenses: number | null;
+}
+
 const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000001';
+
+const DEFAULT_MODULES = [
+  { module_key: 'base', module_name: 'Base Platform', is_active: true },
+  { module_key: 'skills', module_name: 'Skills Management', is_active: false },
+  { module_key: 'benefits', module_name: 'Benefit Realization', is_active: false },
+];
 
 export default function LicenseManagement() {
   const { showConfirm, showNotification } = useNotification();
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [selectedOrgId, setSelectedOrgId] = useState<string>(DEFAULT_ORG_ID);
   const [userLicenses, setUserLicenses] = useState<UserLicense[]>([]);
   const [modules, setModules] = useState<OrganizationModule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,8 +62,32 @@ export default function LicenseManagement() {
   const [editTier, setEditTier] = useState<'Read Only' | 'Team Member' | 'Full license' | 'Super User license'>('Team Member');
 
   useEffect(() => {
-    loadData();
+    loadOrganizations();
   }, []);
+
+  useEffect(() => {
+    if (selectedOrgId) loadData();
+  }, [selectedOrgId]);
+
+  const loadOrganizations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('id, name, is_active, total_licenses')
+        .order('name');
+
+      if (error) throw error;
+
+      const orgs = data || [];
+      setOrganizations(orgs);
+      if (orgs.length > 0 && !orgs.find(o => o.id === selectedOrgId)) {
+        setSelectedOrgId(orgs[0].id);
+      }
+    } catch (error) {
+      console.error('Error loading organizations:', error);
+      showNotification('Failed to load organizations', 'error');
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -58,20 +97,40 @@ export default function LicenseManagement() {
         supabase
           .from('user_licenses')
           .select('*')
-          .eq('organization_id', DEFAULT_ORG_ID)
+          .eq('organization_id', selectedOrgId)
           .order('user_email'),
         supabase
           .from('organization_modules')
           .select('*')
-          .eq('organization_id', DEFAULT_ORG_ID)
+          .eq('organization_id', selectedOrgId)
           .order('module_key')
       ]);
 
       if (licensesResult.error) throw licensesResult.error;
       if (modulesResult.error) throw modulesResult.error;
 
+      let moduleData = modulesResult.data || [];
+
+      if (moduleData.length === 0) {
+        const seedRows = DEFAULT_MODULES.map(m => ({
+          ...m,
+          organization_id: selectedOrgId,
+          activation_date: m.is_active ? new Date().toISOString().split('T')[0] : null,
+        }));
+        const { data: seeded, error: seedError } = await supabase
+          .from('organization_modules')
+          .insert(seedRows)
+          .select('*');
+
+        if (seedError) {
+          console.error('Error seeding modules:', seedError);
+        } else {
+          moduleData = seeded || [];
+        }
+      }
+
       setUserLicenses(licensesResult.data || []);
-      setModules(modulesResult.data || []);
+      setModules(moduleData);
     } catch (error) {
       console.error('Error loading license data:', error);
       showNotification('Failed to load license data', 'error');
@@ -93,7 +152,7 @@ export default function LicenseManagement() {
         .from('user_licenses')
         .insert([{
           user_email: newUserEmail.trim().toLowerCase(),
-          organization_id: DEFAULT_ORG_ID,
+          organization_id: selectedOrgId,
           license_tier: newUserTier,
           is_active: true,
           assigned_date: new Date().toISOString().split('T')[0],
@@ -180,7 +239,7 @@ export default function LicenseManagement() {
           expiry_date: expiryDate || null,
           updated_at: new Date().toISOString()
         })
-        .eq('organization_id', DEFAULT_ORG_ID)
+        .eq('organization_id', selectedOrgId)
         .eq('module_key', selectedModule);
 
       if (error) throw error;
@@ -213,7 +272,7 @@ export default function LicenseManagement() {
           is_active: false,
           updated_at: new Date().toISOString()
         })
-        .eq('organization_id', DEFAULT_ORG_ID)
+        .eq('organization_id', selectedOrgId)
         .eq('module_key', moduleKey);
 
       if (error) throw error;
@@ -284,6 +343,31 @@ export default function LicenseManagement() {
       <div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">License Management</h2>
         <p className="text-gray-600">Manage user licenses and organization modules</p>
+      </div>
+
+      {/* Tenant Selector */}
+      <div className="bg-widget-bg rounded-lg border border-gray-200 p-4">
+        <div className="flex items-center gap-4">
+          <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
+            Select Tenant:
+          </label>
+          <select
+            value={selectedOrgId}
+            onChange={(e) => setSelectedOrgId(e.target.value)}
+            className="flex-1 max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            {organizations.map((org) => (
+              <option key={org.id} value={org.id}>
+                {org.name}{!org.is_active ? ' (Inactive)' : ''}
+              </option>
+            ))}
+          </select>
+          {organizations.find(o => o.id === selectedOrgId)?.total_licenses != null && (
+            <span className="text-sm text-gray-500">
+              {organizations.find(o => o.id === selectedOrgId)?.total_licenses} total licenses
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Usage Statistics */}
