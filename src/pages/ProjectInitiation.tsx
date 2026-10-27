@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
 import { formatCurrency, formatDate as utilFormatDate, formatCurrencyWithK } from '../lib/utils';
 import { useNotification } from '../lib/useNotification';
-import { useRequestApprovalPermission } from '../lib/useRequestApprovalPermission';
+import { useRequestApprovalPermission, useCreateRequestPermission } from '../lib/useRequestApprovalPermission';
 import ProjectRequestForm from '../components/initiation/ProjectRequestForm';
 import RequestAnalytics from '../components/initiation/RequestAnalytics';
 
@@ -34,6 +34,7 @@ interface ProjectRequest {
 export default function ProjectInitiation() {
   const { showConfirm, showNotification } = useNotification();
   const { canApproveRequest } = useRequestApprovalPermission();
+  const { canCreateRequest } = useCreateRequestPermission();
   const [requests, setRequests] = useState<ProjectRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -260,16 +261,18 @@ export default function ProjectInitiation() {
             Submit and manage project requests
           </p>
         </div>
-        <button
-          onClick={() => {
-            setEditingRequest(null);
-            setShowForm(true);
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-primary text-white rounded-lg hover:shadow-lg transition-all"
-        >
-          <Plus className="w-5 h-5" />
-          New Request
-        </button>
+        {canCreateRequest && (
+          <button
+            onClick={() => {
+              setEditingRequest(null);
+              setShowForm(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-primary text-white rounded-lg hover:shadow-lg transition-all"
+          >
+            <Plus className="w-5 h-5" />
+            New Request
+          </button>
+        )}
       </div>
 
       {/* Analytics Dashboard */}
@@ -296,7 +299,9 @@ export default function ProjectInitiation() {
           <p className="text-slate-600">
             {searchQuery
               ? 'No requests match your search criteria.'
-              : 'No project requests yet. Click "New Request" to create one.'}
+              : canCreateRequest
+                ? 'No project requests yet. Click "New Request" to create one.'
+                : 'No project requests yet.'}
           </p>
         </div>
       ) : (
