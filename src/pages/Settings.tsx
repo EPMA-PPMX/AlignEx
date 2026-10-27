@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Bell, Shield, Database, Palette, Globe, Settings2, Award, Clock, DollarSign, AlertTriangle, AlertCircle, File as FileEdit, FolderOpen, Users } from 'lucide-react';
+import { User, Bell, Shield, Database, Palette, Globe, Settings2, Award, Clock, DollarSign, Key, AlertTriangle, AlertCircle, File as FileEdit, FolderOpen, Users, Building2 } from 'lucide-react';
 import CustomFields from '../components/CustomFields';
 import ProjectTemplates from '../components/ProjectTemplates';
 import OverviewPageDesigner from '../components/OverviewPageDesigner';
@@ -13,6 +13,7 @@ import ChangeRequestFieldsManagement from '../components/settings/ChangeRequestF
 import ProjectManagement from '../components/settings/ProjectManagement';
 import UserManagement from '../components/settings/UserManagement';
 import ProjectSecurityManagement from '../components/settings/ProjectSecurityManagement';
+import TenantManagement from '../components/settings/TenantManagement';
 import { usePermissions } from '../lib/usePermissions';
 
 const Settings: React.FC = () => {
@@ -25,7 +26,8 @@ const Settings: React.FC = () => {
     { id: 'notifications', name: 'Notifications', icon: Bell },
     { id: 'security', name: 'Security', icon: Shield },
     { id: 'project-security', name: 'Project Security', icon: Shield },
-    { id: 'license-management', name: 'Organization', icon: Globe, requiresSuperUser: true },
+    { id: 'license-management', name: 'License Management', icon: Key, requiresSuperUser: true },
+    { id: 'tenant-management', name: 'Tenants', icon: Building2, requiresSuperUser: true },
     { id: 'appearance', name: 'Appearance', icon: Palette },
     { id: 'integrations', name: 'Integrations', icon: Database },
     { id: 'general', name: 'General', icon: Globe },
@@ -191,6 +193,10 @@ const Settings: React.FC = () => {
 
             {activeTab === 'license-management' && (
               <LicenseManagement />
+            )}
+
+            {activeTab === 'tenant-management' && (
+              <TenantManagement />
             )}
 
             {activeTab === 'appearance' && (
