@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { User, Bell, Shield, Database, Palette, Globe, Settings2, Award, Clock, DollarSign, Key, AlertTriangle, AlertCircle, File as FileEdit, FolderOpen, Users, Building2 } from 'lucide-react';
 import CustomFields from '../components/CustomFields';
 import ProjectTemplates from '../components/ProjectTemplates';
@@ -15,11 +15,56 @@ import UserManagement from '../components/settings/UserManagement';
 import ProjectSecurityManagement from '../components/settings/ProjectSecurityManagement';
 import TenantManagement from '../components/settings/TenantManagement';
 import { usePermissions } from '../lib/usePermissions';
-import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
+import { DEMO_TENANT_NAME, DEMO_USER_ID } from '../lib/useCurrentUser';
+import { supabase } from '../lib/supabase';
+import { defaultNotificationPreferences, NotificationPreferences } from '../lib/notifications';
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('profile');
+  const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>(defaultNotificationPreferences);
+  const [notificationSaveState, setNotificationSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const { isSuperUser } = usePermissions();
+
+  useEffect(() => {
+    const loadNotificationPreferences = async () => {
+      const { data, error } = await supabase
+        .from('user_preferences')
+        .select('preference_value')
+        .eq('user_id', DEMO_USER_ID)
+        .eq('preference_key', 'notification_preferences')
+        .maybeSingle();
+      if (error) {
+        console.error('Error loading notification preferences:', error);
+        return;
+      }
+      if (data?.preference_value) {
+        setNotificationPreferences({ ...defaultNotificationPreferences, ...data.preference_value });
+      }
+    };
+    loadNotificationPreferences();
+  }, []);
+
+  const saveNotificationPreferences = async () => {
+    setNotificationSaveState('saving');
+    const { error } = await supabase
+      .from('user_preferences')
+      .upsert({
+        user_id: DEMO_USER_ID,
+        preference_key: 'notification_preferences',
+        preference_value: notificationPreferences,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,preference_key' });
+    if (error) {
+      console.error('Error saving notification preferences:', error);
+      setNotificationSaveState('idle');
+      return;
+    }
+    if (notificationPreferences.push && 'Notification' in window && Notification.permission === 'default') {
+      await Notification.requestPermission();
+    }
+    setNotificationSaveState('saved');
+    window.setTimeout(() => setNotificationSaveState('idle'), 2000);
+  };
 
   const tabs = [
     { id: 'profile', name: 'Profile', icon: User },
@@ -122,13 +167,14 @@ const Settings: React.FC = () => {
 
             {activeTab === 'notifications' && (
               <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-6">Notification Preferences</h2>
+                <h2 className="text-xl font-semibold text-gray-900 mb-2">Notification Preferences</h2>
+                <p className="text-sm text-gray-500 mb-6">Choose which updates appear in your My Hub notification inbox.</p>
                 <div className="space-y-4">
                   {[
-                    { id: 'email', title: 'Email Notifications', desc: 'Receive notifications via email' },
-                    { id: 'push', title: 'Push Notifications', desc: 'Receive push notifications in browser' },
-                    { id: 'project', title: 'Project Updates', desc: 'Get notified about project changes' },
-                    { id: 'deadline', title: 'Deadline Reminders', desc: 'Receive reminders for upcoming deadlines' },
+                    { id: 'email' as const, title: 'Email Notifications', desc: 'Receive notifications via email' },
+                    { id: 'push' as const, title: 'Push Notifications', desc: 'Allow browser notification permission' },
+                    { id: 'project' as const, title: 'Project Updates', desc: 'Get notified about project changes' },
+                    { id: 'deadline' as const, title: 'Deadline Reminders', desc: 'Receive reminders for upcoming deadlines' },
                   ].map((item) => (
                     <div key={item.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                       <div>
@@ -136,11 +182,21 @@ const Settings: React.FC = () => {
                         <p className="text-sm text-gray-500">{item.desc}</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" defaultChecked className="sr-only peer" />
+                        <input
+                          type="checkbox"
+                          checked={notificationPreferences[item.id]}
+                          onChange={(event) => setNotificationPreferences(current => ({ ...current, [item.id]: event.target.checked }))}
+                          className="sr-only peer"
+                        />
                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
                       </label>
                     </div>
                   ))}
+                </div>
+                <div className="flex justify-end mt-6">
+                  <button onClick={saveNotificationPreferences} disabled={notificationSaveState === 'saving'} className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50">
+                    {notificationSaveState === 'saving' ? 'Saving...' : notificationSaveState === 'saved' ? 'Saved' : 'Save Notification Preferences'}
+                  </button>
                 </div>
               </div>
             )}

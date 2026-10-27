@@ -14,6 +14,7 @@ import PendingApprovalsWidget from '../components/widgets/PendingApprovalsWidget
 import ProjectHealthWidget from '../components/widgets/ProjectHealthWidget';
 import TeamCapacityWidget from '../components/widgets/TeamCapacityWidget';
 import CustomizeWidgetsModal from '../components/CustomizeWidgetsModal';
+import NotificationCenter from '../components/NotificationCenter';
 
 const Dashboard: React.FC = () => {
   const { user, widgets, loading, toggleWidget, reorderWidgets, changeWidgetSize, refetch } = useCurrentUser();
@@ -103,6 +104,8 @@ const Dashboard: React.FC = () => {
           <span className="hidden md:inline">Customize</span>
         </button>
       </div>
+
+      <NotificationCenter userId={userId} />
 
       {/* Widgets Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-[200px]">
