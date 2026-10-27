@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Users, Plus, Search, Filter, Download, Upload, CreditCard as Edit2, Trash2, UserPlus, Package } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
 import { useNotification } from '../lib/useNotification';
 import ResourceImportModal from '../components/ResourceImportModal';
 
@@ -32,6 +33,8 @@ export default function Resources() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'person' | 'generic'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [filterDepartment, setFilterDepartment] = useState<string>('all');
+  const [departments, setDepartments] = useState<string[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
@@ -42,13 +45,21 @@ export default function Resources() {
 
   const fetchResources = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('resources')
-        .select('*')
-        .order('display_name');
+        .select('*');
+
+      if (DEMO_TENANT_NAME) {
+        query = query.eq('tenant_name', DEMO_TENANT_NAME);
+      }
+
+      const { data, error } = await query.order('display_name');
 
       if (error) throw error;
       setResources(data || []);
+
+      const depts = Array.from(new Set((data || []).map(r => r.department).filter(Boolean))) as string[];
+      setDepartments(depts.sort());
     } catch (error) {
       console.error('Error fetching resources:', error);
     } finally {
@@ -63,8 +74,9 @@ export default function Resources() {
 
     const matchesType = filterType === 'all' || resource.resource_type === filterType;
     const matchesStatus = filterStatus === 'all' || resource.status === filterStatus;
+    const matchesDept = filterDepartment === 'all' || resource.department === filterDepartment;
 
-    return matchesSearch && matchesType && matchesStatus;
+    return matchesSearch && matchesType && matchesStatus && matchesDept;
   });
 
   const handleDelete = async (id: string) => {
@@ -192,6 +204,17 @@ export default function Resources() {
               <option value="all">All Status</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
+            </select>
+
+            <select
+              value={filterDepartment}
+              onChange={(e) => setFilterDepartment(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="all">All Departments</option>
+              {departments.map(dept => (
+                <option key={dept} value={dept}>{dept}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -436,6 +459,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
         location: formData.location || null,
         status: formData.status,
         notes: formData.notes || null,
+        tenant_name: DEMO_TENANT_NAME,
       };
 
       if (formData.resource_type === 'person') {
