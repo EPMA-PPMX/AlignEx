@@ -15,6 +15,7 @@ import UserManagement from '../components/settings/UserManagement';
 import ProjectSecurityManagement from '../components/settings/ProjectSecurityManagement';
 import TenantManagement from '../components/settings/TenantManagement';
 import { usePermissions } from '../lib/usePermissions';
+import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('profile');
@@ -188,7 +189,7 @@ const Settings: React.FC = () => {
             )}
 
             {activeTab === 'user-management' && (
-              <UserManagement />
+              <UserManagement isSuperUser={isSuperUser} tenantName={DEMO_TENANT_NAME} />
             )}
 
             {activeTab === 'license-management' && (

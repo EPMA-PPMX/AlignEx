@@ -33,7 +33,12 @@ const emptyForm = {
   is_active: true,
 };
 
-export default function UserManagement() {
+interface UserManagementProps {
+  isSuperUser?: boolean;
+  tenantName?: string | null;
+}
+
+export default function UserManagement({ isSuperUser = false, tenantName }: UserManagementProps) {
   const { showConfirm, showNotification } = useNotification();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,6 +49,8 @@ export default function UserManagement() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
+
+  const effectiveTenant = isSuperUser ? null : (tenantName || null);
 
   useEffect(() => {
     fetchUsers();
@@ -60,17 +67,20 @@ export default function UserManagement() {
 
   const fetchUsers = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    let query = supabase
       .from('users')
-      .select('id, email, full_name, system_role, avatar_url, is_active, bio, tenant_name, created_at')
-      .order('full_name');
+      .select('id, email, full_name, system_role, avatar_url, is_active, bio, tenant_name, created_at');
+    if (effectiveTenant) {
+      query = query.eq('tenant_name', effectiveTenant);
+    }
+    const { data, error } = await query.order('full_name');
     if (!error) setUsers(data || []);
     setLoading(false);
   };
 
   const openAdd = () => {
     setEditingUser(null);
-    setForm({ ...emptyForm });
+    setForm({ ...emptyForm, tenant_name: effectiveTenant || '' });
     setError(null);
     setShowModal(true);
   };
@@ -110,7 +120,7 @@ export default function UserManagement() {
       system_role: form.system_role,
       avatar_url: form.avatar_url.trim() || null,
       bio: form.bio.trim() || null,
-      tenant_name: form.tenant_name.trim() || null,
+      tenant_name: isSuperUser ? (form.tenant_name.trim() || null) : (effectiveTenant || null),
       is_active: form.is_active,
       updated_at: new Date().toISOString(),
     };
@@ -372,18 +382,27 @@ export default function UserManagement() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tenant</label>
-                <select
-                  value={form.tenant_name}
-                  onChange={e => setForm({ ...form, tenant_name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                >
-                  <option value="">— No tenant —</option>
-                  {organizations.map(org => (
-                    <option key={org.id} value={org.name}>
-                      {org.name}{!org.is_active ? ' (Inactive)' : ''}
-                    </option>
-                  ))}
-                </select>
+                {isSuperUser ? (
+                  <select
+                    value={form.tenant_name}
+                    onChange={e => setForm({ ...form, tenant_name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    <option value="">— No tenant —</option>
+                    {organizations.map(org => (
+                      <option key={org.id} value={org.name}>
+                        {org.name}{!org.is_active ? ' (Inactive)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={form.tenant_name || effectiveTenant || ''}
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-500 cursor-not-allowed"
+                  />
+                )}
               </div>
 
               <div>
