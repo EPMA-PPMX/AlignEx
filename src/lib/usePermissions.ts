@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { permissionService, LicenseTier, ModuleKey } from './permissionService';
+import { supabase } from './supabase';
+import { DEMO_USER_ID } from './useCurrentUser';
 
 interface PermissionActions {
   view: boolean;
@@ -24,15 +26,14 @@ interface UsePermissionsResult {
   availableModules: ModuleKey[];
   organizationId: string | null;
   can: PermissionActions;
+  isSuperUser: boolean;
   loading: boolean;
   error: string | null;
   refresh: () => void;
 }
 
-const DEFAULT_USER_EMAIL = 'demo@alignex.com'; // Replace with actual user email from auth
-
 export function usePermissions(userEmail?: string): UsePermissionsResult {
-  const email = userEmail || DEFAULT_USER_EMAIL;
+  const [email, setEmail] = useState<string>(userEmail || '');
 
   const [licenseTier, setLicenseTier] = useState<LicenseTier | null>(null);
   const [availableModules, setAvailableModules] = useState<ModuleKey[]>([]);
@@ -56,15 +57,27 @@ export function usePermissions(userEmail?: string): UsePermissionsResult {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSuperUser, setIsSuperUser] = useState(false);
 
   const loadPermissions = async () => {
     try {
       setLoading(true);
       setError(null);
 
+      let activeEmail = userEmail || email;
+      if (!activeEmail) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('email')
+          .eq('id', DEMO_USER_ID)
+          .maybeSingle();
+        activeEmail = userData?.email || 'demo@alignex.com';
+        setEmail(activeEmail);
+      }
+
       const [tier, orgId] = await Promise.all([
-        permissionService.getUserLicenseTier(email),
-        permissionService.getOrganizationId(email),
+        permissionService.getUserLicenseTier(activeEmail),
+        permissionService.getOrganizationId(activeEmail),
       ]);
 
       setLicenseTier(tier);
@@ -90,21 +103,21 @@ export function usePermissions(userEmail?: string): UsePermissionsResult {
         canTrackBenefits,
         canExport,
       ] = await Promise.all([
-        permissionService.canPerformAction(email, 'view'),
-        permissionService.canPerformAction(email, 'create'),
-        permissionService.canPerformAction(email, 'edit'),
-        permissionService.canPerformAction(email, 'delete'),
-        permissionService.canPerformAction(email, 'manage'),
-        permissionService.canPerformAction(email, 'timesheet.enter'),
-        permissionService.canPerformAction(email, 'timesheet.approve'),
-        permissionService.canPerformAction(email, 'project.create'),
-        permissionService.canPerformAction(email, 'project.manage'),
-        permissionService.canPerformAction(email, 'request.create'),
-        permissionService.canPerformAction(email, 'resource.manage'),
-        permissionService.canPerformAction(email, 'skills.manage_own'),
-        permissionService.canPerformAction(email, 'skills.manage_all'),
-        permissionService.canPerformAction(email, 'benefits.track'),
-        permissionService.canPerformAction(email, 'export'),
+        permissionService.canPerformAction(activeEmail, 'view'),
+        permissionService.canPerformAction(activeEmail, 'create'),
+        permissionService.canPerformAction(activeEmail, 'edit'),
+        permissionService.canPerformAction(activeEmail, 'delete'),
+        permissionService.canPerformAction(activeEmail, 'manage'),
+        permissionService.canPerformAction(activeEmail, 'timesheet.enter'),
+        permissionService.canPerformAction(activeEmail, 'timesheet.approve'),
+        permissionService.canPerformAction(activeEmail, 'project.create'),
+        permissionService.canPerformAction(activeEmail, 'project.manage'),
+        permissionService.canPerformAction(activeEmail, 'request.create'),
+        permissionService.canPerformAction(activeEmail, 'resource.manage'),
+        permissionService.canPerformAction(activeEmail, 'skills.manage_own'),
+        permissionService.canPerformAction(activeEmail, 'skills.manage_all'),
+        permissionService.canPerformAction(activeEmail, 'benefits.track'),
+        permissionService.canPerformAction(activeEmail, 'export'),
       ]);
 
       setCan({
@@ -124,6 +137,8 @@ export function usePermissions(userEmail?: string): UsePermissionsResult {
         trackBenefits: canTrackBenefits,
         export: canExport,
       });
+
+      setIsSuperUser(tier === 'Super User license');
     } catch (err: any) {
       console.error('Error loading permissions:', err);
       setError(err.message || 'Failed to load permissions');
@@ -131,6 +146,7 @@ export function usePermissions(userEmail?: string): UsePermissionsResult {
       // Default to full permissions on error for backward compatibility
       setLicenseTier('Full license');
       setAvailableModules(['base', 'skills', 'benefits']);
+      setIsSuperUser(false);
       setCan({
         view: true,
         create: true,
@@ -163,6 +179,7 @@ export function usePermissions(userEmail?: string): UsePermissionsResult {
     availableModules,
     organizationId,
     can,
+    isSuperUser,
     loading,
     error,
     refresh: loadPermissions,

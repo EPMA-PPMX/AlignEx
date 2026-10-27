@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Bell, Shield, Database, Palette, Globe, Settings2, Award, Clock, DollarSign, Key, AlertTriangle, AlertCircle, File as FileEdit, FolderOpen, Users } from 'lucide-react';
+import { User, Bell, Shield, Database, Palette, Globe, Settings2, Award, Clock, DollarSign, AlertTriangle, AlertCircle, File as FileEdit, FolderOpen, Users } from 'lucide-react';
 import CustomFields from '../components/CustomFields';
 import ProjectTemplates from '../components/ProjectTemplates';
 import OverviewPageDesigner from '../components/OverviewPageDesigner';
@@ -13,9 +13,11 @@ import ChangeRequestFieldsManagement from '../components/settings/ChangeRequestF
 import ProjectManagement from '../components/settings/ProjectManagement';
 import UserManagement from '../components/settings/UserManagement';
 import ProjectSecurityManagement from '../components/settings/ProjectSecurityManagement';
+import { usePermissions } from '../lib/usePermissions';
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('profile');
+  const { isSuperUser } = usePermissions();
 
   const tabs = [
     { id: 'profile', name: 'Profile', icon: User },
@@ -23,7 +25,7 @@ const Settings: React.FC = () => {
     { id: 'notifications', name: 'Notifications', icon: Bell },
     { id: 'security', name: 'Security', icon: Shield },
     { id: 'project-security', name: 'Project Security', icon: Shield },
-    { id: 'license-management', name: 'License Management', icon: Key },
+    { id: 'license-management', name: 'Organization', icon: Globe, requiresSuperUser: true },
     { id: 'appearance', name: 'Appearance', icon: Palette },
     { id: 'integrations', name: 'Integrations', icon: Database },
     { id: 'general', name: 'General', icon: Globe },
@@ -37,7 +39,7 @@ const Settings: React.FC = () => {
     { id: 'budget-categories', name: 'Budget Categories', icon: DollarSign },
     { id: 'timesheet-categories', name: 'Timesheet Categories', icon: Clock },
     { id: 'skills-settings', name: 'Skills Settings', icon: Award },
-  ];
+  ].filter(tab => !tab.requiresSuperUser || isSuperUser);
 
   return (
     <div className="p-8">
