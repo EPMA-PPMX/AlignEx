@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
 import { formatCurrency, formatDate as utilFormatDate, formatCurrencyWithK } from '../lib/utils';
 import { useNotification } from '../lib/useNotification';
+import { useRequestApprovalPermission } from '../lib/useRequestApprovalPermission';
 import ProjectRequestForm from '../components/initiation/ProjectRequestForm';
 import RequestAnalytics from '../components/initiation/RequestAnalytics';
 
@@ -32,6 +33,7 @@ interface ProjectRequest {
 
 export default function ProjectInitiation() {
   const { showConfirm, showNotification } = useNotification();
+  const { canApproveRequest } = useRequestApprovalPermission();
   const [requests, setRequests] = useState<ProjectRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -246,7 +248,7 @@ export default function ProjectInitiation() {
   }
 
   if (viewingRequest) {
-    return <RequestDetailsView request={viewingRequest} onClose={() => setViewingRequest(null)} onEdit={handleEdit} onDelete={handleDelete} onStatusChange={handleStatusChange} />;
+    return <RequestDetailsView request={viewingRequest} canApproveRequest={canApproveRequest} onClose={() => setViewingRequest(null)} onEdit={handleEdit} onDelete={handleDelete} onStatusChange={handleStatusChange} />;
   }
 
   return (
@@ -308,7 +310,9 @@ export default function ProjectInitiation() {
                 <th className="text-left py-3 px-4 text-sm font-semibold text-white">Start Date</th>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-white">Est. Cost</th>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-white">Created</th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-white">Actions</th>
+                {canApproveRequest && (
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-white">Actions</th>
+                )}
               </tr>
             </thead>
             <tbody style={{ backgroundColor: '#F9F7FC' }}>
@@ -343,18 +347,20 @@ export default function ProjectInitiation() {
                   <td className="py-3 px-4 text-sm text-slate-600">
                     {formatDate(request.created_at)}
                   </td>
-                  <td className="py-3 px-4 text-center">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleView(request);
-                      }}
-                      className="inline-flex items-center gap-1 px-3 py-1 text-primary-600 hover:bg-primary-50 rounded transition-colors text-sm"
-                    >
-                      <Eye className="w-4 h-4" />
-                      View
-                    </button>
-                  </td>
+                  {canApproveRequest && (
+                    <td className="py-3 px-4 text-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleView(request);
+                        }}
+                        className="inline-flex items-center gap-1 px-3 py-1 text-primary-600 hover:bg-primary-50 rounded transition-colors text-sm"
+                      >
+                        <Eye className="w-4 h-4" />
+                        View
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -365,8 +371,9 @@ export default function ProjectInitiation() {
   );
 }
 
-function RequestDetailsView({ request, onClose, onEdit, onDelete, onStatusChange }: {
+function RequestDetailsView({ request, canApproveRequest, onClose, onEdit, onDelete, onStatusChange }: {
   request: ProjectRequest;
+  canApproveRequest: boolean;
   onClose: () => void;
   onEdit: (request: ProjectRequest) => void;
   onDelete: (id: string) => void;
@@ -525,7 +532,7 @@ function RequestDetailsView({ request, onClose, onEdit, onDelete, onStatusChange
           </div>
         </div>
 
-        {request.status === 'Pending Approval' && (
+        {request.status === 'Pending Approval' && canApproveRequest && (
           <div className="flex gap-3 bg-white border border-slate-200 rounded-lg p-4">
             <button
               onClick={() => openReviewDialog('Approved')}

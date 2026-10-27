@@ -39,6 +39,7 @@ const ALL_PERMISSIONS = [
   { key: 'project.delete', label: 'Delete Project', description: 'Can archive or delete the project' },
   { key: 'project.create_status_report', label: 'Create Status Reports', description: 'Can create new status reports' },
   { key: 'project.view_status_reports', label: 'View Status Reports', description: 'Can view status reports (read-only)' },
+  { key: 'project.approve_request', label: 'Approve Project Requests', description: 'Can approve or reject project initiation requests' },
 ];
 
 const ProjectSecurityManagement: React.FC = () => {
