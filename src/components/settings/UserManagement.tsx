@@ -15,6 +15,12 @@ interface User {
   created_at: string;
 }
 
+interface Organization {
+  id: string;
+  name: string;
+  is_active: boolean;
+}
+
 const SYSTEM_ROLES = ['Team Members', 'Team Leads', 'Project Managers', 'Resource Managers', 'Portfolio Managers', 'Portfolio Viewers', 'Administrators', 'Admin'] as const;
 
 const emptyForm = {
@@ -37,10 +43,20 @@ export default function UserManagement() {
   const [form, setForm] = useState({ ...emptyForm });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
 
   useEffect(() => {
     fetchUsers();
+    fetchOrganizations();
   }, []);
+
+  const fetchOrganizations = async () => {
+    const { data } = await supabase
+      .from('organizations')
+      .select('id, name, is_active')
+      .order('name');
+    if (data) setOrganizations(data);
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -139,7 +155,6 @@ export default function UserManagement() {
       showNotification('Failed to delete user', 'error');
     } else {
       setUsers(users.filter(u => u.id !== id));
-      setDeleteConfirm(null);
       showNotification('User deleted successfully', 'success');
     }
   };
@@ -356,14 +371,19 @@ export default function UserManagement() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tenant Name</label>
-                <input
-                  type="text"
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tenant</label>
+                <select
                   value={form.tenant_name}
                   onChange={e => setForm({ ...form, tenant_name: e.target.value })}
-                  placeholder="e.g. Acme Corporation"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                />
+                >
+                  <option value="">— No tenant —</option>
+                  {organizations.map(org => (
+                    <option key={org.id} value={org.name}>
+                      {org.name}{!org.is_active ? ' (Inactive)' : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
