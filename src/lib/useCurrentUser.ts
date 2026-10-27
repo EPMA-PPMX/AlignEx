@@ -38,8 +38,11 @@ export interface DashboardWidget {
   settings: Record<string, any>;
 }
 
-export const DEMO_USER_ID = '53eaeaf7-b9ab-47be-be4b-9e6f57a81dea';
-export const DEMO_TENANT_NAME = 'albamarle';
+//export const DEMO_USER_ID = '53eaeaf7-b9ab-47be-be4b-9e6f57a81dea';
+//export const DEMO_TENANT_NAME = 'albamarle';
+
+export const DEMO_USER_ID = 'afa479e3-ab80-4aca-bede-ac26ddf82ff9';
+export const DEMO_TENANT_NAME = 'epma';
 
 const DEFAULT_WIDGETS: Omit<DashboardWidget, 'id' | 'user_id'>[] = [
   { widget_type: 'team_capacity',      is_enabled: true,  position_order: 1,  size: 'medium', settings: {} },
