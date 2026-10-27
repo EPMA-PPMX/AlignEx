@@ -228,7 +228,7 @@ const TimesheetApproval: React.FC = () => {
     setProcessingAction(submissionId);
 
     try {
-      const PM_EMAIL = 'demo@alignex.com';
+      const PM_EMAIL = 'rajesh.sawant@tcs.com';
 
       const { error } = await supabase
         .from('timesheet_submissions')
