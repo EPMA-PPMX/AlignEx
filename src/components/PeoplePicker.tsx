@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, X, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
 
 interface Resource {
   id: string;
@@ -84,10 +85,10 @@ export default function PeoplePicker({ value, onChange, placeholder = 'Select a 
         .from('resources')
         .select('id, display_name, email, first_name, last_name')
         .eq('status', 'active')
+        .eq('tenant_name', DEMO_TENANT_NAME)
         .order('display_name');
 
       if (error) throw error;
-      console.log('PeoplePicker: Fetched resources:', data?.length || 0);
       setResources(data || []);
       setFilteredResources(data || []);
     } catch (err) {

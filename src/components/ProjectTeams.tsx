@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Calendar, Users, X, ChevronDown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
 import ResourceAllocationHeatMap from './ResourceAllocationHeatMap';
 
 interface Resource {
@@ -585,6 +586,7 @@ function AddTeamMemberModal({ projectId, projectRoles, onClose, onSave, existing
         .from('resources')
         .select('id, display_name, email, department, roles, status')
         .eq('status', 'active')
+        .eq('tenant_name', DEMO_TENANT_NAME)
         .order('display_name');
 
       if (error) throw error;
