@@ -96,13 +96,13 @@ export function useProjectPermissions(projectId: string | undefined) {
 
         const { data: userRow } = await supabase
           .from('users')
-          .select('system_role, resource_id')
+          .select('system_role, resource_id, tenant_name')
           .eq('id', DEMO_USER_ID)
           .maybeSingle();
 
         const isOwner = projectRow?.owner_id === DEMO_USER_ID;
-        const isGlobalAdmin = userRow?.system_role === 'Admin';
-        const isPortfolioManager = userRow?.system_role === 'Portfolio Manager';
+        const isGlobalAdmin = userRow?.system_role === 'Admin' || userRow?.system_role === 'Administrators';
+        const isPortfolioManager = userRow?.system_role === 'Portfolio Manager' || userRow?.system_role === 'Portfolio Managers';
 
         if (isGlobalAdmin || isPortfolioManager) {
           setPermissions({
@@ -155,7 +155,7 @@ export function useProjectPermissions(projectId: string | undefined) {
               .select('permission_key, can_execute, tenant_name')
               .in('role_name', allRoles)
               .eq('can_execute', true)
-              .or(`tenant_name.is.null,tenant_name.eq.${userData.tenant_name ?? ''}`);
+              .or(`tenant_name.is.null,tenant_name.eq.${userRow.tenant_name ?? ''}`);
 
             // De-duplicate by permission_key, preferring tenant-specific rows.
             const byKey = new Map<string, { can_execute: boolean; tenant_name: string | null }>();
