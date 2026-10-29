@@ -38,7 +38,7 @@ export interface DashboardWidget {
   settings: Record<string, any>;
 }
 
-//export const DEMO_USER_ID = 'e7428b3f-3761-4465-babb-d3243592120a';
+export const DEMO_USER_ID = 'e7428b3f-3761-4465-babb-d3243592120a';
 export const DEMO_TENANT_NAME = 'TCS';
 
 //Rajesh Sawant Administrator
