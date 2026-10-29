@@ -1,0 +1,273 @@
+import { useState, useEffect } from 'react';
+import { supabase } from './supabase';
+
+export interface User {
+  id: string;
+  email: string;
+  full_name: string;
+  system_role: 'Administrators' | 'Portfolio Managers' | 'Portfolio Viewers' | 'Project Managers' | 'Resource Managers' | 'Team Leads' | 'Team Members' | 'Project Manager' | 'Team Member' | 'Portfolio Manager' | 'Admin';
+  resource_id: string | null;
+  avatar_url: string | null;
+  is_active: boolean;
+  tenant_name?: string | null;
+}
+
+export interface AuthContext {
+  userId: string;
+  email: string;
+  fullName: string;
+  systemRole: string;
+  resourceId: string | null;
+  tenantName: string | null;
+  isGlobalAdmin: boolean;
+  isPortfolioManager: boolean;
+  seesAllProjects: boolean;
+}
+
+export interface ProjectPermissionMap {
+  [projectId: string]: string[];
+}
+
+export interface DashboardWidget {
+  id: string;
+  user_id: string;
+  widget_type: string;
+  is_enabled: boolean;
+  position_order: number;
+  size: 'small' | 'medium' | 'large';
+  settings: Record<string, any>;
+}
+
+//export const DEMO_USER_ID = 'e7428b3f-3761-4465-babb-d3243592120a';
+//export const DEMO_TENANT_NAME = 'TCS';
+
+//Rajesh Sawant Administrator
+export const DEMO_USER_ID = '446da0d6-d821-40c6-90e0-3ba1c6292f71';
+export const DEMO_TENANT_NAME = 'TCS';
+
+const DEFAULT_WIDGETS: Omit<DashboardWidget, 'id' | 'user_id'>[] = [
+  { widget_type: 'team_capacity',      is_enabled: true,  position_order: 1,  size: 'medium', settings: {} },
+  { widget_type: 'my_projects',        is_enabled: true,  position_order: 2,  size: 'medium', settings: {} },
+  { widget_type: 'my_risks',           is_enabled: true,  position_order: 3,  size: 'small',  settings: {} },
+  { widget_type: 'my_issues',          is_enabled: true,  position_order: 4,  size: 'small',  settings: {} },
+  { widget_type: 'my_tasks',           is_enabled: true,  position_order: 5,  size: 'small',  settings: {} },
+  { widget_type: 'personal_goals',     is_enabled: true,  position_order: 6,  size: 'small',  settings: {} },
+  { widget_type: 'pending_approvals',  is_enabled: true,  position_order: 7,  size: 'small',  settings: {} },
+  { widget_type: 'deadlines',          is_enabled: false, position_order: 8,  size: 'small',  settings: {} },
+  { widget_type: 'timesheet_quick',    is_enabled: true,  position_order: 9,  size: 'small',  settings: {} },
+  { widget_type: 'recent_activity',    is_enabled: false, position_order: 10, size: 'medium', settings: {} },
+  { widget_type: 'project_health',     is_enabled: false, position_order: 11, size: 'medium', settings: {} },
+  { widget_type: 'my_change_requests', is_enabled: true,  position_order: 12, size: 'medium', settings: {} },
+];
+
+export function useCurrentUser() {
+  const [user, setUser] = useState<User | null>(null);
+  const [widgets, setWidgets] = useState<DashboardWidget[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [authContext, setAuthContext] = useState<AuthContext | null>(null);
+  const [visibleProjectIds, setVisibleProjectIds] = useState<string[]>([]);
+  const [projectPermissions, setProjectPermissions] = useState<ProjectPermissionMap>({});
+
+  const API_BASE = (import.meta.env.VITE_API_URL as string) || '';
+
+  useEffect(() => {
+    fetchCurrentUser();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const seedDefaultWidgets = async (userId: string): Promise<DashboardWidget[]> => {
+    const rows = DEFAULT_WIDGETS.map(w => ({ ...w, user_id: userId }));
+    const { data, error } = await supabase
+      .from('user_dashboard_widgets')
+      .insert(rows)
+      .select();
+    if (error) throw error;
+    return (data || []).sort((a, b) => a.position_order - b.position_order);
+  };
+
+  const fetchCurrentUser = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // When backend API is available, fetch auth context from /api/auth/me
+      if (API_BASE) {
+        try {
+          const authRes = await fetch(`${API_BASE}/api/auth/me`);
+          if (authRes.ok) {
+            const authJson = await authRes.json();
+            const authData = authJson.data;
+            setUser(authData.user);
+            setAuthContext(authData.authContext);
+            setVisibleProjectIds(authData.visibleProjectIds || []);
+            setProjectPermissions(authData.projectPermissions || {});
+          } else if (authRes.status === 401) {
+            // Auth failed — fall back to demo user for now
+            console.warn('[useCurrentUser] Auth failed, falling back to demo user');
+          }
+        } catch (authErr) {
+          console.warn('[useCurrentUser] Could not fetch auth context:', authErr);
+        }
+      }
+
+      // Always fetch user from database (via supabase client) — this works in both modes
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', DEMO_USER_ID)
+        .maybeSingle();
+
+      if (userError) throw userError;
+
+      if (userData) {
+        // Only set user if not already set by auth context
+        if (!user) setUser(userData);
+
+        // When no backend API, compute visible projects and permissions directly from DB
+        if (!API_BASE) {
+          const isGlobalAdmin = userData.system_role === 'Admin' || userData.system_role === 'Administrators';
+          const isPortfolioManager = userData.system_role === 'Portfolio Manager' || userData.system_role === 'Portfolio Managers';
+          const isPortfolioViewer = userData.system_role === 'Portfolio Viewers';
+          const seesAllProjects = isGlobalAdmin || isPortfolioManager || isPortfolioViewer;
+
+          setAuthContext({
+            userId: userData.id,
+            email: userData.email,
+            fullName: userData.full_name,
+            systemRole: userData.system_role,
+            resourceId: userData.resource_id,
+            tenantName: userData.tenant_name,
+            isGlobalAdmin,
+            isPortfolioManager,
+            seesAllProjects,
+          });
+
+          if (seesAllProjects) {
+            const { data: allProjects } = await supabase.from('projects').select('id');
+            setVisibleProjectIds((allProjects || []).map(p => p.id));
+          } else {
+            // Projects owned by the user
+            const { data: ownedProjects } = await supabase
+              .from('projects')
+              .select('id')
+              .eq('owner_id', userData.id);
+
+            // Projects where user is a team member
+            let memberProjectIds: string[] = [];
+            if (userData.resource_id) {
+              const { data: memberProjects } = await supabase
+                .from('project_team_members')
+                .select('project_id')
+                .eq('resource_id', userData.resource_id);
+              memberProjectIds = (memberProjects || []).map(m => m.project_id);
+            }
+
+            const visibleIds = Array.from(new Set([
+              ...(ownedProjects || []).map(p => p.id),
+              ...memberProjectIds,
+            ]));
+            setVisibleProjectIds(visibleIds);
+          }
+        }
+
+        const { data: widgetsData, error: widgetsError } = await supabase
+          .from('user_dashboard_widgets')
+          .select('*')
+          .eq('user_id', userData.id)
+          .order('position_order');
+
+        if (widgetsError) throw widgetsError;
+
+        if (widgetsData && widgetsData.length > 0) {
+          setWidgets(widgetsData);
+        } else {
+          const seeded = await seedDefaultWidgets(userData.id);
+          setWidgets(seeded);
+        }
+      }
+    } catch (err: any) {
+      console.error('Error fetching user:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateWidgetSettings = async (widgetId: string, settings: Record<string, any>) => {
+    try {
+      const { error } = await supabase
+        .from('user_dashboard_widgets')
+        .update({ settings, updated_at: new Date().toISOString() })
+        .eq('id', widgetId);
+
+      if (error) throw error;
+
+      setWidgets(widgets.map(w => w.id === widgetId ? { ...w, settings } : w));
+    } catch (err: any) {
+      console.error('Error updating widget settings:', err);
+    }
+  };
+
+  const toggleWidget = async (widgetId: string, isEnabled: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('user_dashboard_widgets')
+        .update({ is_enabled: isEnabled, updated_at: new Date().toISOString() })
+        .eq('id', widgetId);
+
+      if (error) throw error;
+
+      fetchCurrentUser();
+    } catch (err: any) {
+      console.error('Error toggling widget:', err);
+    }
+  };
+
+  const reorderWidgets = async (reorderedWidgets: DashboardWidget[]) => {
+    try {
+      for (const widget of reorderedWidgets) {
+        const { error } = await supabase
+          .from('user_dashboard_widgets')
+          .update({ position_order: widget.position_order, updated_at: new Date().toISOString() })
+          .eq('id', widget.id);
+
+        if (error) throw error;
+      }
+
+      fetchCurrentUser();
+    } catch (err: any) {
+      console.error('Error reordering widgets:', err);
+    }
+  };
+
+  const changeWidgetSize = async (widgetId: string, size: 'small' | 'medium' | 'large') => {
+    try {
+      const { error } = await supabase
+        .from('user_dashboard_widgets')
+        .update({ size, updated_at: new Date().toISOString() })
+        .eq('id', widgetId);
+
+      if (error) throw error;
+
+      fetchCurrentUser();
+    } catch (err: any) {
+      console.error('Error changing widget size:', err);
+    }
+  };
+
+  return {
+    user,
+    widgets,
+    loading,
+    error,
+    authContext,
+    visibleProjectIds,
+    projectPermissions,
+    updateWidgetSettings,
+    toggleWidget,
+    reorderWidgets,
+    changeWidgetSize,
+    refetch: fetchCurrentUser
+  };
+}
