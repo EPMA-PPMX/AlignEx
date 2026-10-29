@@ -38,12 +38,12 @@ export interface DashboardWidget {
   settings: Record<string, any>;
 }
 
-export const DEMO_USER_ID = 'e7428b3f-3761-4465-babb-d3243592120a';
-export const DEMO_TENANT_NAME = 'TCS';
+//export const DEMO_USER_ID = 'e7428b3f-3761-4465-babb-d3243592120a';
+//export const DEMO_TENANT_NAME = 'TCS';
 
 //Rajesh Sawant Administrator
-//export const DEMO_USER_ID = '446da0d6-d821-40c6-90e0-3ba1c6292f71';
-//export const DEMO_TENANT_NAME = 'TCS';
+export const DEMO_USER_ID = '446da0d6-d821-40c6-90e0-3ba1c6292f71';
+export const DEMO_TENANT_NAME = 'TCS';
 
 const DEFAULT_WIDGETS: Omit<DashboardWidget, 'id' | 'user_id'>[] = [
   { widget_type: 'team_capacity',      is_enabled: true,  position_order: 1,  size: 'medium', settings: {} },
