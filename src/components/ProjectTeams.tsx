@@ -30,6 +30,8 @@ interface ProjectRole {
   display_name: string;
 }
 
+const PROJECT_TEAM_ROLE_NAMES = ['Project Manager', 'Team Member', 'Timesheet Manager', 'Team Leads'];
+
 interface ProjectTeamsProps {
   projectId: string;
   onTeamMembersChange?: () => void;
@@ -51,6 +53,7 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
       const { data, error } = await supabase
         .from('project_roles')
         .select('role_name, display_name')
+        .in('role_name', PROJECT_TEAM_ROLE_NAMES)
         .order('sort_order', { ascending: true });
 
       if (error) throw error;
