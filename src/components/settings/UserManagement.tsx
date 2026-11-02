@@ -7,7 +7,7 @@ interface User {
   id: string;
   email: string;
   full_name: string;
-  system_role: 'Administrators' | 'Portfolio Managers' | 'Portfolio Viewers' | 'Project Managers' | 'Resource Managers' | 'Team Leads' | 'Team Members' | 'Project Manager' | 'Team Member' | 'Portfolio Manager' | 'Admin';
+  system_role: string;
   avatar_url: string | null;
   is_active: boolean;
   bio: string | null;
@@ -21,12 +21,10 @@ interface Organization {
   is_active: boolean;
 }
 
-const SYSTEM_ROLES = ['Team Members', 'Team Leads', 'Project Managers', 'Resource Managers', 'Portfolio Managers', 'Portfolio Viewers', 'Administrators', 'Admin'] as const;
-
 const emptyForm = {
   email: '',
   full_name: '',
-  system_role: 'Team Members' as User['system_role'],
+  system_role: 'Team Member',
   avatar_url: '',
   bio: '',
   tenant_name: '',
@@ -49,13 +47,23 @@ export default function UserManagement({ isSuperUser = false, tenantName }: User
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [roleOptions, setRoleOptions] = useState<string[]>([]);
 
   const effectiveTenant = isSuperUser ? null : (tenantName || null);
 
   useEffect(() => {
     fetchUsers();
     fetchOrganizations();
+    fetchRoleOptions();
   }, []);
+
+  const fetchRoleOptions = async () => {
+    const { data } = await supabase
+      .from('project_roles')
+      .select('role_name')
+      .order('sort_order');
+    if (data) setRoleOptions(data.map(r => r.role_name));
+  };
 
   const fetchOrganizations = async () => {
     const { data } = await supabase
@@ -178,14 +186,11 @@ export default function UserManagement({ isSuperUser = false, tenantName }: User
 
   const roleColor = (role: string) => {
     switch (role) {
-      case 'Administrators':
-      case 'Admin': return 'bg-red-100 text-red-800';
+      case 'Administrators': return 'bg-red-100 text-red-800';
       case 'Portfolio Managers':
-      case 'Portfolio Manager':
       case 'Portfolio Viewers': return 'bg-blue-100 text-blue-800';
-      case 'Project Managers':
       case 'Project Manager': return 'bg-emerald-100 text-emerald-800';
-      case 'Resource Managers': return 'bg-amber-100 text-amber-800';
+      case 'Resource Manager': return 'bg-amber-100 text-amber-800';
       case 'Team Leads': return 'bg-purple-100 text-purple-800';
       default: return 'bg-gray-100 text-gray-700';
     }
@@ -373,10 +378,10 @@ export default function UserManagement({ isSuperUser = false, tenantName }: User
                 <label className="block text-sm font-medium text-gray-700 mb-1">System Role</label>
                 <select
                   value={form.system_role}
-                  onChange={e => setForm({ ...form, system_role: e.target.value as User['system_role'] })}
+                  onChange={e => setForm({ ...form, system_role: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
-                  {SYSTEM_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                  {roleOptions.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
 

@@ -5,7 +5,7 @@ export interface User {
   id: string;
   email: string;
   full_name: string;
-  system_role: 'Administrators' | 'Portfolio Managers' | 'Portfolio Viewers' | 'Project Managers' | 'Resource Managers' | 'Team Leads' | 'Team Members' | 'Project Manager' | 'Team Member' | 'Portfolio Manager' | 'Admin';
+  system_role: string;
   resource_id: string | null;
   avatar_url: string | null;
   is_active: boolean;
