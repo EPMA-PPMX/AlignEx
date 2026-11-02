@@ -31,7 +31,7 @@ interface ProjectRole {
   display_name: string;
 }
 
-const PROJECT_TEAM_ROLE_NAMES = ['Project Manager', 'Team Member', 'timesheet_manager', 'Team Leads'];
+const PROJECT_TEAM_ROLE_NAMES = ['Project Manager', 'Team Member', 'Timesheet Manager', 'Team Leads'];
 
 interface ProjectTeamsProps {
   projectId: string;
