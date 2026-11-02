@@ -293,7 +293,7 @@ const Timesheet: React.FC = () => {
       return;
     }
 
-    const USER_EMAIL = 'rohan.ghogale@tcs.com';
+    const USER_EMAIL = 'pranav.parab@tcs.com';
 
     let exists = false;
     if (newRowForm.type === 'project') {
