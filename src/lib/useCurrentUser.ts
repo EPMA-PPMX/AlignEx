@@ -43,13 +43,13 @@ export interface DashboardWidget {
 //export const DEMO_TENANT_NAME = 'TCS';
 
 //Team member
-export const DEMO_USER_ID = 'ea64f888-b464-4729-864a-f09a55462f1c';
-export const DEMO_TENANT_NAME = 'TCS';
+//export const DEMO_USER_ID = 'ea64f888-b464-4729-864a-f09a55462f1c';
+//export const DEMO_TENANT_NAME = 'TCS';
 
 
 //Rajesh Sawant Administrator
-//export const DEMO_USER_ID = '446da0d6-d821-40c6-90e0-3ba1c6292f71';
-//export const DEMO_TENANT_NAME = 'TCS';
+export const DEMO_USER_ID = '446da0d6-d821-40c6-90e0-3ba1c6292f71';
+export const DEMO_TENANT_NAME = 'TCS';
 
 const DEFAULT_WIDGETS: Omit<DashboardWidget, 'id' | 'user_id'>[] = [
   { widget_type: 'team_capacity',      is_enabled: true,  position_order: 1,  size: 'medium', settings: {} },
