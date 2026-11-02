@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNotification } from '../lib/useNotification';
-import { Plus, Trash2, ChevronLeft, ChevronRight, CheckCircle, Send, RotateCcw, ChevronDown, ChevronUp, FileText, X, MoreVertical } from 'lucide-react';
+import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
+import { Plus, Trash2, ChevronLeft, ChevronRight, CheckCircle, Send, RotateCcw, ChevronDown, ChevronUp, FileText, X, MoreVertical, Lock } from 'lucide-react';
+
+const USER_EMAIL = 'pranav.parab@tcs.com';
 
 interface TimesheetEntry {
   id: string;
@@ -94,11 +97,11 @@ const Timesheet: React.FC = () => {
     notes: ''
   });
 
+  const weekLocked = weekSubmission?.status === 'submitted' || weekSubmission?.status === 'approved';
+
   const fetchData = useCallback(async () => {
     const weekEnd = new Date(currentWeekStart);
     weekEnd.setDate(weekEnd.getDate() + 6);
-
-    const USER_EMAIL = 'pranav.parab@tcs.com';
 
     const [entriesRes, projectsRes, requestsRes, categoriesRes, persistentItemsRes, submissionRes] = await Promise.all([
       supabase
@@ -109,6 +112,7 @@ const Timesheet: React.FC = () => {
       supabase
         .from('projects')
         .select('id, name, state')
+        .eq('tenant_name', DEMO_TENANT_NAME)
         .order('name'),
       supabase
         .from('project_initiation_requests')
@@ -293,8 +297,6 @@ const Timesheet: React.FC = () => {
       return;
     }
 
-    const USER_EMAIL = 'pranav.parab@tcs.com';
-
     let exists = false;
     if (newRowForm.type === 'project') {
       exists = rows.some(r => r.type === 'project' && r.typeId === newRowForm.selectedId);
@@ -384,7 +386,6 @@ const Timesheet: React.FC = () => {
   };
 
   const handleSubmitTimesheet = async () => {
-    const USER_EMAIL = 'pranav.parab@tcs.com';
     const weekEnd = new Date(currentWeekStart);
     weekEnd.setDate(weekEnd.getDate() + 6);
 
@@ -479,7 +480,8 @@ const Timesheet: React.FC = () => {
           status: 'recalled',
           recalled_at: new Date().toISOString()
         })
-        .eq('id', weekSubmission.id);
+        .eq('id', weekSubmission.id)
+        .eq('status', 'submitted');
 
       if (error) {
         console.error('Error recalling timesheet:', error);
@@ -544,7 +546,7 @@ const Timesheet: React.FC = () => {
   };
 
   const handleCellUpdate = async (row: TimesheetRow, date: Date, isBillable: boolean, hours: number) => {
-    if (weekSubmission && weekSubmission.status === 'submitted') {
+    if (weekLocked) {
       return;
     }
 
@@ -583,7 +585,7 @@ const Timesheet: React.FC = () => {
 
       if (billable > 0) {
         entriesToInsert.push({
-          user_id: 'anonymous',
+          user_id: USER_EMAIL,
           entry_date: dateKey,
           hours: billable,
           is_billable: true,
@@ -596,7 +598,7 @@ const Timesheet: React.FC = () => {
 
       if (nonBillable > 0) {
         entriesToInsert.push({
-          user_id: 'anonymous',
+          user_id: USER_EMAIL,
           entry_date: dateKey,
           hours: nonBillable,
           is_billable: false,
@@ -762,13 +764,13 @@ const Timesheet: React.FC = () => {
         <div className="mb-4 flex justify-end gap-3">
           <button
             onClick={() => setShowAddModal(true)}
-            disabled={weekSubmission && weekSubmission.status === 'submitted'}
+            disabled={weekLocked}
             className="bg-gradient-primary text-white px-4 py-2 rounded-lg hover:opacity-90 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="w-5 h-5" />
             Add Time Entry
           </button>
-          {weekSubmission && weekSubmission.status === 'submitted' ? (
+          {weekSubmission?.status === 'submitted' ? (
             <button
               onClick={handleRecallTimesheet}
               disabled={isSubmitting}
@@ -777,6 +779,11 @@ const Timesheet: React.FC = () => {
               <RotateCcw className="w-5 h-5" />
               Recall Timesheet
             </button>
+          ) : weekSubmission?.status === 'approved' ? (
+            <span className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-50 text-green-800 border border-green-200 text-sm font-medium">
+              <Lock className="w-4 h-4" />
+              Approved and locked
+            </span>
           ) : (
             <button
               onClick={handleSubmitTimesheet}
@@ -852,7 +859,7 @@ const Timesheet: React.FC = () => {
                             const dateKey = formatDateKey(date);
                             const entry = row.entries[dateKey];
                             const value = entry?.billable || 0;
-                            const isLocked = weekSubmission && weekSubmission.status === 'submitted';
+                            const isLocked = weekLocked;
 
                             return (
                               <td key={idx} className="py-2 px-2">
@@ -914,7 +921,7 @@ const Timesheet: React.FC = () => {
                                 <>
                                   <button
                                     onClick={() => handleMarkAsCompleted(row)}
-                                    disabled={weekSubmission && weekSubmission.status === 'submitted'}
+                                    disabled={weekLocked}
                                     className="text-green-600 hover:text-green-800 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-green-600"
                                     title="Mark as Completed"
                                   >
@@ -923,7 +930,7 @@ const Timesheet: React.FC = () => {
                                   <div className="relative">
                                     <button
                                       onClick={() => setOpenDropdown(openDropdown === row.id ? null : row.id)}
-                                      disabled={weekSubmission && weekSubmission.status === 'submitted'}
+                                      disabled={weekLocked}
                                       className="text-gray-600 hover:text-gray-800 p-1 hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                                       title="More actions"
                                     >
@@ -954,7 +961,7 @@ const Timesheet: React.FC = () => {
                               ) : (
                                 <button
                                   onClick={() => handleDeleteRow(row)}
-                                  disabled={weekSubmission && weekSubmission.status === 'submitted'}
+                                  disabled={weekLocked}
                                   className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-red-600"
                                   title="Remove from this week"
                                 >
@@ -973,7 +980,7 @@ const Timesheet: React.FC = () => {
                               const dateKey = formatDateKey(date);
                               const entry = row.entries[dateKey];
                               const value = entry?.nonBillable || 0;
-                              const isLocked = weekSubmission && weekSubmission.status === 'submitted';
+                              const isLocked = weekLocked;
 
                               return (
                                 <td key={idx} className="py-2 px-2">

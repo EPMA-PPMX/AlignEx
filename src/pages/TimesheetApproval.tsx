@@ -40,6 +40,8 @@ interface ProjectTimesheets {
   submissions: (TimesheetSubmission & { entries: TimesheetEntry[] })[];
 }
 
+const NON_PROJECT_GROUP_ID = 'non-project';
+
 const TimesheetApproval: React.FC = () => {
   const { showConfirm, showNotification } = useNotification();
   const { canApproveTimesheet, loading: permLoading } = useTimesheetApprovePermission();
@@ -77,13 +79,6 @@ const TimesheetApproval: React.FC = () => {
       }
 
       const projects = projectsData || [];
-      const projectIds = projects.map(p => p.id);
-
-      if (projectIds.length === 0) {
-        setProjectTimesheets([]);
-        setLoading(false);
-        return;
-      }
 
       const { data: entriesData, error: entriesError } = await supabase
         .from('timesheet_entries')
@@ -92,16 +87,13 @@ const TimesheetApproval: React.FC = () => {
           project:projects(id, name),
           initiation_request:project_initiation_requests(id, project_name),
           non_project_category:non_project_work_categories(id, name)
-        `)
-        .in('project_id', projectIds);
+        `);
 
       if (entriesError) {
         console.error('Error fetching entries:', entriesError);
       }
 
       const entries = entriesData || [];
-
-      const userEmailsWithEntries = [...new Set(entries.map(e => e.user_id || 'anonymous'))];
 
       const { data: submissionsData, error: submissionsError } = await supabase
         .from('timesheet_submissions')
@@ -125,6 +117,12 @@ const TimesheetApproval: React.FC = () => {
         });
       });
 
+      projectTimesheetsMap.set(NON_PROJECT_GROUP_ID, {
+        projectId: NON_PROJECT_GROUP_ID,
+        projectName: 'Initiation and Non-Project Work',
+        submissions: []
+      });
+
       submissions.forEach(submission => {
         const submissionEntries = entries.filter(entry => {
           const entryDate = entry.entry_date;
@@ -134,17 +132,20 @@ const TimesheetApproval: React.FC = () => {
         });
 
         submissionEntries.forEach(entry => {
-          if (entry.project_id && projectTimesheetsMap.has(entry.project_id)) {
-            const projectTimesheet = projectTimesheetsMap.get(entry.project_id)!;
-            let existingSubmission = projectTimesheet.submissions.find(s => s.id === submission.id);
+          const groupId = entry.project_id
+            ? entry.project_id
+            : NON_PROJECT_GROUP_ID;
+          const projectTimesheet = projectTimesheetsMap.get(groupId);
+          if (!projectTimesheet) return;
 
-            if (!existingSubmission) {
-              existingSubmission = { ...submission, entries: [] };
-              projectTimesheet.submissions.push(existingSubmission);
-            }
+          let existingSubmission = projectTimesheet.submissions.find(s => s.id === submission.id);
 
-            existingSubmission.entries.push(entry);
+          if (!existingSubmission) {
+            existingSubmission = { ...submission, entries: [] };
+            projectTimesheet.submissions.push(existingSubmission);
           }
+
+          existingSubmission.entries.push(entry);
         });
       });
 
@@ -198,7 +199,8 @@ const TimesheetApproval: React.FC = () => {
           reviewed_at: new Date().toISOString(),
           reviewer_comments: reviewComment || null
         })
-        .eq('id', submissionId);
+        .eq('id', submissionId)
+        .eq('status', 'submitted');
 
       if (error) {
         console.error('Error approving timesheet:', error);
@@ -242,7 +244,8 @@ const TimesheetApproval: React.FC = () => {
           reviewed_at: new Date().toISOString(),
           reviewer_comments: reviewComment
         })
-        .eq('id', submissionId);
+        .eq('id', submissionId)
+        .eq('status', 'submitted');
 
       if (error) {
         console.error('Error rejecting timesheet:', error);
@@ -262,11 +265,11 @@ const TimesheetApproval: React.FC = () => {
     }
   };
 
-  const handleRevoke = async (submissionId: string) => {
+  const handleRecallApproved = async (submissionId: string) => {
     const confirmed = await showConfirm({
-      title: 'Revoke Approval',
-      message: 'Revoke approval for this timesheet? It will be sent back to the submitter as pending approval.',
-      confirmText: 'Revoke'
+      title: 'Recall Timesheet',
+      message: 'Recall this approved timesheet? The user will be able to edit and resubmit it.',
+      confirmText: 'Recall'
     });
     if (!confirmed) return;
 
@@ -276,24 +279,26 @@ const TimesheetApproval: React.FC = () => {
       const { error } = await supabase
         .from('timesheet_submissions')
         .update({
-          status: 'submitted',
+          status: 'recalled',
+          recalled_at: new Date().toISOString(),
           reviewed_by: reviewerEmail || 'approver',
           reviewed_at: new Date().toISOString(),
-          reviewer_comments: 'Approval revoked by approver'
+          reviewer_comments: 'Approval recalled by approver'
         })
-        .eq('id', submissionId);
+        .eq('id', submissionId)
+        .eq('status', 'approved');
 
       if (error) {
-        console.error('Error revoking timesheet:', error);
-        showNotification('Error revoking timesheet', 'error');
+        console.error('Error recalling timesheet:', error);
+        showNotification('Error recalling timesheet', 'error');
         return;
       }
 
-      showNotification('Timesheet approval revoked. It is now pending approval again.', 'success');
+      showNotification('Timesheet recalled. The user can now edit and resubmit it.', 'success');
       await fetchTimesheets();
     } catch (error) {
       console.error('Error:', error);
-      showNotification('Error revoking timesheet', 'error');
+      showNotification('Error recalling timesheet', 'error');
     } finally {
       setProcessingAction(null);
     }
@@ -496,12 +501,12 @@ const TimesheetApproval: React.FC = () => {
                                 </div>
                               )}
                               <button
-                                onClick={() => handleRevoke(submission.id)}
+                                onClick={() => handleRecallApproved(submission.id)}
                                 disabled={processingAction === submission.id}
                                 className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                               >
                                 <RotateCcw className="w-4 h-4" />
-                                Revoke Approval
+                                Recall Timesheet
                               </button>
                             </div>
                           )}
