@@ -70,7 +70,7 @@ const TimesheetApproval: React.FC = () => {
     try {
       const { data: projectsData, error: projectsError } = await supabase
         .from('projects')
-        .select('id, name, project_manager, tenant_name');
+        .select('id, name');
 
       if (projectsError) {
         console.error('Error fetching projects:', projectsError);
