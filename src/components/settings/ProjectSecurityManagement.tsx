@@ -24,6 +24,7 @@ interface RolePermission {
 
 const ALL_PERMISSIONS = [
   { key: 'project.view', label: 'View Project', description: 'Can see the project and its details' },
+  { key: 'project.view_all', label: 'View All Projects', description: 'Can see every project in the organisation, not only projects they own or are assigned to' },
   { key: 'project.edit_details', label: 'Edit Details', description: 'Can edit project name, description, status, custom fields' },
   { key: 'project.edit_schedule', label: 'Edit Schedule', description: 'Can edit tasks, Gantt chart, schedule dates' },
   { key: 'project.edit_tasks_assigned', label: 'Edit Assigned Tasks', description: 'Can edit tasks assigned to them' },
@@ -137,8 +138,8 @@ const ProjectSecurityManagement: React.FC = () => {
           .insert({
             role_name: roleName,
             permission_key: permKey,
-            can_execute: true,
-            tenant_name: isGlobalRole ? DEMO_TENANT_NAME : null,
+            can_execute: !currentValue,
+            tenant_name: DEMO_TENANT_NAME,
           });
         if (error) throw error;
       }

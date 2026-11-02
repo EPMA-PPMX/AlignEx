@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import { DEMO_USER_ID } from './useCurrentUser';
+import { resolveGrantedPermissionKeys, VIEW_ALL_PROJECTS_PERMISSION } from './rolePermissions';
 
 const API_BASE = (import.meta.env.VITE_API_URL as string) || '';
 
@@ -130,24 +131,24 @@ export function useProjectPermissions(projectId: string | undefined) {
           .maybeSingle();
 
         const isOwner = projectRow?.owner_id === DEMO_USER_ID;
-        const isGlobalAdmin = userRow?.system_role === 'Admin' || userRow?.system_role === 'Administrators';
-        const isPortfolioManager = userRow?.system_role === 'Portfolio Manager' || userRow?.system_role === 'Portfolio Managers';
 
-        if (isOwner || isGlobalAdmin || isPortfolioManager) {
+        if (isOwner) {
           setPermissions(buildPermissions(pid, ALL_PROJECT_PERMISSION_KEYS));
-        } else if (userRow?.resource_id) {
+        } else {
           // A user may have multiple roles on the same project; their
           // effective permissions are the union of every role's permissions.
-          const { data: memberRows } = await supabase
-            .from('project_team_members')
-            .select('id, role')
-            .eq('project_id', pid)
-            .eq('resource_id', userRow.resource_id);
+          let memberRows: { id: string; role: string | null }[] = [];
+          if (userRow?.resource_id) {
+            const { data } = await supabase
+              .from('project_team_members')
+              .select('id, role')
+              .eq('project_id', pid)
+              .eq('resource_id', userRow.resource_id);
+            memberRows = data || [];
+          }
 
-          const memberIds = (memberRows || []).map((m: any) => m.id);
-          const primaryRoles = (memberRows || [])
-            .map((m: any) => m.role)
-            .filter((r: any) => r);
+          const memberIds = memberRows.map(m => m.id);
+          const primaryRoles = memberRows.map(m => m.role);
 
           let additionalRoles: string[] = [];
           if (memberIds.length > 0) {
@@ -155,37 +156,22 @@ export function useProjectPermissions(projectId: string | undefined) {
               .from('project_team_member_roles')
               .select('role_name')
               .in('team_member_id', memberIds);
-            additionalRoles = (roleRows || [])
-              .map((r: any) => r.role_name)
-              .filter((r: any) => r);
+            additionalRoles = (roleRows || []).map((r: any) => r.role_name);
           }
 
-          const allRoles = Array.from(new Set([...primaryRoles, ...additionalRoles]));
+          const orgPermissionKeys = await resolveGrantedPermissionKeys([userRow?.system_role], userRow?.tenant_name);
+          const seesAllProjects = orgPermissionKeys.includes(VIEW_ALL_PROJECTS_PERMISSION);
+          const canSeeProject = seesAllProjects || memberIds.length > 0;
 
-          if (allRoles.length > 0) {
-            // Include both global mappings (tenant_name IS NULL) and this
-            // tenant's overrides; tenant-specific rows win when both exist.
-            const { data: rolePerms } = await supabase
-              .from('project_role_permissions')
-              .select('permission_key, can_execute, tenant_name')
-              .in('role_name', allRoles)
-              .eq('can_execute', true)
-              .or(`tenant_name.is.null,tenant_name.eq.${userRow.tenant_name ?? ''}`);
-
-            // De-duplicate by permission_key, preferring tenant-specific rows.
-            const byKey = new Map<string, { can_execute: boolean; tenant_name: string | null }>();
-            for (const p of rolePerms || []) {
-              const existing = byKey.get(p.permission_key);
-              if (!existing || (existing.tenant_name === null && p.tenant_name !== null)) {
-                byKey.set(p.permission_key, { can_execute: p.can_execute, tenant_name: p.tenant_name });
-              }
-            }
-            setPermissions(buildPermissions(pid, Array.from(byKey.keys())));
-          } else {
+          if (!canSeeProject) {
             setPermissions({ ...EMPTY_PERMISSIONS, projectId: pid });
+          } else {
+            const grantedKeys = await resolveGrantedPermissionKeys(
+              [userRow?.system_role, ...primaryRoles, ...additionalRoles],
+              userRow?.tenant_name,
+            );
+            setPermissions(buildPermissions(pid, grantedKeys));
           }
-        } else {
-          setPermissions({ ...EMPTY_PERMISSIONS, projectId: pid });
         }
       }
     } catch (err: any) {

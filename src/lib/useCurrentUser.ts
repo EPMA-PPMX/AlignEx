@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase';
+import { resolveGrantedPermissionKeys, VIEW_ALL_PROJECTS_PERMISSION } from './rolePermissions';
 
 export interface User {
   id: string;
@@ -19,8 +20,6 @@ export interface AuthContext {
   systemRole: string;
   resourceId: string | null;
   tenantName: string | null;
-  isGlobalAdmin: boolean;
-  isPortfolioManager: boolean;
   seesAllProjects: boolean;
 }
 
@@ -132,10 +131,8 @@ export function useCurrentUser() {
 
         // When no backend API, compute visible projects and permissions directly from DB
         if (!API_BASE) {
-          const isGlobalAdmin = userData.system_role === 'Admin' || userData.system_role === 'Administrators';
-          const isPortfolioManager = userData.system_role === 'Portfolio Manager' || userData.system_role === 'Portfolio Managers';
-          const isPortfolioViewer = userData.system_role === 'Portfolio Viewers';
-          const seesAllProjects = isGlobalAdmin || isPortfolioManager || isPortfolioViewer;
+          const orgPermissionKeys = await resolveGrantedPermissionKeys([userData.system_role], userData.tenant_name);
+          const seesAllProjects = orgPermissionKeys.includes(VIEW_ALL_PROJECTS_PERMISSION);
 
           setAuthContext({
             userId: userData.id,
@@ -144,8 +141,6 @@ export function useCurrentUser() {
             systemRole: userData.system_role,
             resourceId: userData.resource_id,
             tenantName: userData.tenant_name,
-            isGlobalAdmin,
-            isPortfolioManager,
             seesAllProjects,
           });
 
