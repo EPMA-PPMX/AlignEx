@@ -98,7 +98,7 @@ const Timesheet: React.FC = () => {
     const weekEnd = new Date(currentWeekStart);
     weekEnd.setDate(weekEnd.getDate() + 6);
 
-    const USER_EMAIL = 'rohan.ghogale@tcs.com';
+    const USER_EMAIL = 'mandar.pednekar@tcs.com';
 
     const [entriesRes, projectsRes, requestsRes, categoriesRes, persistentItemsRes, submissionRes] = await Promise.all([
       supabase
