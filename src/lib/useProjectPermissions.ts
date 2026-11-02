@@ -44,6 +44,37 @@ const EMPTY_PERMISSIONS: ProjectPermissions = {
   canViewStatusReports: false,
 };
 
+const ALL_PROJECT_PERMISSION_KEYS = [
+  'project.view', 'project.edit_details', 'project.edit_schedule',
+  'project.edit_budget', 'project.view_budget', 'project.manage_team',
+  'project.approve_changes', 'project.create_risks', 'project.edit_risks',
+  'project.create_issues', 'project.edit_issues', 'project.upload_documents',
+  'project.delete', 'project.create_status_report', 'project.view_status_reports',
+];
+
+function buildPermissions(projectId: string, permKeys: string[]): ProjectPermissions {
+  const has = (k: string) => permKeys.includes(k);
+  return {
+    projectId,
+    permissions: permKeys,
+    canView: has('project.view'),
+    canEditDetails: has('project.edit_details'),
+    canEditSchedule: has('project.edit_schedule'),
+    canEditBudget: has('project.edit_budget'),
+    canViewBudget: has('project.view_budget'),
+    canManageTeam: has('project.manage_team'),
+    canApproveChanges: has('project.approve_changes'),
+    canCreateRisks: has('project.create_risks'),
+    canEditRisks: has('project.edit_risks'),
+    canCreateIssues: has('project.create_issues'),
+    canEditIssues: has('project.edit_issues'),
+    canUploadDocuments: has('project.upload_documents'),
+    canDelete: has('project.delete'),
+    canCreateStatusReport: has('project.create_status_report'),
+    canViewStatusReports: has('project.view_status_reports'),
+  };
+}
+
 /**
  * Fetches the current user's permissions for a specific project.
  * When the backend API is available (VITE_API_URL set), calls /api/projects/:id/permissions
@@ -86,8 +117,6 @@ export function useProjectPermissions(projectId: string | undefined) {
         setPermissions(json.data);
       } else {
         // Fallback for local dev without backend — query the database directly
-        // 1. Check if user is a global admin/portfolio manager
-        // 2. Otherwise look up the project team role and its permissions
         const { data: projectRow } = await supabase
           .from('projects')
           .select('owner_id')
@@ -104,22 +133,9 @@ export function useProjectPermissions(projectId: string | undefined) {
         const isGlobalAdmin = userRow?.system_role === 'Admin' || userRow?.system_role === 'Administrators';
         const isPortfolioManager = userRow?.system_role === 'Portfolio Manager' || userRow?.system_role === 'Portfolio Managers';
 
-        if (isGlobalAdmin || isPortfolioManager) {
-          setPermissions({
-            projectId: pid,
-            permissions: ['project.view', 'project.edit_details', 'project.edit_schedule',
-              'project.edit_budget', 'project.view_budget', 'project.manage_team',
-              'project.approve_changes', 'project.create_risks', 'project.edit_risks',
-              'project.create_issues', 'project.edit_issues', 'project.upload_documents',
-              'project.delete', 'project.create_status_report', 'project.view_status_reports'],
-            canView: true, canEditDetails: true, canEditSchedule: true,
-            canEditBudget: true, canViewBudget: true, canManageTeam: true,
-            canApproveChanges: true, canCreateRisks: true, canEditRisks: true,
-            canCreateIssues: true, canEditIssues: true, canUploadDocuments: true,
-            canDelete: true, canCreateStatusReport: true, canViewStatusReports: true,
-          });
+        if (isOwner || isGlobalAdmin || isPortfolioManager) {
+          setPermissions(buildPermissions(pid, ALL_PROJECT_PERMISSION_KEYS));
         } else if (userRow?.resource_id) {
-          // Look up ALL roles the user holds on this project.
           // A user may have multiple roles on the same project; their
           // effective permissions are the union of every role's permissions.
           const { data: memberRows } = await supabase
@@ -147,7 +163,6 @@ export function useProjectPermissions(projectId: string | undefined) {
           const allRoles = Array.from(new Set([...primaryRoles, ...additionalRoles]));
 
           if (allRoles.length > 0) {
-            // Fetch permissions for every role the user holds (union).
             // Include both global mappings (tenant_name IS NULL) and this
             // tenant's overrides; tenant-specific rows win when both exist.
             const { data: rolePerms } = await supabase
@@ -165,35 +180,7 @@ export function useProjectPermissions(projectId: string | undefined) {
                 byKey.set(p.permission_key, { can_execute: p.can_execute, tenant_name: p.tenant_name });
               }
             }
-            const permKeys = Array.from(byKey.keys());
-            const has = (k: string) => permKeys.includes(k);
-
-            setPermissions({
-              projectId: pid,
-              permissions: permKeys,
-              canView: has('project.view'),
-              canEditDetails: has('project.edit_details'),
-              canEditSchedule: has('project.edit_schedule'),
-              canEditBudget: has('project.edit_budget'),
-              canViewBudget: has('project.view_budget'),
-              canManageTeam: has('project.manage_team'),
-              canApproveChanges: has('project.approve_changes'),
-              canCreateRisks: has('project.create_risks'),
-              canEditRisks: has('project.edit_risks'),
-              canCreateIssues: has('project.create_issues'),
-              canEditIssues: has('project.edit_issues'),
-              canUploadDocuments: has('project.upload_documents'),
-              canDelete: has('project.delete'),
-              canCreateStatusReport: has('project.create_status_report'),
-              canViewStatusReports: has('project.view_status_reports'),
-            });
-          } else if (isOwner) {
-            setPermissions({
-              ...EMPTY_PERMISSIONS,
-              projectId: pid,
-              permissions: ['project.view'],
-              canView: true,
-            });
+            setPermissions(buildPermissions(pid, Array.from(byKey.keys())));
           } else {
             setPermissions({ ...EMPTY_PERMISSIONS, projectId: pid });
           }
