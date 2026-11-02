@@ -7,6 +7,10 @@ export interface ProjectRequestPermission {
   loading: boolean;
 }
 
+const SYSTEM_ROLE_TO_PERMISSION_ROLE: Record<string, string> = {
+  'Project Managers': 'Project Manager',
+};
+
 /**
  * Checks a project-level permission for the current user's system role.
  *
@@ -34,10 +38,11 @@ function useProjectRolePermission(permissionKey: string): ProjectRequestPermissi
         }
 
         const tenant = userRow.tenant_name || DEMO_TENANT_NAME;
+        const roleName = SYSTEM_ROLE_TO_PERMISSION_ROLE[userRow.system_role] ?? userRow.system_role;
         const { data: rows } = await supabase
           .from('project_role_permissions')
           .select('can_execute, tenant_name')
-          .eq('role_name', userRow.system_role)
+          .eq('role_name', roleName)
           .eq('permission_key', permissionKey)
           .or(`tenant_name.is.null,tenant_name.eq.${tenant}`);
 
