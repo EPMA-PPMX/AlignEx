@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Calendar, Users, X, ChevronDown } from 'lucide-react';
+import { Plus, Search, Calendar, Users, X, ChevronDown, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
 import ResourceAllocationHeatMap from './ResourceAllocationHeatMap';
@@ -163,6 +163,25 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
     }
   };
 
+  const handleRemoveMember = async (member: TeamMember) => {
+    const name = member.resource?.display_name || 'this member';
+    if (!window.confirm(`Remove ${name} from the project team? Their roles on this project will be removed too.`)) return;
+
+    try {
+      const { error } = await supabase
+        .from('project_team_members')
+        .delete()
+        .eq('id', member.id);
+      if (error) throw error;
+
+      fetchTeamMembers();
+      onTeamMembersChange?.();
+    } catch (error) {
+      console.error('Error removing team member:', error);
+      alert('Failed to remove team member');
+    }
+  };
+
   const handleAddRole = async (member: TeamMember, roleName: string) => {
     try {
       const { error } = await supabase
@@ -222,7 +241,6 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Member</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Roles</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Allocation</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
@@ -266,18 +284,25 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                        {member.allocation_percentage}%
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                         {member.start_date || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <AddRoleButton
-                          member={member}
-                          projectRoles={projectRoles}
-                          existingRoles={roles}
-                          onAddRole={(roleName) => handleAddRole(member, roleName)}
-                        />
+                        <div className="flex items-center justify-end gap-2">
+                          <AddRoleButton
+                            member={member}
+                            projectRoles={projectRoles}
+                            existingRoles={roles}
+                            onAddRole={(roleName) => handleAddRole(member, roleName)}
+                          />
+                          <button
+                            onClick={() => handleRemoveMember(member)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-700 bg-red-50 rounded hover:bg-red-100 transition-colors"
+                            title={`Remove ${member.resource?.display_name || 'member'} from project team`}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            Remove
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
