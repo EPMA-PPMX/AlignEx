@@ -384,7 +384,7 @@ const Timesheet: React.FC = () => {
   };
 
   const handleSubmitTimesheet = async () => {
-    const USER_EMAIL = 'rohan.ghogale@tcs.com';
+    const USER_EMAIL = 'mandar.pednekar@tcs.com';
     const weekEnd = new Date(currentWeekStart);
     weekEnd.setDate(weekEnd.getDate() + 6);
 
