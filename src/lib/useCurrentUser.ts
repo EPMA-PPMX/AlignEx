@@ -38,8 +38,14 @@ export interface DashboardWidget {
   settings: Record<string, any>;
 }
 
-export const DEMO_USER_ID = 'e7428b3f-3761-4465-babb-d3243592120a';
+// PM
+//export const DEMO_USER_ID = 'e7428b3f-3761-4465-babb-d3243592120a';
+//export const DEMO_TENANT_NAME = 'TCS';
+
+//Team member
+export const DEMO_USER_ID = 'ed387c73-9353-4301-a89e-11b7a5d19ca0';
 export const DEMO_TENANT_NAME = 'TCS';
+
 
 //Rajesh Sawant Administrator
 //export const DEMO_USER_ID = '446da0d6-d821-40c6-90e0-3ba1c6292f71';
