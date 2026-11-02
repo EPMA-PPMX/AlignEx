@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, Search, Calendar, Users, X, ChevronDown, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
@@ -241,7 +242,6 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Member</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Roles</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -282,9 +282,6 @@ export default function ProjectTeams({ projectId, onTeamMembersChange }: Project
                             </span>
                           ))}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                        {member.start_date || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end gap-2">
@@ -339,24 +336,49 @@ interface AddRoleButtonProps {
 
 function AddRoleButton({ projectRoles, existingRoles, onAddRole }: AddRoleButtonProps) {
   const [open, setOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const available = projectRoles.filter(r => !existingRoles.includes(r.role_name));
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [open]);
 
   if (available.length === 0) return null;
 
+  const toggleMenu = () => {
+    if (!open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setMenuPosition({ top: rect.bottom + 4, left: rect.right - 192 });
+    }
+    setOpen(!open);
+  };
+
   return (
-    <div className="relative inline-block">
+    <>
       <button
-        onClick={() => setOpen(!open)}
+        ref={buttonRef}
+        onClick={toggleMenu}
         className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded hover:bg-blue-100 transition-colors"
       >
         <Plus className="w-3 h-3" />
         Add Role
         <ChevronDown className="w-3 h-3" />
       </button>
-      {open && (
+      {open && createPortal(
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1">
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div
+            className="fixed w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1"
+            style={{ top: menuPosition.top, left: menuPosition.left }}
+          >
             {available.map((role) => (
               <button
                 key={role.role_name}
@@ -370,9 +392,10 @@ function AddRoleButton({ projectRoles, existingRoles, onAddRole }: AddRoleButton
               </button>
             ))}
           </div>
-        </>
+        </>,
+        document.body
       )}
-    </div>
+    </>
   );
 }
 
