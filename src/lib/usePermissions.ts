@@ -71,7 +71,7 @@ export function usePermissions(userEmail?: string): UsePermissionsResult {
           .select('email')
           .eq('id', DEMO_USER_ID)
           .maybeSingle();
-        activeEmail = userData?.email || 'mandar.pednekar@tcs.com';
+        activeEmail = userData?.email || 'rohan.ghogale@tcs.com';
         setEmail(activeEmail);
       }
 
