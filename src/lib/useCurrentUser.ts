@@ -39,12 +39,12 @@ export interface DashboardWidget {
 }
 
 // PM
-//export const DEMO_USER_ID = 'e7428b3f-3761-4465-babb-d3243592120a';
-//export const DEMO_TENANT_NAME = 'TCS';
+export const DEMO_USER_ID = 'e7428b3f-3761-4465-babb-d3243592120a';
+export const DEMO_TENANT_NAME = 'TCS';
 
 //Team member
-export const DEMO_USER_ID = 'bbcc5284-968e-4c3d-9495-4e33d8c3f307';
-export const DEMO_TENANT_NAME = 'TCS';
+//export const DEMO_USER_ID = 'bbcc5284-968e-4c3d-9495-4e33d8c3f307';
+//export const DEMO_TENANT_NAME = 'TCS';
 
 
 //Rajesh Sawant Administrator
