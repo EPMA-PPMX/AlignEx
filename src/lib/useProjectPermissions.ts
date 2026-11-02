@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import { DEMO_USER_ID } from './useCurrentUser';
-import { resolveGrantedPermissionKeys, VIEW_ALL_PROJECTS_PERMISSION } from './rolePermissions';
+import { fetchUserSystemRoles, resolveGrantedPermissionKeys, VIEW_ALL_PROJECTS_PERMISSION } from './rolePermissions';
 
 const API_BASE = (import.meta.env.VITE_API_URL as string) || '';
 
@@ -159,7 +159,8 @@ export function useProjectPermissions(projectId: string | undefined) {
             additionalRoles = (roleRows || []).map((r: any) => r.role_name);
           }
 
-          const orgPermissionKeys = await resolveGrantedPermissionKeys([userRow?.system_role], userRow?.tenant_name);
+          const userRoles = await fetchUserSystemRoles(DEMO_USER_ID, userRow?.system_role);
+          const orgPermissionKeys = await resolveGrantedPermissionKeys(userRoles, userRow?.tenant_name);
           const seesAllProjects = orgPermissionKeys.includes(VIEW_ALL_PROJECTS_PERMISSION);
           const canSeeProject = seesAllProjects || memberIds.length > 0;
 
@@ -167,7 +168,7 @@ export function useProjectPermissions(projectId: string | undefined) {
             setPermissions({ ...EMPTY_PERMISSIONS, projectId: pid });
           } else {
             const grantedKeys = await resolveGrantedPermissionKeys(
-              [userRow?.system_role, ...primaryRoles, ...additionalRoles],
+              [...userRoles, ...primaryRoles, ...additionalRoles],
               userRow?.tenant_name,
             );
             setPermissions(buildPermissions(pid, grantedKeys));

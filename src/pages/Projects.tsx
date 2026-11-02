@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, MoreHorizontal, Grid3x3 as Grid3X3, List, Calendar, User, Settings2, X, Check, Layers, ChevronDown, ChevronRight, Archive, ArchiveRestore } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { DEMO_USER_ID, DEMO_TENANT_NAME } from '../lib/useCurrentUser';
-import { resolveGrantedPermissionKeys, VIEW_ALL_PROJECTS_PERMISSION } from '../lib/rolePermissions';
+import { fetchUserSystemRoles, resolveGrantedPermissionKeys, VIEW_ALL_PROJECTS_PERMISSION } from '../lib/rolePermissions';
 import { formatDate, formatCurrencyWithK } from '../lib/utils';
 import { useNotification } from '../lib/useNotification';
 
@@ -252,7 +252,8 @@ const Projects: React.FC = () => {
           .eq('id', DEMO_USER_ID)
           .maybeSingle();
 
-        const orgPermissionKeys = await resolveGrantedPermissionKeys([userData?.system_role], DEMO_TENANT_NAME);
+        const userRoles = await fetchUserSystemRoles(DEMO_USER_ID, userData?.system_role);
+        const orgPermissionKeys = await resolveGrantedPermissionKeys(userRoles, DEMO_TENANT_NAME);
         const seesAllProjects = orgPermissionKeys.includes(VIEW_ALL_PROJECTS_PERMISSION);
 
         let visibleProjects = data || [];

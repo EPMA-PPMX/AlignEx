@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import { DEMO_USER_ID, DEMO_TENANT_NAME } from './useCurrentUser';
+import { fetchUserSystemRoles, resolveGrantedPermissionKeys } from './rolePermissions';
 
 export interface ProjectRequestPermission {
   allowed: boolean;
@@ -33,20 +34,9 @@ function useProjectRolePermission(permissionKey: string): ProjectRequestPermissi
           return;
         }
 
-        const tenant = userRow.tenant_name || DEMO_TENANT_NAME;
-        const roleName = userRow.system_role;
-        const { data: rows } = await supabase
-          .from('project_role_permissions')
-          .select('can_execute, tenant_name')
-          .eq('role_name', roleName)
-          .eq('permission_key', permissionKey)
-          .or(`tenant_name.is.null,tenant_name.eq.${tenant}`);
-
-        const list = rows || [];
-        const tenantRow = list.find((r) => r.tenant_name === tenant);
-        const globalRow = list.find((r) => r.tenant_name === null);
-        const effective = tenantRow ?? globalRow;
-        if (!cancelled) setAllowed(effective ? effective.can_execute === true : false);
+        const roles = await fetchUserSystemRoles(DEMO_USER_ID, userRow.system_role);
+        const granted = await resolveGrantedPermissionKeys(roles, userRow.tenant_name || DEMO_TENANT_NAME);
+        if (!cancelled) setAllowed(granted.includes(permissionKey));
       } catch (err) {
         console.error(`Error checking permission ${permissionKey}:`, err);
         if (!cancelled) setAllowed(false);

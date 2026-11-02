@@ -36,4 +36,19 @@ export async function resolveGrantedPermissionKeys(
   return Array.from(granted);
 }
 
+/** Every system role a user holds, primary role first. */
+export async function fetchUserSystemRoles(
+  userId: string,
+  primaryRole: string | null | undefined,
+): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('user_system_roles')
+    .select('role_name')
+    .eq('user_id', userId);
+  if (error) throw error;
+  const roles = (data || []).map(r => r.role_name);
+  if (primaryRole && !roles.includes(primaryRole)) roles.unshift(primaryRole);
+  return roles;
+}
+
 export const VIEW_ALL_PROJECTS_PERMISSION = 'project.view_all';

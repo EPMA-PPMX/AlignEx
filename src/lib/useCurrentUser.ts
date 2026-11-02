@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase';
-import { resolveGrantedPermissionKeys, VIEW_ALL_PROJECTS_PERMISSION } from './rolePermissions';
+import { fetchUserSystemRoles, resolveGrantedPermissionKeys, VIEW_ALL_PROJECTS_PERMISSION } from './rolePermissions';
 
 export interface User {
   id: string;
@@ -131,7 +131,8 @@ export function useCurrentUser() {
 
         // When no backend API, compute visible projects and permissions directly from DB
         if (!API_BASE) {
-          const orgPermissionKeys = await resolveGrantedPermissionKeys([userData.system_role], userData.tenant_name);
+          const userRoles = await fetchUserSystemRoles(userData.id, userData.system_role);
+          const orgPermissionKeys = await resolveGrantedPermissionKeys(userRoles, userData.tenant_name);
           const seesAllProjects = orgPermissionKeys.includes(VIEW_ALL_PROJECTS_PERMISSION);
 
           setAuthContext({

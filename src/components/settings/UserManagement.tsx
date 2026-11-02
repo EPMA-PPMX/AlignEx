@@ -13,6 +13,7 @@ interface User {
   bio: string | null;
   tenant_name: string | null;
   created_at: string;
+  roles: string[];
 }
 
 interface Organization {
@@ -24,12 +25,27 @@ interface Organization {
 const emptyForm = {
   email: '',
   full_name: '',
-  system_role: 'Team Member',
+  system_roles: ['Team Member'],
   avatar_url: '',
   bio: '',
   tenant_name: '',
   is_active: true,
 };
+
+async function syncUserRoles(userId: string, roles: string[]): Promise<{ message: string } | null> {
+  const { error: upsertError } = await supabase
+    .from('user_system_roles')
+    .upsert(roles.map(role_name => ({ user_id: userId, role_name })), { onConflict: 'user_id,role_name', ignoreDuplicates: true });
+  if (upsertError) return upsertError;
+
+  const quoted = roles.map(r => `"${r.replace(/"/g, '\\"')}"`).join(',');
+  const { error: deleteError } = await supabase
+    .from('user_system_roles')
+    .delete()
+    .eq('user_id', userId)
+    .not('role_name', 'in', `(${quoted})`);
+  return deleteError;
+}
 
 interface UserManagementProps {
   isSuperUser?: boolean;
@@ -82,7 +98,17 @@ export default function UserManagement({ isSuperUser = false, tenantName }: User
       query = query.eq('tenant_name', effectiveTenant);
     }
     const { data, error } = await query.order('full_name');
-    if (!error) setUsers(data || []);
+    if (!error) {
+      const { data: roleRows, error: rolesError } = await supabase
+        .from('user_system_roles')
+        .select('user_id, role_name');
+      if (rolesError) showNotification('Failed to load user roles', 'error');
+      const rolesByUser = new Map<string, string[]>();
+      for (const row of roleRows || []) {
+        rolesByUser.set(row.user_id, [...(rolesByUser.get(row.user_id) || []), row.role_name]);
+      }
+      setUsers((data || []).map(u => ({ ...u, roles: rolesByUser.get(u.id) || [u.system_role] })));
+    }
     setLoading(false);
   };
 
@@ -98,7 +124,7 @@ export default function UserManagement({ isSuperUser = false, tenantName }: User
     setForm({
       email: user.email,
       full_name: user.full_name,
-      system_role: user.system_role,
+      system_roles: user.roles,
       avatar_url: user.avatar_url || '',
       bio: user.bio || '',
       tenant_name: user.tenant_name || '',
@@ -114,18 +140,32 @@ export default function UserManagement({ isSuperUser = false, tenantName }: User
     setError(null);
   };
 
+  const toggleRole = (role: string) => {
+    setForm(prev => ({
+      ...prev,
+      system_roles: prev.system_roles.includes(role)
+        ? prev.system_roles.filter(r => r !== role)
+        : [...prev.system_roles, role],
+    }));
+  };
+
   const handleSave = async () => {
     if (!form.full_name.trim() || !form.email.trim()) {
       setError('Full name and email are required.');
       return;
     }
+    if (form.system_roles.length === 0) {
+      setError('Select at least one role.');
+      return;
+    }
     setSaving(true);
     setError(null);
 
+    const selectedRoles = roleOptions.filter(r => form.system_roles.includes(r));
     const payload = {
       email: form.email.trim(),
       full_name: form.full_name.trim(),
-      system_role: form.system_role,
+      system_role: selectedRoles[0],
       avatar_url: form.avatar_url.trim() || null,
       bio: form.bio.trim() || null,
       tenant_name: isSuperUser ? (form.tenant_name.trim() || null) : (effectiveTenant || null),
@@ -133,11 +173,18 @@ export default function UserManagement({ isSuperUser = false, tenantName }: User
       updated_at: new Date().toISOString(),
     };
 
-    let err;
+    let userId = editingUser?.id ?? null;
+    let err: { message: string } | null = null;
     if (editingUser) {
       ({ error: err } = await supabase.from('users').update(payload).eq('id', editingUser.id));
     } else {
-      ({ error: err } = await supabase.from('users').insert({ ...payload }));
+      const { data, error } = await supabase.from('users').insert({ ...payload }).select('id').maybeSingle();
+      err = error;
+      userId = data?.id ?? null;
+      if (!err && !userId) err = { message: 'The user could not be saved.' };
+    }
+    if (!err && userId) {
+      err = await syncUserRoles(userId, selectedRoles);
     }
 
     if (err) {
@@ -180,7 +227,7 @@ export default function UserManagement({ isSuperUser = false, tenantName }: User
   const filtered = users.filter(u =>
     u.full_name.toLowerCase().includes(search.toLowerCase()) ||
     u.email.toLowerCase().includes(search.toLowerCase()) ||
-    u.system_role.toLowerCase().includes(search.toLowerCase()) ||
+    u.roles.some(r => r.toLowerCase().includes(search.toLowerCase())) ||
     (u.tenant_name || '').toLowerCase().includes(search.toLowerCase())
   );
 
@@ -289,9 +336,13 @@ export default function UserManagement({ isSuperUser = false, tenantName }: User
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${roleColor(user.system_role)}`}>
-                      {user.system_role}
-                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {user.roles.map(role => (
+                        <span key={role} className={`px-2 py-1 rounded-full text-xs font-medium ${roleColor(role)}`}>
+                          {role}
+                        </span>
+                      ))}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium ${user.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
@@ -375,14 +426,27 @@ export default function UserManagement({ isSuperUser = false, tenantName }: User
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">System Role</label>
-                <select
-                  value={form.system_role}
-                  onChange={e => setForm({ ...form, system_role: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                >
-                  {roleOptions.map(r => <option key={r} value={r}>{r}</option>)}
-                </select>
+                <label className="block text-sm font-medium text-gray-700 mb-1">System Roles <span className="text-red-500">*</span></label>
+                <p className="text-xs text-gray-500 mb-2">A user can hold several roles. Permissions from all of their roles apply.</p>
+                <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto p-2 border border-gray-200 rounded-lg">
+                  {roleOptions.map(role => {
+                    const checked = form.system_roles.includes(role);
+                    return (
+                      <label
+                        key={role}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm cursor-pointer transition-colors ${checked ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleRole(role)}
+                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        <span className="truncate">{role}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
 
               <div>
