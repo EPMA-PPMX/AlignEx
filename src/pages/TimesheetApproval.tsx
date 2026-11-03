@@ -53,6 +53,7 @@ const TimesheetApproval: React.FC = () => {
   const [selectedSubmission, setSelectedSubmission] = useState<string | null>(null);
   const [reviewComment, setReviewComment] = useState('');
   const [processingAction, setProcessingAction] = useState<string | null>(null);
+  const [userNames, setUserNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     supabase
@@ -61,6 +62,10 @@ const TimesheetApproval: React.FC = () => {
       .eq('id', DEMO_USER_ID)
       .maybeSingle()
       .then(({ data }) => { if (data?.email) setReviewerEmail(data.email); });
+    supabase
+      .from('users')
+      .select('email, full_name')
+      .then(({ data }) => setUserNames(Object.fromEntries((data || []).map(u => [u.email, u.full_name]))));
     fetchTimesheets();
   }, []);
 
@@ -222,7 +227,8 @@ const TimesheetApproval: React.FC = () => {
 
   const handleReject = async (submissionId: string) => {
     if (!reviewComment.trim()) {
-      showNotification('Please provide a reason for rejection', 'info');
+      setExpandedSubmissions(prev => new Set(prev).add(submissionId));
+      showNotification('Please add a reason in the comments before rejecting', 'info');
       return;
     }
 
@@ -389,7 +395,7 @@ const TimesheetApproval: React.FC = () => {
                               <ChevronRight className="w-5 h-5 text-gray-600" />
                             )}
                             <div>
-                              <div className="font-medium text-gray-900">{submission.user_email}</div>
+                              <div className="font-medium text-gray-900">{userNames[submission.user_email] || submission.user_email}</div>
                               <div className="text-sm text-gray-600">
                                 Week: {formatDate(submission.week_start_date)} - {formatDate(submission.week_end_date)}
                               </div>
@@ -412,6 +418,26 @@ const TimesheetApproval: React.FC = () => {
                             }`}>
                               {submission.status.charAt(0).toUpperCase() + submission.status.slice(1)}
                             </span>
+                            {submission.status === 'submitted' && (
+                              <div className="flex gap-2 mt-3 justify-end" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  onClick={() => handleApprove(submission.id)}
+                                  disabled={processingAction === submission.id}
+                                  className="flex items-center gap-1.5 bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  <CheckCircle className="w-4 h-4" />
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => handleReject(submission.id)}
+                                  disabled={processingAction === submission.id}
+                                  className="flex items-center gap-1.5 bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  <XCircle className="w-4 h-4" />
+                                  Reject
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -455,7 +481,7 @@ const TimesheetApproval: React.FC = () => {
                             <div className="border-t pt-4">
                               <div className="mb-3">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                                  Comments (optional for approval, required for rejection)
+                                  Review comments (required for rejection)
                                 </label>
                                 <textarea
                                   value={selectedSubmission === submission.id ? reviewComment : ''}
@@ -467,24 +493,6 @@ const TimesheetApproval: React.FC = () => {
                                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                                   rows={3}
                                 />
-                              </div>
-                              <div className="flex gap-3">
-                                <button
-                                  onClick={() => handleApprove(submission.id)}
-                                  disabled={processingAction === submission.id}
-                                  className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  <CheckCircle className="w-5 h-5" />
-                                  Approve
-                                </button>
-                                <button
-                                  onClick={() => handleReject(submission.id)}
-                                  disabled={processingAction === submission.id}
-                                  className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  <XCircle className="w-5 h-5" />
-                                  Reject
-                                </button>
                               </div>
                             </div>
                           )}
