@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Trash2, AlertTriangle, Archive, FileText, CheckSquare, Square } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { DEMO_TENANT_NAME } from '../../lib/useCurrentUser';
 import { useNotification } from '../../lib/useNotification';
 import { formatDate } from '../../lib/utils';
 
@@ -51,6 +52,7 @@ const ProjectManagement: React.FC = () => {
         .from('projects')
         .select('*')
         .eq('archived', true)
+        .eq('tenant_name', DEMO_TENANT_NAME)
         .order('archived_at', { ascending: false });
 
       if (error) {
