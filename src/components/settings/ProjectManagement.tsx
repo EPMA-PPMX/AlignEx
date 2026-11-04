@@ -75,6 +75,7 @@ const ProjectManagement: React.FC = () => {
       const { data, error } = await supabase
         .from('project_initiation_requests')
         .select('*')
+        .eq('tenant_name', DEMO_TENANT_NAME)
         .order('created_at', { ascending: false });
 
       if (error) {
