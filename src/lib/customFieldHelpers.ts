@@ -69,6 +69,7 @@ export const saveCustomFieldValues = async (
     const { data: customFields, error: fieldsError } = await supabase
       .from('custom_fields')
       .select('id, field_name')
+      .or(`tenant_name.is.null,tenant_name.eq.${DEMO_TENANT_NAME}`)
       .eq('entity_type', entityType);
 
     if (fieldsError) {
@@ -117,6 +118,7 @@ export const getCustomFields = async (
     let query = supabase
       .from('custom_fields')
       .select('*')
+      .or(`tenant_name.is.null,tenant_name.eq.${DEMO_TENANT_NAME}`)
       .eq('entity_type', entityType)
       .order('display_order', { ascending: true });
 

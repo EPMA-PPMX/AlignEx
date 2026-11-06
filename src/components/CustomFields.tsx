@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, CreditCard as Edit2, Trash2, Save, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNotification } from '../lib/useNotification';
+import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
 
 interface CustomField {
   id: string;
@@ -13,6 +14,7 @@ interface CustomField {
   default_value?: string;
   options?: string[];
   entity_type: 'project' | 'resource' | 'task';
+  tenant_name?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -59,6 +61,7 @@ const CustomFields: React.FC = () => {
       const { data, error } = await supabase
         .from('custom_fields')
         .select('*')
+        .or(`tenant_name.is.null,tenant_name.eq.${DEMO_TENANT_NAME}`)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -107,7 +110,7 @@ const CustomFields: React.FC = () => {
       } else {
         const { error } = await supabase
           .from('custom_fields')
-          .insert([payload]);
+          .insert([{ ...payload, tenant_name: DEMO_TENANT_NAME }]);
 
         if (error) {
           showNotification(`Error: ${error.message}`, 'error');
@@ -433,6 +436,9 @@ const CustomFields: React.FC = () => {
                     Description
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Scope
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Applies To
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -463,6 +469,17 @@ const CustomFields: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {field.field_label}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {field.tenant_name ? (
+                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-800">
+                          {field.tenant_name}
+                        </span>
+                      ) : (
+                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">
+                          Common
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${

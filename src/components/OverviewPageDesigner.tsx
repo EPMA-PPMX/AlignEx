@@ -65,6 +65,7 @@ const OverviewPageDesigner: React.FC = () => {
       const { data, error } = await supabase
         .from('custom_fields')
         .select('*')
+        .or(`tenant_name.is.null,tenant_name.eq.${DEMO_TENANT_NAME}`)
         .eq('entity_type', 'project')
         .order('created_at', { ascending: false });
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Users, Plus, Search, Filter, Download, Upload, CreditCard as Edit2, Trash2, UserPlus, Package } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
+import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
 import { useNotification } from '../lib/useNotification';
 import ResourceImportModal from '../components/ResourceImportModal';
 import SearchableMultiSelect from '../components/SearchableMultiSelect';
@@ -433,6 +434,7 @@ function ResourceModal({ resource, onClose, onSave }: ResourceModalProps) {
       const { data, error } = await supabase
         .from('custom_fields')
         .select('*')
+        .or(`tenant_name.is.null,tenant_name.eq.${DEMO_TENANT_NAME}`)
         .eq('entity_type', 'resource')
         .order('created_at');
 

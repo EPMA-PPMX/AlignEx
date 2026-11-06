@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
 import PeoplePicker from './PeoplePicker';
 
 interface CustomField {
@@ -50,6 +51,7 @@ const CustomFieldsRenderer: React.FC<CustomFieldsRendererProps> = ({
       let query = supabase
         .from('custom_fields')
         .select('*')
+        .or(`tenant_name.is.null,tenant_name.eq.${DEMO_TENANT_NAME}`)
         .eq('entity_type', entityType)
         .order('display_order', { ascending: true });
 

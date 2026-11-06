@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FolderKanban, AlertTriangle, ChevronRight, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { DEMO_TENANT_NAME } from '../../lib/useCurrentUser';
 import { Link } from 'react-router-dom';
 
 interface Props {
@@ -41,6 +42,7 @@ export default function MyProjectsWidget({ resourceId }: Props) {
         .from('custom_fields')
         .select('id')
         .eq('field_name', 'Project Manager')
+        .or(`tenant_name.is.null,tenant_name.eq.${DEMO_TENANT_NAME}`)
         .eq('entity_type', 'project')
         .maybeSingle();
 

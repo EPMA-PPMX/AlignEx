@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, CreditCard as Edit2, Trash2, Save, X, GripVertical } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { DEMO_TENANT_NAME } from '../../lib/useCurrentUser';
 import { useNotification } from '../../lib/useNotification';
 
 interface CustomField {
@@ -75,6 +76,7 @@ const FormFieldsManagement: React.FC<FormFieldsManagementProps> = ({ entityType,
       const { data, error } = await supabase
         .from('custom_fields')
         .select('*')
+        .or(`tenant_name.is.null,tenant_name.eq.${DEMO_TENANT_NAME}`)
         .eq('entity_type', entityType)
         .order('display_order', { ascending: true });
 

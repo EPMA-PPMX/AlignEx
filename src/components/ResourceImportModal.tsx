@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Upload, X, AlertCircle, CheckCircle, FileSpreadsheet } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
 import ExcelJS from 'exceljs';
 
 interface CustomField {
@@ -36,6 +37,7 @@ export default function ResourceImportModal({ onClose, onImportComplete }: Impor
       const { data, error } = await supabase
         .from('custom_fields')
         .select('*')
+        .or(`tenant_name.is.null,tenant_name.eq.${DEMO_TENANT_NAME}`)
         .eq('entity_type', 'resource')
         .order('created_at');
 

@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, MoreHorizontal, Grid3x3 as Grid3X3, List, Calendar, User, Settings2, X, Check, Layers, ChevronDown, ChevronRight, Archive, ArchiveRestore } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
 import { DEMO_USER_ID, DEMO_TENANT_NAME } from '../lib/useCurrentUser';
 import { fetchUserSystemRoles, resolveGrantedPermissionKeys, VIEW_ALL_PROJECTS_PERMISSION } from '../lib/rolePermissions';
 import { formatDate, formatCurrencyWithK } from '../lib/utils';
@@ -97,6 +98,7 @@ const Projects: React.FC = () => {
       const { data, error } = await supabase
         .from('custom_fields')
         .select('*')
+        .or(`tenant_name.is.null,tenant_name.eq.${DEMO_TENANT_NAME}`)
         .eq('entity_type', 'project')
         .order('field_label', { ascending: true });
 
