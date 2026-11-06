@@ -66,6 +66,7 @@ const ProjectTemplates: React.FC = () => {
       const { data, error } = await supabase
         .from('schedule_templates')
         .select('id, template_name, template_description')
+        .eq('tenant_name', DEMO_TENANT_NAME)
         .order('template_name', { ascending: true });
 
       if (error) {

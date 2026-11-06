@@ -19,7 +19,7 @@ import CustomFieldsRenderer from '../components/CustomFieldsRenderer';
 import SearchableMultiSelect from '../components/SearchableMultiSelect';
 import DocumentUpload from '../components/DocumentUpload';
 import { loadCustomFieldValues, saveCustomFieldValues } from '../lib/customFieldHelpers';
-import { DEMO_USER_ID } from '../lib/useCurrentUser';
+import { DEMO_USER_ID, DEMO_TENANT_NAME } from '../lib/useCurrentUser';
 import { useProjectPermissions } from '../lib/useProjectPermissions';
 
 interface Project {
@@ -2057,6 +2057,7 @@ const ProjectDetail: React.FC = () => {
         .insert({
           template_name: templateName.trim(),
           template_description: templateDescription.trim() || null,
+          tenant_name: DEMO_TENANT_NAME,
           tasks_data: tasksData,
           links_data: linksData,
           resources_data: resourcesData,
