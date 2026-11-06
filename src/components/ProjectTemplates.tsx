@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, CreditCard as Edit2, Trash2, Save, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNotification } from '../lib/useNotification';
+import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
 
 interface ProjectTemplate {
   id: string;
@@ -43,6 +44,7 @@ const ProjectTemplates: React.FC = () => {
       const { data, error } = await supabase
         .from('project_templates')
         .select('*')
+        .eq('tenant_name', DEMO_TENANT_NAME)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -94,6 +96,8 @@ const ProjectTemplates: React.FC = () => {
         schedule_template_id: formData.schedule_template_id || null
       };
 
+      const createPayload = { ...payload, tenant_name: DEMO_TENANT_NAME };
+
       if (editingTemplate) {
         const { error } = await supabase
           .from('project_templates')
@@ -110,7 +114,7 @@ const ProjectTemplates: React.FC = () => {
       } else {
         const { error } = await supabase
           .from('project_templates')
-          .insert([payload]);
+          .insert([createPayload]);
 
         if (error) {
           showNotification(`Error: ${error.message}`, 'error');

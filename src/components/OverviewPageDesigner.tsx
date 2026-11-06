@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Plus, CreditCard as Edit2, Trash2, Save, X, GripVertical, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNotification } from '../lib/useNotification';
+import { DEMO_TENANT_NAME } from '../lib/useCurrentUser';
 
 interface Section {
   id: string;
@@ -84,6 +85,7 @@ const OverviewPageDesigner: React.FC = () => {
       const { data, error } = await supabase
         .from('project_templates')
         .select('*')
+        .eq('tenant_name', DEMO_TENANT_NAME)
         .order('created_at', { ascending: false });
 
       if (error) {

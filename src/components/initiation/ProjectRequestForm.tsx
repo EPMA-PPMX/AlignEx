@@ -95,6 +95,7 @@ export default function ProjectRequestForm({ request, onClose }: Props) {
       const { data, error } = await supabase
         .from('project_templates')
         .select('*')
+        .eq('tenant_name', DEMO_TENANT_NAME)
         .order('template_name');
 
       if (error) throw error;

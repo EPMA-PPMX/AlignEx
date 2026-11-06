@@ -48,6 +48,7 @@ const NewProject: React.FC = () => {
       const { data, error } = await supabase
         .from('project_templates')
         .select('*')
+        .eq('tenant_name', DEMO_TENANT_NAME)
         .order('created_at', { ascending: false });
 
       if (error) {
