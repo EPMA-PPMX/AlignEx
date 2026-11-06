@@ -126,51 +126,37 @@ const OverviewPageDesigner: React.FC = () => {
     }
   };
 
+  const persistSections = async (nextSections: Section[]): Promise<string | null> => {
+    const { data: existing, error: lookupError } = await supabase
+      .from('overview_configurations')
+      .select('id')
+      .eq('template_id', selectedTemplate)
+      .maybeSingle();
+
+    if (lookupError) return lookupError.message;
+
+    const { error } = existing
+      ? await supabase
+          .from('overview_configurations')
+          .update({ sections: nextSections })
+          .eq('template_id', selectedTemplate)
+      : await supabase
+          .from('overview_configurations')
+          .insert([{ template_id: selectedTemplate, sections: nextSections }]);
+
+    return error ? error.message : null;
+  };
+
   const saveConfiguration = async () => {
     if (!selectedTemplate) {
       alert('Please select a project template first');
       return;
     }
 
-    if (sections.length === 0) {
-      alert('Please add at least one section before saving');
-      return;
-    }
-
     try {
       setSaving(true);
-
-      const { data: existing } = await supabase
-        .from('overview_configurations')
-        .select('id')
-        .eq('template_id', selectedTemplate)
-        .maybeSingle();
-
-      if (existing) {
-        const { error } = await supabase
-          .from('overview_configurations')
-          .update({ sections })
-          .eq('template_id', selectedTemplate);
-
-        if (error) {
-          alert(`Error: ${error.message}`);
-        } else {
-          alert('Configuration updated successfully!');
-        }
-      } else {
-        const { error } = await supabase
-          .from('overview_configurations')
-          .insert([{
-            template_id: selectedTemplate,
-            sections
-          }]);
-
-        if (error) {
-          alert(`Error: ${error.message}`);
-        } else {
-          alert('Configuration saved successfully!');
-        }
-      }
+      const errorMessage = await persistSections(sections);
+      alert(errorMessage ? `Error: ${errorMessage}` : 'Configuration saved successfully!');
     } catch (error) {
       console.error('Error saving configuration:', error);
       alert('Error saving configuration. Please try again.');
@@ -232,7 +218,10 @@ const OverviewPageDesigner: React.FC = () => {
     });
     if (!confirmed) return;
 
-    setSections(sections.filter(section => section.id !== sectionId));
+    const nextSections = sections.filter(section => section.id !== sectionId);
+    setSections(nextSections);
+    const errorMessage = await persistSections(nextSections);
+    if (errorMessage) alert(`Error: ${errorMessage}`);
   };
 
   const moveSectionUp = (index: number) => {
@@ -283,18 +272,17 @@ const OverviewPageDesigner: React.FC = () => {
     }));
   };
 
-  const removeFieldFromSection = (sectionId: string, fieldId: string) => {
-    setSections(sections.map(section => {
-      if (section.id === sectionId) {
-        const newFields = section.fields.filter(field => field.id !== fieldId);
-        // Update order for remaining fields
-        newFields.forEach((field, index) => {
-          field.order = index;
-        });
-        return { ...section, fields: newFields };
-      }
-      return section;
-    }));
+  const removeFieldFromSection = async (sectionId: string, fieldId: string) => {
+    const nextSections = sections.map(section => {
+      if (section.id !== sectionId) return section;
+      const newFields = section.fields
+        .filter(field => field.id !== fieldId)
+        .map((field, index) => ({ ...field, order: index }));
+      return { ...section, fields: newFields };
+    });
+    setSections(nextSections);
+    const errorMessage = await persistSections(nextSections);
+    if (errorMessage) alert(`Error: ${errorMessage}`);
   };
 
   const moveFieldUp = (sectionId: string, fieldIndex: number) => {
